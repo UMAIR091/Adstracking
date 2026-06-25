@@ -3,8 +3,7 @@ import { redirect } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import {
   FileBarChart2, Plus, Sparkles, Cable, Eye, Palette,
-  Activity, HeartPulse, UserPlus, CheckCircle2, AlertCircle, Circle,
-  MousePointerClick, Percent, TrendingUp, PlugZap,
+  Activity, HeartPulse, UserPlus, CheckCircle2, AlertCircle, Circle, PlugZap,
 } from "lucide-react";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
@@ -92,10 +91,10 @@ export default async function DashboardPage() {
   const posArr = series.map((d) => d.position);
 
   const perfCards = [
-    { l: "Clicks", v: fmt(perf.clicks), icon: MousePointerClick, color: "#4f46e5", arr: clicksArr, t: trend(clicksArr) },
-    { l: "Impressions", v: fmt(perf.impressions), icon: Eye, color: "#0ea5e9", arr: imprArr, t: trend(imprArr) },
-    { l: "Avg CTR", v: `${(perf.ctr * 100).toFixed(1)}%`, icon: Percent, color: "#10b981", arr: ctrArr, t: trend(ctrArr) },
-    { l: "Avg position", v: perf.position.toFixed(1), icon: TrendingUp, color: "#f59e0b", arr: posArr, t: trend(posArr, true) },
+    { l: "Clicks", v: fmt(perf.clicks), icon: "clicks", color: "#4f46e5", arr: clicksArr, t: trend(clicksArr) },
+    { l: "Impressions", v: fmt(perf.impressions), icon: "impressions", color: "#0ea5e9", arr: imprArr, t: trend(imprArr) },
+    { l: "Avg CTR", v: `${(perf.ctr * 100).toFixed(1)}%`, icon: "ctr", color: "#10b981", arr: ctrArr, t: trend(ctrArr) },
+    { l: "Avg position", v: perf.position.toFixed(1), icon: "position", color: "#f59e0b", arr: posArr, t: trend(posArr, true) },
   ];
 
   const steps: OnboardingStep[] = [

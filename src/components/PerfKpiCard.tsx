@@ -1,9 +1,18 @@
 "use client";
 
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
-import { ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, MousePointerClick, Eye, Percent, TrendingUp } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+
+// Icons resolved here (client side) — server components can't pass component
+// functions across the boundary, so the dashboard passes an icon name instead.
+const ICONS: Record<string, LucideIcon> = {
+  clicks: MousePointerClick,
+  impressions: Eye,
+  ctr: Percent,
+  position: TrendingUp,
+};
 
 // A single Performance Overview metric: value, period-over-period trend chip,
 // and a small sparkline. Trend arrow follows the direction of change; the colour
@@ -15,7 +24,7 @@ export function PerfKpiCard({
   good,
   color,
   data,
-  icon: Icon,
+  icon,
 }: {
   label: string;
   value: string;
@@ -23,8 +32,9 @@ export function PerfKpiCard({
   good: boolean;
   color: string;
   data: number[];
-  icon: LucideIcon;
+  icon: string;
 }) {
+  const Icon = ICONS[icon] ?? MousePointerClick;
   const id = "spark-" + label.replace(/\W/g, "");
   const chart = data.map((v, i) => ({ i, v }));
   const up = (deltaPct ?? 0) >= 0;
