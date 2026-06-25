@@ -12,12 +12,12 @@ export function OnboardingChecklist({ steps }: { steps: OnboardingStep[] }) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div>
             <CardTitle>Get set up</CardTitle>
             <CardDescription>Finish these to send your first report.</CardDescription>
           </div>
-          <span className="text-2xl font-semibold text-brand-600">{pct}%</span>
+          <span className="whitespace-nowrap text-sm font-semibold text-brand-600">{doneCount} of {steps.length} steps completed</span>
         </div>
         <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
           <div className="h-full rounded-full bg-brand-500 transition-all" style={{ width: `${pct}%` }} />
