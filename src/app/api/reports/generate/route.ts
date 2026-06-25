@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { getValidAccessToken } from "@/lib/googleTokens";
-import { fetchGscReport, fetchGscTotals } from "@/lib/google";
+import { fetchGscReport, fetchGscTotals, fetchGscQueryMovers } from "@/lib/google";
 import { generateReportInsights } from "@/lib/ai";
 
 export const runtime = "nodejs";
@@ -56,9 +56,10 @@ export async function POST(req: Request) {
 
   try {
     const accessToken = await getValidAccessToken(supabase, ds);
-    const [data, previousTotals] = await Promise.all([
+    const [data, previousTotals, movers] = await Promise.all([
       fetchGscReport(accessToken, siteUrl, start, end),
       fetchGscTotals(accessToken, siteUrl, prevStart, prevEnd).catch(() => null),
+      fetchGscQueryMovers(accessToken, siteUrl, start, end, prevStart, prevEnd).catch(() => null),
     ]);
 
     // Optional AI executive summary — never blocks generation if absent/failing.
@@ -71,7 +72,7 @@ export async function POST(req: Request) {
       topPages: data.topPages,
     });
 
-    const snapshot = { ...data, previousTotals, insights };
+    const snapshot = { ...data, previousTotals, movers, insights };
     const shareToken = crypto.randomBytes(16).toString("hex");
     const { data: report, error } = await supabase
       .from("reports")

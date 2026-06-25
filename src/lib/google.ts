@@ -115,6 +115,57 @@ export async function fetchGscTotals(
   return { clicks: t.clicks, impressions: t.impressions, ctr: t.ctr, position: t.position };
 }
 
+export type GscMover = { key: string; clicks: number; prevClicks: number; changePct: number; position: number };
+export type GscOpportunity = { key: string; clicks: number; impressions: number; position: number };
+export type GscMovers = { winners: GscMover[]; decliners: GscMover[]; opportunities: GscOpportunity[] };
+
+// Compares query performance between the current and previous period to surface
+// winning keywords (biggest growth), declining keywords (biggest drop), and
+// growth opportunities (ranking just off page one with real impression volume).
+export async function fetchGscQueryMovers(
+  accessToken: string,
+  siteUrl: string,
+  curStart: string,
+  curEnd: string,
+  prevStart: string,
+  prevEnd: string
+): Promise<GscMovers> {
+  const [curRes, prevRes] = await Promise.all([
+    gscQuery(accessToken, siteUrl, { startDate: curStart, endDate: curEnd, dimensions: ["query"], rowLimit: 100 }),
+    gscQuery(accessToken, siteUrl, { startDate: prevStart, endDate: prevEnd, dimensions: ["query"], rowLimit: 100 }),
+  ]);
+
+  type Row = { keys: string[]; clicks: number; impressions: number; ctr: number; position: number };
+  const cur = (curRes.rows ?? []) as Row[];
+  const prevMap = new Map<string, Row>();
+  for (const r of (prevRes.rows ?? []) as Row[]) prevMap.set(r.keys[0], r);
+
+  const movers: GscMover[] = cur.map((r) => {
+    const prevClicks = prevMap.get(r.keys[0])?.clicks ?? 0;
+    const changePct = prevClicks > 0 ? ((r.clicks - prevClicks) / prevClicks) * 100 : (r.clicks > 0 ? 100 : 0);
+    return { key: r.keys[0], clicks: r.clicks, prevClicks, changePct, position: r.position };
+  });
+
+  const winners = movers
+    .filter((m) => m.clicks >= 3 && m.changePct > 5)
+    .sort((a, b) => b.changePct - a.changePct)
+    .slice(0, 5);
+
+  const decliners = movers
+    .filter((m) => m.prevClicks >= 3 && m.changePct < -5)
+    .sort((a, b) => a.changePct - b.changePct)
+    .slice(0, 5);
+
+  // Near page one (positions ~8–20) with the most impressions = quickest wins.
+  const opportunities = cur
+    .filter((r) => r.position >= 8 && r.position <= 20 && r.impressions >= 20)
+    .sort((a, b) => b.impressions - a.impressions)
+    .slice(0, 5)
+    .map((r) => ({ key: r.keys[0], clicks: r.clicks, impressions: r.impressions, position: r.position }));
+
+  return { winners, decliners, opportunities };
+}
+
 export async function fetchGscReport(
   accessToken: string,
   siteUrl: string,

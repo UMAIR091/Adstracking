@@ -23,6 +23,7 @@ export type ReportInsights = {
   summary: string;
   highlights: string[];
   recommendations: string[];
+  actionPlan: string[];
 };
 
 // Whether AI summaries are switched on. When false, report generation proceeds
@@ -44,7 +45,8 @@ Rules:
 Produce:
 - summary: a 2–4 sentence paragraph giving the headline story of the period.
 - highlights: 3–5 short bullet points, each referencing a concrete metric or query/page.
-- recommendations: 2–3 concrete, actionable next steps the agency can take next period.`;
+- recommendations: 2–3 concrete, actionable next steps the agency can take next period.
+- actionPlan: 3–4 short, client-facing tasks the agency will execute next month (imperative, e.g. "Publish a guide targeting …").`;
 
 const SCHEMA = {
   type: "object",
@@ -52,8 +54,9 @@ const SCHEMA = {
     summary: { type: "string" },
     highlights: { type: "array", items: { type: "string" } },
     recommendations: { type: "array", items: { type: "string" } },
+    actionPlan: { type: "array", items: { type: "string" } },
   },
-  required: ["summary", "highlights", "recommendations"],
+  required: ["summary", "highlights", "recommendations", "actionPlan"],
   additionalProperties: false,
 } as const;
 
@@ -134,6 +137,7 @@ export async function generateReportInsights(input: InsightsInput): Promise<Repo
       summary: parsed.summary,
       highlights: Array.isArray(parsed.highlights) ? parsed.highlights : [],
       recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : [],
+      actionPlan: Array.isArray(parsed.actionPlan) ? parsed.actionPlan : [],
     };
   } catch (err) {
     // Never fail report generation because of the AI step.
