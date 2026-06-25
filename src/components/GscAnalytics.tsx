@@ -1,7 +1,7 @@
 "use client";
 
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
-import { MousePointerClick, Eye, Percent, TrendingUp } from "lucide-react";
+import { MousePointerClick, Eye, Percent, TrendingUp, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export type GscReportData = {
@@ -69,11 +69,16 @@ function MetricChart({
   );
 }
 
-export function GscAnalytics({ report }: { report: GscReportData }) {
+export function GscAnalytics({ report, sample = false }: { report: GscReportData; sample?: boolean }) {
   const { totals, byDate, topQueries } = report;
   return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className={`space-y-5 ${sample ? "relative" : ""}`}>
+      {sample && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+          <Sparkles size={14} /> Sample data — connect Google Search Console above to see this client&apos;s real numbers.
+        </div>
+      )}
+      <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 ${sample ? "opacity-70" : ""}`}>
         <MetricChart title="Total clicks" icon={MousePointerClick} value={fmtNum(totals.clicks)} color="#4f46e5" data={byDate} dataKey="clicks" />
         <MetricChart title="Total impressions" icon={Eye} value={fmtNum(totals.impressions)} color="#0ea5e9" data={byDate} dataKey="impressions" />
         <MetricChart title="Average CTR" icon={Percent} value={fmtPct(totals.ctr)} color="#10b981" data={byDate} dataKey="ctr" />

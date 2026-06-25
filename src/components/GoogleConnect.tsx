@@ -7,7 +7,6 @@ import { Search, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { GscAnalytics, type GscReportData } from "@/components/GscAnalytics";
 
 export type GscSource = {
   id: string;
@@ -18,12 +17,10 @@ export type GscSource = {
 export function GoogleConnect({
   clientId,
   source,
-  initialReport = null,
   lastSyncedAt = null,
 }: {
   clientId: string;
   source: GscSource;
-  initialReport?: GscReportData | null;
   lastSyncedAt?: string | null;
 }) {
   const router = useRouter();
@@ -142,14 +139,6 @@ export function GoogleConnect({
           )}
         </CardContent>
       </Card>
-
-      {initialReport ? (
-        <GscAnalytics report={initialReport} />
-      ) : source.config?.site_url ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-5 text-sm text-ink-500">
-          No analytics cached yet. Click <span className="font-medium">Refresh now</span> to pull the latest Search Console data.
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -5,7 +5,8 @@ import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { GoogleConnect, type GscSource } from "@/components/GoogleConnect";
-import { type GscReportData } from "@/components/GscAnalytics";
+import { GscAnalytics, type GscReportData } from "@/components/GscAnalytics";
+import { SAMPLE_GSC } from "@/lib/sampleData";
 import { GenerateReport } from "@/components/GenerateReport";
 
 export const dynamic = "force-dynamic";
@@ -68,13 +69,21 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         <GoogleConnect
           clientId={client.id}
           source={(gsc ?? null) as GscSource}
-          initialReport={snapshot}
           lastSyncedAt={(gsc?.last_synced_at as string | null) ?? null}
         />
 
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-5 text-sm text-ink-500">
           Google Analytics 4 and Google Sheets connectors are coming in the next phase.
         </div>
+      </div>
+
+      {/* Performance — real cached metrics, or a sample placeholder until connected. */}
+      <div className="mt-6">
+        {snapshot ? (
+          <GscAnalytics report={snapshot} />
+        ) : (
+          <GscAnalytics report={SAMPLE_GSC} sample />
+        )}
       </div>
 
       <div className="mt-8">

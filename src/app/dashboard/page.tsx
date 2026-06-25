@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { OnboardingChecklist, type OnboardingStep } from "@/components/OnboardingChecklist";
+import { SAMPLE_GSC } from "@/lib/sampleData";
 
 export const dynamic = "force-dynamic";
 
@@ -89,6 +90,36 @@ export default async function DashboardPage() {
           );
         })}
       </div>
+
+      {/* Search performance — sample placeholder until a client connects GSC */}
+      {gscCount === 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2"><Sparkles size={16} className="text-brand-500" /> Search performance</CardTitle>
+              <Badge variant="muted">Sample data</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { l: "Clicks this month", v: SAMPLE_GSC.totals.clicks.toLocaleString() },
+                { l: "Impressions", v: SAMPLE_GSC.totals.impressions.toLocaleString() },
+                { l: "Avg CTR", v: `${(SAMPLE_GSC.totals.ctr * 100).toFixed(1)}%` },
+                { l: "Avg position", v: SAMPLE_GSC.totals.position.toFixed(1) },
+              ].map((m) => (
+                <div key={m.l} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                  <p className="text-xs text-ink-500">{m.l}</p>
+                  <p className="mt-1 text-2xl font-semibold text-brand-600">{m.v}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-ink-400">
+              These are example numbers. Connect a client&apos;s Google Search Console to see real performance here.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Quick actions */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
