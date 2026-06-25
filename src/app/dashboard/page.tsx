@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import {
-  Users, FileBarChart2, CalendarClock, Plus, Sparkles, Cable, Eye, Palette,
+  FileBarChart2, Plus, Sparkles, Cable, Eye, Palette,
   Activity, HeartPulse, UserPlus, CheckCircle2, AlertCircle, Circle,
   MousePointerClick, Percent, TrendingUp, PlugZap,
 } from "lucide-react";
@@ -12,65 +12,100 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { OnboardingChecklist, type OnboardingStep } from "@/components/OnboardingChecklist";
+import { PerfKpiCard } from "@/components/PerfKpiCard";
 import { SAMPLE_GSC } from "@/lib/sampleData";
 
 export const dynamic = "force-dynamic";
 
 type ClientWithSources = { id: string; name: string; created_at: string; data_sources: { type: string; created_at: string }[] | null };
-type Totals = { clicks: number; impressions: number; ctr: number; position: number };
+type Day = { date: string; clicks: number; impressions: number; ctr: number; position: number };
 
 const fmt = (n: number) => Math.round(n).toLocaleString();
+const avg = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
+
+// Period-over-period change: first half vs second half of the daily series.
+function trend(vals: number[], lowerIsBetter = false): { pct: number | null; good: boolean } {
+  const h = Math.floor(vals.length / 2);
+  if (h === 0) return { pct: null, good: true };
+  const a = avg(vals.slice(0, h));
+  if (!a) return { pct: null, good: true };
+  const pct = ((avg(vals.slice(h)) - a) / a) * 100;
+  return { pct, good: lowerIsBetter ? pct < 0 : pct > 0 };
+}
 
 export default async function DashboardPage() {
   const { user, agency } = await getCurrentUserAndAgency();
   if (!user || !agency) redirect("/login");
 
   const supabase = createClient();
-  const [{ count: clientCount }, { count: reportCount }, { data: clientsRaw }, { data: snaps }, { data: lastReport }] =
+  const [{ count: clientCount }, { count: reportCount }, { data: clientsRaw }, { data: snaps }, { data: gscSources }] =
     await Promise.all([
       supabase.from("clients").select("id", { count: "exact", head: true }).eq("archived", false),
       supabase.from("reports").select("id", { count: "exact", head: true }),
       supabase.from("clients").select("id, name, created_at, data_sources(type, created_at)").eq("archived", false).order("created_at", { ascending: false }).limit(8),
       supabase.from("gsc_snapshots").select("data").eq("period_days", 28),
-      supabase.from("reports").select("created_at").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("data_sources").select("client_id, config").eq("type", "gsc"),
     ]);
 
   const clients = (clientsRaw ?? []) as ClientWithSources[];
-  const gscCount = clients.filter((c) => (c.data_sources ?? []).some((d) => d.type === "gsc")).length;
 
-  // Performance overview — aggregate real cached metrics, or fall back to sample.
-  const snapRows = (snaps ?? []) as { data: { totals: Totals } }[];
+  // Client health — connected / pending / ready for reporting.
+  const sources = (gscSources ?? []) as { client_id: string | null; config: { site_url?: string | null } | null }[];
+  const connectedIds = new Set(sources.map((s) => s.client_id).filter(Boolean));
+  const connectedCount = connectedIds.size;
+  const readyCount = new Set(sources.filter((s) => s.config?.site_url).map((s) => s.client_id)).size;
+  const pendingCount = Math.max(0, (clientCount ?? 0) - connectedCount);
+
+  // Performance — aggregate real cached metrics + daily series, else sample.
+  const snapRows = (snaps ?? []) as { data: { totals: Day; byDate?: Day[] } }[];
   const hasReal = snapRows.length > 0;
-  let perf: Totals;
+
+  let series: Day[];
+  let perf: { clicks: number; impressions: number; ctr: number; position: number };
   if (hasReal) {
-    let clicks = 0, impressions = 0, posWeighted = 0;
+    const byDate = new Map<string, { clicks: number; impressions: number; posW: number }>();
+    let tClicks = 0, tImpr = 0, tPosW = 0;
     for (const s of snapRows) {
       const t = s.data?.totals;
-      if (!t) continue;
-      clicks += t.clicks;
-      impressions += t.impressions;
-      posWeighted += t.position * t.impressions;
+      if (t) { tClicks += t.clicks; tImpr += t.impressions; tPosW += t.position * t.impressions; }
+      for (const d of s.data?.byDate ?? []) {
+        const e = byDate.get(d.date) ?? { clicks: 0, impressions: 0, posW: 0 };
+        e.clicks += d.clicks; e.impressions += d.impressions; e.posW += d.position * d.impressions;
+        byDate.set(d.date, e);
+      }
     }
-    perf = { clicks, impressions, ctr: impressions ? clicks / impressions : 0, position: impressions ? posWeighted / impressions : 0 };
+    series = Array.from(byDate.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([date, e]) => ({
+      date, clicks: e.clicks, impressions: e.impressions,
+      ctr: e.impressions ? e.clicks / e.impressions : 0,
+      position: e.impressions ? e.posW / e.impressions : 0,
+    }));
+    // headline totals
+    perf = { clicks: tClicks, impressions: tImpr, ctr: tImpr ? tClicks / tImpr : 0, position: tImpr ? tPosW / tImpr : 0 };
   } else {
+    series = SAMPLE_GSC.byDate;
     perf = SAMPLE_GSC.totals;
   }
 
+  const clicksArr = series.map((d) => d.clicks);
+  const imprArr = series.map((d) => d.impressions);
+  const ctrArr = series.map((d) => d.ctr);
+  const posArr = series.map((d) => d.position);
+
   const perfCards = [
-    { l: "Clicks", v: fmt(perf.clicks), icon: MousePointerClick, tint: "bg-brand-50 text-brand-600" },
-    { l: "Impressions", v: fmt(perf.impressions), icon: Eye, tint: "bg-sky-50 text-sky-600" },
-    { l: "Avg CTR", v: `${(perf.ctr * 100).toFixed(1)}%`, icon: Percent, tint: "bg-emerald-50 text-emerald-600" },
-    { l: "Avg position", v: perf.position.toFixed(1), icon: TrendingUp, tint: "bg-amber-50 text-amber-600" },
+    { l: "Clicks", v: fmt(perf.clicks), icon: MousePointerClick, color: "#4f46e5", arr: clicksArr, t: trend(clicksArr) },
+    { l: "Impressions", v: fmt(perf.impressions), icon: Eye, color: "#0ea5e9", arr: imprArr, t: trend(imprArr) },
+    { l: "Avg CTR", v: `${(perf.ctr * 100).toFixed(1)}%`, icon: Percent, color: "#10b981", arr: ctrArr, t: trend(ctrArr) },
+    { l: "Avg position", v: perf.position.toFixed(1), icon: TrendingUp, color: "#f59e0b", arr: posArr, t: trend(posArr, true) },
   ];
 
   const steps: OnboardingStep[] = [
     { label: "Add your first client", done: (clientCount ?? 0) > 0, href: "/dashboard/clients/new" },
-    { label: "Connect Google Search Console", done: gscCount > 0, href: "/dashboard/clients" },
+    { label: "Connect Google Search Console", done: connectedCount > 0, href: "/dashboard/clients" },
     { label: "Configure your branding", done: !!agency.logo_url || !!agency.contact_email, href: "/dashboard/settings" },
     { label: "Generate your first report", done: (reportCount ?? 0) > 0, href: "/dashboard/reports/preview" },
   ];
-  const onboardingDone = steps.filter((s) => s.done).length;
-  const onboardingComplete = onboardingDone === steps.length;
+  const onboardingComplete = steps.every((s) => s.done);
+  const nextStep = steps.find((s) => !s.done);
 
   const quickActions = [
     { label: "Add client", href: "/dashboard/clients/new", icon: Plus, tint: "bg-brand-50 text-brand-600" },
@@ -79,49 +114,55 @@ export default async function DashboardPage() {
     { label: "Branding", href: "/dashboard/settings", icon: Palette, tint: "bg-sky-50 text-sky-600" },
   ];
 
-  // Real activity (clients added + sources connected). Falls back to onboarding milestones.
   const realActivity = [
     ...clients.map((c) => ({ kind: "client" as const, name: c.name, at: c.created_at })),
     ...clients.flatMap((c) => (c.data_sources ?? []).map((d) => ({ kind: "integration" as const, name: c.name, at: d.created_at }))),
-  ]
-    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
-    .slice(0, 6);
+  ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()).slice(0, 6);
 
   const onboardingEvents = [
-    { icon: Sparkles, tint: "bg-brand-50 text-brand-600", text: <>Welcome to <span className="font-medium">ReportFlow</span> — your workspace is ready</>, href: "/dashboard" },
-    ...steps.map((s) => ({
-      icon: s.done ? CheckCircle2 : Circle,
-      tint: s.done ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-400",
-      text: s.done ? <>Completed: <span className="font-medium">{s.label}</span></> : <>Next: <span className="font-medium">{s.label}</span></>,
-      href: s.href,
-    })),
+    { icon: Sparkles, tint: "bg-brand-50 text-brand-600", text: <>Welcome to <span className="font-medium">ReportFlow</span> — your workspace is ready</>, href: "/dashboard", tag: "" },
+    ...steps.filter((s) => s.done).map((s) => ({ icon: CheckCircle2, tint: "bg-emerald-50 text-emerald-600", text: <>Completed: <span className="font-medium">{s.label}</span></>, href: s.href, tag: "" })),
+    ...(nextStep ? [{ icon: Circle, tint: "bg-brand-50 text-brand-600", text: <>Recommended next: <span className="font-medium">{nextStep.label}</span></>, href: nextStep.href, tag: "Next" }] : []),
   ];
 
+  // AI insights — real summary when data exists, otherwise a connect prompt.
+  const cd = trend(clicksArr).pct;
+  const idd = trend(imprArr).pct;
   const aiInsightsCard = (
     <Card className="h-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><Sparkles size={16} className="text-brand-500" /> AI insights</CardTitle>
-        <CardDescription>Every report includes a plain-English summary, written automatically.</CardDescription>
+        <CardDescription>Plain-English analysis, generated automatically for every report.</CardDescription>
       </CardHeader>
       <CardContent>
-        <p className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm italic leading-relaxed text-ink-700">
-          “Organic clicks are up 18% this month, led by “best running shoes” at position 2.1. Impressions grew 12% — momentum is building. Next: optimise “carbon plate shoes” (pos 6.8) to break onto page one.”
-        </p>
-        <p className="mt-2 text-xs text-ink-400">
-          ReportFlow turns each client&apos;s raw search data into a branded report with insights &amp; recommendations — no writing required.
-        </p>
+        {hasReal ? (
+          <>
+            <p className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm leading-relaxed text-ink-700">
+              Organic clicks are {cd !== null && cd < 0 ? "down" : "up"} {cd !== null ? `${Math.abs(cd).toFixed(0)}%` : "steady"} and impressions {idd !== null && idd < 0 ? "down" : "up"} {idd !== null ? `${Math.abs(idd).toFixed(0)}%` : "steady"} over the last 28 days, at an average position of {perf.position.toFixed(1)}.
+            </p>
+            <p className="mt-2 text-sm text-ink-600"><span className="font-medium text-ink-800">Opportunity:</span> queries ranking on page two are your fastest path to more clicks — prioritise them next report.</p>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-ink-700">Connect Google Search Console to receive automated AI insights — traffic summaries, trends, and the opportunities to act on.</p>
+            <p className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm italic leading-relaxed text-ink-500">
+              Example: “Organic clicks up 18% this month, led by ‘best running shoes’. Next: optimise ‘carbon plate shoes’ (pos 6.8) to break onto page one.”
+            </p>
+            <Button asChild size="sm" variant="outline" className="mt-3"><Link href="/dashboard/clients"><PlugZap size={15} /> Connect Search Console</Link></Button>
+          </>
+        )}
       </CardContent>
     </Card>
   );
 
   const healthStats = [
-    { l: "Connected clients", v: `${gscCount}`, icon: Users },
-    { l: "Reports generated", v: `${reportCount ?? 0}`, icon: FileBarChart2 },
-    { l: "Last report", v: lastReport?.created_at ? formatDistanceToNow(new Date(lastReport.created_at as string), { addSuffix: true }) : "—", icon: CalendarClock },
+    { l: "Connected", v: connectedCount, icon: CheckCircle2, tint: "text-emerald-600" },
+    { l: "Pending setup", v: pendingCount, icon: AlertCircle, tint: "text-amber-600" },
+    { l: "Ready to report", v: readyCount, icon: FileBarChart2, tint: "text-brand-600" },
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Welcome */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -133,7 +174,7 @@ export default async function DashboardPage() {
         </Button>
       </div>
 
-      {/* Performance overview — business metrics (real or sample) */}
+      {/* Performance overview — business metrics with trends + sparklines */}
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -148,20 +189,9 @@ export default async function DashboardPage() {
           )}
         </div>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {perfCards.map((k) => {
-            const Icon = k.icon;
-            return (
-              <Card key={k.l} className="transition-shadow hover:shadow-md">
-                <CardContent className="p-5">
-                  <div className="flex items-center gap-2 text-ink-500">
-                    <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${k.tint}`}><Icon size={16} /></div>
-                    <span className="text-sm">{k.l}</span>
-                  </div>
-                  <p className="mt-3 text-2xl font-semibold text-ink-900">{k.v}</p>
-                </CardContent>
-              </Card>
-            );
-          })}
+          {perfCards.map((k) => (
+            <PerfKpiCard key={k.l} label={k.l} value={k.v} deltaPct={k.t.pct} good={k.t.good} color={k.color} data={k.arr} icon={k.icon} />
+          ))}
         </div>
         {!hasReal && (
           <p className="mt-2 text-xs text-ink-400">Example numbers — connect a client&apos;s Google Search Console to see real performance here.</p>
@@ -225,6 +255,7 @@ export default async function DashboardPage() {
                       <Link href={e.href} className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-slate-50">
                         <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${e.tint}`}><Icon size={15} /></div>
                         <span className="min-w-0 flex-1 truncate text-sm text-ink-700">{e.text}</span>
+                        {e.tag && <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">{e.tag}</span>}
                       </Link>
                     </li>
                   );
@@ -242,8 +273,8 @@ export default async function DashboardPage() {
                 const Icon = s.icon;
                 return (
                   <div key={s.l} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                    <Icon size={15} className="text-brand-500" />
-                    <p className="mt-1.5 text-base font-semibold leading-tight text-ink-900">{s.v}</p>
+                    <Icon size={15} className={s.tint} />
+                    <p className="mt-1.5 text-xl font-semibold leading-tight text-ink-900">{s.v}</p>
                     <p className="text-[11px] leading-tight text-ink-500">{s.l}</p>
                   </div>
                 );
@@ -251,13 +282,13 @@ export default async function DashboardPage() {
             </div>
             {clients.length === 0 ? (
               <div className="rounded-lg border border-dashed border-slate-200 p-4 text-center">
-                <p className="text-sm text-ink-500">No clients yet.</p>
+                <p className="text-sm text-ink-500">Add a client to start tracking performance.</p>
                 <Button asChild size="sm" variant="outline" className="mt-2"><Link href="/dashboard/clients/new"><Plus size={14} /> Add your first client</Link></Button>
               </div>
             ) : (
               <ul className="space-y-1">
                 {clients.slice(0, 5).map((c) => {
-                  const connected = (c.data_sources ?? []).length > 0;
+                  const connected = (c.data_sources ?? []).some((d) => d.type === "gsc");
                   return (
                     <li key={c.id}>
                       <Link href={`/dashboard/clients/${c.id}`} className="flex items-center justify-between rounded-lg px-2 py-2 hover:bg-slate-50">
