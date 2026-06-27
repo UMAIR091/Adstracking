@@ -26,7 +26,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   // Never select token columns into the page — only safe fields.
   const { data: gsc } = await supabase
     .from("data_sources")
-    .select("id, display_name, config, last_synced_at")
+    .select("id, display_name, config, last_synced_at, last_sync_error")
     .eq("client_id", client.id)
     .eq("type", "gsc")
     .maybeSingle();
@@ -70,6 +70,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
           clientId={client.id}
           source={(gsc ?? null) as GscSource}
           lastSyncedAt={(gsc?.last_synced_at as string | null) ?? null}
+          lastSyncError={(gsc?.last_sync_error as string | null) ?? null}
         />
 
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-5 text-sm text-ink-500">

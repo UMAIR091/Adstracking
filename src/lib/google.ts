@@ -89,8 +89,32 @@ export type GscReport = {
   totals: { clicks: number; impressions: number; ctr: number; position: number };
   topQueries: GscRow[];
   topPages: GscRow[];
+  topCountries: GscRow[];
+  topDevices: GscRow[];
   byDate: GscDay[];
 };
+
+// Search Console returns ISO 3166-1 alpha-3 country codes (lowercase, e.g. "usa").
+// Map the most common ones to readable names; fall back to the upper-cased code.
+const COUNTRY_NAMES: Record<string, string> = {
+  usa: "United States", gbr: "United Kingdom", can: "Canada", aus: "Australia",
+  ind: "India", deu: "Germany", fra: "France", esp: "Spain", ita: "Italy",
+  nld: "Netherlands", bra: "Brazil", mex: "Mexico", jpn: "Japan", chn: "China",
+  pak: "Pakistan", are: "United Arab Emirates", sau: "Saudi Arabia", zaf: "South Africa",
+  irl: "Ireland", nzl: "New Zealand", sgp: "Singapore", swe: "Sweden", che: "Switzerland",
+  pol: "Poland", tur: "Turkey", idn: "Indonesia", phl: "Philippines", nga: "Nigeria",
+  rus: "Russia", kor: "South Korea", bel: "Belgium", aut: "Austria", dnk: "Denmark",
+  nor: "Norway", fin: "Finland", prt: "Portugal", grc: "Greece", egy: "Egypt",
+};
+
+function countryName(code: string): string {
+  return COUNTRY_NAMES[code.toLowerCase()] ?? code.toUpperCase();
+}
+
+// Device dimension keys come back upper-cased (DESKTOP / MOBILE / TABLET).
+function deviceName(key: string): string {
+  return key.charAt(0).toUpperCase() + key.slice(1).toLowerCase();
+}
 
 async function gscQuery(accessToken: string, siteUrl: string, body: object) {
   const res = await fetch(`${GSC}/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`, {
@@ -172,17 +196,22 @@ export async function fetchGscReport(
   startDate: string,
   endDate: string
 ): Promise<GscReport> {
-  const [totalsRes, queriesRes, pagesRes, dateRes] = await Promise.all([
+  const [totalsRes, queriesRes, pagesRes, countriesRes, devicesRes, dateRes] = await Promise.all([
     gscQuery(accessToken, siteUrl, { startDate, endDate }),
     gscQuery(accessToken, siteUrl, { startDate, endDate, dimensions: ["query"], rowLimit: 10 }),
     gscQuery(accessToken, siteUrl, { startDate, endDate, dimensions: ["page"], rowLimit: 10 }),
+    gscQuery(accessToken, siteUrl, { startDate, endDate, dimensions: ["country"], rowLimit: 10 }),
+    gscQuery(accessToken, siteUrl, { startDate, endDate, dimensions: ["device"], rowLimit: 10 }),
     gscQuery(accessToken, siteUrl, { startDate, endDate, dimensions: ["date"], rowLimit: 1000 }),
   ]);
 
   const t = totalsRes.rows?.[0] ?? { clicks: 0, impressions: 0, ctr: 0, position: 0 };
-  const mapRows = (r: { rows?: { keys: string[]; clicks: number; impressions: number; ctr: number; position: number }[] }) =>
+  const mapRows = (
+    r: { rows?: { keys: string[]; clicks: number; impressions: number; ctr: number; position: number }[] },
+    label: (k: string) => string = (k) => k
+  ) =>
     (r.rows ?? []).map((row) => ({
-      key: row.keys[0],
+      key: label(row.keys[0]),
       clicks: row.clicks,
       impressions: row.impressions,
       ctr: row.ctr,
@@ -193,6 +222,47 @@ export async function fetchGscReport(
     totals: { clicks: t.clicks, impressions: t.impressions, ctr: t.ctr, position: t.position },
     topQueries: mapRows(queriesRes),
     topPages: mapRows(pagesRes),
+    topCountries: mapRows(countriesRes, countryName),
+    topDevices: mapRows(devicesRes, deviceName),
     byDate: mapRows(dateRes).map((r) => ({ date: r.key, clicks: r.clicks, impressions: r.impressions, ctr: r.ctr, position: r.position })),
   };
+}
+
+// A snapshot enriched with everything needed to render a full period-over-period
+// report offline: the current-period report plus the previous period's totals
+// and query movers. Computed at sync time and cached, so report generation never
+// has to call Google.
+export type GscReportFull = GscReport & {
+  previousTotals: GscReport["totals"] | null;
+  movers: GscMovers | null;
+};
+
+function isoDaysAgo(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
+// Fetches the report for the last `periodDays` plus the equal-length window
+// immediately before it, so period-over-period deltas and winning/declining
+// keywords are baked into the cached snapshot. Search Console data lags ~2 days,
+// so every window ends 2 days ago. The comparison parts degrade gracefully:
+// if they fail, the report still has current-period data.
+export async function fetchGscReportWithComparison(
+  accessToken: string,
+  siteUrl: string,
+  periodDays: number
+): Promise<GscReportFull> {
+  const start = isoDaysAgo(periodDays + 2);
+  const end = isoDaysAgo(2);
+  const prevStart = isoDaysAgo(periodDays * 2 + 2);
+  const prevEnd = isoDaysAgo(periodDays + 3);
+
+  const [report, previousTotals, movers] = await Promise.all([
+    fetchGscReport(accessToken, siteUrl, start, end),
+    fetchGscTotals(accessToken, siteUrl, prevStart, prevEnd).catch(() => null),
+    fetchGscQueryMovers(accessToken, siteUrl, start, end, prevStart, prevEnd).catch(() => null),
+  ]);
+
+  return { ...report, previousTotals, movers };
 }

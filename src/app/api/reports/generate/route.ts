@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAgency } from "@/lib/agency";
-import { getValidAccessToken } from "@/lib/googleTokens";
-import { fetchGscReport, fetchGscTotals, fetchGscQueryMovers } from "@/lib/google";
 import { generateReportInsights } from "@/lib/ai";
+import { assembleReport, isSnapshotEmpty, reportPeriod, type ReportSnapshot } from "@/lib/report";
 
 export const runtime = "nodejs";
 
@@ -14,7 +13,9 @@ function isoDaysAgo(n: number) {
   return d.toISOString().slice(0, 10);
 }
 
-// Generates a report: pulls live Search Console data and snapshots it into `reports`.
+// Generates a report entirely from Search Console data already cached in
+// gsc_snapshots by the background sync. No live Google API calls happen here —
+// the snapshot already carries period-over-period totals and query movers.
 export async function POST(req: Request) {
   const { user, agency } = await getCurrentUserAndAgency();
   if (!user || !agency) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
 
   const { data: ds } = await supabase
     .from("data_sources")
-    .select("id, config, access_token, refresh_token, token_expires_at")
+    .select("id, config")
     .eq("client_id", clientId)
     .eq("type", "gsc")
     .maybeSingle();
@@ -41,6 +42,23 @@ export async function POST(req: Request) {
   const siteUrl = (ds.config as { site_url?: string })?.site_url;
   if (!siteUrl) return NextResponse.json({ error: "Select a Search Console property first." }, { status: 400 });
 
+  // Read the cached snapshot for the requested period — RLS scopes it to the
+  // signed-in user's agency. No Google call.
+  const { data: snap } = await supabase
+    .from("gsc_snapshots")
+    .select("data")
+    .eq("data_source_id", ds.id)
+    .eq("period_days", periodDays)
+    .maybeSingle();
+
+  const snapshot = (snap?.data as ReportSnapshot | undefined) ?? null;
+  if (isSnapshotEmpty(snapshot)) {
+    return NextResponse.json(
+      { error: "No analytics data is available yet for this client. Click “Refresh now” on the client, then generate the report." },
+      { status: 400 }
+    );
+  }
+
   const { data: template } = await supabase
     .from("report_templates")
     .select("name, sections")
@@ -48,52 +66,38 @@ export async function POST(req: Request) {
     .is("agency_id", null)
     .maybeSingle();
 
-  const start = isoDaysAgo(periodDays + 2);
-  const end = isoDaysAgo(2); // Search Console data lags ~2 days
-  // The equal-length window immediately before, for period-over-period comparison.
-  const prevStart = isoDaysAgo(periodDays * 2 + 2);
-  const prevEnd = isoDaysAgo(periodDays + 3);
+  // Optional AI executive summary — this calls Anthropic, not Google, and never
+  // blocks generation if it's unconfigured or fails.
+  const insights = await generateReportInsights({
+    clientName: client.name,
+    periodLabel: `the last ${periodDays} days`,
+    totals: snapshot!.totals,
+    previousTotals: snapshot!.previousTotals ?? null,
+    topQueries: snapshot!.topQueries,
+    topPages: snapshot!.topPages,
+  });
 
-  try {
-    const accessToken = await getValidAccessToken(supabase, ds);
-    const [data, previousTotals, movers] = await Promise.all([
-      fetchGscReport(accessToken, siteUrl, start, end),
-      fetchGscTotals(accessToken, siteUrl, prevStart, prevEnd).catch(() => null),
-      fetchGscQueryMovers(accessToken, siteUrl, start, end, prevStart, prevEnd).catch(() => null),
-    ]);
+  const data = assembleReport(snapshot!, insights);
+  const period = reportPeriod(snapshot!, { start: isoDaysAgo(periodDays + 2), end: isoDaysAgo(2) });
+  const shareToken = crypto.randomBytes(16).toString("hex");
 
-    // Optional AI executive summary — never blocks generation if absent/failing.
-    const insights = await generateReportInsights({
-      clientName: client.name,
-      periodLabel: `the last ${periodDays} days`,
-      totals: data.totals,
-      previousTotals,
-      topQueries: data.topQueries,
-      topPages: data.topPages,
-    });
+  const { data: report, error } = await supabase
+    .from("reports")
+    .insert({
+      agency_id: agency.id,
+      client_id: clientId,
+      template_key: templateKey,
+      title: `${client.name} — ${template?.name ?? "SEO Report"}`,
+      status: "ready",
+      period_start: period.start,
+      period_end: period.end,
+      data,
+      sections: template?.sections ?? [],
+      share_token: shareToken,
+    })
+    .select("id")
+    .single();
 
-    const snapshot = { ...data, previousTotals, movers, insights };
-    const shareToken = crypto.randomBytes(16).toString("hex");
-    const { data: report, error } = await supabase
-      .from("reports")
-      .insert({
-        agency_id: agency.id,
-        client_id: clientId,
-        template_key: templateKey,
-        title: `${client.name} — ${template?.name ?? "SEO Report"}`,
-        status: "ready",
-        period_start: start,
-        period_end: end,
-        data: snapshot,
-        sections: template?.sections ?? [],
-        share_token: shareToken,
-      })
-      .select("id")
-      .single();
-
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-    return NextResponse.json({ ok: true, id: report.id });
-  } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 502 });
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  return NextResponse.json({ ok: true, id: report.id });
 }

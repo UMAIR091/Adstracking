@@ -39,7 +39,7 @@ export function GenerateReport({ clientId, ready }: { clientId: string; ready: b
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><FileBarChart2 size={16} className="text-brand-500" /> Generate a report</CardTitle>
-        <CardDescription>Pull live Search Console data into a branded, shareable report — with an AI-written executive summary.</CardDescription>
+        <CardDescription>Build a branded, shareable report from your latest synced Search Console data — with an AI-written executive summary.</CardDescription>
       </CardHeader>
       <CardContent>
         {!ready ? (

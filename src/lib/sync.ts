@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getValidAccessToken } from "@/lib/googleTokens";
-import { fetchGscReport } from "@/lib/google";
+import { fetchGscReportWithComparison } from "@/lib/google";
 
 // Periods we keep warm in the cache (match the report/analytics date ranges).
 const PERIODS = [28, 90];
@@ -13,12 +13,6 @@ export type SyncableSource = {
   refresh_token: string | null;
   token_expires_at: string | null;
 };
-
-function isoDaysAgo(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
-}
 
 // Pulls Search Console data for one connection and upserts it into gsc_snapshots,
 // then records sync status on the data source. Never throws — returns a result so
@@ -35,8 +29,10 @@ export async function syncDataSource(
     const now = new Date().toISOString();
 
     for (const period of PERIODS) {
-      // Search Console data lags ~2 days, so the window ends 2 days ago.
-      const data = await fetchGscReport(accessToken, siteUrl, isoDaysAgo(period + 2), isoDaysAgo(2));
+      // Pull the period plus the previous one so the cached snapshot already
+      // contains period-over-period totals and query movers — report generation
+      // then needs no live Google calls.
+      const data = await fetchGscReportWithComparison(accessToken, siteUrl, period);
       await supabase
         .from("gsc_snapshots")
         .upsert(

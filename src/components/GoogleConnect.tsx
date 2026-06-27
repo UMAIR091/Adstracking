@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
-import { Search, RefreshCw } from "lucide-react";
+import { Search, RefreshCw, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,10 +18,12 @@ export function GoogleConnect({
   clientId,
   source,
   lastSyncedAt = null,
+  lastSyncError = null,
 }: {
   clientId: string;
   source: GscSource;
   lastSyncedAt?: string | null;
+  lastSyncError?: string | null;
 }) {
   const router = useRouter();
   const [site, setSite] = useState(source?.config?.site_url ?? "");
@@ -129,6 +131,13 @@ export function GoogleConnect({
               <RefreshCw size={16} className={busy ? "animate-spin" : ""} /> {busy ? "Refreshing…" : "Refresh now"}
             </Button>
           </div>
+
+          {source.config?.site_url && lastSyncError && (
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+              <span>Last sync failed: {lastSyncError}. Click Refresh now to retry, or reconnect Google if the problem persists.</span>
+            </div>
+          )}
 
           {source.config?.site_url && (
             <p className="mt-3 text-xs text-ink-400">
