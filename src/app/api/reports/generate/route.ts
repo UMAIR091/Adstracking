@@ -75,6 +75,9 @@ export async function POST(req: Request) {
     previousTotals: snapshot!.previousTotals ?? null,
     topQueries: snapshot!.topQueries,
     topPages: snapshot!.topPages,
+    topCountries: snapshot!.topCountries,
+    topDevices: snapshot!.topDevices,
+    movers: snapshot!.movers,
   });
 
   const data = assembleReport(snapshot!, insights);

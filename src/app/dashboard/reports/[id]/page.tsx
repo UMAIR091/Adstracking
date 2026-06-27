@@ -5,6 +5,7 @@ import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
 import { ReportDocument } from "@/components/ReportDocument";
 import { ReportActions } from "@/components/ReportActions";
+import { RegenerateInsights } from "@/components/RegenerateInsights";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,10 @@ export default async function ReportViewPage({ params }: { params: { id: string 
         <Link href="/dashboard/reports" className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-700">
           <ArrowLeft size={15} /> Back to reports
         </Link>
-        <ReportActions shareUrl={shareUrl} />
+        <div className="flex items-center gap-2">
+          <RegenerateInsights reportId={report.id as string} />
+          <ReportActions shareUrl={shareUrl} />
+        </div>
       </div>
 
       <ReportDocument

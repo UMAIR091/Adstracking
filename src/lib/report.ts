@@ -9,7 +9,33 @@ import type { ReportInsights } from "@/lib/ai";
 export type ReportSnapshot = GscReportFull;
 
 // The full payload stored in reports.data and rendered by ReportDocument.
-export type ReportData = ReportSnapshot & { insights: ReportInsights | null };
+// `insightsHash` fingerprints the metrics the insights were generated from, so
+// they can be cached and only regenerated when the underlying data changes.
+export type ReportData = ReportSnapshot & {
+  insights: ReportInsights | null;
+  insightsHash?: string;
+};
+
+// Stable, dependency-free hash (FNV-1a) of exactly the metrics the AI analyzes.
+// Used to skip regenerating insights when the data hasn't changed. Order-stable
+// because it hashes the snapshot's own field order.
+export function reportDataHash(snapshot: ReportSnapshot): string {
+  const basis = JSON.stringify({
+    totals: snapshot.totals,
+    previousTotals: snapshot.previousTotals ?? null,
+    topQueries: snapshot.topQueries,
+    topPages: snapshot.topPages,
+    topCountries: snapshot.topCountries ?? [],
+    topDevices: snapshot.topDevices ?? [],
+    movers: snapshot.movers ?? null,
+  });
+  let h = 0x811c9dc5;
+  for (let i = 0; i < basis.length; i++) {
+    h ^= basis.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16);
+}
 
 // A snapshot has nothing worth reporting when there's no traffic and no daily
 // trend. Callers should surface an empty state instead of generating a report.
@@ -22,12 +48,13 @@ export function isSnapshotEmpty(snapshot: ReportSnapshot | null | undefined): bo
 }
 
 // Merges the cached snapshot with the (optional) AI insights into the final
-// report payload. Single source of truth for the reports.data shape.
+// report payload. Single source of truth for the reports.data shape. Stamps the
+// data hash so cached insights can be invalidated when the metrics change.
 export function assembleReport(
   snapshot: ReportSnapshot,
   insights: ReportInsights | null
 ): ReportData {
-  return { ...snapshot, insights };
+  return { ...snapshot, insights, insightsHash: reportDataHash(snapshot) };
 }
 
 // Derives the report's covered period from the snapshot's actual daily data, so

@@ -6,24 +6,56 @@ import {
 } from "recharts";
 import {
   TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Target,
-  Sparkles, CheckCircle2, StickyNote,
+  CheckCircle2, StickyNote, Trophy, AlertTriangle, Lightbulb,
 } from "lucide-react";
 
 type Branding = { name: string; logo_url: string | null; brand_color: string; website: string | null; footer_text: string | null };
 type Totals = { clicks: number; impressions: number; ctr: number; position: number };
 type Mover = { key: string; clicks: number; prevClicks: number; changePct: number; position: number };
 type Opportunity = { key: string; clicks: number; impressions: number; position: number };
+
+// Accepts both the current grouped insights and the legacy
+// {summary, highlights, recommendations, actionPlan} shape, so reports saved
+// before the grouped-insights change still render.
+type RawInsights = {
+  executiveSummary?: string;
+  keyWins?: string[];
+  issuesDetected?: string[];
+  growthOpportunities?: string[];
+  recommendedActions?: string[];
+  // legacy fields
+  summary?: string;
+  highlights?: string[];
+  recommendations?: string[];
+  actionPlan?: string[];
+} | null | undefined;
+
 type GscData = {
   totals: Totals;
   previousTotals?: Totals | null;
   movers?: { winners: Mover[]; decliners: Mover[]; opportunities: Opportunity[] } | null;
-  insights?: { summary: string; highlights: string[]; recommendations: string[]; actionPlan?: string[] } | null;
+  insights?: RawInsights;
   topQueries: { key: string; clicks: number; impressions: number; ctr: number; position: number }[];
   topPages: { key: string; clicks: number; impressions: number }[];
   byDate: { date: string; clicks: number; impressions: number; ctr: number; position: number }[];
 };
 
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+
+// Normalizes either insights shape into the grouped form the report renders.
+function normInsights(ins: RawInsights) {
+  if (!ins) return null;
+  const executiveSummary = ins.executiveSummary ?? ins.summary ?? "";
+  const keyWins = ins.keyWins ?? ins.highlights ?? [];
+  const issuesDetected = ins.issuesDetected ?? [];
+  const growthOpportunities = ins.growthOpportunities ?? [];
+  const recommendedActions = ins.recommendedActions ?? ins.recommendations ?? [];
+  const actionPlan = ins.actionPlan ?? [];
+  const empty =
+    !executiveSummary && !keyWins.length && !issuesDetected.length &&
+    !growthOpportunities.length && !recommendedActions.length && !actionPlan.length;
+  return empty ? null : { executiveSummary, keyWins, issuesDetected, growthOpportunities, recommendedActions, actionPlan };
+}
 
 function delta(cur: number, prev: number | null | undefined, lowerIsBetter = false) {
   if (prev == null || prev === 0) return null;
@@ -56,6 +88,7 @@ export function ReportDocument({
 }) {
   const color = branding.brand_color || "#4f46e5";
   const { totals, previousTotals, movers, insights, topQueries, topPages, byDate } = data;
+  const ins = normInsights(insights);
 
   const clicksD = delta(totals.clicks, previousTotals?.clicks);
   const posD = delta(totals.position, previousTotals?.position, true);
@@ -99,9 +132,9 @@ export function ReportDocument({
 
       <div className="space-y-10 p-6 sm:p-10">
         {/* 1 — Executive Summary */}
-        {(insights?.summary || previousTotals) && (
+        {(ins?.executiveSummary || previousTotals) && (
           <Section n={next()} title="Executive Summary" subtitle="Performance at a glance" color={color}>
-            {insights?.summary && <p className="text-sm leading-relaxed text-ink-700">{insights.summary}</p>}
+            {ins?.executiveSummary && <p className="text-sm leading-relaxed text-ink-700">{ins.executiveSummary}</p>}
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               <Callout tone="emerald" icon={TrendingUp} title="Key win"
                 text={winners[0] ? `“${winners[0].key}” up ${Math.round(winners[0].changePct)}%.` : clicksD && clicksD.good ? `Clicks up ${Math.abs(clicksD.pct).toFixed(0)}% vs the prior period.` : "Traffic held steady this period."} />
@@ -239,52 +272,77 @@ export function ReportDocument({
           </div>
         )}
 
-        {/* 7 — Growth Opportunities */}
-        {opportunities.length > 0 && (
-          <Section n={next()} title="Growth Opportunities" subtitle="Keywords on the edge of page one — quick wins" color={color}>
-            <div className="h-40">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={opportunities} layout="vertical" margin={{ left: 8, right: 24 }}>
-                  <XAxis type="number" hide domain={[0, "dataMax + 100"]} />
-                  <YAxis type="category" dataKey="key" width={160} tick={{ fontSize: 11, fill: "#64748b" }} tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }} cursor={{ fill: "#f8fafc" }} formatter={(v) => [`${fmt(Number(v))} impressions`, ""]} />
-                  <Bar dataKey="impressions" fill={color} radius={[0, 4, 4, 0]} barSize={16} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <ul className="mt-2 grid gap-2 sm:grid-cols-2">
-              {opportunities.map((o) => (
-                <li key={o.key} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                  <span className="truncate text-ink-700">{o.key}</span>
-                  <span className="flex-shrink-0 text-xs font-medium text-amber-600">pos {o.position.toFixed(1)}</span>
+        {/* 7 — Key Wins (AI) */}
+        {ins && ins.keyWins.length > 0 && (
+          <Section n={next()} title="Key Wins" subtitle="What worked this period" color={color}>
+            <ul className="space-y-2">
+              {ins.keyWins.map((w, i) => (
+                <li key={i} className="flex gap-2.5 rounded-lg border border-emerald-100 bg-emerald-50/50 px-3 py-2.5 text-sm text-ink-700">
+                  <Trophy size={15} className="mt-0.5 flex-shrink-0 text-emerald-600" />
+                  <span>{w}</span>
                 </li>
               ))}
             </ul>
           </Section>
         )}
 
-        {/* 8 — AI Insights */}
-        {insights?.highlights && insights.highlights.length > 0 && (
-          <Section n={next()} title="AI Insights" subtitle="Automated analysis of what matters" color={color}>
-            <div className="rounded-xl border p-4" style={{ borderColor: `${color}33`, background: `${color}0a` }}>
-              <div className="mb-2 flex items-center gap-2 text-sm font-semibold" style={{ color }}><Sparkles size={15} /> What stood out</div>
-              <ul className="space-y-1.5">
-                {insights.highlights.map((h, i) => (
-                  <li key={i} className="flex gap-2 text-sm text-ink-700">
-                    <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ background: color }} />
-                    <span>{h}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+        {/* 8 — Issues Detected (AI) */}
+        {ins && ins.issuesDetected.length > 0 && (
+          <Section n={next()} title="Issues Detected" subtitle="Risks and declines to address" color={color}>
+            <ul className="space-y-2">
+              {ins.issuesDetected.map((it, i) => (
+                <li key={i} className="flex gap-2.5 rounded-lg border border-rose-100 bg-rose-50/50 px-3 py-2.5 text-sm text-ink-700">
+                  <AlertTriangle size={15} className="mt-0.5 flex-shrink-0 text-rose-500" />
+                  <span>{it}</span>
+                </li>
+              ))}
+            </ul>
           </Section>
         )}
 
-        {/* 9 — Recommended Actions */}
-        {insights?.recommendations && insights.recommendations.length > 0 && (
+        {/* 9 — Growth Opportunities (data chart + AI narrative) */}
+        {(opportunities.length > 0 || (ins?.growthOpportunities.length ?? 0) > 0) && (
+          <Section n={next()} title="Growth Opportunities" subtitle="Where the next gains are — quick wins" color={color}>
+            {opportunities.length > 0 && (
+              <>
+                <div className="h-40">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={opportunities} layout="vertical" margin={{ left: 8, right: 24 }}>
+                      <XAxis type="number" hide domain={[0, "dataMax + 100"]} />
+                      <YAxis type="category" dataKey="key" width={160} tick={{ fontSize: 11, fill: "#64748b" }} tickLine={false} axisLine={false} />
+                      <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }} cursor={{ fill: "#f8fafc" }} formatter={(v) => [`${fmt(Number(v))} impressions`, ""]} />
+                      <Bar dataKey="impressions" fill={color} radius={[0, 4, 4, 0]} barSize={16} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {opportunities.map((o) => (
+                    <li key={o.key} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                      <span className="truncate text-ink-700">{o.key}</span>
+                      <span className="flex-shrink-0 text-xs font-medium text-amber-600">pos {o.position.toFixed(1)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {ins && ins.growthOpportunities.length > 0 && (
+              <ul className={`space-y-2 ${opportunities.length > 0 ? "mt-4" : ""}`}>
+                {ins.growthOpportunities.map((g, i) => (
+                  <li key={i} className="flex gap-2.5 rounded-lg border border-amber-100 bg-amber-50/40 px-3 py-2.5 text-sm text-ink-700">
+                    <Lightbulb size={15} className="mt-0.5 flex-shrink-0 text-amber-500" />
+                    <span>{g}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
+        )}
+
+        {/* 10 — Recommended Actions (AI) */}
+        {ins && ins.recommendedActions.length > 0 && (
           <Section n={next()} title="Recommended Actions" subtitle="Prioritised for impact" color={color}>
             <ol className="space-y-2">
-              {insights.recommendations.map((r, i) => (
+              {ins.recommendedActions.map((r, i) => (
                 <li key={i} className="flex gap-3 rounded-lg border border-slate-100 bg-white p-3">
                   <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white" style={{ background: color }}>{i + 1}</span>
                   <p className="text-sm text-ink-700">{r}</p>
@@ -294,11 +352,11 @@ export function ReportDocument({
           </Section>
         )}
 
-        {/* 10 — Next Month Action Plan */}
-        {insights?.actionPlan && insights.actionPlan.length > 0 && (
+        {/* Next Month Action Plan — only for legacy reports that still carry it */}
+        {ins && ins.actionPlan.length > 0 && (
           <Section n={next()} title="Next Month Action Plan" subtitle="What we'll execute next" color={color}>
             <ul className="space-y-2">
-              {insights.actionPlan.map((a, i) => (
+              {ins.actionPlan.map((a, i) => (
                 <li key={i} className="flex items-start gap-3 rounded-lg bg-slate-50 px-3 py-2.5">
                   <CheckCircle2 size={16} className="mt-0.5 flex-shrink-0" style={{ color }} />
                   <span className="text-sm text-ink-700">{a}</span>
