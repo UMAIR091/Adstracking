@@ -25,6 +25,8 @@ export async function POST(req: Request) {
   const templateKey = body?.templateKey || "seo";
   const subject = body?.subject?.trim() || null;
   const message = body?.message?.trim() || null;
+  const sendDay = Number.isFinite(body?.sendDay) ? Number(body.sendDay) : null;
+  const sendHour = Number.isFinite(body?.sendHour) ? Number(body.sendHour) : 8;
 
   const supabase = createClient();
   const { data: client } = await supabase.from("clients").select("id").eq("id", clientId).maybeSingle();
@@ -37,7 +39,9 @@ export async function POST(req: Request) {
     client_id: clientId,
     template_key: templateKey,
     frequency,
-    next_run_at: nextRunAt(frequency),
+    send_day: sendDay,
+    send_hour: sendHour,
+    next_run_at: nextRunAt(frequency, new Date(), sendDay, sendHour),
     recipients,
     subject,
     message,

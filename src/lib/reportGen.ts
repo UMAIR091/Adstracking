@@ -5,7 +5,7 @@ import crypto from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateReportInsights } from "@/lib/ai";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
-import { assembleReport, isGscEmpty, isGa4Empty, isReportEmpty, reportPeriod, toInsightsInput } from "@/lib/report";
+import { assembleReport, isGscEmpty, isGa4Empty, isReportEmpty, reportPeriod, toInsightsInput, type ReportData } from "@/lib/report";
 
 function isoDaysAgo(n: number) {
   const d = new Date();
@@ -14,7 +14,7 @@ function isoDaysAgo(n: number) {
 }
 
 export type CreateReportResult =
-  | { ok: true; id: string; shareToken: string; title: string }
+  | { ok: true; id: string; shareToken: string; title: string; data: ReportData; period: { start: string; end: string } }
   | { ok: false; status: number; error: string };
 
 // Creates and stores one report for a client. `supabase` may be a user client
@@ -91,5 +91,5 @@ export async function createClientReport(
     .single();
   if (error) return { ok: false, status: 400, error: error.message };
 
-  return { ok: true, id: report.id, shareToken: report.share_token, title };
+  return { ok: true, id: report.id, shareToken: report.share_token, title, data, period };
 }

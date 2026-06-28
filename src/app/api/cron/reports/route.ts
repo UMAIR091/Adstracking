@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClientReport } from "@/lib/reportGen";
-import { sendEmail, reportEmailHtml, emailConfigured } from "@/lib/email";
+import { deliverReport } from "@/lib/delivery";
+import { emailConfigured } from "@/lib/email";
 import { nextRunAt, isFrequency } from "@/lib/schedule";
 
 export const runtime = "nodejs";
@@ -15,9 +16,11 @@ function authorized(req: Request): boolean {
   return key === secret || req.headers.get("authorization") === `Bearer ${secret}`;
 }
 
-// Generates and emails reports for every schedule that's due. Runs daily; each
-// schedule advances its own next_run_at so a daily cron honors weekly/monthly/
-// quarterly cadences. Generation reads cached snapshots — no live Google calls.
+// Generates and emails reports (branded PDF attachments) for every due schedule.
+// Runs daily; each schedule advances its own next_run_at, so a daily cron honors
+// weekly/monthly/quarterly cadences with the chosen day + hour. Generation reads
+// cached snapshots (no live Google calls); delivery retries transient failures
+// and records Sent/Failed in the delivery history.
 export async function GET(req: Request) {
   if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -25,7 +28,7 @@ export async function GET(req: Request) {
   const now = new Date();
   const { data: due, error } = await admin
     .from("report_schedules")
-    .select("id, agency_id, client_id, template_key, frequency, recipients, subject, message")
+    .select("id, agency_id, client_id, template_key, frequency, send_day, send_hour, recipients, subject, message")
     .eq("enabled", true)
     .lte("next_run_at", now.toISOString());
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -38,15 +41,15 @@ export async function GET(req: Request) {
     processed++;
     const freq = isFrequency(sched.frequency) ? sched.frequency : "monthly";
 
-    const result = await createClientReport(admin, sched.agency_id, sched.client_id, {
-      templateKey: sched.template_key,
-      periodDays: 28,
-    });
+    const gen = await createClientReport(admin, sched.agency_id, sched.client_id, { templateKey: sched.template_key });
 
-    // Advance the schedule regardless, so a failing source doesn't retry every day.
-    await admin.from("report_schedules").update({ next_run_at: nextRunAt(freq), updated_at: now.toISOString() }).eq("id", sched.id);
+    // Advance regardless, so a failing source doesn't retry every day.
+    await admin
+      .from("report_schedules")
+      .update({ next_run_at: nextRunAt(freq, now, sched.send_day, sched.send_hour), last_run_at: now.toISOString(), updated_at: now.toISOString() })
+      .eq("id", sched.id);
 
-    if (!result.ok) {
+    if (!gen.ok) {
       failed++;
       continue;
     }
@@ -58,34 +61,27 @@ export async function GET(req: Request) {
     if (recipients.length === 0) continue;
 
     const { data: ag } = await admin
-      .from("agencies").select("name, brand_color, contact_email").eq("id", sched.agency_id).maybeSingle();
+      .from("agencies").select("name, brand_color, website, footer_text, contact_email").eq("id", sched.agency_id).maybeSingle();
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const shareUrl = `${appUrl}/r/${result.shareToken}`;
     const clientName = client?.name ?? "Client";
-    const subject = sched.subject || `${clientName} — your latest performance report`;
-    const html = reportEmailHtml({
-      agencyName: ag?.name ?? "Your Agency",
-      brandColor: ag?.brand_color ?? "#4f46e5",
+    const result = await deliverReport(admin, {
+      agencyId: sched.agency_id,
+      branding: {
+        name: ag?.name ?? "Your Agency",
+        brand_color: ag?.brand_color ?? "#4f46e5",
+        website: ag?.website ?? null,
+        footer_text: ag?.footer_text ?? null,
+        contact_email: ag?.contact_email ?? null,
+      },
       clientName,
-      reportTitle: result.title,
-      periodLabel: "the last 28 days",
-      shareUrl,
+      recipients,
+      subject: sched.subject || `${clientName} — your latest performance report`,
       message: sched.message,
+      report: { id: gen.id, title: gen.title, shareToken: gen.shareToken, data: gen.data, period: gen.period },
     });
 
-    try {
-      const { id: providerId } = await sendEmail({ to: recipients, subject, html, replyTo: ag?.contact_email ?? undefined });
-      await admin.from("email_logs").insert(
-        recipients.map((to) => ({ agency_id: sched.agency_id, report_id: result.id, to_email: to, subject, provider_id: providerId, status: "sent" }))
-      );
-      sent++;
-    } catch {
-      await admin.from("email_logs").insert(
-        recipients.map((to) => ({ agency_id: sched.agency_id, report_id: result.id, to_email: to, subject, status: "failed" }))
-      );
-      failed++;
-    }
+    if (result.ok) sent++;
+    else failed++;
   }
 
   return NextResponse.json({ ok: true, processed, sent, failed });

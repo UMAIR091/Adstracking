@@ -11,6 +11,7 @@ import { Ga4Analytics, type Ga4ReportData } from "@/components/Ga4Analytics";
 import { SAMPLE_GSC, SAMPLE_GA4 } from "@/lib/sampleData";
 import { GenerateReport } from "@/components/GenerateReport";
 import { ReportSchedule, type ScheduleData } from "@/components/ReportSchedule";
+import { DeliveryHistory, type DeliveryLog } from "@/components/DeliveryHistory";
 
 export const dynamic = "force-dynamic";
 
@@ -56,9 +57,16 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
 
   const { data: schedule } = await supabase
     .from("report_schedules")
-    .select("frequency, recipients, enabled, next_run_at")
+    .select("frequency, recipients, enabled, next_run_at, send_day, send_hour, subject, message")
     .eq("client_id", client.id)
     .maybeSingle();
+
+  const { data: deliveryLogs } = await supabase
+    .from("email_logs")
+    .select("id, to_email, subject, status, sent_at, attempts, error, reports!inner(client_id)")
+    .eq("reports.client_id", client.id)
+    .order("sent_at", { ascending: false })
+    .limit(8);
 
   let ga4Snapshot: Ga4ReportData | null = null;
   if (ga4?.id) {
@@ -141,12 +149,13 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         />
       </div>
 
-      <div className="mt-4">
+      <div className="mt-4 space-y-4">
         <ReportSchedule
           clientId={client.id}
           clientEmail={(client.email as string | null) ?? null}
           schedule={(schedule as unknown as ScheduleData) ?? null}
         />
+        <DeliveryHistory logs={(deliveryLogs as unknown as DeliveryLog[]) ?? []} />
       </div>
     </div>
   );

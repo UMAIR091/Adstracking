@@ -9,11 +9,14 @@ export function emailConfigured(): boolean {
   return Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
 }
 
+export type EmailAttachment = { filename: string; content: string }; // content = base64
+
 export async function sendEmail(args: {
   to: string | string[];
   subject: string;
   html: string;
   replyTo?: string;
+  attachments?: EmailAttachment[];
 }): Promise<{ id: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
@@ -28,11 +31,34 @@ export async function sendEmail(args: {
       subject: args.subject,
       html: args.html,
       reply_to: args.replyTo,
+      attachments: args.attachments,
     }),
   });
   if (!res.ok) throw new Error(`Email send failed: ${await res.text()}`);
   const data = await res.json();
   return { id: data.id as string };
+}
+
+// Sends with simple exponential backoff. Returns the attempt count alongside the
+// result so callers can record it in the delivery log. Throws after the last
+// attempt; the caller records the failure.
+export async function sendEmailWithRetry(
+  args: Parameters<typeof sendEmail>[0],
+  maxAttempts = 3
+): Promise<{ id: string; attempts: number }> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const { id } = await sendEmail(args);
+      return { id, attempts: attempt };
+    } catch (err) {
+      lastErr = err;
+      if (attempt < maxAttempts) {
+        await new Promise((r) => setTimeout(r, 400 * attempt));
+      }
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error("Email send failed");
 }
 
 const esc = (s: string) =>
