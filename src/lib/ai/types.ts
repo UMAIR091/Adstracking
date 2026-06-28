@@ -7,11 +7,21 @@ type Row = { key: string; clicks: number; impressions: number; ctr: number; posi
 type Mover = { key: string; clicks: number; prevClicks: number; changePct: number; position: number };
 type Opportunity = { key: string; clicks: number; impressions: number; position: number };
 
-// Everything the model is allowed to analyze — all sourced from the cached
-// Search Console snapshot in the database. No live API data ever flows in here.
-export type InsightsInput = {
-  clientName: string;
-  periodLabel: string;
+export type Ga4Totals = {
+  users: number;
+  newUsers: number;
+  sessions: number;
+  engagedSessions: number;
+  engagementRate: number;
+  avgEngagementTime: number;
+  views: number;
+  conversions: number;
+  totalRevenue: number;
+};
+type Ga4Dim = { key: string; sessions: number; users: number };
+
+// Search Console signals available to the model.
+export type GscInsights = {
   totals: Totals;
   previousTotals?: Totals | null;
   topQueries: Row[];
@@ -19,6 +29,25 @@ export type InsightsInput = {
   topCountries?: Row[];
   topDevices?: Row[];
   movers?: { winners: Mover[]; decliners: Mover[]; opportunities: Opportunity[] } | null;
+};
+
+// GA4 (engagement/conversion) signals available to the model.
+export type Ga4InsightsData = {
+  totals: Ga4Totals;
+  previousTotals?: Ga4Totals | null;
+  trafficSources?: Ga4Dim[];
+  topLandingPages?: Ga4Dim[];
+  devices?: Ga4Dim[];
+  countries?: Ga4Dim[];
+};
+
+// Everything the model may analyze — all sourced from cached snapshots in the
+// database. Either source may be absent; the prompt degrades gracefully.
+export type InsightsInput = {
+  clientName: string;
+  periodLabel: string;
+  gsc?: GscInsights | null;
+  ga4?: Ga4InsightsData | null;
 };
 
 // The structured, client-ready insight groups the report renders.

@@ -125,7 +125,13 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       </div>
 
       <div className="mt-8">
-        <GenerateReport clientId={client.id} ready={Boolean((gsc?.config as { site_url?: string } | undefined)?.site_url)} />
+        <GenerateReport
+          clientId={client.id}
+          ready={
+            Boolean((gsc?.config as { site_url?: string } | undefined)?.site_url) ||
+            Boolean((ga4?.config as { property_id?: string } | undefined)?.property_id)
+          }
+        />
       </div>
     </div>
   );
