@@ -369,6 +369,26 @@ export function ReportDocument({
           </Section>
         )}
 
+        {/* Audience — GA4 devices & countries */}
+        {ga4 && ((ga4.devices?.length ?? 0) > 0 || (ga4.countries?.length ?? 0) > 0) && (
+          <Section n={next()} title="Audience" subtitle="How visitors reach the site — by device and country" color={color}>
+            <div className="grid gap-6 lg:grid-cols-2">
+              {(ga4.devices?.length ?? 0) > 0 && (
+                <div>
+                  <p className="mb-2 text-xs font-medium text-ink-600">Devices</p>
+                  <DimTable rows={ga4.devices!} label="Device" format={titleCase} />
+                </div>
+              )}
+              {(ga4.countries?.length ?? 0) > 0 && (
+                <div>
+                  <p className="mb-2 text-xs font-medium text-ink-600">Top countries</p>
+                  <DimTable rows={ga4.countries!} label="Country" />
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
+
         {/* Key Wins (AI) */}
         {ins && ins.keyWins.length > 0 && (
           <Section n={next()} title="Key Wins" subtitle="What worked this period" color={color}>
@@ -520,7 +540,7 @@ function TrendChart({ title, data, dataKey, color }: { title: string; data: { da
   );
 }
 
-function DimTable({ rows, label }: { rows: { key: string; sessions: number; users: number }[]; label: string }) {
+function DimTable({ rows, label, format = (k) => k }: { rows: { key: string; sessions: number; users: number }[]; label: string; format?: (k: string) => string }) {
   return (
     <table className="w-full text-sm">
       <thead>
@@ -533,7 +553,7 @@ function DimTable({ rows, label }: { rows: { key: string; sessions: number; user
       <tbody>
         {rows.slice(0, 6).map((r) => (
           <tr key={r.key} className="border-t border-slate-100">
-            <td className="max-w-0 truncate py-2 pr-3 text-ink-800">{r.key}</td>
+            <td className="max-w-0 truncate py-2 pr-3 text-ink-800">{format(r.key)}</td>
             <td className="py-2 text-right text-ink-600">{fmt(r.sessions)}</td>
             <td className="py-2 text-right text-ink-600">{fmt(r.users)}</td>
           </tr>
@@ -542,3 +562,5 @@ function DimTable({ rows, label }: { rows: { key: string; sessions: number; user
     </table>
   );
 }
+
+const titleCase = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);

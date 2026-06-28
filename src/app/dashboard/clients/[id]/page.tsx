@@ -10,6 +10,7 @@ import { Ga4Connect, type Ga4Source } from "@/components/Ga4Connect";
 import { Ga4Analytics, type Ga4ReportData } from "@/components/Ga4Analytics";
 import { SAMPLE_GSC, SAMPLE_GA4 } from "@/lib/sampleData";
 import { GenerateReport } from "@/components/GenerateReport";
+import { ReportSchedule, type ScheduleData } from "@/components/ReportSchedule";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,12 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       .maybeSingle();
     snapshot = (snap?.data as GscReportData | undefined) ?? null;
   }
+
+  const { data: schedule } = await supabase
+    .from("report_schedules")
+    .select("frequency, recipients, enabled, next_run_at")
+    .eq("client_id", client.id)
+    .maybeSingle();
 
   let ga4Snapshot: Ga4ReportData | null = null;
   if (ga4?.id) {
@@ -131,6 +138,14 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
             Boolean((gsc?.config as { site_url?: string } | undefined)?.site_url) ||
             Boolean((ga4?.config as { property_id?: string } | undefined)?.property_id)
           }
+        />
+      </div>
+
+      <div className="mt-4">
+        <ReportSchedule
+          clientId={client.id}
+          clientEmail={(client.email as string | null) ?? null}
+          schedule={(schedule as unknown as ScheduleData) ?? null}
         />
       </div>
     </div>

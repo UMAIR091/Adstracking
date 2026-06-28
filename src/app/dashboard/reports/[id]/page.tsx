@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ReportDocument } from "@/components/ReportDocument";
 import { ReportActions } from "@/components/ReportActions";
 import { RegenerateInsights } from "@/components/RegenerateInsights";
+import { SendReport } from "@/components/SendReport";
 
 export const dynamic = "force-dynamic";
 
@@ -16,13 +17,15 @@ export default async function ReportViewPage({ params }: { params: { id: string 
   const supabase = createClient();
   const { data: report } = await supabase
     .from("reports")
-    .select("id, client_id, title, period_start, period_end, data, share_token, clients(name)")
+    .select("id, client_id, title, period_start, period_end, data, share_token, clients(name, email)")
     .eq("id", params.id)
     .maybeSingle();
   if (!report) notFound();
 
-  const c = report.clients as unknown as { name: string | null } | { name: string | null }[] | null;
-  const clientName = (Array.isArray(c) ? c[0]?.name : c?.name) ?? "Client";
+  const c = report.clients as unknown as { name: string | null; email: string | null } | { name: string | null; email: string | null }[] | null;
+  const clientRow = Array.isArray(c) ? c[0] : c;
+  const clientName = clientRow?.name ?? "Client";
+  const clientEmail = clientRow?.email ?? null;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const shareUrl = `${appUrl}/r/${report.share_token}`;
 
@@ -34,6 +37,7 @@ export default async function ReportViewPage({ params }: { params: { id: string 
         </Link>
         <div className="flex items-center gap-2">
           <RegenerateInsights reportId={report.id as string} />
+          <SendReport reportId={report.id as string} clientEmail={clientEmail} />
           <ReportActions shareUrl={shareUrl} />
         </div>
       </div>
