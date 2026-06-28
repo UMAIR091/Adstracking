@@ -19,7 +19,7 @@ export async function POST(req: Request) {
 
   const { data: ds } = await supabase
     .from("data_sources")
-    .select("id, agency_id, config, access_token, refresh_token, token_expires_at")
+    .select("id, agency_id, type, config, access_token, refresh_token, token_expires_at")
     .eq("id", dataSourceId)
     .maybeSingle();
   if (!ds) return NextResponse.json({ error: "Not found" }, { status: 404 });

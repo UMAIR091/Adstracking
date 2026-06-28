@@ -4,6 +4,8 @@ const OAUTH_AUTH = "https://accounts.google.com/o/oauth2/v2/auth";
 const OAUTH_TOKEN = "https://oauth2.googleapis.com/token";
 const USERINFO = "https://www.googleapis.com/oauth2/v2/userinfo";
 const GSC = "https://www.googleapis.com/webmasters/v3";
+const GA4_ADMIN = "https://analyticsadmin.googleapis.com/v1beta";
+const GA4_DATA = "https://analyticsdata.googleapis.com/v1beta";
 
 // Request Search Console now + Analytics (for Phase 6) so users connect once.
 const SCOPES = [
@@ -265,4 +267,169 @@ export async function fetchGscReportWithComparison(
   ]);
 
   return { ...report, previousTotals, movers };
+}
+
+// ─── Google Analytics 4 ──────────────────────────────────────────────────────
+// Mirrors the Search Console helpers above: pure HTTP, no DB access. Uses the
+// same OAuth tokens (the analytics.readonly scope is requested up front).
+
+export type Ga4Property = { id: string; name: string; account?: string };
+
+// Lists every GA4 property the authenticated user can access, via the Admin API.
+export async function listGa4Properties(accessToken: string): Promise<Ga4Property[]> {
+  const res = await fetch(`${GA4_ADMIN}/accountSummaries?pageSize=200`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error(`Listing GA4 properties failed: ${await res.text()}`);
+  const data = await res.json();
+  const out: Ga4Property[] = [];
+  for (const acc of data.accountSummaries ?? []) {
+    for (const p of acc.propertySummaries ?? []) {
+      const id = String(p.property ?? "").replace("properties/", "");
+      if (id) out.push({ id, name: p.displayName ?? id, account: acc.displayName });
+    }
+  }
+  return out;
+}
+
+export type Ga4Totals = {
+  users: number;
+  newUsers: number;
+  sessions: number;
+  engagedSessions: number;
+  engagementRate: number; // 0..1
+  avgEngagementTime: number; // seconds per user
+  views: number;
+  conversions: number;
+  totalRevenue: number;
+};
+export type Ga4Day = { date: string; users: number; sessions: number; views: number };
+export type Ga4Dim = { key: string; sessions: number; users: number };
+
+export type Ga4Report = {
+  totals: Ga4Totals;
+  byDate: Ga4Day[];
+  topLandingPages: Ga4Dim[];
+  trafficSources: Ga4Dim[];
+  devices: Ga4Dim[];
+  countries: Ga4Dim[];
+};
+export type Ga4ReportFull = Ga4Report & { previousTotals: Ga4Totals | null };
+
+type Ga4Row = { dimensionValues?: { value: string }[]; metricValues?: { value: string }[] };
+
+async function runGa4Report(accessToken: string, propertyId: string, body: object): Promise<{ rows?: Ga4Row[] }> {
+  const res = await fetch(`${GA4_DATA}/properties/${encodeURIComponent(propertyId)}:runReport`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`GA4 report failed: ${await res.text()}`);
+  return res.json();
+}
+
+// GA4 returns dates as "YYYYMMDD".
+function ga4Date(v: string): string {
+  return v.length === 8 ? `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6, 8)}` : v;
+}
+
+const TOTALS_METRICS = [
+  "totalUsers", "newUsers", "sessions", "engagedSessions", "engagementRate",
+  "userEngagementDuration", "screenPageViews", "conversions", "totalRevenue",
+];
+
+function parseGa4Totals(rows?: Ga4Row[]): Ga4Totals {
+  const m = (i: number) => Number(rows?.[0]?.metricValues?.[i]?.value ?? 0);
+  const users = m(0);
+  const engagementDuration = m(5);
+  return {
+    users,
+    newUsers: m(1),
+    sessions: m(2),
+    engagedSessions: m(3),
+    engagementRate: m(4),
+    avgEngagementTime: users > 0 ? engagementDuration / users : 0,
+    views: m(6),
+    conversions: m(7),
+    totalRevenue: m(8),
+  };
+}
+
+const dimRows = (rows?: Ga4Row[]): Ga4Dim[] =>
+  (rows ?? []).map((r) => ({
+    key: r.dimensionValues?.[0]?.value ?? "",
+    sessions: Number(r.metricValues?.[0]?.value ?? 0),
+    users: Number(r.metricValues?.[1]?.value ?? 0),
+  }));
+
+// Lightweight totals-only fetch — used for the previous-period comparison.
+async function fetchGa4Totals(accessToken: string, propertyId: string, startDate: string, endDate: string): Promise<Ga4Totals> {
+  const res = await runGa4Report(accessToken, propertyId, {
+    dateRanges: [{ startDate, endDate }],
+    metrics: TOTALS_METRICS.map((name) => ({ name })),
+  });
+  return parseGa4Totals(res.rows);
+}
+
+export async function fetchGa4Report(
+  accessToken: string,
+  propertyId: string,
+  startDate: string,
+  endDate: string
+): Promise<Ga4Report> {
+  const dateRanges = [{ startDate, endDate }];
+  const byMetrics = [{ name: "sessions" }, { name: "totalUsers" }];
+  const orderBySessions = [{ metric: { metricName: "sessions" }, desc: true }];
+
+  const [totalsRes, dateRes, landingRes, channelRes, deviceRes, countryRes] = await Promise.all([
+    runGa4Report(accessToken, propertyId, { dateRanges, metrics: TOTALS_METRICS.map((name) => ({ name })) }),
+    runGa4Report(accessToken, propertyId, {
+      dateRanges,
+      dimensions: [{ name: "date" }],
+      metrics: [{ name: "totalUsers" }, { name: "sessions" }, { name: "screenPageViews" }],
+      orderBys: [{ dimension: { dimensionName: "date" } }],
+      limit: 400,
+    }),
+    runGa4Report(accessToken, propertyId, { dateRanges, dimensions: [{ name: "landingPagePlusQueryString" }], metrics: byMetrics, orderBys: orderBySessions, limit: 10 }),
+    runGa4Report(accessToken, propertyId, { dateRanges, dimensions: [{ name: "sessionDefaultChannelGroup" }], metrics: byMetrics, orderBys: orderBySessions, limit: 10 }),
+    runGa4Report(accessToken, propertyId, { dateRanges, dimensions: [{ name: "deviceCategory" }], metrics: byMetrics, orderBys: orderBySessions, limit: 10 }),
+    runGa4Report(accessToken, propertyId, { dateRanges, dimensions: [{ name: "country" }], metrics: byMetrics, orderBys: orderBySessions, limit: 10 }),
+  ]);
+
+  const byDate: Ga4Day[] = (dateRes.rows ?? []).map((r) => ({
+    date: ga4Date(r.dimensionValues?.[0]?.value ?? ""),
+    users: Number(r.metricValues?.[0]?.value ?? 0),
+    sessions: Number(r.metricValues?.[1]?.value ?? 0),
+    views: Number(r.metricValues?.[2]?.value ?? 0),
+  }));
+
+  return {
+    totals: parseGa4Totals(totalsRes.rows),
+    byDate,
+    topLandingPages: dimRows(landingRes.rows),
+    trafficSources: dimRows(channelRes.rows),
+    devices: dimRows(deviceRes.rows),
+    countries: dimRows(countryRes.rows),
+  };
+}
+
+// Mirrors fetchGscReportWithComparison: the period plus the equal-length window
+// before it, so the cached snapshot carries period-over-period deltas. GA4 data
+// finalizes within ~24h, so windows end 1 day ago.
+export async function fetchGa4ReportWithComparison(
+  accessToken: string,
+  propertyId: string,
+  periodDays: number
+): Promise<Ga4ReportFull> {
+  const start = isoDaysAgo(periodDays + 1);
+  const end = isoDaysAgo(1);
+  const prevStart = isoDaysAgo(periodDays * 2 + 1);
+  const prevEnd = isoDaysAgo(periodDays + 2);
+
+  const [report, previousTotals] = await Promise.all([
+    fetchGa4Report(accessToken, propertyId, start, end),
+    fetchGa4Totals(accessToken, propertyId, prevStart, prevEnd).catch(() => null),
+  ]);
+
+  return { ...report, previousTotals };
 }

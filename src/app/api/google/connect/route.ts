@@ -14,15 +14,19 @@ export async function GET(req: Request) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.redirect(new URL("/login", req.url));
 
-  const clientId = new URL(req.url).searchParams.get("clientId");
+  const url = new URL(req.url);
+  const clientId = url.searchParams.get("clientId");
   if (!clientId) return NextResponse.json({ error: "clientId required" }, { status: 400 });
+
+  // Which connector this consent is for. Both use the same Google scopes.
+  const type = url.searchParams.get("type") === "ga4" ? "ga4" : "gsc";
 
   // Confirm the client belongs to this user (RLS).
   const { data: client } = await supabase.from("clients").select("id").eq("id", clientId).maybeSingle();
   if (!client) return NextResponse.json({ error: "Client not found" }, { status: 404 });
 
   const nonce = crypto.randomUUID();
-  const state = Buffer.from(JSON.stringify({ clientId, nonce })).toString("base64url");
+  const state = Buffer.from(JSON.stringify({ clientId, nonce, type })).toString("base64url");
 
   // CSRF: stash the nonce in an httpOnly cookie to verify on callback.
   cookies().set("g_oauth_nonce", nonce, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 600, path: "/" });

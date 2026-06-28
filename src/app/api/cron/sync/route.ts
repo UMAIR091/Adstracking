@@ -24,8 +24,8 @@ export async function GET(req: Request) {
   const admin = createAdminClient();
   const { data: sources, error } = await admin
     .from("data_sources")
-    .select("id, agency_id, config, access_token, refresh_token, token_expires_at")
-    .eq("type", "gsc");
+    .select("id, agency_id, type, config, access_token, refresh_token, token_expires_at")
+    .in("type", ["gsc", "ga4"]);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   let synced = 0;

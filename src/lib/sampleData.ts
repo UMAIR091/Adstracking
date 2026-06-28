@@ -1,4 +1,5 @@
 import type { GscReportData } from "@/components/GscAnalytics";
+import type { Ga4ReportData } from "@/components/Ga4Analytics";
 
 // Illustrative Search Console data shown as a placeholder before a client has a
 // real connection — so the dashboard and client pages never look empty.
@@ -49,5 +50,61 @@ export const SAMPLE_GSC: GscReportData = {
     { key: "Mobile", clicks: 6850, impressions: 132000, ctr: 0.052, position: 4.9 },
     { key: "Desktop", clicks: 4980, impressions: 92000, ctr: 0.054, position: 4.1 },
     { key: "Tablet", clicks: 620, impressions: 16000, ctr: 0.039, position: 6.2 },
+  ],
+};
+
+// Illustrative GA4 data shown as a placeholder before a client connects GA4.
+const ga4Days = Array.from({ length: 28 }, (_, i) => {
+  const d = new Date();
+  d.setDate(d.getDate() - (27 - i));
+  const users = Math.round(520 + 140 * Math.sin(i / 3) + i * 6);
+  return {
+    date: d.toISOString().slice(0, 10),
+    users,
+    sessions: Math.round(users * 1.35),
+    views: Math.round(users * 3.1),
+  };
+});
+
+export const SAMPLE_GA4: Ga4ReportData = {
+  totals: {
+    users: 18420,
+    newUsers: 12180,
+    sessions: 24880,
+    engagedSessions: 16410,
+    engagementRate: 0.659,
+    avgEngagementTime: 96,
+    views: 57200,
+    conversions: 642,
+    totalRevenue: 18940,
+  },
+  byDate: ga4Days,
+  topLandingPages: [
+    { key: "/", sessions: 6240, users: 5100 },
+    { key: "/services/seo", sessions: 3820, users: 3110 },
+    { key: "/pricing", sessions: 2960, users: 2480 },
+    { key: "/blog/local-seo-guide", sessions: 2140, users: 1890 },
+    { key: "/contact", sessions: 1320, users: 1180 },
+    { key: "/case-studies", sessions: 980, users: 870 },
+  ],
+  trafficSources: [
+    { key: "Organic Search", sessions: 11200, users: 8900 },
+    { key: "Direct", sessions: 6100, users: 5200 },
+    { key: "Referral", sessions: 3200, users: 2600 },
+    { key: "Organic Social", sessions: 2480, users: 2050 },
+    { key: "Paid Search", sessions: 1900, users: 1480 },
+  ],
+  devices: [
+    { key: "mobile", sessions: 14200, users: 10800 },
+    { key: "desktop", sessions: 9100, users: 6900 },
+    { key: "tablet", sessions: 1580, users: 1320 },
+  ],
+  countries: [
+    { key: "United States", sessions: 14800, users: 11100 },
+    { key: "United Kingdom", sessions: 3600, users: 2800 },
+    { key: "Canada", sessions: 2300, users: 1850 },
+    { key: "Australia", sessions: 1700, users: 1380 },
+    { key: "India", sessions: 1280, users: 1020 },
+    { key: "Germany", sessions: 900, users: 740 },
   ],
 };
