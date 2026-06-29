@@ -7,8 +7,13 @@ import { ReportDocument } from "@/components/ReportDocument";
 import { ReportActions } from "@/components/ReportActions";
 import { RegenerateInsights } from "@/components/RegenerateInsights";
 import { SendReport } from "@/components/SendReport";
+import { DownloadPdf } from "@/components/DownloadPdf";
 
 export const dynamic = "force-dynamic";
+
+function pdfSlug(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "report";
+}
 
 export default async function ReportViewPage({ params }: { params: { id: string } }) {
   const { user, agency } = await getCurrentUserAndAgency();
@@ -37,6 +42,7 @@ export default async function ReportViewPage({ params }: { params: { id: string 
         </Link>
         <div className="flex items-center gap-2">
           <RegenerateInsights reportId={report.id as string} />
+          <DownloadPdf href={`/api/reports/${report.id}/pdf`} filename={`${pdfSlug(report.title)}.pdf`} />
           <SendReport reportId={report.id as string} clientEmail={clientEmail} />
           <ReportActions shareUrl={shareUrl} />
         </div>

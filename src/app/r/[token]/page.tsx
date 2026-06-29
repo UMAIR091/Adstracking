@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ReportDocument } from "@/components/ReportDocument";
 import { ReportActions } from "@/components/ReportActions";
+import { DownloadPdf } from "@/components/DownloadPdf";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,8 @@ export default async function PublicReportPage({ params }: { params: { token: st
   return (
     <div className="min-h-screen bg-[#f6f7f9] py-8">
       <div className="mx-auto max-w-3xl px-4">
-        <div className="no-print mb-4 flex justify-end">
+        <div className="no-print mb-4 flex justify-end gap-2">
+          <DownloadPdf href={`/r/${params.token}/pdf`} filename="report.pdf" />
           <ReportActions shareUrl="" />
         </div>
         <ReportDocument
