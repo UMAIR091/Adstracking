@@ -12,10 +12,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div className="min-h-screen">
       <Sidebar agencyName={agency?.name ?? "My Agency"} userEmail={user.email ?? ""} />
       <div className="lg:pl-60">
-        <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-10">{children}</main>
+        <main className="animate-fade-in mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-10">{children}</main>
       </div>
       <CommandPalette />
-      <Toaster richColors position="top-right" />
+      <Toaster richColors position="top-right" toastOptions={{ style: { borderRadius: "12px" } }} />
     </div>
   );
 }
