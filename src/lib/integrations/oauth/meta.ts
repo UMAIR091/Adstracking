@@ -2,6 +2,7 @@
 // Meta issues long-lived (~60 day) user tokens and has no refresh token, so we
 // "refresh" by re-exchanging the still-valid long-lived token (fb_exchange_token)
 // and store the result as both access and refresh token.
+import crypto from "node:crypto";
 import type { OAuthProvider, TokenSet, IntegrationAccount } from "../types";
 
 const API_VERSION = process.env.META_API_VERSION || "v21.0";
@@ -16,9 +17,17 @@ function env(key: string): string {
   return v;
 }
 
+// HMAC of the access token with the app secret. Meta requires this on server-side
+// Graph calls when "Require App Secret proof" is enabled, and accepts it otherwise.
+function appSecretProof(accessToken: string): string {
+  return crypto.createHmac("sha256", env("META_APP_SECRET")).update(accessToken).digest("hex");
+}
+
 // GET against the Graph API with Meta's error envelope surfaced as a real error.
+// Calls that carry a user access token are automatically signed with appsecret_proof.
 async function graphGet<T = Record<string, unknown>>(path: string, params: Record<string, string>): Promise<T> {
-  const res = await fetch(`${GRAPH}${path}?${new URLSearchParams(params).toString()}`);
+  const signed = params.access_token ? { ...params, appsecret_proof: appSecretProof(params.access_token) } : params;
+  const res = await fetch(`${GRAPH}${path}?${new URLSearchParams(signed).toString()}`);
   const data = await res.json().catch(() => ({}));
   if (!res.ok || (data as { error?: { message?: string } }).error) {
     const msg = (data as { error?: { message?: string } }).error?.message ?? res.statusText;
@@ -55,7 +64,7 @@ export const metaOAuth: OAuthProvider = {
       client_secret: env("META_APP_SECRET"),
       fb_exchange_token: short.access_token,
     });
-    return { access_token: long.access_token, refresh_token: long.access_token, expires_in: long.expires_in ?? SIXTY_DAYS };
+    return { access_token: long.access_token, refresh_token: long.access_token, expires_in: long.expires_in || SIXTY_DAYS };
   },
 
   // Re-exchange a still-valid long-lived token for a fresh 60-day one.
@@ -66,7 +75,7 @@ export const metaOAuth: OAuthProvider = {
       client_secret: env("META_APP_SECRET"),
       fb_exchange_token: token,
     });
-    return { access_token: long.access_token, refresh_token: long.access_token, expires_in: long.expires_in ?? SIXTY_DAYS };
+    return { access_token: long.access_token, refresh_token: long.access_token, expires_in: long.expires_in || SIXTY_DAYS };
   },
 
   async identity(accessToken): Promise<string> {
