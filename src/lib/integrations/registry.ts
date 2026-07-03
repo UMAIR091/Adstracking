@@ -1,15 +1,16 @@
 // The integration registry — single source of truth that generic services and
 // UI read from. Adding a source = add a descriptor in providers.ts.
-import { gscDef, ga4Def, soonDefs } from "./providers";
+import { gscDef, ga4Def, metaAdsDef, soonDefs } from "./providers";
 import { googleOAuth } from "./oauth/google";
+import { metaOAuth } from "./oauth/meta";
 import type { IntegrationDef, OAuthProvider, IntegrationDescriptor } from "./types";
 
-const DEFS: IntegrationDef[] = [gscDef, ga4Def, ...soonDefs];
+const DEFS: IntegrationDef[] = [gscDef, ga4Def, metaAdsDef, ...soonDefs];
 
 const BY_ID: Record<string, IntegrationDef> = {};
 for (const d of DEFS) BY_ID[d.id] = d;
 
-const OAUTH: Record<string, OAuthProvider> = { google: googleOAuth };
+const OAUTH: Record<string, OAuthProvider> = { google: googleOAuth, meta: metaOAuth };
 
 export function listIntegrations(): IntegrationDef[] {
   return DEFS;

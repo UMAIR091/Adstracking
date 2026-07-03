@@ -15,6 +15,10 @@ import { liveIntegrations, descriptor } from "@/lib/integrations/registry";
 
 export const dynamic = "force-dynamic";
 
+// Providers that have a dedicated analytics visualization on this page. Others
+// (e.g. Meta Ads) are connectable + synced, with their dashboards to follow.
+const HAS_VIZ = new Set(["gsc", "ga4"]);
+
 // Provider-specific analytics view (the only part that isn't generic, since each
 // source visualizes different metrics). Everything else flows from the registry.
 function Analytics({ id, snapshot }: { id: string; snapshot: unknown }) {
@@ -134,7 +138,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       </div>
 
       {/* Performance — real cached metrics, or a sample placeholder until connected. */}
-      {integrations.map((i) => (
+      {integrations.filter((i) => HAS_VIZ.has(i.def.id)).map((i) => (
         <div key={i.def.id} className="mt-8">
           <h2 className="mb-3 text-sm font-medium text-ink-700">{i.def.name}</h2>
           <Analytics id={i.def.id} snapshot={i.snapshot} />

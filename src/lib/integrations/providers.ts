@@ -5,6 +5,7 @@
 import {
   listGscSites, fetchGscReportWithComparison, listGa4Properties, fetchGa4ReportWithComparison,
 } from "@/lib/google";
+import { listMetaAdAccounts, fetchMetaAdsReport } from "./oauth/meta";
 import type { IntegrationDef, IntegrationConfig, IntegrationAccount } from "./types";
 
 const arr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
@@ -62,10 +63,28 @@ function soon(
   };
 }
 
+export const metaAdsDef: IntegrationDef = {
+  id: "meta_ads",
+  name: "Meta Ads",
+  description: "Reach, spend, CPC & ROAS",
+  icon: "Facebook",
+  accent: "blue",
+  status: "live",
+  oauthProviderId: "meta",
+  connectPath: "/api/meta/connect",
+  accountNoun: "ad account",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  listAccounts: (at) => listMetaAdAccounts(at),
+  fetchSnapshot: (at, id, days) => fetchMetaAdsReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
 export const soonDefs: IntegrationDef[] = [
   soon("google_ads", "Google Ads", "Spend, clicks, conversions & ROAS", "Megaphone", "sky", "google", "/api/google/connect"),
   soon("gbp", "Google Business Profile", "Calls, directions, views & reviews", "MapPin", "rose", "google", "/api/google/connect"),
-  soon("meta_ads", "Meta Ads", "Reach, spend, CPC & ROAS", "Facebook", "blue"),
   soon("linkedin_ads", "LinkedIn Ads", "B2B reach, leads & spend", "Linkedin", "sky"),
   soon("microsoft_ads", "Microsoft Ads", "Bing search spend & conversions", "Search", "cyan"),
   soon("tiktok_ads", "TikTok Ads", "Views, spend & conversions", "Music", "fuchsia"),

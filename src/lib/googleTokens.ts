@@ -31,10 +31,12 @@ export async function getValidAccessToken(
   const refreshed = await refresh(decrypt(ds.refresh_token));
   const newExpiry = new Date(Date.now() + refreshed.expires_in * 1000).toISOString();
 
-  await supabase
-    .from("data_sources")
-    .update({ access_token: encrypt(refreshed.access_token), token_expires_at: newExpiry })
-    .eq("id", ds.id);
+  // Persist the new access token, its expiry, and — for providers that rotate
+  // the long-lived token on refresh (e.g. Meta) — the new refresh token.
+  const update: Record<string, string> = { access_token: encrypt(refreshed.access_token), token_expires_at: newExpiry };
+  if (refreshed.refresh_token) update.refresh_token = encrypt(refreshed.refresh_token);
+
+  await supabase.from("data_sources").update(update).eq("id", ds.id);
 
   return refreshed.access_token;
 }

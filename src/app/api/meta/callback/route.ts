@@ -2,7 +2,7 @@ import { handleCallback } from "@/lib/integrations/oauthFlow";
 
 export const runtime = "nodejs";
 
-// Google OAuth redirect target (registered in Google Cloud Console).
+// Meta OAuth redirect target (registered in the Meta app's Facebook Login settings).
 export async function GET(req: Request) {
   return handleCallback(req);
 }
