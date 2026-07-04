@@ -36,6 +36,8 @@ export type IntegrationDef = {
   accountNoun: string; // "property" | "site" | "account"
   accountConfigKey: string; // config key that stores the selected account id
   snapshotTable: string | null; // where synced data is cached
+  // What the integration reads and why — shown on the pre-OAuth consent screen.
+  dataAccess?: { item: string; why: string }[];
 
   // ── server-only behavior (omit on "soon" providers) ──
   // List the accounts the authenticated user can pick from.

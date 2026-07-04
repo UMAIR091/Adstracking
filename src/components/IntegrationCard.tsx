@@ -70,8 +70,10 @@ export function IntegrationCard({
             </div>
           </div>
           {descriptor.status === "live" && descriptor.connectPath ? (
+            /* Route through the consent screen so the user sees what data is
+               accessed and why before the provider's OAuth page. */
             <Button asChild>
-              <a href={`${descriptor.connectPath}?clientId=${clientId}&type=${descriptor.id}`}>Connect</a>
+              <a href={`/dashboard/connect/${descriptor.id}?clientId=${clientId}`}>Connect</a>
             </Button>
           ) : (
             <span className="rounded-full bg-ink-100 px-2.5 py-1 text-xs font-medium text-ink-500">Coming soon</span>
