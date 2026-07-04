@@ -88,4 +88,6 @@ export const soonDefs: IntegrationDef[] = [
   soon("linkedin_ads", "LinkedIn Ads", "B2B reach, leads & spend", "Linkedin", "sky"),
   soon("microsoft_ads", "Microsoft Ads", "Bing search spend & conversions", "Search", "cyan"),
   soon("tiktok_ads", "TikTok Ads", "Views, spend & conversions", "Music", "fuchsia"),
+  soon("x_twitter", "X (Twitter)", "Impressions, engagements & spend", "Twitter", "ink"),
+  soon("youtube", "YouTube", "Views, watch time & subscribers", "Youtube", "red"),
 ];

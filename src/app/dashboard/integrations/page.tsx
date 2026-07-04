@@ -1,26 +1,16 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Users, Search, BarChart3, Megaphone, MapPin, Facebook, Linkedin, Music, Plug } from "lucide-react";
+import { Users } from "lucide-react";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/EmptyState";
+import { DataSourceCard } from "@/components/DataSourceCard";
 import { listIntegrations, liveIntegrations } from "@/lib/integrations/registry";
 
 export const dynamic = "force-dynamic";
-
-const ICONS: Record<string, typeof Search> = { Search, BarChart3, Megaphone, MapPin, Facebook, Linkedin, Music };
-const TINTS: Record<string, string> = {
-  emerald: "bg-emerald-50 text-emerald-600",
-  amber: "bg-amber-50 text-amber-600",
-  sky: "bg-sky-50 text-sky-600",
-  rose: "bg-rose-50 text-rose-600",
-  blue: "bg-blue-50 text-blue-600",
-  cyan: "bg-cyan-50 text-cyan-600",
-  fuchsia: "bg-fuchsia-50 text-fuchsia-600",
-};
 
 export default async function IntegrationsPage() {
   const { user } = await getCurrentUserAndAgency();
@@ -39,6 +29,13 @@ export default async function IntegrationsPage() {
   const connectedCount = (typeId: string) =>
     list.filter((c) => ((c.data_sources as { type: string }[] | null) ?? []).some((d) => d.type === typeId)).length;
 
+  // Connecting a source happens on a client's page. Send single-client agencies
+  // straight there; otherwise to the client picker (or to create the first one).
+  const connectHref =
+    list.length === 0 ? "/dashboard/clients/new" : list.length === 1 ? `/dashboard/clients/${list[0].id}` : "/dashboard/clients";
+
+  const liveCount = integrations.filter((d) => d.status === "live").length;
+
   return (
     <div className="space-y-8">
       <div>
@@ -46,35 +43,28 @@ export default async function IntegrationsPage() {
         <p className="text-sm text-ink-500">Connect the data sources that power your client reports.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {integrations.map((def) => {
-          const Icon = ICONS[def.icon] ?? Plug;
-          const tint = TINTS[def.accent] ?? "bg-ink-100 text-ink-600";
-          const connected = def.status === "live" ? connectedCount(def.id) : 0;
-          return (
-            <Card key={def.id} className="transition-all hover:-translate-y-0.5 hover:shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${tint}`}>
-                    <Icon size={20} />
-                  </div>
-                  {def.status === "live" ? (
-                    <Badge variant="success" dot>Available</Badge>
-                  ) : (
-                    <Badge variant="muted">Coming soon</Badge>
-                  )}
-                </div>
-                <p className="mt-4 font-semibold text-ink-900">{def.name}</p>
-                <p className="mt-0.5 text-sm text-ink-500">{def.description}</p>
-                <p className="mt-3 text-xs text-ink-400">
-                  {def.status === "live"
-                    ? `Connected for ${connected} client${connected === 1 ? "" : "s"}`
-                    : "Available in an upcoming release"}
-                </p>
-              </CardContent>
-            </Card>
-          );
-        })}
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-medium text-ink-700">Data sources</h2>
+          <span className="text-xs text-ink-400">{liveCount} available · {integrations.length - liveCount} coming soon</span>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {integrations.map((def) => (
+            <DataSourceCard
+              key={def.id}
+              data={{
+                id: def.id,
+                name: def.name,
+                description: def.description,
+                icon: def.icon,
+                accent: def.accent,
+                status: def.status,
+                connectedCount: def.status === "live" ? connectedCount(def.id) : 0,
+                connectHref,
+              }}
+            />
+          ))}
+        </div>
       </div>
 
       <div>
