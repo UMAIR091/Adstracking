@@ -5,6 +5,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? COMPANY.website;
 
 const PUBLIC_PATHS = [
   "",
+  "/sample-report",
   "/about",
   "/contact",
   "/privacy",

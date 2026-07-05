@@ -29,7 +29,7 @@ export const FOOTER_LINKS: { heading: string; links: { label: string; href: stri
     links: [
       { label: "Features", href: "/#features" },
       { label: "Pricing", href: "/#pricing" },
-      { label: "Sample report", href: "/dashboard/reports/preview" },
+      { label: "Sample report", href: "/sample-report" },
       { label: "Sign in", href: "/login" },
     ],
   },
