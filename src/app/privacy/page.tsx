@@ -103,6 +103,9 @@ export default function PrivacyPage() {
           30 days.
         </li>
       </ul>
+      <p>
+        Step-by-step instructions are on our <Link href="/data-deletion">Data Deletion Request</Link> page.
+      </p>
 
       <h2>7. Sharing and subprocessors</h2>
       <p>

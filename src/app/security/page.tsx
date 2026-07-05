@@ -85,6 +85,7 @@ export default function SecurityPage() {
         </li>
         <li>Generated reports persist until you delete them.</li>
         <li>Full account deletion: email <a href={`mailto:${COMPANY.privacyEmail}`}>{COMPANY.privacyEmail}</a> — completed within 30 days.</li>
+        <li>Step-by-step instructions: <Link href="/data-deletion">Data Deletion Request</Link>.</li>
       </ul>
 
       <h2>Incident response</h2>

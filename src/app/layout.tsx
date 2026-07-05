@@ -1,10 +1,19 @@
 import type { Metadata, Viewport } from "next";
+import { COMPANY } from "@/lib/company";
 import "./globals.css";
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? COMPANY.website;
+
 export const metadata: Metadata = {
+  metadataBase: new URL(APP_URL),
   title: "ReportFlow — Beautiful white-label client reports on autopilot",
   description:
     "The fastest way for marketing agencies to send beautiful, white-label client reports. Flat pricing, unlimited clients, zero setup.",
+  openGraph: {
+    siteName: COMPANY.product,
+    type: "website",
+    url: APP_URL,
+  },
 };
 
 export const viewport: Viewport = {

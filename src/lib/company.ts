@@ -47,6 +47,7 @@ export const FOOTER_LINKS: { heading: string; links: { label: string; href: stri
       { label: "Terms of Service", href: "/terms" },
       { label: "Cookie Policy", href: "/cookies" },
       { label: "Data & Security", href: "/security" },
+      { label: "Data Deletion", href: "/data-deletion" },
     ],
   },
 ];
