@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Eye } from "lucide-react";
+import { ConnectStatusToast } from "@/components/ConnectStatusToast";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
@@ -99,6 +101,9 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
 
   return (
     <div>
+      <Suspense fallback={null}>
+        <ConnectStatusToast />
+      </Suspense>
       <Link href="/dashboard/clients" className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-700">
         <ArrowLeft size={15} /> Back to clients
       </Link>

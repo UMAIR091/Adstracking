@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { Plus } from "lucide-react";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { ClientsList, type ClientRow } from "@/components/ClientsList";
+import { ConnectStatusToast } from "@/components/ConnectStatusToast";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +22,9 @@ export default async function ClientsPage() {
 
   return (
     <div className="space-y-6">
+      <Suspense fallback={null}>
+        <ConnectStatusToast />
+      </Suspense>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Clients</h1>

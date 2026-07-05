@@ -29,7 +29,12 @@ export async function syncDataSource(
   }
 
   const accountId = def.readSelected(ds.config ?? {});
-  if (!accountId) return { ok: false, error: `No ${def.accountNoun} selected` };
+  if (!accountId) {
+    // Persist the reason so the UI can explain why nothing is syncing.
+    const error = `No ${def.accountNoun} selected`;
+    await supabase.from("data_sources").update({ last_sync_error: error }).eq("id", ds.id);
+    return { ok: false, error };
+  }
 
   try {
     const accessToken = await getValidAccessToken(supabase, ds);

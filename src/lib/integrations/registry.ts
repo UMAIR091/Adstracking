@@ -20,6 +20,15 @@ export function liveIntegrations(): IntegrationDef[] {
   return DEFS.filter((d) => d.status === "live");
 }
 
+// Types the background sync can process (live + fetchable + has a snapshot
+// table). The cron uses this so new integrations are synced automatically —
+// hard-coding type lists in routes is how Meta Ads got silently skipped.
+export function syncableTypes(): string[] {
+  return liveIntegrations()
+    .filter((d) => d.fetchSnapshot && d.snapshotTable)
+    .map((d) => d.id);
+}
+
 export function getIntegration(id: string | null | undefined): IntegrationDef | undefined {
   return id ? BY_ID[id] : undefined;
 }

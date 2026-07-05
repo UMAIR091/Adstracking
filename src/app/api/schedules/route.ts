@@ -19,14 +19,20 @@ export async function POST(req: Request) {
   }
 
   const recipients: string[] = Array.isArray(body?.recipients)
-    ? body.recipients.filter((e: unknown) => typeof e === "string" && (e as string).includes("@"))
+    ? body.recipients
+        .filter((e: unknown) => typeof e === "string" && (e as string).includes("@"))
+        .slice(0, 10) // sanity cap — schedules email a handful of stakeholders, not lists
     : [];
   const enabled = body?.enabled !== false;
   const templateKey = body?.templateKey || "seo";
-  const subject = body?.subject?.trim() || null;
-  const message = body?.message?.trim() || null;
-  const sendDay = Number.isFinite(body?.sendDay) ? Number(body.sendDay) : null;
-  const sendHour = Number.isFinite(body?.sendHour) ? Number(body.sendHour) : 8;
+  const subject = typeof body?.subject === "string" ? body.subject.trim().slice(0, 200) || null : null;
+  const message = typeof body?.message === "string" ? body.message.trim().slice(0, 2000) || null : null;
+  // Clamp to what nextRunAt understands: hour 0-23 UTC; day = weekday 0-6 for
+  // weekly, day-of-month 1-28 for monthly/quarterly.
+  const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.trunc(n)));
+  const dayRange: [number, number] = frequency === "weekly" ? [0, 6] : [1, 28];
+  const sendDay = Number.isFinite(body?.sendDay) ? clamp(Number(body.sendDay), dayRange[0], dayRange[1]) : null;
+  const sendHour = Number.isFinite(body?.sendHour) ? clamp(Number(body.sendHour), 0, 23) : 8;
 
   const supabase = createClient();
   const { data: client } = await supabase.from("clients").select("id").eq("id", clientId).maybeSingle();

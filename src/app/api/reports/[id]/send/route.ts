@@ -30,19 +30,23 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const client = Array.isArray(c) ? c[0] : c;
   const clientName = client?.name ?? "Client";
 
-  const fromBody: string[] = Array.isArray(body?.recipients) ? body.recipients.filter((e: unknown) => typeof e === "string" && (e as string).includes("@")) : [];
+  const fromBody: string[] = Array.isArray(body?.recipients)
+    ? body.recipients.filter((e: unknown) => typeof e === "string" && (e as string).includes("@")).slice(0, 10)
+    : [];
   const recipients = fromBody.length ? fromBody : client?.email ? [client.email] : [];
   if (recipients.length === 0) {
     return NextResponse.json({ error: "No recipient email. Add the client's email or pass recipients." }, { status: 400 });
   }
+  const subject = typeof body?.subject === "string" && body.subject.trim() ? body.subject.trim().slice(0, 200) : `${clientName} — your latest performance report`;
+  const message = typeof body?.message === "string" ? body.message.trim().slice(0, 2000) || null : null;
 
   const result = await deliverReport(supabase, {
     agencyId: agency.id,
     branding: { name: agency.name, brand_color: agency.brand_color, website: agency.website, footer_text: agency.footer_text, contact_email: agency.contact_email },
     clientName,
     recipients,
-    subject: body?.subject || `${clientName} — your latest performance report`,
-    message: body?.message,
+    subject,
+    message,
     report: { id: report.id, title: report.title, shareToken: report.share_token, data: report.data, period: { start: report.period_start as string, end: report.period_end as string } },
   });
 

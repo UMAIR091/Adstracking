@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClientReport } from "@/lib/reportGen";
+import { cronAuthorized } from "@/lib/cronAuth";
 import { deliverReport } from "@/lib/delivery";
 import { emailConfigured } from "@/lib/email";
 import { nextRunAt, isFrequency } from "@/lib/schedule";
@@ -9,20 +10,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-function authorized(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-  const key = new URL(req.url).searchParams.get("key");
-  return key === secret || req.headers.get("authorization") === `Bearer ${secret}`;
-}
-
 // Generates and emails reports (branded PDF attachments) for every due schedule.
 // Runs daily; each schedule advances its own next_run_at, so a daily cron honors
 // weekly/monthly/quarterly cadences with the chosen day + hour. Generation reads
 // cached snapshots (no live Google calls); delivery retries transient failures
 // and records Sent/Failed in the delivery history.
 export async function GET(req: Request) {
-  if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!cronAuthorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const admin = createAdminClient();
   const now = new Date();

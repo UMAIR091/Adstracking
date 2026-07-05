@@ -49,7 +49,12 @@ export async function handleCallback(req: Request): Promise<Response> {
   const { searchParams, origin } = new URL(req.url);
   const code = searchParams.get("code");
   const state = searchParams.get("state");
-  const fail = (msg: string) => NextResponse.redirect(`${origin}/dashboard/clients?connect_error=${encodeURIComponent(msg)}`);
+  const fail = (msg: string) => {
+    // Single-use nonce: clear on failure too, so a retried/replayed callback
+    // can't reuse it, and the next connect attempt starts clean.
+    cookies().set(NONCE_COOKIE, "", { maxAge: 0, path: "/" });
+    return NextResponse.redirect(`${origin}/dashboard/clients?connect_error=${encodeURIComponent(msg)}`);
+  };
 
   // Providers signal denial via error/error_description instead of a code.
   const providerError = searchParams.get("error_description") || searchParams.get("error");
