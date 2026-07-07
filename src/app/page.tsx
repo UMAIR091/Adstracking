@@ -12,12 +12,12 @@ import { SiteFooter } from "@/components/SiteFooter";
 export const metadata: Metadata = {
   title: "ReportFlow — White-label client reports on autopilot, written by AI",
   description:
-    "The client-reporting tool for marketing agencies. Connect Search Console, GA4 and Meta Ads, and send beautiful white-label reports with AI-written insights — flat price, unlimited clients, live in 5 minutes.",
+    "The client-reporting tool for marketing agencies. Connect Search Console, GA4 and Meta Ads, and send beautiful white-label reports with AI-written insights — every feature on every plan, from $19/mo, live in 5 minutes.",
   alternates: { canonical: "/" },
   openGraph: {
     title: "ReportFlow — White-label client reports on autopilot",
     description:
-      "Connect a client's marketing data and send agency-grade, AI-written reports under your brand. Flat price, unlimited clients.",
+      "Connect a client's marketing data and send agency-grade, AI-written reports under your brand. Every feature on every plan, from $19/mo.",
   },
 };
 
@@ -33,15 +33,15 @@ const navLinks = [
 const FAQS = [
   {
     q: "How is ReportFlow different from AgencyAnalytics or Whatagraph?",
-    a: "Three things. Flat pricing — unlimited clients, no per-client fees. AI-written insights on every report, not just charts. And setup measured in minutes: connect a source, pick an account, generate. We deliberately skip the 100-widget dashboard maze and do the reporting part exceptionally well.",
+    a: "Three things. Pricing that stays simple as you grow — every plan includes every feature, and 50 clients costs $99/mo instead of the ~$240+ per-client tools charge. AI-written insights on every report, not just charts. And setup measured in minutes: connect a source, pick an account, generate. We deliberately skip the 100-widget dashboard maze and do the reporting part exceptionally well.",
   },
   {
-    q: "Do you really not charge per client?",
-    a: "Correct. One flat price covers unlimited clients, unlimited reports, and every feature. Your 50th client costs the same as your 5th: nothing extra.",
+    q: "How does pricing work?",
+    a: "Every plan includes every feature — unlimited reports, AI insights, full white-label. The only difference is how many active clients you can report on: 5 ($19/mo), 15 ($49/mo), 50 ($99/mo), or unlimited ($129/mo). Annual billing saves 20%, and there are no per-client fees or feature gates.",
   },
   {
     q: "Which data sources are live today?",
-    a: "Google Search Console, Google Analytics 4, and Meta Ads (Facebook & Instagram) are live now. Google Ads, Google Business Profile, LinkedIn Ads, Microsoft Ads, TikTok Ads, X and YouTube are on the roadmap — and one flat price includes every integration as it ships.",
+    a: "Google Search Console, Google Analytics 4, and Meta Ads (Facebook & Instagram) are live now. Google Ads, Google Business Profile, LinkedIn Ads, Microsoft Ads, TikTok Ads, X and YouTube are on the roadmap — and every plan includes every integration as it ships.",
   },
   {
     q: "Is it actually white-label?",
@@ -75,8 +75,8 @@ const JSON_LD = {
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
       description:
-        "White-label client reporting for marketing agencies with AI-written insights. Flat price, unlimited clients.",
-      offers: { "@type": "Offer", price: "49", priceCurrency: "USD" },
+        "White-label client reporting for marketing agencies with AI-written insights. Every plan includes every feature; plans differ only by number of active clients.",
+      offers: { "@type": "Offer", price: "19", priceCurrency: "USD" },
     },
     {
       "@type": "FAQPage",
@@ -147,7 +147,7 @@ export default function LandingPage() {
             </Link>
           </div>
           <p className="mt-4 text-xs text-ink-400">
-            14-day free trial · Flat price, unlimited clients · Live in 5 minutes · Cancel anytime
+            14-day free trial · Every feature on every plan · Live in 5 minutes · Cancel anytime
           </p>
 
           {/* Hero product mock: report in a browser frame + floating proof chips */}
@@ -182,7 +182,7 @@ export default function LandingPage() {
         <div className="mx-auto grid max-w-5xl grid-cols-2 gap-6 px-5 py-8 text-center sm:grid-cols-4">
           {[
             { v: "5 min", l: "from signup to first report" },
-            { v: "∞", l: "clients on one flat price" },
+            { v: "$19/mo", l: "to start — every feature included" },
             { v: "3 live", l: "integrations, 7 more coming" },
             { v: "100%", l: "your brand, not ours" },
           ].map((s) => (
@@ -249,7 +249,7 @@ export default function LandingPage() {
           <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {[
               { icon: Clock, title: "Reclaim two days a month", text: "Stop rebuilding the same report every month. The data refreshes itself and the narrative writes itself — you just hit send (or don't even do that)." },
-              { icon: Users, title: "Grow without a pricing penalty", text: "Per-client fees punish you for winning business. ReportFlow is flat: your 50th client costs the same as your 5th." },
+              { icon: Users, title: "Grow without a pricing penalty", text: "Per-client fees punish you for winning business. ReportFlow keeps it simple: 50 clients costs $99/mo — not the $240+ per-client tools charge — with every feature included." },
               { icon: Sparkles, title: "Insights clients actually read", text: "Charts show what happened; your clients pay you to know why and what's next. Every report explains wins, risks and priorities in plain English." },
               { icon: Palette, title: "Look like you built it", text: "Your logo, colours, footer and sending domain on every report and email. Clients see a polished platform from your agency — we stay invisible." },
               { icon: CalendarClock, title: "Reports on autopilot", text: "Schedule weekly, monthly or quarterly delivery per client. ReportFlow generates, writes and emails it — with a branded PDF attached." },
@@ -437,7 +437,7 @@ export default function LandingPage() {
           <SectionHeading
             eyebrow="Integrations"
             title="Connect the platforms your clients live on"
-            subtitle="Search Console, GA4 and Meta Ads are live today. One flat price includes every integration as it ships."
+            subtitle="Search Console, GA4 and Meta Ads are live today. Every plan includes every integration as it ships."
           />
           <div className="mx-auto mt-14 grid max-w-4xl grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             {[
@@ -494,7 +494,7 @@ export default function LandingPage() {
             <tbody>
               <tr>
                 <th scope="row" className="border-b border-slate-100 p-4 text-left font-medium text-ink-700">Pricing model</th>
-                <td className="border-x border-brand-100 bg-brand-50/40 p-4 text-center font-semibold text-brand-700">$49 flat, unlimited clients</td>
+                <td className="border-x border-brand-100 bg-brand-50/40 p-4 text-center font-semibold text-brand-700">From $19/mo, every feature included</td>
                 <td className="border-b border-slate-100 p-4 text-center text-ink-500">Per client, per month</td>
                 <td className="border-b border-slate-100 p-4 text-center text-ink-500">From ~$249/mo</td>
               </tr>
@@ -600,49 +600,56 @@ export default function LandingPage() {
         <div className="mx-auto max-w-5xl px-5">
           <SectionHeading
             eyebrow="Pricing"
-            title="One flat price. Unlimited clients. Everything included."
-            subtitle="Less than one billable hour a month — for the tool that saves you days of them."
+            title="Every plan includes every feature."
+            subtitle="Upgrade only when you need more active clients. Save 20% with annual billing — and every plan starts with a 14-day free trial, no card required."
           />
-          <div className="mx-auto mt-14 grid max-w-3xl gap-6 sm:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200 bg-white p-7">
-              <p className="text-sm font-medium text-ink-500">Free trial</p>
-              <p className="mt-2 text-4xl font-semibold">$0</p>
-              <p className="mt-1 text-sm text-ink-400">14 days · no card required</p>
-              <Link href="/signup" className="mt-6 block rounded-lg border border-slate-200 px-5 py-3 text-center font-medium text-ink-700 transition hover:bg-slate-50">
-                Start free
-              </Link>
-              <ul className="mt-6 space-y-2.5 text-sm text-ink-600">
-                {["Full access to every feature", "Connect real clients & real data", "Generate AI-written reports", "No card, no commitment"].map((t) => (
-                  <li key={t} className="flex items-center gap-2"><Check size={15} className="shrink-0 text-brand-600" aria-hidden /> {t}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="relative rounded-2xl border-2 border-brand-500 bg-white p-7 shadow-lg shadow-brand-500/10">
-              <span className="absolute -top-3 left-7 rounded-full bg-brand-500 px-3 py-1 text-xs font-semibold text-white">Most popular</span>
-              <p className="text-sm font-medium text-ink-500">Agency</p>
-              <p className="mt-2 text-4xl font-semibold">
-                $49<span className="text-base font-normal text-ink-400">/mo</span>
-              </p>
-              <p className="mt-1 text-sm text-ink-400">Flat — or $39/mo billed annually</p>
-              <Link href="/signup" className="mt-6 block rounded-lg bg-brand-500 px-5 py-3 text-center font-medium text-white transition hover:bg-brand-600">
-                Start 14-day free trial
-              </Link>
-              <ul className="mt-6 space-y-2.5 text-sm text-ink-700">
-                {[
-                  "Unlimited clients & reports",
-                  "AI insights on every report",
-                  "Full white-label branding & sending domain",
-                  "Scheduled delivery with PDF attachments",
-                  "Every integration, as it launches",
-                  "Cancel anytime",
-                ].map((t) => (
-                  <li key={t} className="flex items-center gap-2"><Check size={15} className="shrink-0 text-brand-600" aria-hidden /> {t}</li>
-                ))}
-              </ul>
-            </div>
+          <div className="mx-auto mt-14 grid max-w-5xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
+            {(
+              [
+                { name: "Starter", price: 19, clients: "Up to 5 active clients" },
+                { name: "Pro", price: 49, clients: "Up to 15 active clients", featured: true },
+                { name: "Agency", price: 99, clients: "Up to 50 active clients" },
+                { name: "Enterprise", price: 129, clients: "Unlimited active clients" },
+              ] as { name: string; price: number; clients: string; featured?: boolean }[]
+            ).map((p) => (
+              <div
+                key={p.name}
+                className={`relative flex flex-col rounded-2xl bg-white p-6 ${
+                  p.featured ? "border-2 border-brand-500 shadow-lg shadow-brand-500/10" : "border border-slate-200"
+                }`}
+              >
+                {p.featured && (
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-brand-500 px-3 py-1 text-xs font-semibold text-white">
+                    Most Popular
+                  </span>
+                )}
+                <p className="text-sm font-medium text-ink-500">{p.name}</p>
+                <p className="mt-2 text-4xl font-semibold">
+                  ${p.price}<span className="text-base font-normal text-ink-400">/mo</span>
+                </p>
+                <p className="mt-1 text-xs text-ink-400">or ${Math.round(p.price * 0.8)}/mo billed annually</p>
+                <p className="mt-4 flex items-center gap-2 text-sm font-semibold text-ink-800">
+                  <Users size={15} className="shrink-0 text-brand-600" aria-hidden /> {p.clients}
+                </p>
+                <p className="mt-2 flex items-center gap-2 text-sm text-ink-600">
+                  <Check size={15} className="shrink-0 text-brand-600" aria-hidden /> Every feature included
+                </p>
+                <Link
+                  href="/signup"
+                  className={`mt-6 block rounded-lg px-5 py-3 text-center font-medium transition ${
+                    p.featured
+                      ? "bg-brand-500 text-white hover:bg-brand-600"
+                      : "border border-slate-200 text-ink-700 hover:bg-slate-50"
+                  }`}
+                >
+                  Start 14-day free trial
+                </Link>
+              </div>
+            ))}
           </div>
           <p className="mt-6 text-center text-sm text-ink-400">
-            AgencyAnalytics at 20 clients ≈ $240/mo. Whatagraph from ~$249/mo. ReportFlow: $49. Flat.
+            AgencyAnalytics at 20 clients ≈ $240/mo. Whatagraph from ~$249/mo. ReportFlow at 20 clients: $99/mo —
+            every feature included. <Link href="/pricing" className="font-medium text-brand-600 hover:underline">See full pricing →</Link>
           </p>
         </div>
       </section>
@@ -684,7 +691,7 @@ export default function LandingPage() {
               View a sample report
             </Link>
           </div>
-          <p className="mt-6 text-xs text-white/60">Flat price · Unlimited clients · Cancel anytime</p>
+          <p className="mt-6 text-xs text-white/60">Every feature on every plan · 14-day free trial · Cancel anytime</p>
         </div>
       </section>
 

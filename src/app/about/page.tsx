@@ -18,7 +18,7 @@ export default function AboutPage() {
         growing hurts) or take weeks to set up.
       </p>
       <p>
-        {COMPANY.product} takes the opposite approach: <strong>flat price, unlimited clients, zero setup</strong>.
+        {COMPANY.product} takes the opposite approach: <strong>every feature on every plan, simple pricing, zero setup</strong>.
         Connect a client&apos;s data sources once, and beautiful white-label reports — with AI-written executive
         summaries — go out on schedule, under your brand, from your domain. Your clients never see our name.
       </p>

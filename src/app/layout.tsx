@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
   title: "ReportFlow — Beautiful white-label client reports on autopilot",
   description:
-    "The fastest way for marketing agencies to send beautiful, white-label client reports. Flat pricing, unlimited clients, zero setup.",
+    "The fastest way for marketing agencies to send beautiful, white-label client reports. Every feature on every plan, zero setup.",
   openGraph: {
     siteName: COMPANY.product,
     type: "website",

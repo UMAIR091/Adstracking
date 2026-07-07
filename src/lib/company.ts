@@ -9,10 +9,10 @@ export const COMPANY = {
   legalName: "[Your Company Legal Name]",
   address: "[Registered business address]",
   jurisdiction: "[Your governing-law jurisdiction, e.g. Pakistan]",
-  supportEmail: "support@example.com",
-  privacyEmail: "privacy@example.com",
+  supportEmail: "admin@tryreportflow.com",
+  privacyEmail: "admin@tryreportflow.com",
   // ── live values ──
-  website: "https://adstracking-cyan.vercel.app",
+  website: "https://tryreportflow.com",
 };
 
 // Bump when any legal document materially changes.
@@ -28,7 +28,7 @@ export const FOOTER_LINKS: { heading: string; links: { label: string; href: stri
     heading: "Product",
     links: [
       { label: "Features", href: "/#features" },
-      { label: "Pricing", href: "/#pricing" },
+      { label: "Pricing", href: "/pricing" },
       { label: "Sample report", href: "/sample-report" },
       { label: "Sign in", href: "/login" },
     ],
@@ -45,6 +45,7 @@ export const FOOTER_LINKS: { heading: string; links: { label: string; href: stri
     links: [
       { label: "Privacy Policy", href: "/privacy" },
       { label: "Terms of Service", href: "/terms" },
+      { label: "Refund Policy", href: "/refund" },
       { label: "Cookie Policy", href: "/cookies" },
       { label: "Data & Security", href: "/security" },
       { label: "Data Deletion", href: "/data-deletion" },
