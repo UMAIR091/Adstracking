@@ -609,7 +609,7 @@ export default function LandingPage() {
                 { name: "Starter", price: 19, clients: "Up to 5 active clients" },
                 { name: "Pro", price: 49, clients: "Up to 15 active clients", featured: true },
                 { name: "Agency", price: 99, clients: "Up to 50 active clients" },
-                { name: "Enterprise", price: 129, clients: "Unlimited active clients" },
+                { name: "Enterprise", price: 149, clients: "Unlimited active clients" },
               ] as { name: string; price: number; clients: string; featured?: boolean }[]
             ).map((p) => (
               <div

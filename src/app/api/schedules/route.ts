@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAgency } from "@/lib/agency";
+import { requireActiveAccess } from "@/lib/billing/subscription";
 import { isFrequency, nextRunAt } from "@/lib/schedule";
 
 export const runtime = "nodejs";
@@ -35,6 +36,9 @@ export async function POST(req: Request) {
   const sendHour = Number.isFinite(body?.sendHour) ? clamp(Number(body.sendHour), 0, 23) : 8;
 
   const supabase = createClient();
+  const blocked = await requireActiveAccess(supabase, agency.id);
+  if (blocked) return NextResponse.json({ error: blocked.error }, { status: blocked.status });
+
   const { data: client } = await supabase.from("clients").select("id").eq("id", clientId).maybeSingle();
   if (!client) return NextResponse.json({ error: "Client not found" }, { status: 404 });
 

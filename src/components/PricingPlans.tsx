@@ -1,17 +1,17 @@
 "use client";
 
 // Public pricing plans with a monthly/annual billing toggle.
-// Marketing-only: every CTA routes to /signup; checkout plan selection
-// happens in the dashboard billing flow.
+// Every CTA goes through the Lemon Squeezy checkout flow: signed-in users
+// with a configured variant are sent straight to the hosted checkout;
+// everyone else lands on /signup with their plan choice preserved.
 
 import { useState } from "react";
-import Link from "next/link";
 import { Check, Sparkles, Zap, Rocket, Building2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const ANNUAL_DISCOUNT = 0.2;
 
-const PLANS = [
+export const PRICING_PLANS = [
   {
     id: "starter",
     name: "Starter",
@@ -41,7 +41,7 @@ const PLANS = [
     id: "enterprise",
     name: "Enterprise",
     icon: Building2,
-    monthly: 129,
+    monthly: 149,
     clients: "Unlimited active clients",
     blurb: "For large agencies with no ceiling in sight.",
   },
@@ -55,13 +55,37 @@ const IN_EVERY_PLAN = [
   "Full white-label branding",
 ];
 
-function annualMonthly(monthly: number): number {
+export function annualMonthly(monthly: number): number {
   return Math.round(monthly * (1 - ANNUAL_DISCOUNT));
 }
 
 export function PricingPlans() {
   const [interval, setInterval] = useState<"monthly" | "annual">("monthly");
+  const [busy, setBusy] = useState<string | null>(null);
   const annual = interval === "annual";
+
+  // Lemon Squeezy checkout flow. Signed-in users with a purchasable variant
+  // get the hosted checkout URL; anyone else (not signed in, or billing not
+  // configured yet) continues to signup with the chosen plan preserved, and
+  // completes checkout from the dashboard billing page.
+  async function startCheckout(planId: string) {
+    setBusy(planId);
+    try {
+      const res = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: planId, interval }),
+      });
+      const body = await res.json().catch(() => null);
+      if (res.ok && body?.url) {
+        window.location.href = body.url as string;
+        return;
+      }
+    } catch {
+      /* fall through to signup */
+    }
+    window.location.href = `/signup?plan=${planId}&interval=${interval}`;
+  }
 
   return (
     <div>
@@ -110,7 +134,7 @@ export function PricingPlans() {
 
       {/* Plan cards */}
       <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
-        {PLANS.map((plan) => {
+        {PRICING_PLANS.map((plan) => {
           const Icon = plan.icon;
           const featured = "featured" in plan && plan.featured;
           const price = annual ? annualMonthly(plan.monthly) : plan.monthly;
@@ -167,8 +191,15 @@ export function PricingPlans() {
                 {plan.clients}
               </p>
 
-              <Button asChild size="lg" variant={featured ? "default" : "outline"} className="mt-5 w-full">
-                <Link href="/signup">Start 14-Day Free Trial</Link>
+              <Button
+                size="lg"
+                variant={featured ? "default" : "outline"}
+                className="mt-5 w-full"
+                disabled={busy !== null}
+                onClick={() => startCheckout(plan.id)}
+                aria-label={`Start your 14-day free trial on the ${plan.name} plan`}
+              >
+                {busy === plan.id ? "Opening checkout…" : "Start 14-Day Free Trial"}
               </Button>
 
               <ul className="mt-5 space-y-2 border-t border-ink-100 pt-5">

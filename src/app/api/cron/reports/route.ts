@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getSubscriptionState } from "@/lib/billing/subscription";
 import { createClientReport } from "@/lib/reportGen";
 import { cronAuthorized } from "@/lib/cronAuth";
 import { deliverReport } from "@/lib/delivery";
@@ -30,12 +31,26 @@ export async function GET(req: Request) {
   let processed = 0;
   let sent = 0;
   let failed = 0;
+  let skipped = 0;
+  // Access is per agency — cache lookups so 10 schedules ≠ 10 queries.
+  const accessCache = new Map<string, boolean>();
 
   for (const sched of due ?? []) {
     processed++;
     const freq = isFrequency(sched.frequency) ? sched.frequency : "monthly";
 
-    const gen = await createClientReport(admin, sched.agency_id, sched.client_id, { templateKey: sched.template_key });
+    // Skip agencies without an active subscription or trial (expired card,
+    // ended trial). The schedule still advances below so it doesn't pile up;
+    // deliveries resume on the next cadence after they re-subscribe.
+    let allowed = accessCache.get(sched.agency_id);
+    if (allowed === undefined) {
+      allowed = (await getSubscriptionState(admin, sched.agency_id)).hasAccess;
+      accessCache.set(sched.agency_id, allowed);
+    }
+
+    const gen = allowed
+      ? await createClientReport(admin, sched.agency_id, sched.client_id, { templateKey: sched.template_key })
+      : ({ ok: false as const, error: "subscription inactive", status: 402 } as const);
 
     // Advance regardless, so a failing source doesn't retry every day.
     await admin
@@ -44,7 +59,8 @@ export async function GET(req: Request) {
       .eq("id", sched.id);
 
     if (!gen.ok) {
-      failed++;
+      if (allowed) failed++;
+      else skipped++;
       continue;
     }
     if (!emailConfigured()) continue;
@@ -78,5 +94,5 @@ export async function GET(req: Request) {
     else failed++;
   }
 
-  return NextResponse.json({ ok: true, processed, sent, failed });
+  return NextResponse.json({ ok: true, processed, sent, failed, skipped });
 }

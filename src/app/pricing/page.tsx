@@ -1,36 +1,208 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Check, TrendingUp } from "lucide-react";
+import {
+  BadgeCheck,
+  Check,
+  CreditCard,
+  EyeOff,
+  Lock,
+  ShieldCheck,
+  TrendingUp,
+} from "lucide-react";
 import { Brand } from "@/components/Brand";
 import { SiteFooter } from "@/components/SiteFooter";
 import { PricingPlans } from "@/components/PricingPlans";
 import { Button } from "@/components/ui/button";
 import { COMPANY } from "@/lib/company";
 
+const PAGE_TITLE = `Pricing — ${COMPANY.product}`;
+const PAGE_DESCRIPTION =
+  "Simple, transparent pricing for white-label client reporting. Every plan includes every feature — upgrade only when you need more active clients. Start with a 14-day free trial, no card required.";
+
 export const metadata: Metadata = {
-  title: `Pricing — ${COMPANY.product}`,
-  description:
-    "Simple, transparent pricing for white-label client reporting. Every plan includes every feature — upgrade only when you need more active clients. Start with a 14-day free trial, no card required.",
+  title: PAGE_TITLE,
+  description: PAGE_DESCRIPTION,
+  alternates: { canonical: `${COMPANY.website}/pricing` },
+  openGraph: {
+    title: PAGE_TITLE,
+    description: PAGE_DESCRIPTION,
+    url: `${COMPANY.website}/pricing`,
+    siteName: COMPANY.product,
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: PAGE_TITLE,
+    description: PAGE_DESCRIPTION,
+  },
 };
 
-const INCLUDED = [
-  "Unlimited reports & scheduled deliveries",
-  "Google Search Console, GA4 & Meta Ads connectors",
-  "AI-written executive summaries, insights & recommendations",
-  "White-label branded reports (your logo, colours, domain)",
-  "Branded PDF export & shareable report links",
-  "Automated weekly / monthly / quarterly email delivery",
-  "Every future integration, included as it ships",
-  "Email support",
+// ── Plans (display copy; prices must match PricingPlans.tsx) ──
+
+type PlanColumn = { name: string; monthly: number; clients: string; featured?: boolean };
+const PLAN_COLUMNS: readonly PlanColumn[] = [
+  { name: "Starter", monthly: 19, clients: "5" },
+  { name: "Pro", monthly: 49, clients: "15", featured: true },
+  { name: "Agency", monthly: 99, clients: "50" },
+  { name: "Enterprise", monthly: 149, clients: "Unlimited" },
 ];
+
+// ── Feature comparison table. Identical everywhere on purpose:
+//    the client limit is the only row that changes. ──
+
+type FeatureRow = { label: string; values?: readonly string[] };
+const FEATURE_GROUPS: { heading: string; rows: FeatureRow[] }[] = [
+  {
+    heading: "Usage",
+    rows: [
+      { label: "Active clients", values: ["5", "15", "50", "Unlimited"] },
+      { label: "Reports per month", values: ["Unlimited", "Unlimited", "Unlimited", "Unlimited"] },
+      { label: "Scheduled report deliveries", values: ["Unlimited", "Unlimited", "Unlimited", "Unlimited"] },
+      { label: "Report history & archive" },
+    ],
+  },
+  {
+    heading: "Integrations",
+    rows: [
+      { label: "Google Search Console" },
+      { label: "Google Analytics 4" },
+      { label: "Meta Ads" },
+      { label: "Every future integration, as it ships" },
+    ],
+  },
+  {
+    heading: "AI reporting",
+    rows: [
+      { label: "AI-written executive summaries" },
+      { label: "AI insights & recommendations" },
+      { label: "One-click insight regeneration" },
+    ],
+  },
+  {
+    heading: "White-label & delivery",
+    rows: [
+      { label: "Your logo & brand colours on every report" },
+      { label: "Branded PDF export" },
+      { label: "Shareable client report links" },
+      { label: "Automated weekly / monthly / quarterly email delivery" },
+    ],
+  },
+  {
+    heading: "Billing & support",
+    rows: [
+      { label: "14-day free trial, no card required" },
+      { label: "Email support" },
+      { label: "Cancel anytime" },
+    ],
+  },
+];
+
+// Values marked "Unlimited" render as text; undefined renders a check —
+// which is the point: every feature row is a check in every column.
+
+// ── FAQs (rendered on-page and mirrored into FAQPage JSON-LD) ──
+
+const FAQS: { q: string; a: string }[] = [
+  {
+    q: "How does the 14-day free trial work?",
+    a: "Every plan starts with 14 days of full access — every feature, no card required. Add a payment method only when you decide to continue. If you do nothing, the trial simply ends; you're never charged automatically.",
+  },
+  {
+    q: "What counts as an active client?",
+    a: "An active client is a client you're currently set up to report on in your workspace. Only that number differs between plans — the features never do.",
+  },
+  {
+    q: "What happens when I reach my active client limit?",
+    a: "Nothing breaks. Your existing clients and reports keep working; to add more active clients, upgrade to the next plan. You can also archive a client you no longer report on to free up a slot.",
+  },
+  {
+    q: "Do all plans really include every feature?",
+    a: "Yes. Starter gets the same AI insights, white-label branding, scheduling, PDF export and integrations as Enterprise. You upgrade for more active clients — nothing else.",
+  },
+  {
+    q: "How do upgrades work?",
+    a: "Upgrade anytime from your billing settings. The change takes effect immediately and the payment provider prorates the difference, so you only pay for what you use.",
+  },
+  {
+    q: "How do downgrades work?",
+    a: "Downgrade anytime from your billing settings. If your active client count is above the new plan's limit, archive clients until you're within it — your data and report history are never deleted.",
+  },
+  {
+    q: "Can I cancel anytime?",
+    a: "Yes. Cancel from your billing settings in a couple of clicks — no emails, no phone calls. You keep full access until the end of the period you've already paid for, and you won't be charged again.",
+  },
+  {
+    q: "Do you offer refunds?",
+    a: "Because every plan starts with a free trial, we encourage you to test everything before paying. For billing mistakes or exceptional cases, see our Refund & Cancellation Policy — we handle requests case by case and aim to be fair.",
+  },
+  {
+    q: "How does annual billing work?",
+    a: "Pay for a year upfront and save 20% on any plan. You can switch between monthly and annual billing from your billing settings at any time.",
+  },
+  {
+    q: "What payment methods do you accept?",
+    a: "Payments are processed securely by Lemon Squeezy, our merchant of record. Major credit and debit cards (Visa, Mastercard, American Express, Discover) and PayPal are accepted, and any applicable sales tax or VAT is handled for you.",
+  },
+  {
+    q: "What currency are prices in?",
+    a: "All prices are in USD. Local taxes such as VAT or sales tax are calculated at checkout by the payment provider where applicable.",
+  },
+];
+
+// ── Structured data for SEO ──
+
+function jsonLd() {
+  const offers = PLAN_COLUMNS.map((p) => ({
+    "@type": "Offer",
+    name: `${p.name} plan`,
+    price: String(p.monthly),
+    priceCurrency: "USD",
+    description: `${p.clients === "Unlimited" ? "Unlimited" : `Up to ${p.clients}`} active clients — every feature included.`,
+    url: `${COMPANY.website}/pricing`,
+  }));
+  return [
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      name: COMPANY.product,
+      description: COMPANY.tagline,
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      url: COMPANY.website,
+      offers: {
+        "@type": "AggregateOffer",
+        priceCurrency: "USD",
+        lowPrice: "19",
+        highPrice: "149",
+        offerCount: String(PLAN_COLUMNS.length),
+        offers,
+      },
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: FAQS.map((f) => ({
+        "@type": "Question",
+        name: f.q,
+        acceptedAnswer: { "@type": "Answer", text: f.a },
+      })),
+    },
+  ];
+}
 
 export default function PricingPage() {
   return (
     <div className="flex min-h-screen flex-col bg-white">
+      <script
+        type="application/ld+json"
+        // Structured data is static, server-rendered content — safe to inline.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd()) }}
+      />
+
       <header className="border-b border-slate-100">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
           <Link href="/" aria-label={`${COMPANY.product} home`}><Brand /></Link>
-          <nav className="flex items-center gap-5 text-sm text-ink-500">
+          <nav className="flex items-center gap-5 text-sm text-ink-500" aria-label="Main">
             <Link href="/contact" className="hover:text-ink-800">Support</Link>
             <Link href="/login" className="hover:text-ink-800">Sign in</Link>
             <Button asChild size="sm"><Link href="/signup">Start free</Link></Button>
@@ -38,93 +210,311 @@ export default function PricingPage() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-14 sm:py-20">
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-sm font-semibold text-brand-600">Pricing</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink-900 sm:text-4xl">
-            Every plan includes every feature.
-            <span className="block text-ink-500 sm:mt-1">Upgrade only when you need more active clients.</span>
-          </h1>
-          <p className="mt-4 text-lg text-ink-500">
-            No feature gates, no per-client fees, no surprises. Pick the plan that fits your roster today — change it
-            anytime as you grow.
-          </p>
-        </div>
-
-        <div className="mt-10 sm:mt-12">
-          <PricingPlans />
-        </div>
-
-        {/* The one shared feature list — identical across all plans. */}
-        <div className="mx-auto mt-14 max-w-3xl rounded-2xl border border-ink-200 bg-surface-subtle p-6 sm:p-8">
-          <p className="text-sm font-semibold text-ink-900">Everything, in every plan</p>
-          <p className="mt-1 text-sm text-ink-500">
-            From Starter to Enterprise, the feature set is identical. The only thing that changes is how many active
-            clients you can report on.
-          </p>
-          <ul className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2.5 sm:grid-cols-2">
-            {INCLUDED.map((f) => (
-              <li key={f} className="flex items-start gap-2 text-sm text-ink-600">
-                <Check size={16} className="mt-0.5 flex-shrink-0 text-brand-500" />
-                <span>{f}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Competitor comparison note */}
-        <div className="mx-auto mt-8 flex max-w-3xl flex-col gap-4 rounded-2xl border border-brand-100 bg-brand-50/40 p-6 sm:flex-row sm:items-start sm:p-8">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500 text-white">
-            <TrendingUp size={19} aria-hidden />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-ink-900">Why growing agencies switch to ReportFlow</p>
-            <p className="mt-1.5 text-sm leading-relaxed text-ink-600">
-              Per-client tools raise your bill every time you win a client: at 20 clients, AgencyAnalytics runs
-              ≈ $240/mo and Whatagraph starts around $249/mo. On ReportFlow, 20 clients is the $99 Agency plan —
-              with every feature included. Simple, transparent pricing that doesn&apos;t punish you for growing.
-            </p>
-            <p className="mt-2 text-xs text-ink-400">
-              Competitor pricing reflects public rates at time of writing and may change.
+      <main className="w-full flex-1">
+        {/* ── Hero ── */}
+        <section className="mx-auto max-w-6xl px-5 pt-14 sm:pt-20">
+          <div className="mx-auto max-w-3xl text-center">
+            <p className="text-sm font-semibold text-brand-600">Pricing</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink-900 sm:text-4xl">
+              Every plan includes every feature.
+              <span className="block text-ink-500 sm:mt-1">Upgrade only when you need more active clients.</span>
+            </h1>
+            <p className="mt-4 text-lg text-ink-500">
+              No feature gates, no per-client fees, no surprises. Pick the plan that fits your roster today — change it
+              anytime as you grow.
             </p>
           </div>
-        </div>
 
-        {/* Billing details — clear terms for a subscription product. */}
-        <div className="mx-auto mt-14 max-w-3xl">
-          <h2 className="text-lg font-semibold text-ink-900">Billing & cancellation</h2>
-          <dl className="mt-4 space-y-4">
-            {[
-              { q: "How does the free trial work?", a: "You get 14 days of full access with no card required. Add a card only when you decide to continue." },
-              { q: "What counts as an active client?", a: "An active client is a client you're currently set up to report on in your workspace. Only that number differs between plans — the features never do." },
-              { q: "Do all plans really include every feature?", a: "Yes. Starter gets the same AI insights, white-label branding, scheduling, and integrations as Enterprise. You upgrade for more active clients, nothing else." },
-              { q: "Can I change plans later?", a: "Yes. Upgrade or downgrade anytime from your billing settings — as your client roster grows or shrinks, your plan can follow." },
-              { q: "How does annual billing work?", a: "Pay for a year upfront and save 20% on any plan. You can switch between monthly and annual billing from your billing settings." },
-              { q: "Can I cancel anytime?", a: "Yes. Cancel from your billing settings at any time and you won't be charged again. You keep access until the end of the current billing period." },
-              { q: "Do you offer refunds?", a: <>See our <Link href="/refund" className="font-medium text-brand-600 hover:underline">Refund &amp; Cancellation Policy</Link> for full details.</> },
-              { q: "Which currencies and taxes?", a: "Prices are in USD. Payments and any applicable sales tax / VAT are handled securely by our payment provider, who acts as merchant of record." },
-            ].map((item) => (
-              <div key={item.q}>
-                <dt className="text-sm font-medium text-ink-800">{item.q}</dt>
-                <dd className="mt-1 text-sm leading-relaxed text-ink-500">{item.a}</dd>
+          <div className="mt-10 sm:mt-12">
+            <PricingPlans />
+          </div>
+        </section>
+
+        {/* ── Feature comparison table ── */}
+        <section aria-labelledby="compare-heading" className="mx-auto max-w-6xl px-5 py-16 sm:py-20">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 id="compare-heading" className="text-2xl font-semibold tracking-tight text-ink-900 sm:text-3xl">
+              Compare plans, feature by feature
+            </h2>
+            <p className="mt-3 text-ink-500">
+              Spoiler: the rows are identical. The only thing that changes is the number of active clients.
+            </p>
+          </div>
+
+          <div className="mt-10 overflow-x-auto">
+            <table className="w-full min-w-[720px] border-separate border-spacing-0 text-sm">
+              <caption className="sr-only">
+                Feature comparison across the Starter, Pro, Agency and Enterprise plans. All features are identical;
+                only the active client limit differs.
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col" className="w-[32%] p-4 text-left font-medium text-ink-500">Features</th>
+                  {PLAN_COLUMNS.map((p) => (
+                    <th
+                      key={p.name}
+                      scope="col"
+                      className={`p-4 text-center ${
+                        p.featured ? "rounded-t-xl bg-brand-500 text-white" : "text-ink-700"
+                      }`}
+                    >
+                      <span className="block font-semibold">{p.name}</span>
+                      <span className={`mt-0.5 block text-xs font-normal ${p.featured ? "text-brand-100" : "text-ink-400"}`}>
+                        ${p.monthly}/mo
+                      </span>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {FEATURE_GROUPS.map((group) => (
+                  <FeatureGroupRows key={group.heading} group={group} />
+                ))}
+                <tr>
+                  <td className="p-4" />
+                  {PLAN_COLUMNS.map((p) => (
+                    <td key={p.name} className={`p-4 text-center ${p.featured ? "rounded-b-xl border-x border-b border-brand-100 bg-brand-50/40" : ""}`}>
+                      <Button asChild size="sm" variant={p.featured ? "default" : "outline"}>
+                        <Link href="/signup" aria-label={`Start a free trial on the ${p.name} plan`}>Start free trial</Link>
+                      </Button>
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-4 text-center text-xs text-ink-400">
+            Every plan starts with a 14-day free trial — no card required.
+          </p>
+        </section>
+
+        {/* ── Transparent pricing vs competitors ── */}
+        <section aria-labelledby="transparent-heading" className="bg-slate-50/60 py-16 sm:py-20">
+          <div className="mx-auto max-w-6xl px-5">
+            <div className="mx-auto max-w-2xl text-center">
+              <p className="text-sm font-semibold text-brand-600">Transparent by design</p>
+              <h2 id="transparent-heading" className="mt-2 text-2xl font-semibold tracking-tight text-ink-900 sm:text-3xl">
+                Flat pricing that doesn&apos;t punish you for growing
+              </h2>
+              <p className="mt-3 text-ink-500">
+                Most reporting tools charge per client or per report, so your bill climbs every time you win business.
+                ReportFlow is a flat monthly price — win as many clients as your plan holds, pay the same.
+              </p>
+            </div>
+
+            <div className="mx-auto mt-10 grid max-w-4xl gap-5 sm:grid-cols-3">
+              {[
+                {
+                  name: "Per-client tools",
+                  example: "AgencyAnalytics",
+                  price: "≈ $240/mo",
+                  detail: "at 20 clients — and the bill grows with every client you add.",
+                  highlight: false,
+                },
+                {
+                  name: "ReportFlow",
+                  example: "Agency plan",
+                  price: "$99/mo",
+                  detail: "flat, for up to 50 active clients — every feature included.",
+                  highlight: true,
+                },
+                {
+                  name: "Per-report platforms",
+                  example: "Whatagraph",
+                  price: "from ~$249/mo",
+                  detail: "with feature tiers and annual contracts to negotiate.",
+                  highlight: false,
+                },
+              ].map((c) => (
+                <div
+                  key={c.name}
+                  className={`flex flex-col rounded-2xl p-6 text-center ${
+                    c.highlight
+                      ? "border-2 border-brand-500 bg-white shadow-lg shadow-brand-500/10"
+                      : "border border-slate-200 bg-white"
+                  }`}
+                >
+                  <p className={`text-sm font-semibold ${c.highlight ? "text-brand-600" : "text-ink-500"}`}>{c.name}</p>
+                  <p className="mt-0.5 text-xs text-ink-400">{c.example}</p>
+                  <p className={`mt-3 text-3xl font-semibold tracking-tight ${c.highlight ? "text-brand-600" : "text-ink-900"}`}>
+                    {c.price}
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-ink-500">{c.detail}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mx-auto mt-8 flex max-w-3xl flex-col gap-4 rounded-2xl border border-brand-100 bg-brand-50/40 p-6 sm:flex-row sm:items-start sm:p-8">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500 text-white">
+                <TrendingUp size={19} aria-hidden />
               </div>
+              <div>
+                <p className="text-sm font-semibold text-ink-900">The math at 20 clients</p>
+                <p className="mt-1.5 text-sm leading-relaxed text-ink-600">
+                  Per-client tools raise your bill every time you win a client: at 20 clients, AgencyAnalytics runs
+                  ≈ $240/mo and Whatagraph starts around $249/mo. On ReportFlow, 20 clients is the $99 Agency plan —
+                  with every feature included. That&apos;s money back in your margin, every month.
+                </p>
+                <p className="mt-2 text-xs text-ink-400">
+                  Competitor pricing reflects public rates at time of writing and may change.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── FAQs ── */}
+        <section aria-labelledby="faq-heading" className="mx-auto max-w-3xl px-5 py-16 sm:py-20">
+          <div className="text-center">
+            <p className="text-sm font-semibold text-brand-600">FAQ</p>
+            <h2 id="faq-heading" className="mt-2 text-2xl font-semibold tracking-tight text-ink-900 sm:text-3xl">
+              Billing questions, answered
+            </h2>
+          </div>
+          <div className="mt-8 divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white px-6">
+            {FAQS.map((item) => (
+              <details key={item.q} className="group py-4">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-medium text-ink-800 [&::-webkit-details-marker]:hidden">
+                  {item.q}
+                  <span
+                    aria-hidden
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-muted text-ink-500 transition-transform duration-150 group-open:rotate-45"
+                  >
+                    +
+                  </span>
+                </summary>
+                <p className="mt-2 pr-10 text-sm leading-relaxed text-ink-500">
+                  {item.q === "Do you offer refunds?" ? (
+                    <>
+                      Because every plan starts with a free trial, we encourage you to test everything before paying.
+                      For billing mistakes or exceptional cases, see our{" "}
+                      <Link href="/refund" className="font-medium text-brand-600 hover:underline">
+                        Refund &amp; Cancellation Policy
+                      </Link>{" "}
+                      — we handle requests case by case and aim to be fair.
+                    </>
+                  ) : (
+                    item.a
+                  )}
+                </p>
+              </details>
             ))}
-          </dl>
-          <p className="mt-6 text-sm text-ink-400">
+          </div>
+          <p className="mt-6 text-center text-sm text-ink-400">
             By subscribing you agree to our{" "}
             <Link href="/terms" className="font-medium text-brand-600 hover:underline">Terms of Service</Link>,{" "}
             <Link href="/refund" className="font-medium text-brand-600 hover:underline">Refund Policy</Link>, and{" "}
             <Link href="/privacy" className="font-medium text-brand-600 hover:underline">Privacy Policy</Link>.
           </p>
-        </div>
+        </section>
 
-        <div className="mt-14 text-center">
-          <Button asChild size="lg"><Link href="/signup">Start Your 14-Day Free Trial</Link></Button>
-          <p className="mt-2 text-sm text-ink-400">No card required · Every feature on every plan · Cancel anytime</p>
-        </div>
+        {/* ── Trust, security & payments ── */}
+        <section aria-label="Trust, security and accepted payment methods" className="mx-auto max-w-6xl px-5 pb-16 sm:pb-20">
+          <div className="rounded-3xl border border-slate-200 bg-white p-8 sm:p-12">
+            <div className="mx-auto max-w-2xl text-center">
+              <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600">
+                <ShieldCheck size={16} aria-hidden /> Trust &amp; security
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-ink-900">
+                Pay safely. Sleep soundly.
+              </h2>
+            </div>
+            <div className="mt-8 grid gap-6 text-center sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                { icon: CreditCard, t: "Secure checkout", x: "Payments handled by Lemon Squeezy, our PCI-DSS compliant merchant of record. Card details never touch our servers." },
+                { icon: Lock, t: "Encrypted everywhere", x: "All traffic over TLS; OAuth tokens encrypted at rest with AES-256." },
+                { icon: EyeOff, t: "Read-only access", x: "ReportFlow can never change anything in your Google or Meta accounts." },
+                { icon: BadgeCheck, t: "No lock-in", x: "Cancel anytime in two clicks. Your data is yours — export or delete it whenever you like." },
+              ].map((s) => {
+                const Icon = s.icon;
+                return (
+                  <div key={s.t}>
+                    <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+                      <Icon size={20} aria-hidden />
+                    </div>
+                    <h3 className="mt-3 text-sm font-semibold text-ink-900">{s.t}</h3>
+                    <p className="mx-auto mt-1 max-w-[16rem] text-xs leading-relaxed text-ink-500">{s.x}</p>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-2" aria-label="Accepted payment methods">
+              {["Visa", "Mastercard", "American Express", "Discover", "PayPal"].map((m) => (
+                <span key={m} className="rounded-lg border border-slate-200 bg-surface-subtle px-3 py-1.5 text-xs font-medium text-ink-600">
+                  {m}
+                </span>
+              ))}
+            </div>
+            <p className="mt-4 text-center text-xs text-ink-400">
+              Prices in USD · Sales tax / VAT handled at checkout · Read more in{" "}
+              <Link href="/security" className="font-medium text-brand-600 hover:underline">Data &amp; Security</Link>
+            </p>
+          </div>
+        </section>
+
+        {/* ── Final CTA ── */}
+        <section className="bg-slate-50/60 py-16 text-center sm:py-20">
+          <div className="mx-auto max-w-2xl px-5">
+            <h2 className="text-2xl font-semibold tracking-tight text-ink-900 sm:text-3xl">
+              Send your first white-label report today
+            </h2>
+            <p className="mt-3 text-ink-500">
+              Every feature, on every plan, free for 14 days. If it doesn&apos;t save you a reporting weekend, walk away —
+              no card, no commitment.
+            </p>
+            <div className="mt-6">
+              <Button asChild size="lg"><Link href="/signup">Start Your 14-Day Free Trial</Link></Button>
+            </div>
+            <p className="mt-3 text-sm text-ink-400">No card required · Every feature on every plan · Cancel anytime</p>
+          </div>
+        </section>
       </main>
 
       <SiteFooter />
     </div>
+  );
+}
+
+// Renders one feature group: a heading row plus one row per feature.
+// The Pro column keeps the highlighted treatment from the table header.
+function FeatureGroupRows({ group }: { group: { heading: string; rows: FeatureRow[] } }) {
+  return (
+    <>
+      <tr>
+        <th
+          scope="colgroup"
+          colSpan={PLAN_COLUMNS.length + 1}
+          className="border-b border-slate-200 px-4 pb-2 pt-6 text-left text-xs font-semibold uppercase tracking-wide text-ink-400"
+        >
+          {group.heading}
+        </th>
+      </tr>
+      {group.rows.map((row) => (
+        <tr key={row.label}>
+          <th scope="row" className="border-b border-slate-100 p-4 text-left font-medium text-ink-700">
+            {row.label}
+          </th>
+          {PLAN_COLUMNS.map((p, i) => (
+            <td
+              key={p.name}
+              className={`border-b p-4 text-center ${
+                p.featured ? "border-x border-brand-100 bg-brand-50/40" : "border-slate-100"
+              }`}
+            >
+              {row.values ? (
+                <span className={`text-sm font-semibold ${p.featured ? "text-brand-700" : "text-ink-800"}`}>
+                  {row.values[i]}
+                </span>
+              ) : (
+                <>
+                  <Check size={17} className={`mx-auto ${p.featured ? "text-brand-600" : "text-brand-500"}`} aria-hidden />
+                  <span className="sr-only">Included</span>
+                </>
+              )}
+            </td>
+          ))}
+        </tr>
+      ))}
+    </>
   );
 }

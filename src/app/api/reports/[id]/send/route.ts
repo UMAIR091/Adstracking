@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAgency } from "@/lib/agency";
+import { requireActiveAccess } from "@/lib/billing/subscription";
 import { emailConfigured } from "@/lib/email";
 import { deliverReport } from "@/lib/delivery";
 
@@ -19,6 +20,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const body = await req.json().catch(() => null);
   const supabase = createClient();
+  const blocked = await requireActiveAccess(supabase, agency.id);
+  if (blocked) return NextResponse.json({ error: blocked.error }, { status: blocked.status });
+
   const { data: report } = await supabase
     .from("reports")
     .select("id, title, period_start, period_end, data, share_token, clients(name, email)")
