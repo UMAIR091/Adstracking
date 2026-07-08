@@ -34,7 +34,11 @@ function fmtPrice(cents: number): string {
   return (cents / 100) % 1 === 0 ? `$${cents / 100}` : `$${(cents / 100).toFixed(2)}`;
 }
 
-export default async function BillingPage({ searchParams }: { searchParams: { checkout?: string; portal_error?: string } }) {
+export default async function BillingPage({
+  searchParams,
+}: {
+  searchParams: { checkout?: string; portal_error?: string; plan?: string; interval?: string };
+}) {
   const { user, agency } = await getCurrentUserAndAgency();
   if (!user || !agency) redirect("/login");
 
@@ -155,7 +159,13 @@ export default async function BillingPage({ searchParams }: { searchParams: { ch
 
       {/* Plans */}
       {configured ? (
-        <BillingPlans plans={planViews} currentPlan={state.plan} hasSubscription={Boolean(state.lsSubscriptionId)} />
+        <BillingPlans
+          plans={planViews}
+          currentPlan={state.plan}
+          hasSubscription={Boolean(state.lsSubscriptionId)}
+          initialInterval={searchParams.interval === "annual" ? "annual" : "monthly"}
+          highlightPlan={plans.some((p) => p.id === searchParams.plan) ? searchParams.plan : undefined}
+        />
       ) : (
         <Card>
           <CardContent className="p-6 text-sm text-ink-500">

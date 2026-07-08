@@ -21,12 +21,16 @@ export function BillingPlans({
   plans,
   currentPlan,
   hasSubscription,
+  initialInterval = "monthly",
+  highlightPlan,
 }: {
   plans: PlanView[];
-  currentPlan: string; // "trial" | "free" | "pro" | "team"
+  currentPlan: string; // "trial" | "free" | plan id
   hasSubscription: boolean; // an LS subscription exists (any status)
+  initialInterval?: "monthly" | "annual"; // preselected from ?interval= (pricing page carry-through)
+  highlightPlan?: string; // plan chosen on the public pricing page (?plan=)
 }) {
-  const [interval, setInterval] = useState<"monthly" | "annual">("monthly");
+  const [interval, setInterval] = useState<"monthly" | "annual">(initialInterval);
   const [busy, setBusy] = useState<string | null>(null);
 
   async function checkout(planId: string) {
@@ -69,12 +73,20 @@ export function BillingPlans({
         {plans.map((p) => {
           const price = p.prices[interval];
           const isCurrent = currentPlan === p.id;
+          const isPicked = highlightPlan === p.id && !isCurrent;
+          const accent = isPicked || (p.id === "pro" && !highlightPlan);
           return (
-            <Card key={p.id} className={cn("flex flex-col", p.id === "pro" && "border-2 border-brand-500 shadow-md")}>
+            <Card key={p.id} className={cn("flex flex-col", accent && "border-2 border-brand-500 shadow-md")}>
               <CardContent className="flex flex-1 flex-col p-6">
                 <div className="flex items-center justify-between">
                   <p className="font-semibold text-ink-900">{p.name}</p>
-                  {isCurrent ? <Badge variant="success">Current plan</Badge> : p.id === "pro" && <Badge>Most popular</Badge>}
+                  {isCurrent ? (
+                    <Badge variant="success">Current plan</Badge>
+                  ) : isPicked ? (
+                    <Badge>Your pick</Badge>
+                  ) : (
+                    p.id === "pro" && !highlightPlan && <Badge>Most popular</Badge>
+                  )}
                 </div>
                 <p className="mt-3">
                   <span className="text-3xl font-semibold text-ink-900">{price ?? "—"}</span>{" "}
@@ -95,12 +107,12 @@ export function BillingPlans({
                 ) : hasSubscription ? (
                   // Plan changes for existing subscribers happen in the LS
                   // portal so we never create a second subscription.
-                  <Button variant={p.id === "pro" ? "default" : "outline"} asChild>
+                  <Button variant={accent ? "default" : "outline"} asChild>
                     <a href="/api/billing/portal">Switch plan in portal</a>
                   </Button>
                 ) : (
                   <Button
-                    variant={p.id === "pro" ? "default" : "outline"}
+                    variant={accent ? "default" : "outline"}
                     disabled={!price || busy !== null}
                     onClick={() => checkout(p.id)}
                   >

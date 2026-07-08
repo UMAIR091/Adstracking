@@ -9,10 +9,14 @@ import { Brand } from "@/components/Brand";
 const inputClass =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-ink-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100";
 
-export function AuthForm({ mode }: { mode: "login" | "signup" }) {
+export function AuthForm({ mode, next = "/dashboard" }: { mode: "login" | "signup"; next?: string }) {
   const router = useRouter();
   const supabase = createClient();
   const isSignup = mode === "signup";
+  // Post-auth destination — flows through every path (password, email
+  // confirmation, Google OAuth) via /auth/callback?next=.
+  const callbackUrl = () =>
+    `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,7 +34,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+        options: { emailRedirectTo: callbackUrl() },
       });
       setLoading(false);
       if (error) return setError(error.message);
@@ -38,13 +42,13 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       if (!data.session) {
         return setInfo("Check your email to confirm your account, then sign in.");
       }
-      router.push("/dashboard");
+      router.push(next);
       router.refresh();
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       setLoading(false);
       if (error) return setError(error.message);
-      router.push("/dashboard");
+      router.push(next);
       router.refresh();
     }
   }
@@ -53,7 +57,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     setError(null);
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: callbackUrl() },
     });
   }
 
