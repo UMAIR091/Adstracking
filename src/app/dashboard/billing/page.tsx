@@ -207,7 +207,7 @@ export default async function BillingPage({
       )}
 
       <p className="text-center text-xs text-ink-400">
-        Payments are processed securely by Lemon Squeezy (merchant of record). Cancel anytime from{" "}
+        Payments are processed securely by our merchant of record. Cancel anytime from{" "}
         {state.lsSubscriptionId ? <a href="/api/billing/portal" className="underline">the customer portal</a> : "the customer portal"} —
         see our <Link href="/terms" className="underline">Terms</Link>.
       </p>

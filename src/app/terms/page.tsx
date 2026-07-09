@@ -53,7 +53,7 @@ export default function TermsPage() {
 
       <h2>5. Subscriptions and billing</h2>
       <ul>
-        <li>Paid plans are billed through our merchant of record, Lemon Squeezy, which handles payment processing and applicable taxes.</li>
+        <li>Paid plans are billed through our merchant of record, Paddle, which handles payment processing and applicable taxes.</li>
         <li>Subscriptions renew automatically until cancelled. You can cancel any time; access continues to the end of the paid period.</li>
         <li>Trial periods, prices, and plan limits are described on the pricing page and may change with notice.</li>
       </ul>

@@ -76,7 +76,7 @@ export default function SecurityPage() {
           <tr><td>Meta</td><td>Marketing API &amp; Instagram Graph API</td><td>Ad and Instagram metrics you authorize</td></tr>
           <tr><td>Anthropic</td><td>AI report summaries</td><td>Aggregated metrics for the report being generated (not used for model training)</td></tr>
           <tr><td>Resend</td><td>Email delivery</td><td>Recipient addresses and report emails</td></tr>
-          <tr><td>Lemon Squeezy</td><td>Payments (merchant of record)</td><td>Billing details you provide at checkout</td></tr>
+          <tr><td>Paddle</td><td>Payments (merchant of record)</td><td>Billing details you provide at checkout</td></tr>
         </tbody>
       </table>
 

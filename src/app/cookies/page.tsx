@@ -47,7 +47,7 @@ export default function CookiesPage() {
 
       <h2>Third-party services</h2>
       <p>
-        When you check out, our payment provider (Lemon Squeezy) may set its own cookies on its checkout pages, and
+        When you check out, our payment provider (Paddle) may set its own cookies on its checkout pages, and
         Google may set cookies during Google sign-in on its own domains — each governed by their own policies.
       </p>
 

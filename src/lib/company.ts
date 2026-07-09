@@ -16,7 +16,7 @@ export const COMPANY = {
 };
 
 // Bump when any legal document materially changes.
-export const LEGAL_LAST_UPDATED = "July 4, 2026";
+export const LEGAL_LAST_UPDATED = "July 9, 2026";
 
 // The one-line promise repeated across legal pages, the consent screen and the
 // footer. Keep the wording consistent everywhere.

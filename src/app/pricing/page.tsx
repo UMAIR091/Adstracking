@@ -141,7 +141,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "What payment methods do you accept?",
-    a: "Payments are processed securely by Lemon Squeezy, our merchant of record. Major credit and debit cards (Visa, Mastercard, American Express, Discover) and PayPal are accepted, and any applicable sales tax or VAT is handled for you.",
+    a: "Payments are processed securely by Paddle, our merchant of record. Major credit and debit cards (Visa, Mastercard, American Express, Discover) and PayPal are accepted, and any applicable sales tax or VAT is handled for you.",
   },
   {
     q: "What currency are prices in?",
@@ -421,7 +421,7 @@ export default function PricingPage() {
             </div>
             <div className="mt-8 grid gap-6 text-center sm:grid-cols-2 lg:grid-cols-4">
               {[
-                { icon: CreditCard, t: "Secure checkout", x: "Payments handled by Lemon Squeezy, our PCI-DSS compliant merchant of record. Card details never touch our servers." },
+                { icon: CreditCard, t: "Secure checkout", x: "Payments handled by Paddle, our PCI-DSS compliant merchant of record. Card details never touch our servers." },
                 { icon: Lock, t: "Encrypted everywhere", x: "All traffic over TLS; OAuth tokens encrypted at rest with AES-256." },
                 { icon: EyeOff, t: "Read-only access", x: "ReportFlow can never change anything in your Google or Meta accounts." },
                 { icon: BadgeCheck, t: "No lock-in", x: "Cancel anytime in two clicks. Your data is yours — export or delete it whenever you like." },
