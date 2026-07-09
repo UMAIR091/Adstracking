@@ -65,10 +65,17 @@ Console steps (developers.facebook.com → your app):
 - 🔲 App Review → request `ads_read` and `business_management` with a
   screencast showing: connect flow from ReportFlow → Meta login → ad account
   selection → metrics appearing in a report
+- 🔲 **Instagram** — App Review → additionally request `instagram_basic`,
+  `instagram_manage_insights`, `pages_show_list`, `pages_read_engagement`
+  with a screencast showing: connect flow from ReportFlow → Meta login →
+  Instagram account selection → follower/reach/engagement metrics appearing.
+  The test account must be an **Instagram professional (Business/Creator)
+  account linked to a Facebook Page**.
 - 🔲 Business verification (Meta Business Manager) — required for Advanced
   Access to ads_read; needs your business documents
 - 🔲 Until approved, the app works in Development Mode for users added as
-  Testers/Developers on the app
+  Testers/Developers on the app (Instagram: the IG account's linked Page
+  must be accessible to that tester)
 
 ## SEO / crawlability (production hygiene)
 

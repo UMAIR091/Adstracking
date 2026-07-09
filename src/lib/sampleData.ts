@@ -1,5 +1,6 @@
 import type { GscReportData } from "@/components/GscAnalytics";
 import type { Ga4ReportData } from "@/components/Ga4Analytics";
+import type { SocialReport } from "@/lib/integrations/social";
 
 // Illustrative Search Console data shown as a placeholder before a client has a
 // real connection — so the dashboard and client pages never look empty.
@@ -107,4 +108,38 @@ export const SAMPLE_GA4: Ga4ReportData = {
     { key: "India", sessions: 1280, users: 1020 },
     { key: "Germany", sessions: 900, users: 740 },
   ],
+};
+
+// Illustrative Instagram data shown as a placeholder before a client connects.
+const socialDays = Array.from({ length: 28 }, (_, i) => {
+  const d = new Date();
+  d.setDate(d.getDate() - (27 - i));
+  return {
+    date: d.toISOString().slice(0, 10),
+    reach: Math.round(2400 + 700 * Math.sin(i / 3) + i * 30),
+    followerChange: Math.round(14 + 8 * Math.sin(i / 2)),
+  };
+});
+
+export const SAMPLE_INSTAGRAM: SocialReport = {
+  platform: "instagram",
+  profile: {
+    id: "0", username: "yourclient", name: "Your Client", picture: null,
+    website: "https://example.com", followers: 24680, following: 412, mediaCount: 486,
+  },
+  totals: {
+    followers: 24680, followerGrowth: 384, reach: 86400, impressions: 132000,
+    profileViews: 5120, websiteClicks: 640, posts: 14, reels: 6, stories: 3,
+    likes: 9240, comments: 812, shares: 356, saves: 1108,
+    engagements: 11516, engagementRate: 0.047,
+  },
+  previousTotals: null,
+  byDate: socialDays,
+  topPosts: [
+    { id: "s1", type: "reel", caption: "Behind the scenes: how we plan a launch week", permalink: null, timestamp: socialDays[24].date, likes: 2140, comments: 188, saves: 402, shares: 156 },
+    { id: "s2", type: "post", caption: "5 storefront photos that convert (swipe)", permalink: null, timestamp: socialDays[20].date, likes: 1460, comments: 121, saves: 289, shares: 74 },
+    { id: "s3", type: "reel", caption: "Client results: 3x bookings in 60 days", permalink: null, timestamp: socialDays[15].date, likes: 1230, comments: 96, saves: 214, shares: 88 },
+    { id: "s4", type: "post", caption: "Meet the team — new faces this quarter", permalink: null, timestamp: socialDays[9].date, likes: 890, comments: 74, saves: 61, shares: 22 },
+  ],
+  notes: [],
 };

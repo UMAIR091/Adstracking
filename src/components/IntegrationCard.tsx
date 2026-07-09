@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
-import { RefreshCw, AlertTriangle, Search, BarChart3, Megaphone, MapPin, Facebook, Linkedin, Music, Plug } from "lucide-react";
+import { RefreshCw, AlertTriangle, Search, BarChart3, Megaphone, MapPin, Facebook, Instagram, Linkedin, Music, Plug } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ export type IntegrationSource = {
 } | null;
 
 const ICONS: Record<string, typeof Search> = {
-  Search, BarChart3, Megaphone, MapPin, Facebook, Linkedin, Music,
+  Search, BarChart3, Megaphone, MapPin, Facebook, Instagram, Linkedin, Music,
 };
 
 // Full literal class strings so Tailwind keeps them.
@@ -165,7 +165,13 @@ export function IntegrationCard({
         {source.selectedAccountId && lastSyncError && (
           <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
             <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-            <span>Last sync failed: {lastSyncError}. Click Refresh now to retry, or reconnect if the problem persists.</span>
+            <span>
+              Last sync failed: {lastSyncError}. Click Refresh now to retry, or{" "}
+              <a href={`/dashboard/connect/${descriptor.id}?clientId=${clientId}`} className="font-semibold underline">
+                reconnect {descriptor.name}
+              </a>{" "}
+              if access expired or was revoked.
+            </span>
           </div>
         )}
 

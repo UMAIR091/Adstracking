@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/button";
 import { IntegrationCard, type IntegrationSource } from "@/components/IntegrationCard";
 import { GscAnalytics, type GscReportData } from "@/components/GscAnalytics";
 import { Ga4Analytics, type Ga4ReportData } from "@/components/Ga4Analytics";
-import { SAMPLE_GSC, SAMPLE_GA4 } from "@/lib/sampleData";
+import { SocialAnalytics } from "@/components/SocialAnalytics";
+import type { SocialReport } from "@/lib/integrations/social";
+import { SAMPLE_GSC, SAMPLE_GA4, SAMPLE_INSTAGRAM } from "@/lib/sampleData";
 import { GenerateReport } from "@/components/GenerateReport";
 import { ReportSchedule, type ScheduleData } from "@/components/ReportSchedule";
 import { DeliveryHistory, type DeliveryLog } from "@/components/DeliveryHistory";
@@ -19,13 +21,15 @@ export const dynamic = "force-dynamic";
 
 // Providers that have a dedicated analytics visualization on this page. Others
 // (e.g. Meta Ads) are connectable + synced, with their dashboards to follow.
-const HAS_VIZ = new Set(["gsc", "ga4"]);
+const HAS_VIZ = new Set(["gsc", "ga4", "instagram"]);
 
 // Provider-specific analytics view (the only part that isn't generic, since each
 // source visualizes different metrics). Everything else flows from the registry.
+// Social platforms all share SocialAnalytics via the SocialReport shape.
 function Analytics({ id, snapshot }: { id: string; snapshot: unknown }) {
   if (id === "gsc") return snapshot ? <GscAnalytics report={snapshot as GscReportData} /> : <GscAnalytics report={SAMPLE_GSC} sample />;
   if (id === "ga4") return snapshot ? <Ga4Analytics report={snapshot as Ga4ReportData} /> : <Ga4Analytics report={SAMPLE_GA4} sample />;
+  if (id === "instagram") return snapshot ? <SocialAnalytics report={snapshot as SocialReport} /> : <SocialAnalytics report={SAMPLE_INSTAGRAM} sample />;
   return null;
 }
 

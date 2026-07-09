@@ -6,6 +6,7 @@ import {
   listGscSites, fetchGscReportWithComparison, listGa4Properties, fetchGa4ReportWithComparison,
 } from "@/lib/google";
 import { listMetaAdAccounts, fetchMetaAdsReport } from "./oauth/meta";
+import { listInstagramAccounts, fetchInstagramReport } from "./oauth/instagram";
 import type { IntegrationDef, IntegrationConfig, IntegrationAccount } from "./types";
 
 const arr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
@@ -92,6 +93,33 @@ export const metaAdsDef: IntegrationDef = {
   ],
   listAccounts: (at) => listMetaAdAccounts(at),
   fetchSnapshot: (at, id, days) => fetchMetaAdsReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// First social platform on the generic SocialReport shape (src/lib/integrations/
+// social.ts). TikTok, LinkedIn, Pinterest, Facebook Pages etc. follow the same
+// pattern: an OAuth backend + a fetcher that fills SocialReport, nothing else.
+export const instagramDef: IntegrationDef = {
+  id: "instagram",
+  name: "Instagram",
+  description: "Followers, reach, posts & engagement",
+  icon: "Instagram",
+  accent: "fuchsia",
+  status: "live",
+  oauthProviderId: "instagram",
+  connectPath: "/api/meta/connect",
+  accountNoun: "account",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Profile & audience metrics (read-only)", why: "Followers, follower growth, reach, impressions, profile visits and website clicks power the social sections of your reports." },
+    { item: "Posts, reels & story counts with engagement", why: "Likes, comments, shares and saves show which content performs for your client." },
+    { item: "Your list of Instagram professional accounts", why: "So you can pick which account this client's reports are built from." },
+  ],
+  listAccounts: (at) => listInstagramAccounts(at),
+  fetchSnapshot: (at, id, days) => fetchInstagramReport(at, id, days),
   buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
   readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,

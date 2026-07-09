@@ -41,6 +41,11 @@ export default function SecurityPage() {
             <td>Spend, impressions, clicks, CPC, reach, conversions, campaign performance (read-only)</td>
             <td>Paid-media sections of your reports</td>
           </tr>
+          <tr>
+            <td>Instagram</td>
+            <td>Followers, reach, impressions, profile visits, website clicks, posts/reels/stories with likes, comments, shares &amp; saves (read-only)</td>
+            <td>Social-media sections of your reports</td>
+          </tr>
         </tbody>
       </table>
       <p>
@@ -68,7 +73,7 @@ export default function SecurityPage() {
           <tr><td>Supabase</td><td>Database, authentication &amp; file storage</td><td>Account, client, and snapshot data; uploaded logos</td></tr>
           <tr><td>Vercel</td><td>Application hosting</td><td>Request traffic and server logs</td></tr>
           <tr><td>Google</td><td>Search Console / Analytics APIs, sign-in</td><td>Metrics you authorize; sign-in identity</td></tr>
-          <tr><td>Meta</td><td>Marketing API</td><td>Ad metrics you authorize</td></tr>
+          <tr><td>Meta</td><td>Marketing API &amp; Instagram Graph API</td><td>Ad and Instagram metrics you authorize</td></tr>
           <tr><td>Anthropic</td><td>AI report summaries</td><td>Aggregated metrics for the report being generated (not used for model training)</td></tr>
           <tr><td>Resend</td><td>Email delivery</td><td>Recipient addresses and report emails</td></tr>
           <tr><td>Lemon Squeezy</td><td>Payments (merchant of record)</td><td>Billing details you provide at checkout</td></tr>

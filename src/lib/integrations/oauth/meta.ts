@@ -7,15 +7,17 @@ import type { OAuthProvider, TokenSet, IntegrationAccount } from "../types";
 
 const API_VERSION = process.env.META_API_VERSION || "v21.0";
 const GRAPH = `https://graph.facebook.com/${API_VERSION}`;
-const DIALOG = `https://www.facebook.com/${API_VERSION}/dialog/oauth`;
+export const META_DIALOG = `https://www.facebook.com/${API_VERSION}/dialog/oauth`;
 const SCOPES = ["ads_read", "business_management"];
 const SIXTY_DAYS = 60 * 24 * 60 * 60;
 
-function env(key: string): string {
+// Exported for sibling Meta-platform backends (Instagram, Facebook Pages).
+export function metaEnv(key: string): string {
   const v = process.env[key];
   if (!v) throw new Error(`${key} is not set`);
   return v;
 }
+const env = metaEnv;
 
 // HMAC of the access token with the app secret. Meta requires this on server-side
 // Graph calls when "Require App Secret proof" is enabled, and accepts it otherwise.
@@ -25,7 +27,8 @@ function appSecretProof(accessToken: string): string {
 
 // GET against the Graph API with Meta's error envelope surfaced as a real error.
 // Calls that carry a user access token are automatically signed with appsecret_proof.
-async function graphGet<T = Record<string, unknown>>(path: string, params: Record<string, string>): Promise<T> {
+// Exported so sibling Meta-platform backends (Instagram, Facebook Pages) reuse it.
+export async function graphGet<T = Record<string, unknown>>(path: string, params: Record<string, string>): Promise<T> {
   const signed = params.access_token ? { ...params, appsecret_proof: appSecretProof(params.access_token) } : params;
   const res = await fetch(`${GRAPH}${path}?${new URLSearchParams(signed).toString()}`);
   const data = await res.json().catch(() => ({}));
@@ -46,7 +49,7 @@ export const metaOAuth: OAuthProvider = {
       scope: SCOPES.join(","),
       response_type: "code",
     });
-    return `${DIALOG}?${params.toString()}`;
+    return `${META_DIALOG}?${params.toString()}`;
   },
 
   // Exchange the auth code for a short-lived token, then upgrade it to a
