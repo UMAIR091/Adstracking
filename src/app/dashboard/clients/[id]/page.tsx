@@ -11,7 +11,9 @@ import { GscAnalytics, type GscReportData } from "@/components/GscAnalytics";
 import { Ga4Analytics, type Ga4ReportData } from "@/components/Ga4Analytics";
 import { SocialAnalytics } from "@/components/SocialAnalytics";
 import { AdsAnalytics, type AdsReportData } from "@/components/AdsAnalytics";
+import { GbpAnalytics } from "@/components/GbpAnalytics";
 import type { SocialReport } from "@/lib/integrations/social";
+import type { GbpReport } from "@/lib/integrations/metrics";
 import { SAMPLE_GSC, SAMPLE_GA4, SAMPLE_INSTAGRAM } from "@/lib/sampleData";
 import { GenerateReport } from "@/components/GenerateReport";
 import { ReportSchedule, type ScheduleData } from "@/components/ReportSchedule";
@@ -24,7 +26,7 @@ export const dynamic = "force-dynamic";
 // (e.g. Meta Ads) are connectable + synced, with their dashboards to follow.
 // Sources with a dashboard block. The core trio also shows labelled sample
 // data before connecting; the rest render once a synced snapshot exists.
-const HAS_VIZ = new Set(["gsc", "ga4", "instagram", "google_ads", "meta_ads", "linkedin_ads", "tiktok_ads"]);
+const HAS_VIZ = new Set(["gsc", "ga4", "instagram", "google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "gbp"]);
 const SAMPLE_VIZ = new Set(["gsc", "ga4", "instagram"]);
 const ADS_VIZ = new Set(["google_ads", "meta_ads", "linkedin_ads", "tiktok_ads"]);
 
@@ -36,6 +38,7 @@ function Analytics({ id, snapshot }: { id: string; snapshot: unknown }) {
   if (id === "ga4") return snapshot ? <Ga4Analytics report={snapshot as Ga4ReportData} /> : <Ga4Analytics report={SAMPLE_GA4} sample />;
   if (id === "instagram") return snapshot ? <SocialAnalytics report={snapshot as SocialReport} /> : <SocialAnalytics report={SAMPLE_INSTAGRAM} sample />;
   if (ADS_VIZ.has(id) && snapshot) return <AdsAnalytics report={snapshot as AdsReportData} />;
+  if (id === "gbp" && snapshot) return <GbpAnalytics report={snapshot as GbpReport} />;
   return null;
 }
 

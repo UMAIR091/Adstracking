@@ -8,6 +8,7 @@ import {
 import { listMetaAdAccounts, fetchMetaAdsReport } from "./oauth/meta";
 import { listInstagramAccounts, fetchInstagramReport } from "./oauth/instagram";
 import { listGoogleAdsAccounts, fetchGoogleAdsReport, googleAdsConfigured } from "./oauth/googleAds";
+import { listGbpLocations, fetchGbpReport } from "./oauth/gbp";
 import type { IntegrationDef, IntegrationConfig, IntegrationAccount } from "./types";
 
 // Providers that need their own app credentials stay "soon" until the env
@@ -156,8 +157,33 @@ export const googleAdsDef: IntegrationDef = {
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
 };
 
+// Local-presence metrics. Uses the shared Google OAuth app; the Google Cloud
+// project needs the three Business Profile APIs enabled (access is approval-
+// gated by Google — see .env.example notes).
+export const gbpDef: IntegrationDef = {
+  id: "gbp",
+  name: "Google Business Profile",
+  description: "Profile views, calls, directions & clicks",
+  icon: "MapPin",
+  accent: "rose",
+  status: "live",
+  oauthProviderId: "gbp",
+  connectPath: "/api/google/connect",
+  accountNoun: "location",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Business Profile performance metrics (read-only)", why: "Profile impressions, website clicks, calls, direction requests and bookings power the local-presence sections of your reports." },
+    { item: "Your list of business locations", why: "So you can pick which location this client's reports are built from." },
+  ],
+  listAccounts: (at) => listGbpLocations(at),
+  fetchSnapshot: (at, id, days) => fetchGbpReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
 export const soonDefs: IntegrationDef[] = [
-  soon("gbp", "Google Business Profile", "Calls, directions, views & reviews", "MapPin", "rose", "google", "/api/google/connect"),
   soon("linkedin_ads", "LinkedIn Ads", "B2B reach, leads & spend", "Linkedin", "sky"),
   soon("microsoft_ads", "Microsoft Ads", "Bing search spend & conversions", "Search", "cyan"),
   soon("tiktok_ads", "TikTok Ads", "Views, spend & conversions", "Music", "fuchsia"),
