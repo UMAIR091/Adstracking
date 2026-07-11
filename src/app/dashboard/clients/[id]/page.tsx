@@ -157,7 +157,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
           href="/dashboard/integrations"
           className="block rounded-xl border border-dashed border-ink-300 bg-surface-subtle p-5 text-sm text-ink-500 transition-colors hover:border-ink-400 hover:text-ink-700"
         >
-          More sources — Google Ads, Meta Ads, LinkedIn Ads and more — are on the way. See all integrations →
+          Google Ads, Shopify, HubSpot, LinkedIn Ads, TikTok Ads and more — see all integrations →
         </Link>
       </div>
 

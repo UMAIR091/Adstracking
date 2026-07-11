@@ -46,6 +46,41 @@ export default function SecurityPage() {
             <td>Followers, reach, impressions, profile visits, website clicks, posts/reels/stories with likes, comments, shares &amp; saves (read-only)</td>
             <td>Social-media sections of your reports</td>
           </tr>
+          <tr>
+            <td>Google Ads</td>
+            <td>Spend, impressions, clicks, conversions, conversion value, campaign performance (read-only)</td>
+            <td>Paid-media sections of your reports</td>
+          </tr>
+          <tr>
+            <td>Google Business Profile</td>
+            <td>Profile impressions, website clicks, calls, direction requests, bookings (read-only)</td>
+            <td>Local-presence sections of your reports</td>
+          </tr>
+          <tr>
+            <td>Shopify</td>
+            <td>Orders, revenue, average order value, product line items (read-only)</td>
+            <td>E-commerce sections of your reports</td>
+          </tr>
+          <tr>
+            <td>Google Sheets</td>
+            <td>The spreadsheet you select (read-only, first worksheet)</td>
+            <td>Custom data tables in your reports</td>
+          </tr>
+          <tr>
+            <td>HubSpot</td>
+            <td>New contacts, deals and closed-won revenue (read-only)</td>
+            <td>Pipeline sections of your reports</td>
+          </tr>
+          <tr>
+            <td>LinkedIn Ads</td>
+            <td>Spend, impressions, clicks, conversions, campaign performance (read-only)</td>
+            <td>Paid-media sections of your reports</td>
+          </tr>
+          <tr>
+            <td>TikTok Ads</td>
+            <td>Spend, impressions, clicks, conversions, campaign performance (read-only)</td>
+            <td>Paid-media sections of your reports</td>
+          </tr>
         </tbody>
       </table>
       <p>
