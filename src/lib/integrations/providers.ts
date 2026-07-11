@@ -10,6 +10,7 @@ import { listInstagramAccounts, fetchInstagramReport } from "./oauth/instagram";
 import { listGoogleAdsAccounts, fetchGoogleAdsReport, googleAdsConfigured } from "./oauth/googleAds";
 import { listGbpLocations, fetchGbpReport } from "./oauth/gbp";
 import { fetchShopifyReport, shopifyConfigured } from "./oauth/shopify";
+import { listSpreadsheets, fetchSheetTable } from "./oauth/sheets";
 import type { IntegrationDef, IntegrationConfig, IntegrationAccount } from "./types";
 
 // Providers that need their own app credentials stay "soon" until the env
@@ -213,6 +214,31 @@ export const shopifyDef: IntegrationDef = {
   listAccounts: async () => [],
   fetchSnapshot: (at, shop, days) => fetchShopifyReport(at, shop, days),
   buildConfig: (accounts) => ({ accounts, account_id: accounts[0]?.id ?? null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// Custom tabular data. The snapshot is the first worksheet as a bounded
+// table — shown on the dashboard and embeddable in reports.
+export const sheetsDef: IntegrationDef = {
+  id: "sheets",
+  name: "Google Sheets",
+  description: "Custom data from your spreadsheets",
+  icon: "FileSpreadsheet",
+  accent: "emerald",
+  status: "live",
+  oauthProviderId: "sheets",
+  connectPath: "/api/google/connect",
+  accountNoun: "spreadsheet",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "The spreadsheet you select (read-only)", why: "Its first worksheet is embedded as a data table in this client's dashboard and reports." },
+    { item: "Your list of spreadsheets (names only)", why: "So you can pick which spreadsheet this client's data comes from." },
+  ],
+  listAccounts: (at) => listSpreadsheets(at),
+  fetchSnapshot: (at, id) => fetchSheetTable(at, id),
+  buildConfig: (accounts) => ({ accounts: accounts.slice(0, 100), account_id: accounts.length === 1 ? accounts[0].id : null }),
   readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
 };
