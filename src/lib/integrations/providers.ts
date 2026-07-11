@@ -11,6 +11,7 @@ import { listGoogleAdsAccounts, fetchGoogleAdsReport, googleAdsConfigured } from
 import { listGbpLocations, fetchGbpReport } from "./oauth/gbp";
 import { fetchShopifyReport, shopifyConfigured } from "./oauth/shopify";
 import { listSpreadsheets, fetchSheetTable } from "./oauth/sheets";
+import { listHubspotAccounts, fetchHubspotReport, hubspotConfigured } from "./oauth/hubspot";
 import type { IntegrationDef, IntegrationConfig, IntegrationAccount } from "./types";
 
 // Providers that need their own app credentials stay "soon" until the env
@@ -239,6 +240,30 @@ export const sheetsDef: IntegrationDef = {
   listAccounts: (at) => listSpreadsheets(at),
   fetchSnapshot: (at, id) => fetchSheetTable(at, id),
   buildConfig: (accounts) => ({ accounts: accounts.slice(0, 100), account_id: accounts.length === 1 ? accounts[0].id : null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// CRM source on the normalized CrmReport shape (leads, deals, won revenue).
+export const hubspotDef: IntegrationDef = {
+  id: "hubspot",
+  name: "HubSpot",
+  description: "Leads, deals & won revenue",
+  icon: "Magnet",
+  accent: "amber",
+  status: gated(hubspotConfigured()),
+  oauthProviderId: "hubspot",
+  connectPath: "/api/hubspot/connect",
+  accountNoun: "portal",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Contacts & deals activity (read-only)", why: "New leads, deals created and closed-won revenue power the pipeline sections of your reports." },
+    { item: "Your HubSpot account id", why: "So the connection is tied to the right portal." },
+  ],
+  listAccounts: (at) => listHubspotAccounts(at),
+  fetchSnapshot: (at, id, days) => fetchHubspotReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts[0]?.id ?? null }),
   readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
 };
