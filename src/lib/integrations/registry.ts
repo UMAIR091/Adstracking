@@ -1,14 +1,15 @@
 // The integration registry — single source of truth that generic services and
 // UI read from. Adding a source = add a descriptor in providers.ts.
-import { gscDef, ga4Def, metaAdsDef, instagramDef, googleAdsDef, gbpDef, shopifyDef, sheetsDef, hubspotDef, soonDefs } from "./providers";
+import { gscDef, ga4Def, metaAdsDef, instagramDef, googleAdsDef, gbpDef, shopifyDef, sheetsDef, hubspotDef, linkedinAdsDef, soonDefs } from "./providers";
 import { googleOAuth, googleAdsOAuth, gbpOAuth, sheetsOAuth } from "./oauth/google";
 import { metaOAuth } from "./oauth/meta";
 import { instagramOAuth } from "./oauth/instagram";
 import { shopifyOAuth } from "./oauth/shopify";
 import { hubspotOAuth } from "./oauth/hubspot";
+import { linkedinOAuth } from "./oauth/linkedin";
 import type { IntegrationDef, OAuthProvider, IntegrationDescriptor } from "./types";
 
-const DEFS: IntegrationDef[] = [gscDef, ga4Def, googleAdsDef, metaAdsDef, instagramDef, gbpDef, shopifyDef, sheetsDef, hubspotDef, ...soonDefs];
+const DEFS: IntegrationDef[] = [gscDef, ga4Def, googleAdsDef, metaAdsDef, instagramDef, gbpDef, shopifyDef, sheetsDef, hubspotDef, linkedinAdsDef, ...soonDefs];
 
 const BY_ID: Record<string, IntegrationDef> = {};
 for (const d of DEFS) BY_ID[d.id] = d;
@@ -22,6 +23,7 @@ const OAUTH: Record<string, OAuthProvider> = {
   instagram: instagramOAuth,
   shopify: shopifyOAuth,
   hubspot: hubspotOAuth,
+  linkedin: linkedinOAuth,
 };
 
 export function listIntegrations(): IntegrationDef[] {

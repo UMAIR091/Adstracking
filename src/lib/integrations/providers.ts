@@ -12,6 +12,7 @@ import { listGbpLocations, fetchGbpReport } from "./oauth/gbp";
 import { fetchShopifyReport, shopifyConfigured } from "./oauth/shopify";
 import { listSpreadsheets, fetchSheetTable } from "./oauth/sheets";
 import { listHubspotAccounts, fetchHubspotReport, hubspotConfigured } from "./oauth/hubspot";
+import { listLinkedinAdAccounts, fetchLinkedinAdsReport, linkedinConfigured } from "./oauth/linkedin";
 import type { IntegrationDef, IntegrationConfig, IntegrationAccount } from "./types";
 
 // Providers that need their own app credentials stay "soon" until the env
@@ -268,8 +269,33 @@ export const hubspotDef: IntegrationDef = {
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
 };
 
+// Second paid-media source on the shared AdsReport shape. Requires a LinkedIn
+// app approved for the Marketing Developer Platform (see .env.example).
+export const linkedinAdsDef: IntegrationDef = {
+  id: "linkedin_ads",
+  name: "LinkedIn Ads",
+  description: "B2B spend, clicks & conversions",
+  icon: "Linkedin",
+  accent: "sky",
+  status: gated(linkedinConfigured()),
+  oauthProviderId: "linkedin",
+  connectPath: "/api/linkedin/connect",
+  accountNoun: "ad account",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Ad performance metrics (read-only)", why: "Spend, impressions, clicks and conversions power the paid-media sections of your reports." },
+    { item: "Campaign-level results", why: "Shows which campaigns drive results in the client's report." },
+    { item: "Your list of LinkedIn ad accounts", why: "So you can pick which ad account this client's reports are built from." },
+  ],
+  listAccounts: (at) => listLinkedinAdAccounts(at),
+  fetchSnapshot: (at, id, days) => fetchLinkedinAdsReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
 export const soonDefs: IntegrationDef[] = [
-  soon("linkedin_ads", "LinkedIn Ads", "B2B reach, leads & spend", "Linkedin", "sky"),
   soon("microsoft_ads", "Microsoft Ads", "Bing search spend & conversions", "Search", "cyan"),
   soon("tiktok_ads", "TikTok Ads", "Views, spend & conversions", "Music", "fuchsia"),
   soon("x_twitter", "X (Twitter)", "Impressions, engagements & spend", "Twitter", "ink"),
