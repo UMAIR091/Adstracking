@@ -13,6 +13,7 @@ import { fetchShopifyReport, shopifyConfigured } from "./oauth/shopify";
 import { listSpreadsheets, fetchSheetTable } from "./oauth/sheets";
 import { listHubspotAccounts, fetchHubspotReport, hubspotConfigured } from "./oauth/hubspot";
 import { listLinkedinAdAccounts, fetchLinkedinAdsReport, linkedinConfigured } from "./oauth/linkedin";
+import { listTiktokAdvertisers, fetchTiktokAdsReport, tiktokConfigured } from "./oauth/tiktok";
 import type { IntegrationDef, IntegrationConfig, IntegrationAccount } from "./types";
 
 // Providers that need their own app credentials stay "soon" until the env
@@ -295,9 +296,33 @@ export const linkedinAdsDef: IntegrationDef = {
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
 };
 
+// Third paid-media source on the shared AdsReport shape.
+export const tiktokAdsDef: IntegrationDef = {
+  id: "tiktok_ads",
+  name: "TikTok Ads",
+  description: "Spend, views, clicks & conversions",
+  icon: "Music",
+  accent: "fuchsia",
+  status: gated(tiktokConfigured()),
+  oauthProviderId: "tiktok",
+  connectPath: "/api/tiktok/connect",
+  accountNoun: "advertiser account",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Ad performance metrics (read-only)", why: "Spend, impressions, clicks and conversions power the paid-media sections of your reports." },
+    { item: "Campaign-level results", why: "Shows which campaigns drive results in the client's report." },
+    { item: "Your list of advertiser accounts", why: "So you can pick which advertiser account this client's reports are built from." },
+  ],
+  listAccounts: (at) => listTiktokAdvertisers(at),
+  fetchSnapshot: (at, id, days) => fetchTiktokAdsReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
 export const soonDefs: IntegrationDef[] = [
   soon("microsoft_ads", "Microsoft Ads", "Bing search spend & conversions", "Search", "cyan"),
-  soon("tiktok_ads", "TikTok Ads", "Views, spend & conversions", "Music", "fuchsia"),
   soon("x_twitter", "X (Twitter)", "Impressions, engagements & spend", "Twitter", "ink"),
   soon("youtube", "YouTube", "Views, watch time & subscribers", "Youtube", "red"),
 ];
