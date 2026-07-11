@@ -83,16 +83,44 @@ export default async function ConnectConsentPage({
               <Link href="/privacy" className="text-brand-600 hover:underline">Privacy Policy</Link> and{" "}
               <Link href="/security" className="text-brand-600 hover:underline">data practices</Link>.
             </p>
-            <div className="flex gap-2">
-              <Button asChild variant="outline">
-                <Link href={backHref}>Cancel</Link>
-              </Button>
-              <Button asChild>
-                <a href={continueHref}>
-                  Continue to {def.name} <ArrowRight size={16} />
-                </a>
-              </Button>
-            </div>
+            {def.connectField ? (
+              /* Providers like Shopify need one extra value (the shop domain)
+                 before OAuth can start — collected here, passed to connectPath. */
+              <form action={def.connectPath} method="get" className="flex flex-1 flex-col gap-2 sm:max-w-md">
+                <input type="hidden" name="clientId" value={client.id} />
+                <input type="hidden" name="type" value={def.id} />
+                <label className="text-xs font-medium text-ink-700" htmlFor="connect-field">
+                  {def.connectField.label}
+                </label>
+                <input
+                  id="connect-field"
+                  name={def.connectField.name}
+                  required
+                  placeholder={def.connectField.placeholder}
+                  className="h-10 w-full rounded-lg border border-ink-300 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                />
+                {def.connectField.hint && <p className="text-xs text-ink-400">{def.connectField.hint}</p>}
+                <div className="flex gap-2">
+                  <Button asChild variant="outline">
+                    <Link href={backHref}>Cancel</Link>
+                  </Button>
+                  <Button type="submit">
+                    Continue to {def.name} <ArrowRight size={16} />
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <div className="flex gap-2">
+                <Button asChild variant="outline">
+                  <Link href={backHref}>Cancel</Link>
+                </Button>
+                <Button asChild>
+                  <a href={continueHref}>
+                    Continue to {def.name} <ArrowRight size={16} />
+                  </a>
+                </Button>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

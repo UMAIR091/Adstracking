@@ -38,6 +38,9 @@ export type IntegrationDef = {
   snapshotTable: string | null; // where synced data is cached
   // What the integration reads and why — shown on the pre-OAuth consent screen.
   dataAccess?: { item: string; why: string }[];
+  // Extra input the connect flow needs before OAuth can start (e.g. Shopify's
+  // shop domain). Rendered on the consent screen and passed to connectPath.
+  connectField?: { name: string; label: string; placeholder: string; hint?: string };
 
   // ── server-only behavior (omit on "soon" providers) ──
   // List the accounts the authenticated user can pick from.

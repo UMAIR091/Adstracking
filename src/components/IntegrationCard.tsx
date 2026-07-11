@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
-import { RefreshCw, AlertTriangle, Search, BarChart3, Megaphone, MapPin, Facebook, Instagram, Linkedin, Music, Plug } from "lucide-react";
+import { RefreshCw, AlertTriangle, Search, BarChart3, Megaphone, MapPin, Facebook, Instagram, Linkedin, Music, Plug, ShoppingBag, FileSpreadsheet, Magnet } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ export type IntegrationSource = {
 } | null;
 
 const ICONS: Record<string, typeof Search> = {
-  Search, BarChart3, Megaphone, MapPin, Facebook, Instagram, Linkedin, Music,
+  Search, BarChart3, Megaphone, MapPin, Facebook, Instagram, Linkedin, Music, ShoppingBag, FileSpreadsheet, Magnet,
 };
 
 // Full literal class strings so Tailwind keeps them.

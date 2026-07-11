@@ -9,6 +9,7 @@ import { listMetaAdAccounts, fetchMetaAdsReport } from "./oauth/meta";
 import { listInstagramAccounts, fetchInstagramReport } from "./oauth/instagram";
 import { listGoogleAdsAccounts, fetchGoogleAdsReport, googleAdsConfigured } from "./oauth/googleAds";
 import { listGbpLocations, fetchGbpReport } from "./oauth/gbp";
+import { fetchShopifyReport, shopifyConfigured } from "./oauth/shopify";
 import type { IntegrationDef, IntegrationConfig, IntegrationAccount } from "./types";
 
 // Providers that need their own app credentials stay "soon" until the env
@@ -179,6 +180,39 @@ export const gbpDef: IntegrationDef = {
   listAccounts: (at) => listGbpLocations(at),
   fetchSnapshot: (at, id, days) => fetchGbpReport(at, id, days),
   buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// Commerce source on the normalized CommerceReport shape. Shopify's OAuth is
+// per-shop, so it uses dedicated connect/callback routes and a consent-screen
+// input (connectField) for the store domain; the account IS the shop.
+export const shopifyDef: IntegrationDef = {
+  id: "shopify",
+  name: "Shopify",
+  description: "Orders, revenue & top products",
+  icon: "ShoppingBag",
+  accent: "emerald",
+  status: gated(shopifyConfigured()),
+  oauthProviderId: "shopify",
+  connectPath: "/api/shopify/connect",
+  accountNoun: "store",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Orders & sales metrics (read-only)", why: "Order counts, revenue and average order value power the e-commerce sections of your reports." },
+    { item: "Product line items", why: "Shows which products drive revenue in the client's report." },
+  ],
+  connectField: {
+    name: "shop",
+    label: "Store domain",
+    placeholder: "your-store.myshopify.com",
+    hint: "The store's .myshopify.com domain (the store owner approves access on Shopify).",
+  },
+  // The account is the shop itself — set at connect time by the callback.
+  listAccounts: async () => [],
+  fetchSnapshot: (at, shop, days) => fetchShopifyReport(at, shop, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts[0]?.id ?? null }),
   readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
 };

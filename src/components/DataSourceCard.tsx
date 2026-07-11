@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Search, BarChart3, Megaphone, MapPin, Facebook, Instagram, Linkedin, Music, Twitter, Youtube, Plug } from "lucide-react";
+import { Search, BarChart3, Megaphone, MapPin, Facebook, Instagram, Linkedin, Music, Twitter, Youtube, Plug, ShoppingBag, FileSpreadsheet, Magnet } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 // lib/integrations/providers.ts (and, if its icon/accent is new, one line here).
 // No other UI change is required — the Data Sources grid is registry-driven.
 const ICONS: Record<string, typeof Search> = {
-  Search, BarChart3, Megaphone, MapPin, Facebook, Instagram, Linkedin, Music, Twitter, Youtube,
+  Search, BarChart3, Megaphone, MapPin, Facebook, Instagram, Linkedin, Music, Twitter, Youtube, ShoppingBag, FileSpreadsheet, Magnet,
 };
 const TINTS: Record<string, string> = {
   emerald: "bg-emerald-50 text-emerald-600",
