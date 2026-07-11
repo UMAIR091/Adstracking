@@ -10,6 +10,7 @@ import { IntegrationCard, type IntegrationSource } from "@/components/Integratio
 import { GscAnalytics, type GscReportData } from "@/components/GscAnalytics";
 import { Ga4Analytics, type Ga4ReportData } from "@/components/Ga4Analytics";
 import { SocialAnalytics } from "@/components/SocialAnalytics";
+import { AdsAnalytics, type AdsReportData } from "@/components/AdsAnalytics";
 import type { SocialReport } from "@/lib/integrations/social";
 import { SAMPLE_GSC, SAMPLE_GA4, SAMPLE_INSTAGRAM } from "@/lib/sampleData";
 import { GenerateReport } from "@/components/GenerateReport";
@@ -21,15 +22,20 @@ export const dynamic = "force-dynamic";
 
 // Providers that have a dedicated analytics visualization on this page. Others
 // (e.g. Meta Ads) are connectable + synced, with their dashboards to follow.
-const HAS_VIZ = new Set(["gsc", "ga4", "instagram"]);
+// Sources with a dashboard block. The core trio also shows labelled sample
+// data before connecting; the rest render once a synced snapshot exists.
+const HAS_VIZ = new Set(["gsc", "ga4", "instagram", "google_ads", "meta_ads", "linkedin_ads", "tiktok_ads"]);
+const SAMPLE_VIZ = new Set(["gsc", "ga4", "instagram"]);
+const ADS_VIZ = new Set(["google_ads", "meta_ads", "linkedin_ads", "tiktok_ads"]);
 
 // Provider-specific analytics view (the only part that isn't generic, since each
 // source visualizes different metrics). Everything else flows from the registry.
-// Social platforms all share SocialAnalytics via the SocialReport shape.
+// Social platforms share SocialAnalytics; paid-media platforms share AdsAnalytics.
 function Analytics({ id, snapshot }: { id: string; snapshot: unknown }) {
   if (id === "gsc") return snapshot ? <GscAnalytics report={snapshot as GscReportData} /> : <GscAnalytics report={SAMPLE_GSC} sample />;
   if (id === "ga4") return snapshot ? <Ga4Analytics report={snapshot as Ga4ReportData} /> : <Ga4Analytics report={SAMPLE_GA4} sample />;
   if (id === "instagram") return snapshot ? <SocialAnalytics report={snapshot as SocialReport} /> : <SocialAnalytics report={SAMPLE_INSTAGRAM} sample />;
+  if (ADS_VIZ.has(id) && snapshot) return <AdsAnalytics report={snapshot as AdsReportData} />;
   return null;
 }
 
@@ -147,7 +153,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       </div>
 
       {/* Performance — real cached metrics, or a sample placeholder until connected. */}
-      {integrations.filter((i) => HAS_VIZ.has(i.def.id)).map((i) => (
+      {integrations.filter((i) => HAS_VIZ.has(i.def.id) && (SAMPLE_VIZ.has(i.def.id) || i.snapshot)).map((i) => (
         <div key={i.def.id} className="mt-8">
           <h2 className="mb-3 text-sm font-medium text-ink-700">{i.def.name}</h2>
           <Analytics id={i.def.id} snapshot={i.snapshot} />

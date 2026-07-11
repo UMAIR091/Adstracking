@@ -7,7 +7,12 @@ import {
 } from "@/lib/google";
 import { listMetaAdAccounts, fetchMetaAdsReport } from "./oauth/meta";
 import { listInstagramAccounts, fetchInstagramReport } from "./oauth/instagram";
+import { listGoogleAdsAccounts, fetchGoogleAdsReport, googleAdsConfigured } from "./oauth/googleAds";
 import type { IntegrationDef, IntegrationConfig, IntegrationAccount } from "./types";
+
+// Providers that need their own app credentials stay "soon" until the env
+// vars exist, so the UI never offers a Connect that would 500.
+const gated = (configured: boolean) => (configured ? ("live" as const) : ("soon" as const));
 
 const arr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 
@@ -125,8 +130,33 @@ export const instagramDef: IntegrationDef = {
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
 };
 
+// Normalized paid-media source on the shared AdsReport shape (metrics.ts) —
+// LinkedIn Ads and TikTok Ads fill the same shape, and AdsAnalytics renders all.
+export const googleAdsDef: IntegrationDef = {
+  id: "google_ads",
+  name: "Google Ads",
+  description: "Spend, clicks, conversions & ROAS",
+  icon: "Megaphone",
+  accent: "sky",
+  status: gated(googleAdsConfigured()),
+  oauthProviderId: "google_ads",
+  connectPath: "/api/google/connect",
+  accountNoun: "ad account",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Ad performance metrics (read-only)", why: "Spend, impressions, clicks, CPC, conversions and conversion value power the paid-media sections of your reports." },
+    { item: "Campaign-level results", why: "Shows which campaigns drive results in the client's report." },
+    { item: "Your list of Google Ads accounts", why: "So you can pick which ad account this client's reports are built from." },
+  ],
+  listAccounts: (at) => listGoogleAdsAccounts(at),
+  fetchSnapshot: (at, id, days) => fetchGoogleAdsReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
 export const soonDefs: IntegrationDef[] = [
-  soon("google_ads", "Google Ads", "Spend, clicks, conversions & ROAS", "Megaphone", "sky", "google", "/api/google/connect"),
   soon("gbp", "Google Business Profile", "Calls, directions, views & reviews", "MapPin", "rose", "google", "/api/google/connect"),
   soon("linkedin_ads", "LinkedIn Ads", "B2B reach, leads & spend", "Linkedin", "sky"),
   soon("microsoft_ads", "Microsoft Ads", "Bing search spend & conversions", "Search", "cyan"),

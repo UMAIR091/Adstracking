@@ -21,12 +21,14 @@ function env(key: string): string {
   return v;
 }
 
-export function getAuthUrl(state: string): string {
+// Optional scope override lets scope-specific OAuth backends (Google Ads,
+// Business Profile, Sheets) reuse this flow with their own consent scopes.
+export function getAuthUrl(state: string, scopes: string[] = SCOPES): string {
   const params = new URLSearchParams({
     client_id: env("GOOGLE_CLIENT_ID"),
     redirect_uri: env("GOOGLE_OAUTH_REDIRECT_URI"),
     response_type: "code",
-    scope: SCOPES.join(" "),
+    scope: scopes.join(" "),
     access_type: "offline",
     include_granted_scopes: "true",
     prompt: "consent",
