@@ -19,6 +19,13 @@ export function metaEnv(key: string): string {
 }
 const env = metaEnv;
 
+// True only when the Meta app is fully configured. Meta Ads and Instagram share
+// this app, so both stay "soon" until every var exists — otherwise the UI would
+// offer a Connect whose authUrl() throws on the missing env var (a 500).
+export function metaConfigured(): boolean {
+  return Boolean(process.env.META_APP_ID && process.env.META_APP_SECRET && process.env.META_OAUTH_REDIRECT_URI);
+}
+
 // HMAC of the access token with the app secret. Meta requires this on server-side
 // Graph calls when "Require App Secret proof" is enabled, and accepts it otherwise.
 function appSecretProof(accessToken: string): string {
@@ -84,6 +91,15 @@ export const metaOAuth: OAuthProvider = {
   async identity(accessToken): Promise<string> {
     const me = await graphGet<{ name?: string }>("/me", { fields: "name", access_token: accessToken });
     return me.name ?? "Meta account";
+  },
+
+  // De-authorizes the app for this user (removes all granted permissions).
+  // Best-effort — disconnect proceeds even if this fails.
+  async revoke({ accessToken }): Promise<void> {
+    if (!accessToken) return;
+    const params = new URLSearchParams({ access_token: accessToken, appsecret_proof: appSecretProof(accessToken) });
+    const res = await fetch(`${GRAPH}/me/permissions?${params.toString()}`, { method: "DELETE" });
+    if (!res.ok) throw new Error(`Meta permission revoke failed: ${await res.text()}`);
   },
 
   // Registered in the Meta app's Facebook Login settings.

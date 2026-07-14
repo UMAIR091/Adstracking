@@ -13,6 +13,10 @@ export type OAuthProvider = {
   exchangeCode(code: string): Promise<TokenSet>;
   refresh(refreshToken: string): Promise<TokenSet>;
   identity(accessToken: string): Promise<string>;
+  // Best-effort revocation of the grant at the provider on disconnect. Optional:
+  // only providers with an official revoke endpoint implement it. Never blocks
+  // disconnect — callers treat a thrown error as non-fatal.
+  revoke?(tokens: { accessToken: string | null; refreshToken: string | null }): Promise<void>;
   // Where the provider redirects back to (must match the OAuth app config).
   callbackPath: string;
 };
@@ -41,6 +45,16 @@ export type IntegrationDef = {
   // Extra input the connect flow needs before OAuth can start (e.g. Shopify's
   // shop domain). Rendered on the consent screen and passed to connectPath.
   connectField?: { name: string; label: string; placeholder: string; hint?: string };
+
+  // How the connection authenticates. "oauth" (default) uses the redirect flow;
+  // "apikey" collects secret(s) on the consent screen and verifies them directly
+  // (no provider redirect) — for providers like Klaviyo/CallRail/Ahrefs/Semrush.
+  authKind?: "oauth" | "apikey";
+  // Fields an "apikey" provider collects (posted securely, never in a URL).
+  connectFields?: { name: string; label: string; placeholder: string; hint?: string; secret?: boolean }[];
+  // Validate collected api-key fields, returning the token to store, a display
+  // name, and the selectable accounts. Called by the generic api-key connect route.
+  verifyApiKey?(fields: Record<string, string>): Promise<{ displayName: string; token: string; accounts: IntegrationAccount[] }>;
 
   // ── server-only behavior (omit on "soon" providers) ──
   // List the accounts the authenticated user can pick from.

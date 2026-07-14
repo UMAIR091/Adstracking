@@ -1,16 +1,20 @@
 // The integration registry — single source of truth that generic services and
 // UI read from. Adding a source = add a descriptor in providers.ts.
-import { gscDef, ga4Def, metaAdsDef, instagramDef, googleAdsDef, gbpDef, shopifyDef, sheetsDef, hubspotDef, linkedinAdsDef, tiktokAdsDef, soonDefs } from "./providers";
-import { googleOAuth, googleAdsOAuth, gbpOAuth, sheetsOAuth } from "./oauth/google";
+import { gscDef, ga4Def, metaAdsDef, instagramDef, googleAdsDef, gbpDef, shopifyDef, woocommerceDef, mailchimpDef, klaviyoDef, callrailDef, microsoftAdsDef, ahrefsDef, semrushDef, stripeDef, youtubeAnalyticsDef, bigqueryDef, sheetsDef, hubspotDef, linkedinAdsDef, tiktokAdsDef, soonDefs } from "./providers";
+import { googleOAuth, googleAdsOAuth, gbpOAuth, sheetsOAuth, youtubeOAuth, bigqueryOAuth } from "./oauth/google";
 import { metaOAuth } from "./oauth/meta";
 import { instagramOAuth } from "./oauth/instagram";
 import { shopifyOAuth } from "./oauth/shopify";
+import { woocommerceOAuth } from "./oauth/woocommerce";
+import { mailchimpOAuth } from "./oauth/mailchimp";
 import { hubspotOAuth } from "./oauth/hubspot";
 import { linkedinOAuth } from "./oauth/linkedin";
 import { tiktokOAuth } from "./oauth/tiktok";
+import { microsoftAdsOAuth } from "./oauth/microsoftAds";
+import { stripeOAuth } from "./oauth/stripe";
 import type { IntegrationDef, OAuthProvider, IntegrationDescriptor } from "./types";
 
-const DEFS: IntegrationDef[] = [gscDef, ga4Def, googleAdsDef, metaAdsDef, instagramDef, gbpDef, shopifyDef, sheetsDef, hubspotDef, linkedinAdsDef, tiktokAdsDef, ...soonDefs];
+const DEFS: IntegrationDef[] = [gscDef, ga4Def, googleAdsDef, metaAdsDef, instagramDef, gbpDef, shopifyDef, woocommerceDef, mailchimpDef, klaviyoDef, callrailDef, microsoftAdsDef, ahrefsDef, semrushDef, stripeDef, youtubeAnalyticsDef, bigqueryDef, sheetsDef, hubspotDef, linkedinAdsDef, tiktokAdsDef, ...soonDefs];
 
 const BY_ID: Record<string, IntegrationDef> = {};
 for (const d of DEFS) BY_ID[d.id] = d;
@@ -20,12 +24,18 @@ const OAUTH: Record<string, OAuthProvider> = {
   google_ads: googleAdsOAuth,
   gbp: gbpOAuth,
   sheets: sheetsOAuth,
+  youtube_analytics: youtubeOAuth,
+  bigquery: bigqueryOAuth,
   meta: metaOAuth,
   instagram: instagramOAuth,
   shopify: shopifyOAuth,
+  woocommerce: woocommerceOAuth,
+  mailchimp: mailchimpOAuth,
   hubspot: hubspotOAuth,
   linkedin: linkedinOAuth,
   tiktok: tiktokOAuth,
+  microsoft: microsoftAdsOAuth,
+  stripe: stripeOAuth,
 };
 
 export function listIntegrations(): IntegrationDef[] {

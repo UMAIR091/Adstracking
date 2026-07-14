@@ -26,7 +26,10 @@ export async function handleConnect(req: Request): Promise<Response> {
   const clientId = url.searchParams.get("clientId");
   if (!clientId) return NextResponse.json({ error: "clientId required" }, { status: 400 });
 
-  const type = url.searchParams.get("type") || "gsc";
+  // Require an explicit integration type — never silently default to GSC, or a
+  // caller with a missing/typo'd type would connect the wrong provider.
+  const type = url.searchParams.get("type");
+  if (!type) return NextResponse.json({ error: "type required" }, { status: 400 });
   const def = getIntegration(type);
   const oauth = getOAuthProvider(def?.oauthProviderId);
   if (!def || def.status !== "live" || !oauth) {
@@ -66,7 +69,8 @@ export async function handleCallback(req: Request): Promise<Response> {
   try {
     const parsed = JSON.parse(Buffer.from(state, "base64url").toString("utf8"));
     clientId = parsed.clientId;
-    type = parsed.type || "gsc";
+    type = parsed.type;
+    if (!clientId || !type) return fail("Invalid state");
     const cookieNonce = cookies().get(NONCE_COOKIE)?.value;
     if (!cookieNonce || cookieNonce !== parsed.nonce) return fail("Invalid state");
   } catch {

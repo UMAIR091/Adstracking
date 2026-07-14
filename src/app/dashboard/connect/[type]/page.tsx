@@ -26,7 +26,9 @@ export default async function ConnectConsentPage({
 
   const def = getIntegration(params.type);
   const clientId = searchParams.clientId;
-  if (!def || def.status !== "live" || !def.connectPath || !clientId) notFound();
+  // OAuth providers need a connectPath; api-key providers POST to a generic route.
+  const connectable = def && def.status === "live" && (def.authKind === "apikey" || def.connectPath);
+  if (!def || !connectable || !clientId) notFound();
 
   const supabase = createClient();
   const { data: client } = await supabase.from("clients").select("id, name").eq("id", clientId).single();
@@ -83,10 +85,40 @@ export default async function ConnectConsentPage({
               <Link href="/privacy" className="text-brand-600 hover:underline">Privacy Policy</Link> and{" "}
               <Link href="/security" className="text-brand-600 hover:underline">data practices</Link>.
             </p>
-            {def.connectField ? (
+            {def.authKind === "apikey" ? (
+              /* API-key providers (Klaviyo, CallRail, Ahrefs, Semrush) collect
+                 their secret(s) here and POST them — never in a URL. */
+              <form action="/api/connect/apikey" method="post" className="flex flex-1 flex-col gap-3 sm:max-w-md">
+                <input type="hidden" name="clientId" value={client.id} />
+                <input type="hidden" name="type" value={def.id} />
+                {(def.connectFields ?? []).map((f) => (
+                  <div key={f.name} className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-ink-700" htmlFor={`f-${f.name}`}>{f.label}</label>
+                    <input
+                      id={`f-${f.name}`}
+                      name={f.name}
+                      type={f.secret ? "password" : "text"}
+                      required
+                      autoComplete="off"
+                      placeholder={f.placeholder}
+                      className="h-10 w-full rounded-lg border border-ink-300 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                    />
+                    {f.hint && <p className="text-xs text-ink-400">{f.hint}</p>}
+                  </div>
+                ))}
+                <div className="flex gap-2">
+                  <Button asChild variant="outline">
+                    <Link href={backHref}>Cancel</Link>
+                  </Button>
+                  <Button type="submit">
+                    Connect {def.name} <ArrowRight size={16} />
+                  </Button>
+                </div>
+              </form>
+            ) : def.connectField ? (
               /* Providers like Shopify need one extra value (the shop domain)
                  before OAuth can start — collected here, passed to connectPath. */
-              <form action={def.connectPath} method="get" className="flex flex-1 flex-col gap-2 sm:max-w-md">
+              <form action={def.connectPath ?? "#"} method="get" className="flex flex-1 flex-col gap-2 sm:max-w-md">
                 <input type="hidden" name="clientId" value={client.id} />
                 <input type="hidden" name="type" value={def.id} />
                 <label className="text-xs font-medium text-ink-700" htmlFor="connect-field">

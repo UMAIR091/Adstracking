@@ -39,12 +39,14 @@ export function IntegrationCard({
   descriptor,
   clientId,
   source,
+  status = null,
   lastSyncedAt = null,
   lastSyncError = null,
 }: {
   descriptor: IntegrationDescriptor;
   clientId: string;
   source: IntegrationSource;
+  status?: string | null;
   lastSyncedAt?: string | null;
   lastSyncError?: string | null;
 }) {
@@ -55,6 +57,10 @@ export function IntegrationCard({
   const Icon = ICONS[descriptor.icon] ?? Plug;
   const tint = TINTS[descriptor.accent] ?? "bg-ink-100 text-ink-600";
   const noun = descriptor.accountNoun;
+  // A revoked/expired grant needs the user to re-authorize — reuse the existing
+  // consent → OAuth connect flow. connectHref is the same route as first connect.
+  const needsReconnect = status === "revoked";
+  const connectHref = `/dashboard/connect/${descriptor.id}?clientId=${clientId}`;
 
   if (!source) {
     return (
@@ -135,10 +141,28 @@ export function IntegrationCard({
               <p className="text-sm text-ink-500">Connected as {source.display_name}</p>
             </div>
           </div>
-          <button onClick={disconnect} disabled={busy} className="text-xs text-ink-500 transition-colors hover:text-red-600 disabled:opacity-50">
-            Disconnect
-          </button>
+          <div className="flex items-center gap-3">
+            {needsReconnect && (
+              <Button asChild size="sm">
+                <a href={connectHref}>Reconnect</a>
+              </Button>
+            )}
+            <button onClick={disconnect} disabled={busy} className="text-xs text-ink-500 transition-colors hover:text-red-600 disabled:opacity-50">
+              Disconnect
+            </button>
+          </div>
         </div>
+
+        {needsReconnect && (
+          <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            <span>
+              <span className="font-semibold">Reconnection required.</span>{" "}
+              {lastSyncError ?? `${descriptor.name} access has expired or was revoked.`} Syncing is paused until you{" "}
+              <a href={connectHref} className="font-semibold underline">reconnect {descriptor.name}</a>.
+            </span>
+          </div>
+        )}
 
         <div className="mt-4 flex flex-wrap items-end gap-2">
           <div className="flex-1">
@@ -162,12 +186,12 @@ export function IntegrationCard({
           </Button>
         </div>
 
-        {source.selectedAccountId && lastSyncError && (
+        {source.selectedAccountId && lastSyncError && !needsReconnect && (
           <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
             <AlertTriangle size={14} className="mt-0.5 shrink-0" />
             <span>
               Last sync failed: {lastSyncError}. Click Refresh now to retry, or{" "}
-              <a href={`/dashboard/connect/${descriptor.id}?clientId=${clientId}`} className="font-semibold underline">
+              <a href={connectHref} className="font-semibold underline">
                 reconnect {descriptor.name}
               </a>{" "}
               if access expired or was revoked.

@@ -2,6 +2,7 @@
 
 const OAUTH_AUTH = "https://accounts.google.com/o/oauth2/v2/auth";
 const OAUTH_TOKEN = "https://oauth2.googleapis.com/token";
+const OAUTH_REVOKE = "https://oauth2.googleapis.com/revoke";
 const USERINFO = "https://www.googleapis.com/oauth2/v2/userinfo";
 const GSC = "https://www.googleapis.com/webmasters/v3";
 const GA4_ADMIN = "https://analyticsadmin.googleapis.com/v1beta";
@@ -68,6 +69,19 @@ export async function refreshAccessToken(refreshToken: string): Promise<TokenRes
   });
   if (!res.ok) throw new Error(`Token refresh failed: ${await res.text()}`);
   return res.json();
+}
+
+// Best-effort revocation of a Google OAuth grant. Revoking the refresh token
+// invalidates the whole grant (access + refresh). Google returns 200 on success
+// and 400 if the token is already invalid — both mean the grant is gone, so the
+// caller treats any thrown error as non-fatal.
+export async function revokeGoogleToken(token: string): Promise<void> {
+  const res = await fetch(OAUTH_REVOKE, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ token }),
+  });
+  if (!res.ok) throw new Error(`Google token revoke failed: ${await res.text()}`);
 }
 
 export async function getGoogleEmail(accessToken: string): Promise<string> {

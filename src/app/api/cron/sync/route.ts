@@ -1,32 +1,26 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { cronAuthorized } from "@/lib/cronAuth";
-import { syncableTypes } from "@/lib/integrations/registry";
-import { syncDataSource, type SyncableSource } from "@/lib/sync";
+import { runSyncBatch, batchSize } from "@/lib/syncBatch";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-// Refreshes the cached Search Console metrics for every connected source.
+// Refreshes cached provider metrics for a BOUNDED batch of the stalest connected
+// sources per invocation (see lib/syncBatch.ts). Designed to be called
+// frequently: batch size × runs-per-day must exceed the total connected sources
+// so every source is refreshed daily. Tune with SYNC_BATCH_SIZE and the cron
+// schedule. Safe to run concurrently — token refresh is single-flight and each
+// source is claimed by staleness order.
 export async function GET(req: Request) {
   if (!cronAuthorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const admin = createAdminClient();
-  const { data: sources, error } = await admin
-    .from("data_sources")
-    .select("id, agency_id, type, config, access_token, refresh_token, token_expires_at")
-    .in("type", syncableTypes());
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  let synced = 0;
-  let failed = 0;
-  // Sequential to avoid bursting Google's quota.
-  for (const ds of (sources ?? []) as SyncableSource[]) {
-    const result = await syncDataSource(admin, ds);
-    if (result.ok) synced++;
-    else failed++;
+  try {
+    const { claimed, synced, failed } = await runSyncBatch(admin, batchSize());
+    return NextResponse.json({ ok: true, batch: batchSize(), claimed, synced, failed });
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
-
-  return NextResponse.json({ ok: true, total: (sources ?? []).length, synced, failed });
 }

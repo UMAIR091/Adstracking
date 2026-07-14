@@ -15,8 +15,12 @@ import { GbpAnalytics } from "@/components/GbpAnalytics";
 import { CommerceAnalytics } from "@/components/CommerceAnalytics";
 import { SheetsAnalytics } from "@/components/SheetsAnalytics";
 import { CrmAnalytics } from "@/components/CrmAnalytics";
+import { EmailAnalytics } from "@/components/EmailAnalytics";
+import { CallAnalytics } from "@/components/CallAnalytics";
+import { SeoAnalytics } from "@/components/SeoAnalytics";
+import { VideoAnalytics } from "@/components/VideoAnalytics";
 import type { SocialReport } from "@/lib/integrations/social";
-import type { GbpReport, CommerceReport, SheetTable, CrmReport } from "@/lib/integrations/metrics";
+import type { GbpReport, CommerceReport, SheetTable, CrmReport, EmailReport, CallReport, SeoReport, VideoReport } from "@/lib/integrations/metrics";
 import { SAMPLE_GSC, SAMPLE_GA4, SAMPLE_INSTAGRAM } from "@/lib/sampleData";
 import { GenerateReport } from "@/components/GenerateReport";
 import { ReportSchedule, type ScheduleData } from "@/components/ReportSchedule";
@@ -31,7 +35,13 @@ export const dynamic = "force-dynamic";
 // data before connecting; the rest render once a synced snapshot exists.
 const HAS_VIZ = new Set(["gsc", "ga4", "instagram", "google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "gbp", "shopify", "sheets", "hubspot"]);
 const SAMPLE_VIZ = new Set(["gsc", "ga4", "instagram"]);
-const ADS_VIZ = new Set(["google_ads", "meta_ads", "linkedin_ads", "tiktok_ads"]);
+const ADS_VIZ = new Set(["google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "microsoft_ads"]);
+// Storefronts share the normalized CommerceReport shape + CommerceAnalytics.
+const COMMERCE_VIZ = new Set(["shopify", "woocommerce", "stripe"]);
+// Email-marketing platforms share the EmailReport shape + EmailAnalytics.
+const EMAIL_VIZ = new Set(["mailchimp", "klaviyo"]);
+// SEO platforms share the SeoReport shape + SeoAnalytics.
+const SEO_VIZ = new Set(["ahrefs", "semrush"]);
 
 // Provider-specific analytics view (the only part that isn't generic, since each
 // source visualizes different metrics). Everything else flows from the registry.
@@ -42,9 +52,13 @@ function Analytics({ id, snapshot }: { id: string; snapshot: unknown }) {
   if (id === "instagram") return snapshot ? <SocialAnalytics report={snapshot as SocialReport} /> : <SocialAnalytics report={SAMPLE_INSTAGRAM} sample />;
   if (ADS_VIZ.has(id) && snapshot) return <AdsAnalytics report={snapshot as AdsReportData} />;
   if (id === "gbp" && snapshot) return <GbpAnalytics report={snapshot as GbpReport} />;
-  if (id === "shopify" && snapshot) return <CommerceAnalytics report={snapshot as CommerceReport} />;
-  if (id === "sheets" && snapshot) return <SheetsAnalytics report={snapshot as SheetTable} />;
+  if (COMMERCE_VIZ.has(id) && snapshot) return <CommerceAnalytics report={snapshot as CommerceReport} />;
+  if ((id === "sheets" || id === "bigquery") && snapshot) return <SheetsAnalytics report={snapshot as SheetTable} />;
   if (id === "hubspot" && snapshot) return <CrmAnalytics report={snapshot as CrmReport} />;
+  if (EMAIL_VIZ.has(id) && snapshot) return <EmailAnalytics report={snapshot as EmailReport} />;
+  if (id === "callrail" && snapshot) return <CallAnalytics report={snapshot as CallReport} />;
+  if (SEO_VIZ.has(id) && snapshot) return <SeoAnalytics report={snapshot as SeoReport} />;
+  if (id === "youtube_analytics" && snapshot) return <VideoAnalytics report={snapshot as VideoReport} />;
   return null;
 }
 
@@ -66,7 +80,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     liveIntegrations().map(async (def) => {
       const { data: ds } = await supabase
         .from("data_sources")
-        .select("id, display_name, config, last_synced_at, last_sync_error")
+        .select("id, display_name, config, status, last_synced_at, last_sync_error")
         .eq("client_id", client.id)
         .eq("type", def.id)
         .maybeSingle();
@@ -96,6 +110,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         def,
         source,
         snapshot,
+        status: (ds?.status as string | null) ?? null,
         lastSyncedAt: (ds?.last_synced_at as string | null) ?? null,
         lastSyncError: (ds?.last_sync_error as string | null) ?? null,
         ready: Boolean(source?.selectedAccountId),
@@ -149,6 +164,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
             descriptor={descriptor(i.def)}
             clientId={client.id}
             source={i.source}
+            status={i.status}
             lastSyncedAt={i.lastSyncedAt}
             lastSyncError={i.lastSyncError}
           />

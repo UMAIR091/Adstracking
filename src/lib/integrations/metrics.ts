@@ -102,6 +102,97 @@ export type CrmReport = {
   topDeals: CrmDeal[];
 };
 
+// ── Email marketing (Mailchimp, Klaviyo) ────────────────────
+
+export type EmailTotals = {
+  subscribers: number; // current audience/list size
+  newSubscribers: number; // added in the period
+  unsubscribes: number;
+  campaigns: number; // campaigns/flows sent in the period
+  emailsSent: number;
+  opens: number;
+  openRate: number; // 0..1
+  clicks: number;
+  clickRate: number; // 0..1
+};
+
+export type EmailDay = { date: string; sent: number; opens: number; clicks: number };
+
+export type EmailCampaign = { name: string; sentAt: string; sent: number; openRate: number; clickRate: number };
+
+export type EmailReport = {
+  platform: string; // integration id, e.g. "mailchimp"
+  totals: EmailTotals;
+  previousTotals: EmailTotals | null;
+  byDate: EmailDay[];
+  topCampaigns: EmailCampaign[];
+};
+
+// ── Call tracking (CallRail) ─────────────────────────────────
+
+export type CallTotals = {
+  calls: number;
+  leads: number; // first-time callers
+  answered: number;
+  missed: number;
+  avgDurationSec: number;
+};
+
+export type CallDay = { date: string; calls: number; leads: number };
+
+export type CallSource = { name: string; calls: number };
+
+export type CallReport = {
+  platform: string; // integration id, e.g. "callrail"
+  totals: CallTotals;
+  previousTotals: CallTotals | null;
+  byDate: CallDay[];
+  topSources: CallSource[];
+};
+
+// ── Video (YouTube Analytics) ────────────────────────────────
+
+export type VideoTotals = {
+  views: number;
+  watchTimeMinutes: number;
+  avgViewDurationSec: number;
+  subscribers: number; // current channel subscriber count
+  subscribersGained: number;
+  subscribersLost: number;
+  likes: number;
+  comments: number;
+};
+
+export type VideoDay = { date: string; views: number; watchTimeMinutes: number; subscribersGained: number };
+
+export type VideoReport = {
+  platform: "youtube_analytics";
+  totals: VideoTotals;
+  previousTotals: VideoTotals | null;
+  byDate: VideoDay[];
+};
+
+// ── SEO / organic search (Ahrefs, Semrush) ──────────────────
+// Point-in-time domain metrics (not a daily series), so there's no byDate.
+
+export type SeoTotals = {
+  organicKeywords: number;
+  organicTraffic: number; // estimated monthly organic visits
+  backlinks: number;
+  referringDomains: number;
+  domainRating: number; // 0..100 (Ahrefs Domain Rating / Semrush Authority Score)
+};
+
+export type SeoKeyword = { keyword: string; position: number; volume: number; traffic: number };
+
+export type SeoReport = {
+  platform: string; // integration id, e.g. "ahrefs"
+  target: string; // the analyzed domain
+  totals: SeoTotals;
+  previousTotals: SeoTotals | null;
+  topKeywords: SeoKeyword[];
+};
+
 // ── Local presence (Google Business Profile) ─────────────────
 
 export type GbpTotals = {
@@ -125,7 +216,7 @@ export type GbpReport = {
 // ── Custom tabular data (Google Sheets) ──────────────────────
 
 export type SheetTable = {
-  platform: "sheets";
+  platform: string; // integration id — "sheets" or "bigquery" (custom tabular data)
   title: string; // spreadsheet name
   sheetTitle: string; // first worksheet
   url: string | null;

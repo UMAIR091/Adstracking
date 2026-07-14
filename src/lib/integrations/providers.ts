@@ -5,11 +5,21 @@
 import {
   listGscSites, fetchGscReportWithComparison, listGa4Properties, fetchGa4ReportWithComparison,
 } from "@/lib/google";
-import { listMetaAdAccounts, fetchMetaAdsReport } from "./oauth/meta";
+import { listMetaAdAccounts, fetchMetaAdsReport, metaConfigured } from "./oauth/meta";
 import { listInstagramAccounts, fetchInstagramReport } from "./oauth/instagram";
 import { listGoogleAdsAccounts, fetchGoogleAdsReport, googleAdsConfigured } from "./oauth/googleAds";
 import { listGbpLocations, fetchGbpReport } from "./oauth/gbp";
 import { fetchShopifyReport, shopifyConfigured } from "./oauth/shopify";
+import { fetchWooReport } from "./oauth/woocommerce";
+import { listMailchimpAudiences, fetchMailchimpReport, mailchimpConfigured } from "./oauth/mailchimp";
+import { verifyKlaviyoKey, fetchKlaviyoReport } from "./oauth/klaviyo";
+import { verifyCallRailKey, fetchCallRailReport } from "./oauth/callrail";
+import { listMicrosoftAdsAccounts, fetchMicrosoftAdsReport, microsoftAdsConfigured } from "./oauth/microsoftAds";
+import { verifyAhrefsKey, fetchAhrefsReport } from "./oauth/ahrefs";
+import { verifySemrushKey, fetchSemrushReport } from "./oauth/semrush";
+import { listStripeAccounts, fetchStripeReport, stripeConfigured } from "./oauth/stripe";
+import { listYoutubeChannels, fetchYoutubeReport } from "./oauth/youtube";
+import { listBigQueryProjects, fetchBigQuerySnapshot } from "./oauth/bigquery";
 import { listSpreadsheets, fetchSheetTable } from "./oauth/sheets";
 import { listHubspotAccounts, fetchHubspotReport, hubspotConfigured } from "./oauth/hubspot";
 import { listLinkedinAdAccounts, fetchLinkedinAdsReport, linkedinConfigured } from "./oauth/linkedin";
@@ -91,7 +101,7 @@ export const metaAdsDef: IntegrationDef = {
   description: "Reach, spend, CPC & ROAS",
   icon: "Facebook",
   accent: "blue",
-  status: "live",
+  status: gated(metaConfigured()),
   oauthProviderId: "meta",
   connectPath: "/api/meta/connect",
   accountNoun: "ad account",
@@ -118,7 +128,7 @@ export const instagramDef: IntegrationDef = {
   description: "Followers, reach, posts & engagement",
   icon: "Instagram",
   accent: "fuchsia",
-  status: "live",
+  status: gated(metaConfigured()),
   oauthProviderId: "instagram",
   connectPath: "/api/meta/connect",
   accountNoun: "account",
@@ -221,6 +231,40 @@ export const shopifyDef: IntegrationDef = {
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
 };
 
+// Second commerce source on the normalized CommerceReport shape. WooCommerce's
+// per-store authorization (/wc-auth) uses dedicated connect/callback/return
+// routes and a consent-screen input (connectField) for the store URL; no
+// app-level credentials are needed, so it's always live. The account IS the store.
+export const woocommerceDef: IntegrationDef = {
+  id: "woocommerce",
+  name: "WooCommerce",
+  description: "Orders, revenue & top products",
+  icon: "ShoppingCart",
+  accent: "fuchsia",
+  status: "live",
+  oauthProviderId: "woocommerce",
+  connectPath: "/api/woocommerce/connect",
+  accountNoun: "store",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Orders & sales metrics (read-only)", why: "Order counts, revenue and average order value power the e-commerce sections of your reports." },
+    { item: "Product line items", why: "Shows which products drive revenue in the client's report." },
+  ],
+  connectField: {
+    name: "store",
+    label: "Store URL",
+    placeholder: "https://your-store.com",
+    hint: "Your WooCommerce store's web address. You approve read-only access on your own store admin.",
+  },
+  // The account is the store itself — set at connect time by the callback.
+  listAccounts: async () => [],
+  fetchSnapshot: (at, storeUrl, days) => fetchWooReport(at, storeUrl, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts[0]?.id ?? null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
 // Custom tabular data. The snapshot is the first worksheet as a bounded
 // table — shown on the dashboard and embeddable in reports.
 export const sheetsDef: IntegrationDef = {
@@ -241,6 +285,232 @@ export const sheetsDef: IntegrationDef = {
   ],
   listAccounts: (at) => listSpreadsheets(at),
   fetchSnapshot: (at, id) => fetchSheetTable(at, id),
+  buildConfig: (accounts) => ({ accounts: accounts.slice(0, 100), account_id: accounts.length === 1 ? accounts[0].id : null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// First email-marketing source on the normalized EmailReport shape (metrics.ts).
+// Klaviyo fills the same shape and EmailAnalytics renders both. Standard OAuth,
+// so it uses the generic connect/callback routes; a connection is one audience.
+export const mailchimpDef: IntegrationDef = {
+  id: "mailchimp",
+  name: "Mailchimp",
+  description: "Audience growth, opens & clicks",
+  icon: "Mail",
+  accent: "amber",
+  status: gated(mailchimpConfigured()),
+  oauthProviderId: "mailchimp",
+  connectPath: "/api/mailchimp/connect",
+  accountNoun: "audience",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Audience & campaign metrics (read-only)", why: "Subscribers, growth, opens, clicks and unsubscribes power the email-marketing sections of your reports." },
+    { item: "Sent campaigns with performance", why: "Shows which campaigns landed best for your client." },
+    { item: "Your list of audiences", why: "So you can pick which audience this client's reports are built from." },
+  ],
+  listAccounts: (at) => listMailchimpAudiences(at),
+  fetchSnapshot: (at, id, days) => fetchMailchimpReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// Second email-marketing source on the shared EmailReport shape. Klaviyo uses a
+// private API key (no OAuth app), so it connects via the generic api-key flow.
+export const klaviyoDef: IntegrationDef = {
+  id: "klaviyo",
+  name: "Klaviyo",
+  description: "Email opens, clicks & list growth",
+  icon: "Send",
+  accent: "sky",
+  status: "live",
+  authKind: "apikey",
+  oauthProviderId: null,
+  connectPath: null,
+  accountNoun: "account",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Email metrics (read-only)", why: "Emails sent, opens, clicks, subscriber growth and unsubscribes power the email-marketing sections of your reports." },
+    { item: "Recent email campaigns", why: "Shows which campaigns your client sent in the period." },
+  ],
+  connectFields: [
+    { name: "apiKey", label: "Private API key", placeholder: "pk_xxxxxxxx", secret: true,
+      hint: "Klaviyo → Settings → API keys → create a read-only Private API Key." },
+  ],
+  verifyApiKey: (fields) => verifyKlaviyoKey(fields),
+  fetchSnapshot: (at, id, days) => fetchKlaviyoReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts[0]?.id ?? null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// Call-tracking source on the normalized CallReport shape. Uses an API key, so
+// it connects via the generic api-key flow; a connection maps to one account.
+export const callrailDef: IntegrationDef = {
+  id: "callrail",
+  name: "CallRail",
+  description: "Calls, first-time leads & sources",
+  icon: "PhoneCall",
+  accent: "cyan",
+  status: "live",
+  authKind: "apikey",
+  oauthProviderId: null,
+  connectPath: null,
+  accountNoun: "account",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Call activity (read-only)", why: "Call volume, first-time callers (leads), answer rate and duration power the call-tracking sections of your reports." },
+    { item: "Call sources", why: "Shows which channels drive phone leads for your client." },
+  ],
+  connectFields: [
+    { name: "apiKey", label: "API key", placeholder: "your CallRail API key", secret: true,
+      hint: "CallRail → Account settings → Integrations → API keys → create an API key." },
+  ],
+  verifyApiKey: (fields) => verifyCallRailKey(fields),
+  fetchSnapshot: (at, id, days) => fetchCallRailReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// First SEO source on the normalized SeoReport shape. Ahrefs uses an API key +
+// a target domain, so it connects via the generic api-key flow.
+export const ahrefsDef: IntegrationDef = {
+  id: "ahrefs",
+  name: "Ahrefs",
+  description: "Domain rating, backlinks & keywords",
+  icon: "TrendingUp",
+  accent: "sky",
+  status: "live",
+  authKind: "apikey",
+  oauthProviderId: null,
+  connectPath: null,
+  accountNoun: "domain",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Organic search & backlink metrics (read-only)", why: "Domain Rating, organic keywords, organic traffic, backlinks and referring domains power the SEO sections of your reports." },
+    { item: "Top organic keywords", why: "Shows which keywords drive your client's organic traffic." },
+  ],
+  connectFields: [
+    { name: "apiKey", label: "API key", placeholder: "your Ahrefs API key", secret: true,
+      hint: "Ahrefs → Account settings → API (requires an API-enabled plan)." },
+    { name: "domain", label: "Domain", placeholder: "example.com", hint: "The website to report on." },
+  ],
+  verifyApiKey: (fields) => verifyAhrefsKey(fields),
+  fetchSnapshot: (at, id, days) => fetchAhrefsReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts[0]?.id ?? null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// Second SEO source on the shared SeoReport shape. Semrush also uses an API key
+// + a target domain via the generic api-key flow.
+export const semrushDef: IntegrationDef = {
+  id: "semrush",
+  name: "Semrush",
+  description: "Organic keywords, traffic & backlinks",
+  icon: "Search",
+  accent: "rose",
+  status: "live",
+  authKind: "apikey",
+  oauthProviderId: null,
+  connectPath: null,
+  accountNoun: "domain",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Organic search & backlink metrics (read-only)", why: "Organic keywords, organic traffic, authority score, backlinks and referring domains power the SEO sections of your reports." },
+    { item: "Top organic keywords", why: "Shows which keywords drive your client's organic traffic." },
+  ],
+  connectFields: [
+    { name: "apiKey", label: "API key", placeholder: "your Semrush API key", secret: true,
+      hint: "Semrush → Subscription info → API units → API key." },
+    { name: "domain", label: "Domain", placeholder: "example.com", hint: "The website to report on." },
+  ],
+  verifyApiKey: (fields) => verifySemrushKey(fields),
+  fetchSnapshot: (at, id, days) => fetchSemrushReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts[0]?.id ?? null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// Third commerce source on the shared CommerceReport shape. Stripe uses Connect
+// OAuth (read-only) so agencies connect a client's account without keys.
+export const stripeDef: IntegrationDef = {
+  id: "stripe",
+  name: "Stripe",
+  description: "Payments, revenue & customers",
+  icon: "CreditCard",
+  accent: "blue",
+  status: gated(stripeConfigured()),
+  oauthProviderId: "stripe",
+  connectPath: "/api/stripe/connect",
+  accountNoun: "account",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Payments & revenue (read-only)", why: "Successful charge counts, net revenue and average order value power the payments sections of your reports." },
+    { item: "Customer counts", why: "Shows how many distinct customers paid in the period." },
+  ],
+  listAccounts: (at) => listStripeAccounts(at),
+  fetchSnapshot: (at, id, days) => fetchStripeReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts[0]?.id ?? null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// Video source on the normalized VideoReport shape. Reuses the shared Google
+// OAuth app (youtube scopes), so it uses the existing /api/google connect flow.
+export const youtubeAnalyticsDef: IntegrationDef = {
+  id: "youtube_analytics",
+  name: "YouTube Analytics",
+  description: "Views, watch time & subscribers",
+  icon: "Youtube",
+  accent: "rose",
+  status: "live",
+  oauthProviderId: "youtube_analytics",
+  connectPath: "/api/google/connect",
+  accountNoun: "channel",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Channel metrics (read-only)", why: "Views, watch time, subscriber growth, likes and comments power the video sections of your reports." },
+    { item: "Your list of channels", why: "So you can pick which channel this client's reports are built from." },
+  ],
+  listAccounts: (at) => listYoutubeChannels(at),
+  fetchSnapshot: (at, id, days) => fetchYoutubeReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// Data-warehouse source. Reuses the shared Google OAuth app (bigquery scope).
+// The snapshot is a bounded overview of the project's datasets/tables as a
+// SheetTable (reusing SheetsAnalytics), so warehouse contents show on the
+// dashboard and embed in reports without force-fitting them into ad metrics.
+export const bigqueryDef: IntegrationDef = {
+  id: "bigquery",
+  name: "Google BigQuery",
+  description: "Datasets & tables from your warehouse",
+  icon: "Database",
+  accent: "sky",
+  status: "live",
+  oauthProviderId: "bigquery",
+  connectPath: "/api/google/connect",
+  accountNoun: "project",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Dataset & table metadata (read-only)", why: "The datasets, tables and row counts in the selected project are shown as a data table in this client's dashboard and reports." },
+    { item: "Your list of BigQuery projects", why: "So you can pick which project this client's data comes from." },
+  ],
+  listAccounts: (at) => listBigQueryProjects(at),
+  fetchSnapshot: (at, id) => fetchBigQuerySnapshot(at, id),
   buildConfig: (accounts) => ({ accounts: accounts.slice(0, 100), account_id: accounts.length === 1 ? accounts[0].id : null }),
   readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
@@ -321,8 +591,33 @@ export const tiktokAdsDef: IntegrationDef = {
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
 };
 
+// Fourth paid-media source on the shared AdsReport shape. Microsoft's API is
+// SOAP with asynchronous reporting; the backend hides that behind the same
+// listAccounts/fetchSnapshot contract every other ad platform uses.
+export const microsoftAdsDef: IntegrationDef = {
+  id: "microsoft_ads",
+  name: "Microsoft Ads",
+  description: "Bing search spend, clicks & conversions",
+  icon: "Search",
+  accent: "cyan",
+  status: gated(microsoftAdsConfigured()),
+  oauthProviderId: "microsoft",
+  connectPath: "/api/microsoft/connect",
+  accountNoun: "ad account",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Ad performance metrics (read-only)", why: "Spend, impressions, clicks, conversions and revenue power the paid-media sections of your reports." },
+    { item: "Your list of ad accounts", why: "So you can pick which ad account this client's reports are built from." },
+  ],
+  listAccounts: (at) => listMicrosoftAdsAccounts(at),
+  fetchSnapshot: (at, id, days) => fetchMicrosoftAdsReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
 export const soonDefs: IntegrationDef[] = [
-  soon("microsoft_ads", "Microsoft Ads", "Bing search spend & conversions", "Search", "cyan"),
   soon("x_twitter", "X (Twitter)", "Impressions, engagements & spend", "Twitter", "ink"),
   soon("youtube", "YouTube", "Views, watch time & subscribers", "Youtube", "red"),
 ];
