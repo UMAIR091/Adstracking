@@ -94,13 +94,17 @@ export const microsoftAdsOAuth: OAuthProvider = {
 async function soapCall(
   endpoint: string, ns: string, action: string, accessToken: string, extraHeaders: string, bodyXml: string
 ): Promise<string> {
+  // Header element order follows Microsoft's documented v13 request: Action,
+  // then AuthenticationToken (the OAuth access token), then DeveloperToken, then
+  // any per-call headers (CustomerId/CustomerAccountId). i:nil="false" is set
+  // explicitly on the tokens as the reference requests do.
   const envelope =
     `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">` +
     `<s:Header xmlns="${ns}">` +
     `<Action mustUnderstand="1">${action}</Action>` +
-    `<DeveloperToken>${env("MICROSOFT_ADS_DEVELOPER_TOKEN")}</DeveloperToken>` +
+    `<AuthenticationToken i:nil="false">${accessToken}</AuthenticationToken>` +
+    `<DeveloperToken i:nil="false">${env("MICROSOFT_ADS_DEVELOPER_TOKEN")}</DeveloperToken>` +
     extraHeaders +
-    `<AuthenticationToken>${accessToken}</AuthenticationToken>` +
     `</s:Header>` +
     `<s:Body>${bodyXml}</s:Body>` +
     `</s:Envelope>`;
@@ -112,12 +116,47 @@ async function soapCall(
       body: envelope,
     });
     const text = await res.text();
-    if (!res.ok || text.includes("<s:Fault") || text.includes("<faultstring")) {
-      const msg = tag(text, "faultstring") || tag(text, "Message") || tag(text, "ErrorCode") || `${res.status}`;
-      throw new Error(`Microsoft Ads API error: ${msg}`);
+    // Fault detection is prefix-agnostic (the server picks the envelope prefix).
+    if (!res.ok || /<(?:\w+:)?Fault\b/.test(text) || text.includes("faultstring")) {
+      // The top-level faultstring is usually generic ("Invalid client data. Check
+      // the SOAP fault details..."); the actionable Code/ErrorCode/Message live in
+      // the <detail>. Log the full response (not the request — it carries the
+      // access + developer tokens) so the exact fault is visible in Vercel logs.
+      console.error(`[microsoft-ads] SOAP fault on ${action} (HTTP ${res.status}):\n${text}`);
+      throw new Error(`Microsoft Ads API error [${action}]: ${parseSoapFault(text)}`);
     }
     return text;
   });
+}
+
+// Pulls the detailed Bing Ads fault out of the SOAP <detail> that the generic
+// faultstring hides. Handles both ApiFaultDetail (OperationErrors/BatchErrors)
+// and AdApiFaultDetail (AdApiError); namespace-prefix agnostic. Falls back to the
+// top-level fault text when no structured error is present.
+function parseSoapFault(xml: string): string {
+  const errorBlocks = [
+    ...blocks(xml, "OperationError"),
+    ...blocks(xml, "BatchError"),
+    ...blocks(xml, "AdApiError"),
+  ];
+  const parsed = errorBlocks
+    .map((b) => {
+      const code = tag(b, "Code");
+      const errorCode = tag(b, "ErrorCode");
+      const message = tag(b, "Message");
+      const details = tag(b, "Details");
+      return [
+        code && `Code=${code}`,
+        errorCode && `ErrorCode=${errorCode}`,
+        message && `Message=${message}`,
+        details && `Details=${details}`,
+      ]
+        .filter(Boolean)
+        .join(" ");
+    })
+    .filter((s) => s.length > 0);
+  if (parsed.length) return parsed.join(" | ");
+  return tag(xml, "faultstring") || tag(xml, "Message") || "unknown SOAP fault";
 }
 
 // Minimal XML helpers (namespace-prefix agnostic) — we only read a few fields.
