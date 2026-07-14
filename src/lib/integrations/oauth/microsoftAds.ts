@@ -11,7 +11,12 @@ import JSZip from "jszip";
 import type { IntegrationAccount, OAuthProvider, TokenSet } from "../types";
 import { adsTotals, dayRange, isoDay, withRetry, type AdsDay, type AdsReport } from "../metrics";
 
-const AUTH = "https://login.microsoftonline.com/common/oauth2/v2.0";
+// Personal Microsoft accounts (MSA) must authenticate against the /consumers
+// authority, not /common. With /common, an email that exists as both a personal
+// and a work/school identity is ambiguous and Microsoft may pick the work/school
+// one, causing Bing Ads error 126 IdentityTypeMismatch. This ad account is a
+// personal MSA, so pin the authority to /consumers.
+const AUTH = "https://login.microsoftonline.com/consumers/oauth2/v2.0";
 const SCOPE = "https://ads.microsoft.com/msads.manage offline_access";
 const CUSTOMER_MGMT = "https://clientcenter.api.bingads.microsoft.com/Api/CustomerManagement/v13/CustomerManagementService.svc";
 const REPORTING = "https://reporting.api.bingads.microsoft.com/Api/Advertiser/Reporting/v13/ReportingService.svc";
