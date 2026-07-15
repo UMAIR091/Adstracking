@@ -127,7 +127,10 @@ export async function completeOAuthConnect(
   const accessToken = tokens.access_token;
   const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
 
-  const [identity, accounts] = await Promise.all([oauth.identity(accessToken), def.listAccounts(accessToken)]);
+  const [identity, accounts] = await Promise.all([
+    oauth.identity(accessToken, { provider }),
+    def.listAccounts(accessToken, { provider }),
+  ]);
   const config = def.buildConfig(accounts);
   // Record which identity provider authenticated this connection so token
   // refresh (and any provider-specific API headers) can route correctly later.

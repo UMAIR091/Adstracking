@@ -617,8 +617,10 @@ export const microsoftAdsDef: IntegrationDef = {
     { item: "Ad performance metrics (read-only)", why: "Spend, impressions, clicks, conversions and revenue power the paid-media sections of your reports." },
     { item: "Your list of ad accounts", why: "So you can pick which ad account this client's reports are built from." },
   ],
-  listAccounts: (at) => listMicrosoftAdsAccounts(at),
-  fetchSnapshot: (at, id, days) => fetchMicrosoftAdsReport(at, id, days),
+  // ctx.provider is the stored identity_provider (microsoft | google); the
+  // backend uses it to add the IdentityProvider header for Google connections.
+  listAccounts: (at, ctx) => listMicrosoftAdsAccounts(at, ctx?.provider),
+  fetchSnapshot: (at, id, days, ctx) => fetchMicrosoftAdsReport(at, id, days, ctx?.provider),
   buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
   readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,

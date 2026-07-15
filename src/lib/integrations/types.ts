@@ -19,7 +19,7 @@ export type OAuthProvider = {
   authUrl(state: string): string;
   exchangeCode(code: string, ctx?: AuthContext): Promise<TokenSet>;
   refresh(refreshToken: string, ctx?: AuthContext): Promise<TokenSet>;
-  identity(accessToken: string): Promise<string>;
+  identity(accessToken: string, ctx?: AuthContext): Promise<string>;
   // Best-effort revocation of the grant at the provider on disconnect. Optional:
   // only providers with an official revoke endpoint implement it. Never blocks
   // disconnect — callers treat a thrown error as non-fatal.
@@ -71,10 +71,14 @@ export type IntegrationDef = {
   verifyApiKey?(fields: Record<string, string>): Promise<{ displayName: string; token: string; accounts: IntegrationAccount[] }>;
 
   // ── server-only behavior (omit on "soon" providers) ──
-  // List the accounts the authenticated user can pick from.
-  listAccounts?(accessToken: string): Promise<IntegrationAccount[]>;
-  // Fetch + shape the cached snapshot for one account and period.
-  fetchSnapshot?(accessToken: string, accountId: string, periodDays: number): Promise<unknown>;
+  // List the accounts the authenticated user can pick from. `ctx` carries the
+  // connection's identity provider for integrations that need it (e.g. Microsoft
+  // Ads adds an IdentityProvider header for Google-authenticated accounts);
+  // single-provider integrations ignore it.
+  listAccounts?(accessToken: string, ctx?: AuthContext): Promise<IntegrationAccount[]>;
+  // Fetch + shape the cached snapshot for one account and period. `ctx` carries
+  // the connection's identity provider (see listAccounts).
+  fetchSnapshot?(accessToken: string, accountId: string, periodDays: number, ctx?: AuthContext): Promise<unknown>;
   // Build the initial config stored at connect time from the account list.
   buildConfig?(accounts: IntegrationAccount[]): IntegrationConfig;
   // Read the picklist and current selection back out of a stored config.

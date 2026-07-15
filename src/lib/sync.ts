@@ -51,8 +51,12 @@ export async function syncDataSource(
     const accessToken = await getValidAccessToken(supabase, ds);
     const now = new Date().toISOString();
 
+    // Identity provider stored at connect time (e.g. microsoft | google), passed
+    // through so the backend can add any provider-specific API headers.
+    const provider = typeof ds.config?.identity_provider === "string" ? ds.config.identity_provider : undefined;
+
     for (const period of PERIODS) {
-      const data = await def.fetchSnapshot(accessToken, accountId, period);
+      const data = await def.fetchSnapshot(accessToken, accountId, period, { provider });
       await supabase
         .from(def.snapshotTable)
         .upsert(

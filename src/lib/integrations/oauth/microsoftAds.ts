@@ -66,15 +66,6 @@ function providerFromState(state: string): string {
   }
 }
 
-// Google OAuth2 access tokens are opaque and start with "ya29."; Microsoft
-// identity tokens are JWTs ("eyJ…"). listAccounts/fetchSnapshot only receive the
-// access token (not the provider), so the SOAP layer derives from the token
-// whether to send the IdentityProvider=Google header, and identity() uses it to
-// choose how to label the connection.
-function isGoogleToken(accessToken: string): boolean {
-  return accessToken.startsWith("ya29.");
-}
-
 async function tokenRequest(body: Record<string, string>): Promise<TokenSet> {
   const res = await fetch(`${AUTH}/token`, {
     method: "POST",
@@ -125,12 +116,12 @@ export const microsoftAdsOAuth: OAuthProvider = {
           client_id: env("MICROSOFT_ADS_CLIENT_ID"),
           client_secret: env("MICROSOFT_ADS_CLIENT_SECRET"),
         }),
-  async identity(accessToken) {
+  async identity(accessToken, ctx) {
     // Google connections: label with the Google email (avoids a SOAP round-trip
     // and works before account discovery). Microsoft connections: GetUser.
-    if (isGoogleToken(accessToken)) return getGoogleEmail(accessToken);
+    if (ctx?.provider === PROVIDER_GOOGLE) return getGoogleEmail(accessToken);
     try {
-      const xml = await soapCall(CUSTOMER_MGMT, CM_NS, "GetUser", accessToken, "", `<GetUserRequest xmlns="${CM_NS}"><UserId i:nil="true"/></GetUserRequest>`);
+      const xml = await soapCall(CUSTOMER_MGMT, CM_NS, "GetUser", accessToken, "", `<GetUserRequest xmlns="${CM_NS}"><UserId i:nil="true"/></GetUserRequest>`, ctx?.provider);
       return tag(xml, "UserName") || tag(xml, "Name") || "Microsoft Ads account";
     } catch {
       return "Microsoft Ads account";
@@ -144,7 +135,7 @@ export const microsoftAdsOAuth: OAuthProvider = {
 // Builds and sends a SOAP 1.1 envelope with the Bing Ads auth headers, returning
 // the raw response XML. Header order follows the required contract.
 async function soapCall(
-  endpoint: string, ns: string, action: string, accessToken: string, extraHeaders: string, bodyXml: string
+  endpoint: string, ns: string, action: string, accessToken: string, extraHeaders: string, bodyXml: string, provider?: string
 ): Promise<string> {
   // Header element order follows Microsoft's documented v13 request: Action,
   // then AuthenticationToken (the OAuth access token), then DeveloperToken, then
@@ -156,10 +147,12 @@ async function soapCall(
     `<Action mustUnderstand="1">${action}</Action>` +
     `<AuthenticationToken i:nil="false">${accessToken}</AuthenticationToken>` +
     `<DeveloperToken i:nil="false">${env("MICROSOFT_ADS_DEVELOPER_TOKEN")}</DeveloperToken>` +
-    // Google-authenticated tokens must carry IdentityProvider=Google (a v13
+    // Google-authenticated connections must carry IdentityProvider=Google (a v13
     // SOAP header element, in the same service namespace) so Bing Ads validates
-    // the access token against Google instead of Microsoft identity.
-    (isGoogleToken(accessToken) ? `<IdentityProvider>Google</IdentityProvider>` : "") +
+    // the access token against Google instead of Microsoft identity. The provider
+    // is the connection's stored config.identity_provider — the single source of
+    // truth, threaded explicitly (never inferred from the token).
+    (provider === PROVIDER_GOOGLE ? `<IdentityProvider>Google</IdentityProvider>` : "") +
     extraHeaders +
     `</s:Header>` +
     `<s:Body>${bodyXml}</s:Body>` +
@@ -248,8 +241,8 @@ function blocks(xml: string, name: string): string[] {
 
 // Lists the ad accounts the authenticated user can access. The account id is
 // packed as "customerId:accountId" because reporting needs both in its headers.
-export async function listMicrosoftAdsAccounts(accessToken: string): Promise<IntegrationAccount[]> {
-  const userXml = await soapCall(CUSTOMER_MGMT, CM_NS, "GetUser", accessToken, "", `<GetUserRequest xmlns="${CM_NS}"><UserId i:nil="true"/></GetUserRequest>`);
+export async function listMicrosoftAdsAccounts(accessToken: string, provider?: string): Promise<IntegrationAccount[]> {
+  const userXml = await soapCall(CUSTOMER_MGMT, CM_NS, "GetUser", accessToken, "", `<GetUserRequest xmlns="${CM_NS}"><UserId i:nil="true"/></GetUserRequest>`, provider);
   const userId = tag(userXml, "Id");
   if (!userId) throw new Error("Couldn't read the Microsoft Ads user.");
 
@@ -259,7 +252,7 @@ export async function listMicrosoftAdsAccounts(accessToken: string): Promise<Int
     `<Ordering i:nil="true"/>` +
     `<PageInfo><a:Index>0</a:Index><a:Size>100</a:Size></PageInfo>` +
     `</SearchAccountsRequest>`;
-  const xml = await soapCall(CUSTOMER_MGMT, CM_NS, "SearchAccounts", accessToken, "", searchBody);
+  const xml = await soapCall(CUSTOMER_MGMT, CM_NS, "SearchAccounts", accessToken, "", searchBody, provider);
 
   return blocks(xml, "AdvertiserAccount").map((b) => {
     const id = tag(b, "Id") ?? "";
@@ -302,10 +295,10 @@ function submitBody(accountId: string, since: string, until: string): string {
 }
 
 async function generateReportCsv(
-  accessToken: string, customerId: string, accountId: string, since: string, until: string
+  accessToken: string, customerId: string, accountId: string, since: string, until: string, provider?: string
 ): Promise<string> {
   const headers = `<CustomerId>${customerId}</CustomerId><CustomerAccountId>${accountId}</CustomerAccountId>`;
-  const submitted = await soapCall(REPORTING, REP_NS, "SubmitGenerateReport", accessToken, headers, submitBody(accountId, since, until));
+  const submitted = await soapCall(REPORTING, REP_NS, "SubmitGenerateReport", accessToken, headers, submitBody(accountId, since, until), provider);
   const reportId = tag(submitted, "ReportRequestId");
   if (!reportId) throw new Error("Microsoft Ads did not return a report id.");
 
@@ -314,7 +307,7 @@ async function generateReportCsv(
   for (let i = 0; i < 20; i++) {
     await new Promise((r) => setTimeout(r, 3000));
     const pollBody = `<PollGenerateReportRequest xmlns="${REP_NS}"><ReportRequestId>${reportId}</ReportRequestId></PollGenerateReportRequest>`;
-    const poll = await soapCall(REPORTING, REP_NS, "PollGenerateReport", accessToken, headers, pollBody);
+    const poll = await soapCall(REPORTING, REP_NS, "PollGenerateReport", accessToken, headers, pollBody, provider);
     const status = tag(poll, "Status");
     if (status === "Success") {
       downloadUrl = tag(poll, "ReportDownloadUrl");
@@ -353,14 +346,14 @@ const num = (v: string | undefined) => {
 
 // Fetches the normalized ads report for one account and period, plus the prior
 // equal-length period for comparison. accountId = "customerId:accountId".
-export async function fetchMicrosoftAdsReport(accessToken: string, packedId: string, periodDays: number): Promise<AdsReport> {
+export async function fetchMicrosoftAdsReport(accessToken: string, packedId: string, periodDays: number, provider?: string): Promise<AdsReport> {
   const [customerId, accountId] = packedId.split(":");
   const since = isoDay(periodDays);
   const until = isoDay(1);
 
   const [csv, prevCsv] = await Promise.all([
-    generateReportCsv(accessToken, customerId, accountId, since, until),
-    generateReportCsv(accessToken, customerId, accountId, isoDay(periodDays * 2), isoDay(periodDays + 1)).catch(() => ""),
+    generateReportCsv(accessToken, customerId, accountId, since, until, provider),
+    generateReportCsv(accessToken, customerId, accountId, isoDay(periodDays * 2), isoDay(periodDays + 1), provider).catch(() => ""),
   ]);
 
   const rows = parseCsv(csv);
