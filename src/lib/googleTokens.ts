@@ -10,7 +10,17 @@ type DataSourceRow = {
   access_token: string | null;
   refresh_token: string | null;
   token_expires_at: string | null;
+  // Carries per-connection settings such as identity_provider, used to route
+  // refresh for integrations with more than one identity provider. Optional so
+  // callers that only load token columns still type-check.
+  config?: Record<string, unknown> | null;
 };
+
+// The identity provider stored on a connection at connect time, if any.
+function connectionProvider(row: { config?: Record<string, unknown> | null } | null | undefined): string | undefined {
+  const p = row?.config?.identity_provider;
+  return typeof p === "string" ? p : undefined;
+}
 
 const EXPIRY_BUFFER_MS = 60_000; // treat as expired 1 minute early
 const LOCK_TTL_MS = 90_000; // lease long enough to cover a refresh HTTP round-trip
@@ -30,7 +40,7 @@ function sleep(ms: number): Promise<void> {
 async function readTokens(supabase: SupabaseClient, id: string): Promise<DataSourceRow | null> {
   const { data } = await supabase
     .from("data_sources")
-    .select("id, type, access_token, refresh_token, token_expires_at")
+    .select("id, type, access_token, refresh_token, token_expires_at, config")
     .eq("id", id)
     .maybeSingle();
   return (data as DataSourceRow) ?? null;
@@ -97,8 +107,14 @@ export async function getValidAccessToken(
         const refreshToken = fresh.refresh_token ?? ds.refresh_token;
         if (!refreshToken) throw new Error("Token expired and no refresh token. Please reconnect.");
 
-        const refresh = oauthForType(ds.type)?.refresh ?? refreshAccessToken;
-        const refreshed = await refresh(decrypt(refreshToken));
+        // Route refresh to the provider that authenticated THIS connection
+        // (e.g. Microsoft Ads may be Microsoft- or Google-authenticated). Read
+        // from the fresh row under the lock, falling back to the passed row.
+        const provider = connectionProvider(fresh) ?? connectionProvider(ds);
+        const oauthRefresh = oauthForType(ds.type)?.refresh;
+        const refreshed = oauthRefresh
+          ? await oauthRefresh(decrypt(refreshToken), { provider })
+          : await refreshAccessToken(decrypt(refreshToken));
         const newExpiry = new Date(Date.now() + refreshed.expires_in * 1000).toISOString();
 
         // Persist the new token(s) AND release the lease in one write. For

@@ -5,13 +5,20 @@
 
 export type TokenSet = { access_token: string; refresh_token?: string; expires_in: number };
 
+// Optional per-connection context threaded into token operations so an
+// integration that supports more than one identity provider (e.g. Microsoft Ads
+// via Microsoft *or* Google sign-in) can route code exchange and refresh to the
+// right provider's endpoints. Absent/empty for single-provider integrations,
+// which ignore it — so adding this arg is backwards compatible.
+export type AuthContext = { provider?: string };
+
 // A pluggable OAuth backend, shared by every integration that authenticates
 // through the same provider (e.g. all Google sources share one).
 export type OAuthProvider = {
   id: string;
   authUrl(state: string): string;
-  exchangeCode(code: string): Promise<TokenSet>;
-  refresh(refreshToken: string): Promise<TokenSet>;
+  exchangeCode(code: string, ctx?: AuthContext): Promise<TokenSet>;
+  refresh(refreshToken: string, ctx?: AuthContext): Promise<TokenSet>;
   identity(accessToken: string): Promise<string>;
   // Best-effort revocation of the grant at the provider on disconnect. Optional:
   // only providers with an official revoke endpoint implement it. Never blocks
@@ -45,6 +52,13 @@ export type IntegrationDef = {
   // Extra input the connect flow needs before OAuth can start (e.g. Shopify's
   // shop domain). Rendered on the consent screen and passed to connectPath.
   connectField?: { name: string; label: string; placeholder: string; hint?: string };
+  // Identity providers the user can pick between at connect time (e.g. Microsoft
+  // Ads accepts Microsoft or Google sign-in). When present the consent screen
+  // renders one "Continue with …" button per provider and passes ?provider= to
+  // the connect route, which carries it through OAuth state to code exchange and
+  // stores it on the connection for provider-aware refresh. Absent = single
+  // default provider (existing behavior).
+  identityProviders?: { id: string; label: string }[];
 
   // How the connection authenticates. "oauth" (default) uses the redirect flow;
   // "apikey" collects secret(s) on the consent screen and verifies them directly

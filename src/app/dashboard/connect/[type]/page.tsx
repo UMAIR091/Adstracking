@@ -141,6 +141,22 @@ export default async function ConnectConsentPage({
                   </Button>
                 </div>
               </form>
+            ) : def.identityProviders?.length ? (
+              /* Integrations that accept more than one sign-in identity (e.g.
+                 Microsoft Ads: Microsoft or Google) show one button per
+                 provider; each passes ?provider= to the connect route. */
+              <div className="flex w-full flex-col gap-2 sm:max-w-xs">
+                {def.identityProviders.map((p) => (
+                  <Button key={p.id} asChild>
+                    <a href={`${continueHref}&provider=${p.id}`}>
+                      {p.label} <ArrowRight size={16} />
+                    </a>
+                  </Button>
+                ))}
+                <Button asChild variant="outline">
+                  <Link href={backHref}>Cancel</Link>
+                </Button>
+              </div>
             ) : (
               <div className="flex gap-2">
                 <Button asChild variant="outline">

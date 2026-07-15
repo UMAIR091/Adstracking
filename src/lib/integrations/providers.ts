@@ -603,6 +603,13 @@ export const microsoftAdsDef: IntegrationDef = {
   status: gated(microsoftAdsConfigured()),
   oauthProviderId: "microsoft",
   connectPath: "/api/microsoft/connect",
+  // Microsoft Advertising accounts sign in with either a Microsoft identity
+  // (personal MSA or work/school) or a Google account. Both are valid; the user
+  // picks whichever they use, and each routes to the matching OAuth provider.
+  identityProviders: [
+    { id: "microsoft", label: "Continue with Microsoft" },
+    { id: "google", label: "Continue with Google" },
+  ],
   accountNoun: "ad account",
   accountConfigKey: "account_id",
   snapshotTable: "integration_snapshots",

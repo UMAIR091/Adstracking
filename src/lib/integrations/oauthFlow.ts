@@ -10,7 +10,7 @@ import { getCurrentUserAndAgency } from "@/lib/agency";
 import { encrypt } from "@/lib/crypto";
 import { syncDataSource, type SyncableSource } from "@/lib/sync";
 import { getIntegration, getOAuthProvider } from "./registry";
-import type { IntegrationDef, OAuthProvider } from "./types";
+import type { IntegrationConfig, IntegrationDef, OAuthProvider } from "./types";
 
 const NONCE_COOKIE = "oauth_nonce";
 
@@ -39,8 +39,19 @@ export async function handleConnect(req: Request): Promise<Response> {
   const { data: client } = await supabase.from("clients").select("id").eq("id", clientId).maybeSingle();
   if (!client) return NextResponse.json({ error: "Client not found" }, { status: 404 });
 
+  // Identity-provider selection for integrations that accept more than one (e.g.
+  // Microsoft Ads: microsoft | google). Default to the first declared provider;
+  // reject an unknown value so a typo can't silently mis-route the sign-in.
+  let provider: string | undefined;
+  if (def.identityProviders?.length) {
+    provider = url.searchParams.get("provider") ?? def.identityProviders[0].id;
+    if (!def.identityProviders.some((p) => p.id === provider)) {
+      return NextResponse.json({ error: "Unsupported sign-in provider." }, { status: 400 });
+    }
+  }
+
   const nonce = crypto.randomUUID();
-  const state = Buffer.from(JSON.stringify({ clientId, nonce, type: def.id })).toString("base64url");
+  const state = Buffer.from(JSON.stringify({ clientId, nonce, type: def.id, provider })).toString("base64url");
   cookies().set(NONCE_COOKIE, nonce, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 600, path: "/" });
 
   return NextResponse.redirect(oauth.authUrl(state));
@@ -66,10 +77,12 @@ export async function handleCallback(req: Request): Promise<Response> {
 
   let clientId: string;
   let type: string;
+  let provider: string | undefined;
   try {
     const parsed = JSON.parse(Buffer.from(state, "base64url").toString("utf8"));
     clientId = parsed.clientId;
     type = parsed.type;
+    provider = parsed.provider;
     if (!clientId || !type) return fail("Invalid state");
     const cookieNonce = cookies().get(NONCE_COOKIE)?.value;
     if (!cookieNonce || cookieNonce !== parsed.nonce) return fail("Invalid state");
@@ -89,7 +102,7 @@ export async function handleCallback(req: Request): Promise<Response> {
   if (!client) return fail("Client not found");
 
   try {
-    await completeOAuthConnect(supabase, agency.id, clientId, def, oauth, code);
+    await completeOAuthConnect(supabase, agency.id, clientId, def, oauth, code, provider);
     cookies().set(NONCE_COOKIE, "", { maxAge: 0, path: "/" });
     return NextResponse.redirect(`${origin}/dashboard/clients/${clientId}?connected=${def.id}`);
   } catch (err) {
@@ -105,16 +118,20 @@ export async function completeOAuthConnect(
   clientId: string,
   def: IntegrationDef,
   oauth: OAuthProvider,
-  code: string
+  code: string,
+  provider?: string
 ): Promise<void> {
   if (!def.listAccounts || !def.buildConfig) throw new Error("Integration is not connectable");
 
-  const tokens = await oauth.exchangeCode(code);
+  const tokens = await oauth.exchangeCode(code, { provider });
   const accessToken = tokens.access_token;
   const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
 
   const [identity, accounts] = await Promise.all([oauth.identity(accessToken), def.listAccounts(accessToken)]);
   const config = def.buildConfig(accounts);
+  // Record which identity provider authenticated this connection so token
+  // refresh (and any provider-specific API headers) can route correctly later.
+  if (provider) (config as IntegrationConfig).identity_provider = provider;
 
   // Replace any existing source of the same type for this client.
   await supabase.from("data_sources").delete().eq("client_id", clientId).eq("type", def.id);

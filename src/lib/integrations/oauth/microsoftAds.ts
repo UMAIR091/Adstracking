@@ -10,14 +10,27 @@
 import JSZip from "jszip";
 import type { IntegrationAccount, OAuthProvider, TokenSet } from "../types";
 import { adsTotals, dayRange, isoDay, withRetry, type AdsDay, type AdsReport } from "../metrics";
+import {
+  getAuthUrl as googleAuthUrl,
+  exchangeCode as googleExchangeCode,
+  refreshAccessToken as googleRefresh,
+  getGoogleEmail,
+} from "@/lib/google";
 
-// Personal Microsoft accounts (MSA) must authenticate against the /consumers
-// authority, not /common. With /common, an email that exists as both a personal
-// and a work/school identity is ambiguous and Microsoft may pick the work/school
-// one, causing Bing Ads error 126 IdentityTypeMismatch. This ad account is a
-// personal MSA, so pin the authority to /consumers.
-const AUTH = "https://login.microsoftonline.com/consumers/oauth2/v2.0";
+// Microsoft Advertising accepts two identity providers (see the v13 auth docs):
+//  • Microsoft identity (Entra) — personal MSA *and* work/school accounts. Use
+//    the /common authority, which Microsoft recommends to support both; pinning
+//    /consumers or /organizations breaks the other kind.
+//  • Google — for accounts created with "Sign in with Google". These can NEVER
+//    authenticate through Microsoft (you get error 126 IdentityTypeMismatch);
+//    they use Google's OAuth and send an extra IdentityProvider=Google SOAP
+//    header. We reuse the app's shared Google OAuth client for this.
+const AUTH = "https://login.microsoftonline.com/common/oauth2/v2.0";
 const SCOPE = "https://ads.microsoft.com/msads.manage offline_access";
+const PROVIDER_GOOGLE = "google";
+// Bing Ads only needs the Google flow to identify the user; email/profile is
+// enough. lib/google requests offline access, so refresh tokens are issued.
+const GOOGLE_SCOPES = ["openid", "email", "profile"];
 const CUSTOMER_MGMT = "https://clientcenter.api.bingads.microsoft.com/Api/CustomerManagement/v13/CustomerManagementService.svc";
 const REPORTING = "https://reporting.api.bingads.microsoft.com/Api/Advertiser/Reporting/v13/ReportingService.svc";
 const CM_NS = "https://bingads.microsoft.com/Customer/v13";
@@ -41,6 +54,27 @@ function redirectUri(): string {
   return `${env("NEXT_PUBLIC_APP_URL")}/api/microsoft/callback`;
 }
 
+// Which identity provider a given OAuth `state` selected (default Microsoft).
+// state is the base64url JSON built in handleConnect; authUrl only receives the
+// state string, so we read the provider back out of it here.
+function providerFromState(state: string): string {
+  try {
+    const parsed = JSON.parse(Buffer.from(state, "base64url").toString("utf8"));
+    return typeof parsed.provider === "string" ? parsed.provider : "microsoft";
+  } catch {
+    return "microsoft";
+  }
+}
+
+// Google OAuth2 access tokens are opaque and start with "ya29."; Microsoft
+// identity tokens are JWTs ("eyJ…"). listAccounts/fetchSnapshot only receive the
+// access token (not the provider), so the SOAP layer derives from the token
+// whether to send the IdentityProvider=Google header, and identity() uses it to
+// choose how to label the connection.
+function isGoogleToken(accessToken: string): boolean {
+  return accessToken.startsWith("ya29.");
+}
+
 async function tokenRequest(body: Record<string, string>): Promise<TokenSet> {
   const res = await fetch(`${AUTH}/token`, {
     method: "POST",
@@ -57,6 +91,12 @@ async function tokenRequest(body: Record<string, string>): Promise<TokenSet> {
 export const microsoftAdsOAuth: OAuthProvider = {
   id: "microsoft",
   authUrl(state) {
+    // Google-sign-in users authenticate through the shared Google OAuth app,
+    // which redirects to the already-registered /api/google/callback; the
+    // generic callback resolves this as a Microsoft Ads connection from state.
+    if (providerFromState(state) === PROVIDER_GOOGLE) {
+      return googleAuthUrl(state, GOOGLE_SCOPES);
+    }
     const params = new URLSearchParams({
       client_id: env("MICROSOFT_ADS_CLIENT_ID"),
       response_type: "code",
@@ -66,22 +106,29 @@ export const microsoftAdsOAuth: OAuthProvider = {
     });
     return `${AUTH}/authorize?${params.toString()}`;
   },
-  exchangeCode: (code) =>
-    tokenRequest({
-      grant_type: "authorization_code",
-      code,
-      client_id: env("MICROSOFT_ADS_CLIENT_ID"),
-      client_secret: env("MICROSOFT_ADS_CLIENT_SECRET"),
-      redirect_uri: redirectUri(),
-    }),
-  refresh: (refreshToken) =>
-    tokenRequest({
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-      client_id: env("MICROSOFT_ADS_CLIENT_ID"),
-      client_secret: env("MICROSOFT_ADS_CLIENT_SECRET"),
-    }),
+  exchangeCode: (code, ctx) =>
+    ctx?.provider === PROVIDER_GOOGLE
+      ? googleExchangeCode(code)
+      : tokenRequest({
+          grant_type: "authorization_code",
+          code,
+          client_id: env("MICROSOFT_ADS_CLIENT_ID"),
+          client_secret: env("MICROSOFT_ADS_CLIENT_SECRET"),
+          redirect_uri: redirectUri(),
+        }),
+  refresh: (refreshToken, ctx) =>
+    ctx?.provider === PROVIDER_GOOGLE
+      ? googleRefresh(refreshToken)
+      : tokenRequest({
+          grant_type: "refresh_token",
+          refresh_token: refreshToken,
+          client_id: env("MICROSOFT_ADS_CLIENT_ID"),
+          client_secret: env("MICROSOFT_ADS_CLIENT_SECRET"),
+        }),
   async identity(accessToken) {
+    // Google connections: label with the Google email (avoids a SOAP round-trip
+    // and works before account discovery). Microsoft connections: GetUser.
+    if (isGoogleToken(accessToken)) return getGoogleEmail(accessToken);
     try {
       const xml = await soapCall(CUSTOMER_MGMT, CM_NS, "GetUser", accessToken, "", `<GetUserRequest xmlns="${CM_NS}"><UserId i:nil="true"/></GetUserRequest>`);
       return tag(xml, "UserName") || tag(xml, "Name") || "Microsoft Ads account";
@@ -109,6 +156,10 @@ async function soapCall(
     `<Action mustUnderstand="1">${action}</Action>` +
     `<AuthenticationToken i:nil="false">${accessToken}</AuthenticationToken>` +
     `<DeveloperToken i:nil="false">${env("MICROSOFT_ADS_DEVELOPER_TOKEN")}</DeveloperToken>` +
+    // Google-authenticated tokens must carry IdentityProvider=Google (a v13
+    // SOAP header element, in the same service namespace) so Bing Ads validates
+    // the access token against Google instead of Microsoft identity.
+    (isGoogleToken(accessToken) ? `<IdentityProvider>Google</IdentityProvider>` : "") +
     extraHeaders +
     `</s:Header>` +
     `<s:Body>${bodyXml}</s:Body>` +
@@ -128,7 +179,16 @@ async function soapCall(
       // the <detail>. Log the full response (not the request — it carries the
       // access + developer tokens) so the exact fault is visible in Vercel logs.
       console.error(`[microsoft-ads] SOAP fault on ${action} (HTTP ${res.status}):\n${text}`);
-      throw new Error(`Microsoft Ads API error [${action}]: ${parseSoapFault(text)}`);
+      const detail = parseSoapFault(text);
+      // Wrong sign-in provider for this account (error 126): the user picked the
+      // Microsoft button for a Google-sign-in account or vice-versa. Give a plain
+      // instruction to switch buttons instead of the raw Bing Ads message.
+      if (/IdentityTypeMismatch/i.test(detail) || /\bCode=126\b/.test(detail)) {
+        throw new Error(
+          'This Microsoft Advertising account uses a different sign-in method. Go back and choose the other option — if you clicked "Continue with Microsoft", use "Continue with Google" instead (or vice-versa).'
+        );
+      }
+      throw new Error(`Microsoft Ads API error [${action}]: ${detail}`);
     }
     return text;
   });
