@@ -283,11 +283,23 @@ function blocks(xml: string, name: string): string[] {
 
 // ── Account listing (Customer Management: GetUser → SearchAccounts) ──
 
+// Reads the authenticated user's own id from a GetUser response. The <User>
+// element nests <ContactInfo> (and an <Address> inside it), each with its own
+// <Id> that appears BEFORE the user's own <Id>. A naive first-<Id> match returns
+// the address/contact id, and passing that to SearchAccounts fails with
+// error 1310 "The user id not found" — so strip the contact block first.
+function userIdFromGetUser(xml: string): string | undefined {
+  const user = blocks(xml, "User")[0] ?? xml;
+  const withoutContact = user.replace(/<(?:\w+:)?ContactInfo[\s\S]*?<\/(?:\w+:)?ContactInfo>/g, "");
+  return tag(withoutContact, "Id");
+}
+
 // Lists the ad accounts the authenticated user can access. The account id is
 // packed as "customerId:accountId" because reporting needs both in its headers.
 export async function listMicrosoftAdsAccounts(accessToken: string, provider?: string): Promise<IntegrationAccount[]> {
   const userXml = await soapCall(CUSTOMER_MGMT, CM_NS, "GetUser", accessToken, "", `<GetUserRequest xmlns="${CM_NS}"><UserId i:nil="true"/></GetUserRequest>`, provider);
-  const userId = tag(userXml, "Id");
+  const userId = userIdFromGetUser(userXml);
+  console.log("[oauth-debug] ms-ads:getuser", JSON.stringify({ provider: provider ?? null, userId: userId ?? null }));
   if (!userId) throw new Error("Couldn't read the Microsoft Ads user.");
 
   const searchBody =
