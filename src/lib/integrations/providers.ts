@@ -27,6 +27,7 @@ import { listLinkedinAdAccounts, fetchLinkedinAdsReport, linkedinConfigured } fr
 import { listTiktokAdvertisers, fetchTiktokAdsReport, tiktokConfigured } from "./oauth/tiktok";
 import { listPinterestAdAccounts, fetchPinterestAdsReport, pinterestConfigured } from "./oauth/pinterest";
 import { listSnapchatAdAccounts, fetchSnapchatAdsReport, snapchatConfigured } from "./oauth/snapchat";
+import { listRedditAdAccounts, fetchRedditAdsReport, redditConfigured } from "./oauth/reddit";
 import type { IntegrationDef, IntegrationConfig, IntegrationAccount } from "./types";
 
 // Providers that need their own app credentials stay "soon" until the env
@@ -684,6 +685,32 @@ export const snapchatAdsDef: IntegrationDef = {
   ],
   listAccounts: (at) => listSnapchatAdAccounts(at),
   fetchSnapshot: (at, id, days) => fetchSnapchatAdsReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// Paid-media source on the shared AdsReport shape. Reddit Ads API v3 with
+// Reddit's standard OAuth 2.0 (refreshable via duration=permanent).
+export const redditAdsDef: IntegrationDef = {
+  id: "reddit_ads",
+  name: "Reddit Ads",
+  description: "Spend, impressions, clicks & conversions",
+  icon: "Megaphone",
+  accent: "rose",
+  status: gated(redditConfigured()),
+  oauthProviderId: "reddit",
+  connectPath: "/api/reddit/connect",
+  accountNoun: "ad account",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Ad performance metrics (read-only)", why: "Spend, impressions, clicks and conversions power the paid-media sections of your reports." },
+    { item: "Campaign-level results", why: "Shows which campaigns drive results in the client's report." },
+    { item: "Your list of ad accounts", why: "So you can pick which Reddit ad account this client's reports are built from." },
+  ],
+  listAccounts: (at) => listRedditAdAccounts(at),
+  fetchSnapshot: (at, id, days) => fetchRedditAdsReport(at, id, days),
   buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
   readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
