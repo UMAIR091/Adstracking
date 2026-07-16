@@ -7,6 +7,8 @@ import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { IntegrationCard, type IntegrationSource } from "@/components/IntegrationCard";
+import { BigQueryCard } from "@/components/BigQueryCard";
+import { BigQueryAnalytics } from "@/components/BigQueryAnalytics";
 import { GscAnalytics, type GscReportData } from "@/components/GscAnalytics";
 import { Ga4Analytics, type Ga4ReportData } from "@/components/Ga4Analytics";
 import { SocialAnalytics } from "@/components/SocialAnalytics";
@@ -20,7 +22,7 @@ import { CallAnalytics } from "@/components/CallAnalytics";
 import { SeoAnalytics } from "@/components/SeoAnalytics";
 import { VideoAnalytics } from "@/components/VideoAnalytics";
 import type { SocialReport } from "@/lib/integrations/social";
-import type { GbpReport, CommerceReport, SheetTable, CrmReport, EmailReport, CallReport, SeoReport, VideoReport } from "@/lib/integrations/metrics";
+import type { GbpReport, CommerceReport, SheetTable, CrmReport, EmailReport, CallReport, SeoReport, VideoReport, BigQueryReport } from "@/lib/integrations/metrics";
 import { SAMPLE_GSC, SAMPLE_GA4, SAMPLE_INSTAGRAM } from "@/lib/sampleData";
 import { GenerateReport } from "@/components/GenerateReport";
 import { ReportSchedule, type ScheduleData } from "@/components/ReportSchedule";
@@ -33,7 +35,7 @@ export const dynamic = "force-dynamic";
 // (e.g. Meta Ads) are connectable + synced, with their dashboards to follow.
 // Sources with a dashboard block. The core trio also shows labelled sample
 // data before connecting; the rest render once a synced snapshot exists.
-const HAS_VIZ = new Set(["gsc", "ga4", "instagram", "google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "gbp", "shopify", "sheets", "hubspot"]);
+const HAS_VIZ = new Set(["gsc", "ga4", "instagram", "google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "gbp", "shopify", "sheets", "hubspot", "bigquery"]);
 const SAMPLE_VIZ = new Set(["gsc", "ga4", "instagram"]);
 const ADS_VIZ = new Set(["google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "microsoft_ads"]);
 // Storefronts share the normalized CommerceReport shape + CommerceAnalytics.
@@ -53,7 +55,8 @@ function Analytics({ id, snapshot }: { id: string; snapshot: unknown }) {
   if (ADS_VIZ.has(id) && snapshot) return <AdsAnalytics report={snapshot as AdsReportData} />;
   if (id === "gbp" && snapshot) return <GbpAnalytics report={snapshot as GbpReport} />;
   if (COMMERCE_VIZ.has(id) && snapshot) return <CommerceAnalytics report={snapshot as CommerceReport} />;
-  if ((id === "sheets" || id === "bigquery") && snapshot) return <SheetsAnalytics report={snapshot as SheetTable} />;
+  if (id === "sheets" && snapshot) return <SheetsAnalytics report={snapshot as SheetTable} />;
+  if (id === "bigquery" && snapshot) return <BigQueryAnalytics report={snapshot as BigQueryReport} />;
   if (id === "hubspot" && snapshot) return <CrmAnalytics report={snapshot as CrmReport} />;
   if (EMAIL_VIZ.has(id) && snapshot) return <EmailAnalytics report={snapshot as EmailReport} />;
   if (id === "callrail" && snapshot) return <CallAnalytics report={snapshot as CallReport} />;
@@ -114,6 +117,10 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         lastSyncedAt: (ds?.last_synced_at as string | null) ?? null,
         lastSyncError: (ds?.last_sync_error as string | null) ?? null,
         ready: Boolean(source?.selectedAccountId),
+        // BigQuery drills deeper than a single account — surface its dataset/table
+        // selection so its dedicated card can restore the picker state.
+        selectedDatasetId: (config.dataset_id as string | null) ?? null,
+        selectedTableId: (config.table_id as string | null) ?? null,
       };
     })
   );
@@ -158,17 +165,31 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
 
       <h2 className="mb-3 text-sm font-medium text-ink-700">Data sources</h2>
       <div className="space-y-3">
-        {integrations.map((i) => (
-          <IntegrationCard
-            key={i.def.id}
-            descriptor={descriptor(i.def)}
-            clientId={client.id}
-            source={i.source}
-            status={i.status}
-            lastSyncedAt={i.lastSyncedAt}
-            lastSyncError={i.lastSyncError}
-          />
-        ))}
+        {integrations.map((i) =>
+          i.def.id === "bigquery" ? (
+            <BigQueryCard
+              key={i.def.id}
+              descriptor={descriptor(i.def)}
+              clientId={client.id}
+              source={i.source}
+              selectedDatasetId={i.selectedDatasetId}
+              selectedTableId={i.selectedTableId}
+              status={i.status}
+              lastSyncedAt={i.lastSyncedAt}
+              lastSyncError={i.lastSyncError}
+            />
+          ) : (
+            <IntegrationCard
+              key={i.def.id}
+              descriptor={descriptor(i.def)}
+              clientId={client.id}
+              source={i.source}
+              status={i.status}
+              lastSyncedAt={i.lastSyncedAt}
+              lastSyncError={i.lastSyncError}
+            />
+          )
+        )}
         <Link
           href="/dashboard/integrations"
           className="block rounded-xl border border-dashed border-ink-300 bg-surface-subtle p-5 text-sm text-ink-500 transition-colors hover:border-ink-400 hover:text-ink-700"

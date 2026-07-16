@@ -20,7 +20,7 @@ import { verifySemrushKey, fetchSemrushReport } from "./oauth/semrush";
 import { verifyMozKey, fetchMozReport } from "./oauth/moz";
 import { listStripeAccounts, fetchStripeReport, stripeConfigured } from "./oauth/stripe";
 import { listYoutubeChannels, fetchYoutubeReport } from "./oauth/youtube";
-import { listBigQueryProjects, fetchBigQuerySnapshot } from "./oauth/bigquery";
+import { verifyBigQueryAccess, fetchBigQuerySnapshot } from "./oauth/bigquery";
 import { listSpreadsheets, fetchSheetTable } from "./oauth/sheets";
 import { listHubspotAccounts, fetchHubspotReport, hubspotConfigured } from "./oauth/hubspot";
 import { listLinkedinAdAccounts, fetchLinkedinAdsReport, linkedinConfigured } from "./oauth/linkedin";
@@ -542,12 +542,19 @@ export const bigqueryDef: IntegrationDef = {
   accountConfigKey: "account_id",
   snapshotTable: "integration_snapshots",
   dataAccess: [
-    { item: "Dataset & table metadata (read-only)", why: "The datasets, tables and row counts in the selected project are shown as a data table in this client's dashboard and reports." },
-    { item: "Your list of BigQuery projects", why: "So you can pick which project this client's data comes from." },
+    { item: "Read-only warehouse access", why: "Datasets, tables, schema, row counts and a bounded read-only preview of the selected table are shown in this client's dashboard and reports. No data is ever modified." },
+    { item: "Your list of BigQuery projects", why: "So you can pick which project, dataset and table this client's data comes from." },
   ],
-  listAccounts: (at) => listBigQueryProjects(at),
-  fetchSnapshot: (at, id) => fetchBigQuerySnapshot(at, id),
-  buildConfig: (accounts) => ({ accounts: accounts.slice(0, 100), account_id: accounts.length === 1 ? accounts[0].id : null }),
+  // Validate at connect time: confirms BigQuery is reachable and the account has
+  // at least one accessible project, with provider-specific errors on failure.
+  listAccounts: (at) => verifyBigQueryAccess(at),
+  fetchSnapshot: (at, id, _days, _ctx, cfg) => fetchBigQuerySnapshot(at, id, cfg),
+  buildConfig: (accounts) => ({
+    accounts: accounts.slice(0, 100),
+    account_id: accounts.length === 1 ? accounts[0].id : null,
+    dataset_id: null,
+    table_id: null,
+  }),
   readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
 };

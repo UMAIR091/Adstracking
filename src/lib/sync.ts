@@ -56,7 +56,7 @@ export async function syncDataSource(
     const provider = typeof ds.config?.identity_provider === "string" ? ds.config.identity_provider : undefined;
 
     for (const period of PERIODS) {
-      const data = await def.fetchSnapshot(accessToken, accountId, period, { provider });
+      const data = await def.fetchSnapshot(accessToken, accountId, period, { provider }, ds.config ?? {});
       await supabase
         .from(def.snapshotTable)
         .upsert(

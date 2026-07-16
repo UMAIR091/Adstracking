@@ -236,6 +236,32 @@ export type SheetTable = {
   totalRows: number;
 };
 
+// ── Data warehouse (BigQuery) ────────────────────────────────
+// A read-only view of one selected BigQuery table/view: its metadata + schema
+// plus a bounded preview from a read-only SQL query (or tabledata fallback).
+// When no table is selected yet, `overview` lists the datasets/tables available
+// in the project so the connection still renders something useful.
+
+export type BigQuerySchemaField = { name: string; type: string; mode: string };
+
+export type BigQueryReport = {
+  platform: "bigquery";
+  projectId: string;
+  datasetId: string | null;
+  tableId: string | null;
+  tableType: string | null; // TABLE | VIEW | MATERIALIZED_VIEW | EXTERNAL
+  numRows: number | null; // total rows in the table (null for views)
+  sizeBytes: number | null; // logical bytes (null for views)
+  lastModified: string | null; // ISO timestamp of the last table modification
+  schema: BigQuerySchemaField[];
+  headers: string[]; // preview column names
+  rows: string[][]; // read-only preview rows, capped server-side
+  totalRows: number; // rows returned in the preview
+  querySql: string | null; // the read-only SQL executed for the preview, if any
+  url: string; // BigQuery console deep link
+  overview: { dataset: string; table: string; type: string }[] | null;
+};
+
 // ── Shared helpers ───────────────────────────────────────────
 
 export function ratio(numerator: number, denominator: number): number {

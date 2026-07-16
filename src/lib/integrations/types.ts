@@ -77,8 +77,11 @@ export type IntegrationDef = {
   // single-provider integrations ignore it.
   listAccounts?(accessToken: string, ctx?: AuthContext): Promise<IntegrationAccount[]>;
   // Fetch + shape the cached snapshot for one account and period. `ctx` carries
-  // the connection's identity provider (see listAccounts).
-  fetchSnapshot?(accessToken: string, accountId: string, periodDays: number, ctx?: AuthContext): Promise<unknown>;
+  // the connection's identity provider (see listAccounts). `config` is the
+  // connection's stored config, threaded through for integrations that select
+  // more than one level (e.g. BigQuery: project → dataset → table); single-key
+  // integrations ignore it, so passing it is backwards compatible.
+  fetchSnapshot?(accessToken: string, accountId: string, periodDays: number, ctx?: AuthContext, config?: IntegrationConfig): Promise<unknown>;
   // Build the initial config stored at connect time from the account list.
   buildConfig?(accounts: IntegrationAccount[]): IntegrationConfig;
   // Read the picklist and current selection back out of a stored config.
