@@ -26,6 +26,7 @@ import { listHubspotAccounts, fetchHubspotReport, hubspotConfigured } from "./oa
 import { listLinkedinAdAccounts, fetchLinkedinAdsReport, linkedinConfigured } from "./oauth/linkedin";
 import { listTiktokAdvertisers, fetchTiktokAdsReport, tiktokConfigured } from "./oauth/tiktok";
 import { listPinterestAdAccounts, fetchPinterestAdsReport, pinterestConfigured } from "./oauth/pinterest";
+import { listSnapchatAdAccounts, fetchSnapchatAdsReport, snapchatConfigured } from "./oauth/snapchat";
 import type { IntegrationDef, IntegrationConfig, IntegrationAccount } from "./types";
 
 // Providers that need their own app credentials stay "soon" until the env
@@ -656,6 +657,33 @@ export const pinterestAdsDef: IntegrationDef = {
   ],
   listAccounts: (at) => listPinterestAdAccounts(at),
   fetchSnapshot: (at, id, days) => fetchPinterestAdsReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// Paid-media source on the shared AdsReport shape. Snapchat Marketing API v1 with
+// OAuth 2.0 short-lived tokens (refreshed on nearly every sync). "Swipes" are
+// Snapchat's clicks; spend arrives in micro-currency and is normalized here.
+export const snapchatAdsDef: IntegrationDef = {
+  id: "snapchat_ads",
+  name: "Snapchat Ads",
+  description: "Spend, impressions, swipes & conversions",
+  icon: "Ghost",
+  accent: "amber",
+  status: gated(snapchatConfigured()),
+  oauthProviderId: "snapchat",
+  connectPath: "/api/snapchat/connect",
+  accountNoun: "ad account",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Ad performance metrics (read-only)", why: "Spend, impressions, swipes and conversions power the paid-media sections of your reports." },
+    { item: "Campaign-level results", why: "Shows which campaigns drive results in the client's report." },
+    { item: "Your list of ad accounts", why: "So you can pick which Snapchat ad account this client's reports are built from." },
+  ],
+  listAccounts: (at) => listSnapchatAdAccounts(at),
+  fetchSnapshot: (at, id, days) => fetchSnapchatAdsReport(at, id, days),
   buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
   readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,

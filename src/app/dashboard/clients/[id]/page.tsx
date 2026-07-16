@@ -35,9 +35,9 @@ export const dynamic = "force-dynamic";
 // (e.g. Meta Ads) are connectable + synced, with their dashboards to follow.
 // Sources with a dashboard block. The core trio also shows labelled sample
 // data before connecting; the rest render once a synced snapshot exists.
-const HAS_VIZ = new Set(["gsc", "ga4", "instagram", "google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "pinterest_ads", "gbp", "shopify", "sheets", "hubspot", "bigquery"]);
+const HAS_VIZ = new Set(["gsc", "ga4", "instagram", "google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "pinterest_ads", "snapchat_ads", "gbp", "shopify", "sheets", "hubspot", "bigquery"]);
 const SAMPLE_VIZ = new Set(["gsc", "ga4", "instagram"]);
-const ADS_VIZ = new Set(["google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "microsoft_ads", "pinterest_ads"]);
+const ADS_VIZ = new Set(["google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "microsoft_ads", "pinterest_ads", "snapchat_ads"]);
 // Storefronts share the normalized CommerceReport shape + CommerceAnalytics.
 const COMMERCE_VIZ = new Set(["shopify", "woocommerce", "stripe"]);
 // Email-marketing platforms share the EmailReport shape + EmailAnalytics.
