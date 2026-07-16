@@ -10,12 +10,7 @@
 import JSZip from "jszip";
 import type { IntegrationAccount, OAuthProvider, TokenSet } from "../types";
 import { adsTotals, dayRange, isoDay, withRetry, type AdsDay, type AdsReport } from "../metrics";
-import {
-  getAuthUrl as googleAuthUrl,
-  exchangeCode as googleExchangeCode,
-  refreshAccessToken as googleRefresh,
-  getGoogleEmail,
-} from "@/lib/google";
+import { getGoogleEmail } from "@/lib/google";
 
 // Microsoft Advertising accepts two identity providers (see the v13 auth docs):
 //  • Microsoft identity (Entra) — personal MSA *and* work/school accounts. Use
@@ -29,8 +24,10 @@ const AUTH = "https://login.microsoftonline.com/common/oauth2/v2.0";
 const SCOPE = "https://ads.microsoft.com/msads.manage offline_access";
 const PROVIDER_GOOGLE = "google";
 // Bing Ads only needs the Google flow to identify the user; email/profile is
-// enough. lib/google requests offline access, so refresh tokens are issued.
+// enough. offline access → refresh tokens.
 const GOOGLE_SCOPES = ["openid", "email", "profile"];
+const GOOGLE_AUTH = "https://accounts.google.com/o/oauth2/v2/auth";
+const GOOGLE_TOKEN = "https://oauth2.googleapis.com/token";
 const CUSTOMER_MGMT = "https://clientcenter.api.bingads.microsoft.com/Api/CustomerManagement/v13/CustomerManagementService.svc";
 const REPORTING = "https://reporting.api.bingads.microsoft.com/Api/Advertiser/Reporting/v13/ReportingService.svc";
 const CM_NS = "https://bingads.microsoft.com/Customer/v13";
@@ -52,6 +49,42 @@ export function microsoftAdsConfigured(): boolean {
 
 function redirectUri(): string {
   return `${env("NEXT_PUBLIC_APP_URL")}/api/microsoft/callback`;
+}
+
+// Google redirect URI for the Google-sign-in path. Derived from NEXT_PUBLIC_APP_URL
+// — the SAME host the user browses and that the Microsoft path already uses — so
+// the /api/google/callback request keeps its session + CSRF-nonce cookies. Using
+// the shared GOOGLE_OAUTH_REDIRECT_URI instead risks a different host (e.g. a
+// stale *.vercel.app value), which drops the cookies and bounces the user to the
+// app login page. This exact URI must be registered in the Google OAuth client.
+function googleRedirectUri(): string {
+  return `${env("NEXT_PUBLIC_APP_URL")}/api/google/callback`;
+}
+
+function googleAuthorizeUrl(state: string): string {
+  const params = new URLSearchParams({
+    client_id: env("GOOGLE_CLIENT_ID"),
+    redirect_uri: googleRedirectUri(),
+    response_type: "code",
+    scope: GOOGLE_SCOPES.join(" "),
+    access_type: "offline",
+    prompt: "consent",
+    state,
+  });
+  return `${GOOGLE_AUTH}?${params.toString()}`;
+}
+
+async function googleTokenRequest(body: Record<string, string>): Promise<TokenSet> {
+  const res = await fetch(GOOGLE_TOKEN, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.access_token) {
+    throw new Error(`Google token request failed: ${data.error_description ?? data.error ?? res.status}`);
+  }
+  return { access_token: data.access_token, refresh_token: data.refresh_token, expires_in: data.expires_in ?? 3600 };
 }
 
 // Which identity provider a given OAuth `state` selected (default Microsoft).
@@ -86,7 +119,7 @@ export const microsoftAdsOAuth: OAuthProvider = {
     // which redirects to the already-registered /api/google/callback; the
     // generic callback resolves this as a Microsoft Ads connection from state.
     if (providerFromState(state) === PROVIDER_GOOGLE) {
-      return googleAuthUrl(state, GOOGLE_SCOPES);
+      return googleAuthorizeUrl(state);
     }
     const params = new URLSearchParams({
       client_id: env("MICROSOFT_ADS_CLIENT_ID"),
@@ -99,7 +132,13 @@ export const microsoftAdsOAuth: OAuthProvider = {
   },
   exchangeCode: (code, ctx) =>
     ctx?.provider === PROVIDER_GOOGLE
-      ? googleExchangeCode(code)
+      ? googleTokenRequest({
+          grant_type: "authorization_code",
+          code,
+          client_id: env("GOOGLE_CLIENT_ID"),
+          client_secret: env("GOOGLE_CLIENT_SECRET"),
+          redirect_uri: googleRedirectUri(),
+        })
       : tokenRequest({
           grant_type: "authorization_code",
           code,
@@ -109,7 +148,12 @@ export const microsoftAdsOAuth: OAuthProvider = {
         }),
   refresh: (refreshToken, ctx) =>
     ctx?.provider === PROVIDER_GOOGLE
-      ? googleRefresh(refreshToken)
+      ? googleTokenRequest({
+          grant_type: "refresh_token",
+          refresh_token: refreshToken,
+          client_id: env("GOOGLE_CLIENT_ID"),
+          client_secret: env("GOOGLE_CLIENT_SECRET"),
+        })
       : tokenRequest({
           grant_type: "refresh_token",
           refresh_token: refreshToken,
