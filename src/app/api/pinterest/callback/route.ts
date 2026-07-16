@@ -1,0 +1,9 @@
+import { handleCallback } from "@/lib/integrations/oauthFlow";
+
+export const runtime = "nodejs";
+
+// Pinterest OAuth redirect target (registered in the Pinterest app). Pinterest
+// returns a standard ?code=, so the generic callback flow applies directly.
+export async function GET(req: Request) {
+  return handleCallback(req);
+}

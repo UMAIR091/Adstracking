@@ -25,6 +25,7 @@ import { listSpreadsheets, fetchSheetTable } from "./oauth/sheets";
 import { listHubspotAccounts, fetchHubspotReport, hubspotConfigured } from "./oauth/hubspot";
 import { listLinkedinAdAccounts, fetchLinkedinAdsReport, linkedinConfigured } from "./oauth/linkedin";
 import { listTiktokAdvertisers, fetchTiktokAdsReport, tiktokConfigured } from "./oauth/tiktok";
+import { listPinterestAdAccounts, fetchPinterestAdsReport, pinterestConfigured } from "./oauth/pinterest";
 import type { IntegrationDef, IntegrationConfig, IntegrationAccount } from "./types";
 
 // Providers that need their own app credentials stay "soon" until the env
@@ -629,6 +630,32 @@ export const tiktokAdsDef: IntegrationDef = {
   ],
   listAccounts: (at) => listTiktokAdvertisers(at),
   fetchSnapshot: (at, id, days) => fetchTiktokAdsReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// Paid-media source on the shared AdsReport shape. Pinterest REST API v5 with
+// standard OAuth 2.0 (refreshable tokens), reusing the generic connect flow.
+export const pinterestAdsDef: IntegrationDef = {
+  id: "pinterest_ads",
+  name: "Pinterest Ads",
+  description: "Spend, impressions, clicks & conversions",
+  icon: "Megaphone",
+  accent: "rose",
+  status: gated(pinterestConfigured()),
+  oauthProviderId: "pinterest",
+  connectPath: "/api/pinterest/connect",
+  accountNoun: "ad account",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Ad performance metrics (read-only)", why: "Spend, impressions, clicks and conversions power the paid-media sections of your reports." },
+    { item: "Campaign-level results", why: "Shows which campaigns drive results in the client's report." },
+    { item: "Your list of ad accounts", why: "So you can pick which Pinterest ad account this client's reports are built from." },
+  ],
+  listAccounts: (at) => listPinterestAdAccounts(at),
+  fetchSnapshot: (at, id, days) => fetchPinterestAdsReport(at, id, days),
   buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
   readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
