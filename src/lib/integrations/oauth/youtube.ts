@@ -3,11 +3,52 @@
 // the YouTube Data API; time-series metrics come from the YouTube Analytics API.
 // Normalized into the VideoReport shape (metrics.ts) rendered by VideoAnalytics.
 import type { IntegrationAccount } from "../types";
-import { dayRange, withRetry, type VideoDay, type VideoReport, type VideoTotals } from "../metrics";
+import { dayRange, withRetry, type VideoBreakdown, type VideoDay, type VideoReport, type VideoTopItem, type VideoTotals } from "../metrics";
 
 const DATA_API = "https://www.googleapis.com/youtube/v3";
 const ANALYTICS_API = "https://youtubeanalytics.googleapis.com/v2";
 const METRICS = "views,estimatedMinutesWatched,subscribersGained,subscribersLost,likes,comments";
+const BREAKDOWN_LIMIT = 10;
+
+// Friendly labels for YouTube's dimension enum values. Anything not listed falls
+// back to a title-cased version of the raw code (see humanize), so new/unknown
+// values still render sensibly rather than as raw enums.
+const TRAFFIC_SOURCE_LABELS: Record<string, string> = {
+  YT_SEARCH: "YouTube search",
+  RELATED_VIDEO: "Suggested videos",
+  NO_LINK_OTHER: "Direct / unknown",
+  NO_LINK_EMBEDDED: "External embeds",
+  EXT_URL: "External",
+  SUBSCRIBER: "Browse (subscriptions)",
+  YT_CHANNEL: "Channel pages",
+  PLAYLIST: "Playlists",
+  YT_PLAYLIST_PAGE: "Playlist pages",
+  YT_OTHER_PAGE: "Other YouTube pages",
+  NOTIFICATION: "Notifications",
+  SHORTS: "Shorts feed",
+  ADVERTISING: "Advertising",
+  END_SCREEN: "End screens",
+  ANNOTATION: "Cards & annotations",
+  HASHTAGS: "Hashtag pages",
+  PROMOTED: "Promoted",
+};
+const DEVICE_LABELS: Record<string, string> = {
+  MOBILE: "Mobile",
+  DESKTOP: "Desktop",
+  TABLET: "Tablet",
+  TV: "TV",
+  GAME_CONSOLE: "Game console",
+  UNKNOWN_PLATFORM: "Unknown",
+};
+
+function humanize(code: string): string {
+  return code
+    .toLowerCase()
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
 
 function isoDaysAgo(n: number): string {
   const d = new Date();
@@ -66,6 +107,47 @@ async function analytics(accessToken: string, channelId: string, start: string, 
   return data.rows ?? [];
 }
 
+// One ranked dimension report (traffic source, country, device, or video),
+// sorted by views desc. Rows are [dimensionKey, views, estimatedMinutesWatched].
+async function dimReport(accessToken: string, channelId: string, start: string, end: string, dimension: string, maxResults = BREAKDOWN_LIMIT): Promise<AnalyticsRow[]> {
+  const params = new URLSearchParams({
+    ids: `channel==${channelId}`,
+    startDate: start,
+    endDate: end,
+    metrics: "views,estimatedMinutesWatched",
+    dimensions: dimension,
+    sort: "-views",
+    maxResults: String(maxResults),
+  });
+  const data = await ytGet<{ rows?: AnalyticsRow[] }>(`${ANALYTICS_API}/reports?${params.toString()}`, accessToken);
+  return data.rows ?? [];
+}
+
+function toBreakdown(rows: AnalyticsRow[], label: (code: string) => string): VideoBreakdown[] {
+  return rows.map((r) => ({ label: label(String(r[0])), views: Number(r[1] ?? 0), watchTimeMinutes: Number(r[2] ?? 0) }));
+}
+
+// Resolves the video ids from a dimension=video report to titles via the Data
+// API, preserving the views ranking. Falls back to the id if a title is missing.
+async function topVideosFrom(accessToken: string, rows: AnalyticsRow[]): Promise<VideoTopItem[]> {
+  const ids = rows.map((r) => String(r[0])).filter(Boolean);
+  if (!ids.length) return [];
+  let titles = new Map<string, string>();
+  try {
+    const data = await ytGet<{ items?: { id: string; snippet?: { title?: string } }[] }>(
+      `${DATA_API}/videos?part=snippet&id=${ids.join(",")}&maxResults=${ids.length}`, accessToken
+    );
+    titles = new Map((data.items ?? []).map((v) => [v.id, v.snippet?.title ?? v.id]));
+  } catch {
+    // Title lookup failed (e.g. a deleted video) — fall back to ids below.
+  }
+  return rows.map((r) => ({
+    title: titles.get(String(r[0])) ?? String(r[0]),
+    views: Number(r[1] ?? 0),
+    watchTimeMinutes: Number(r[2] ?? 0),
+  }));
+}
+
 // Column indices after the (optional) leading "day" dimension column.
 function totalsFrom(rows: AnalyticsRow[], hasDay: boolean, subscribers: number): VideoTotals {
   const off = hasDay ? 1 : 0;
@@ -93,11 +175,19 @@ export async function fetchYoutubeReport(accessToken: string, channelId: string,
   const prevStart = isoDaysAgo(periodDays * 2 + 2);
   const prevEnd = isoDaysAgo(periodDays + 3);
 
-  const [subscribers, dailyRows, prevRows] = await Promise.all([
+  const [subscribers, dailyRows, prevRows, trafficRows, geoRows, deviceRows, videoRows] = await Promise.all([
     subscriberCount(accessToken, channelId),
     analytics(accessToken, channelId, start, end, true),
     analytics(accessToken, channelId, prevStart, prevEnd, false).catch(() => [] as AnalyticsRow[]),
+    // Dimensional breakdowns — each best-effort so one failing report (e.g. a
+    // dimension unavailable for this channel) never sinks the whole snapshot.
+    dimReport(accessToken, channelId, start, end, "insightTrafficSourceType").catch(() => [] as AnalyticsRow[]),
+    dimReport(accessToken, channelId, start, end, "country").catch(() => [] as AnalyticsRow[]),
+    dimReport(accessToken, channelId, start, end, "deviceType").catch(() => [] as AnalyticsRow[]),
+    dimReport(accessToken, channelId, start, end, "video").catch(() => [] as AnalyticsRow[]),
   ]);
+
+  const topVideos = await topVideosFrom(accessToken, videoRows);
 
   const byDayMap = new Map<string, VideoDay>();
   for (const d of dayRange(periodDays, 2)) byDayMap.set(d, { date: d, views: 0, watchTimeMinutes: 0, subscribersGained: 0 });
@@ -115,5 +205,10 @@ export async function fetchYoutubeReport(accessToken: string, channelId: string,
     totals: totalsFrom(dailyRows, true, subscribers),
     previousTotals: prevRows.length ? totalsFrom(prevRows, false, subscribers) : null,
     byDate: Array.from(byDayMap.values()),
+    topVideos,
+    trafficSources: toBreakdown(trafficRows, (c) => TRAFFIC_SOURCE_LABELS[c] ?? humanize(c)),
+    // Country dimension returns ISO 3166-1 alpha-2 codes; shown as-is (uppercased).
+    geography: toBreakdown(geoRows, (c) => c.toUpperCase()),
+    devices: toBreakdown(deviceRows, (c) => DEVICE_LABELS[c] ?? humanize(c)),
   };
 }

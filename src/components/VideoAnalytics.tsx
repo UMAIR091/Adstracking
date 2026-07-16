@@ -3,9 +3,9 @@
 // Video analytics block (YouTube Analytics today; any provider filling the
 // normalized VideoReport renders here).
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
-import { Play, Clock, UserPlus } from "lucide-react";
+import { Play, Clock, UserPlus, Video, Compass, Globe, MonitorSmartphone } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { VideoReport } from "@/lib/integrations/metrics";
+import type { VideoBreakdown, VideoReport } from "@/lib/integrations/metrics";
 
 const fmtNum = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 const shortDate = (d: string) => d.slice(5);
@@ -68,6 +68,35 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+// A ranked dimension breakdown (traffic sources, geography, devices) with a
+// proportional bar per row relative to the top entry's views.
+function Breakdown({ title, icon: Icon, items }: { title: string; icon: typeof Play; items: VideoBreakdown[] }) {
+  if (!items.length) return null;
+  const max = Math.max(...items.map((i) => i.views), 1);
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <Icon size={15} className="text-ink-400" /> {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {items.map((it, i) => (
+          <div key={`${it.label}-${i}`}>
+            <div className="flex items-baseline justify-between gap-2 text-sm">
+              <span className="truncate text-ink-700" title={it.label}>{it.label}</span>
+              <span className="tabular-nums text-ink-500">{fmtNum(it.views)}</span>
+            </div>
+            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+              <div className="h-full rounded-full bg-brand-500" style={{ width: `${Math.max((it.views / max) * 100, 2)}%` }} />
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function VideoAnalytics({ report }: { report: VideoReport }) {
   const { totals } = report;
   const netSubs = totals.subscribersGained - totals.subscribersLost;
@@ -85,6 +114,44 @@ export function VideoAnalytics({ report }: { report: VideoReport }) {
         <Stat label="Likes" value={fmtNum(totals.likes)} />
         <Stat label="Comments" value={fmtNum(totals.comments)} />
       </div>
+
+      {!!report.topVideos?.length && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Video size={15} className="text-ink-400" /> Top videos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-ink-400">
+                  <th className="pb-2 font-medium">Video</th>
+                  <th className="pb-2 text-right font-medium">Views</th>
+                  <th className="pb-2 text-right font-medium">Watch time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.topVideos.map((v, i) => (
+                  <tr key={`${v.title}-${i}`} className="border-t border-slate-100">
+                    <td className="max-w-0 truncate py-2 pr-3 text-ink-800" title={v.title}>{v.title}</td>
+                    <td className="py-2 text-right text-ink-600">{fmtNum(v.views)}</td>
+                    <td className="py-2 text-right text-ink-600">{watchTime(v.watchTimeMinutes)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+
+      {(!!report.trafficSources?.length || !!report.geography?.length || !!report.devices?.length) && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Breakdown title="Traffic sources" icon={Compass} items={report.trafficSources ?? []} />
+          <Breakdown title="Top countries" icon={Globe} items={report.geography ?? []} />
+          <Breakdown title="Devices" icon={MonitorSmartphone} items={report.devices ?? []} />
+        </div>
+      )}
     </div>
   );
 }

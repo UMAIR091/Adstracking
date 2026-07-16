@@ -165,11 +165,22 @@ export type VideoTotals = {
 
 export type VideoDay = { date: string; views: number; watchTimeMinutes: number; subscribersGained: number };
 
+// A ranked dimension slice (traffic source, country, or device) for the period.
+export type VideoBreakdown = { label: string; views: number; watchTimeMinutes: number };
+// A top-performing video with its resolved title.
+export type VideoTopItem = { title: string; views: number; watchTimeMinutes: number };
+
 export type VideoReport = {
   platform: "youtube_analytics";
   totals: VideoTotals;
   previousTotals: VideoTotals | null;
   byDate: VideoDay[];
+  // Dimensional breakdowns — optional so snapshots synced before these existed
+  // still render. Each is ranked by views, capped server-side.
+  topVideos?: VideoTopItem[];
+  trafficSources?: VideoBreakdown[];
+  geography?: VideoBreakdown[];
+  devices?: VideoBreakdown[];
 };
 
 // ── SEO / organic search (Ahrefs, Semrush) ──────────────────
