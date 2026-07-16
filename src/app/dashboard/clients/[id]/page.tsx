@@ -41,7 +41,7 @@ const COMMERCE_VIZ = new Set(["shopify", "woocommerce", "stripe"]);
 // Email-marketing platforms share the EmailReport shape + EmailAnalytics.
 const EMAIL_VIZ = new Set(["mailchimp", "klaviyo"]);
 // SEO platforms share the SeoReport shape + SeoAnalytics.
-const SEO_VIZ = new Set(["ahrefs", "semrush"]);
+const SEO_VIZ = new Set(["ahrefs", "semrush", "moz"]);
 
 // Provider-specific analytics view (the only part that isn't generic, since each
 // source visualizes different metrics). Everything else flows from the registry.

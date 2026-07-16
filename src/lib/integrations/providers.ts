@@ -17,6 +17,7 @@ import { verifyCallRailKey, fetchCallRailReport } from "./oauth/callrail";
 import { listMicrosoftAdsAccounts, fetchMicrosoftAdsReport, microsoftAdsConfigured } from "./oauth/microsoftAds";
 import { verifyAhrefsKey, fetchAhrefsReport } from "./oauth/ahrefs";
 import { verifySemrushKey, fetchSemrushReport } from "./oauth/semrush";
+import { verifyMozKey, fetchMozReport } from "./oauth/moz";
 import { listStripeAccounts, fetchStripeReport, stripeConfigured } from "./oauth/stripe";
 import { listYoutubeChannels, fetchYoutubeReport } from "./oauth/youtube";
 import { listBigQueryProjects, fetchBigQuerySnapshot } from "./oauth/bigquery";
@@ -434,6 +435,41 @@ export const semrushDef: IntegrationDef = {
   ],
   verifyApiKey: (fields) => verifySemrushKey(fields),
   fetchSnapshot: (at, id, days) => fetchSemrushReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts[0]?.id ?? null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// Third SEO source on the shared SeoReport shape. Moz authenticates with the
+// official Moz Links API v2 Access ID + Secret Key (HTTP Basic), collected via
+// the generic api-key flow; a connection maps to one target domain. The Links
+// API provides Domain Authority, backlinks and referring domains — not organic
+// traffic/keywords (a separate Moz product) — so those SeoTotals stay 0.
+export const mozDef: IntegrationDef = {
+  id: "moz",
+  name: "Moz",
+  description: "Domain Authority, backlinks & referring domains",
+  icon: "Gauge",
+  accent: "emerald",
+  status: "live",
+  authKind: "apikey",
+  oauthProviderId: null,
+  connectPath: null,
+  accountNoun: "domain",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Link & authority metrics (read-only)", why: "Domain Authority, backlinks and referring domains power the SEO sections of your reports." },
+  ],
+  connectFields: [
+    { name: "accessId", label: "Access ID", placeholder: "mozscape-xxxxxxxxxx", secret: true,
+      hint: "Moz → API → Links API → your Access ID." },
+    { name: "secretKey", label: "Secret Key", placeholder: "your Moz Secret Key", secret: true,
+      hint: "Moz → API → Links API → your Secret Key (shown once when generated)." },
+    { name: "domain", label: "Domain", placeholder: "example.com", hint: "The website to report on." },
+  ],
+  verifyApiKey: (fields) => verifyMozKey(fields),
+  fetchSnapshot: (at, id, days) => fetchMozReport(at, id, days),
   buildConfig: (accounts) => ({ accounts, account_id: accounts[0]?.id ?? null }),
   readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
