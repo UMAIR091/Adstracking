@@ -28,6 +28,7 @@ import { listTiktokAdvertisers, fetchTiktokAdsReport, tiktokConfigured } from ".
 import { listPinterestAdAccounts, fetchPinterestAdsReport, pinterestConfigured } from "./oauth/pinterest";
 import { listSnapchatAdAccounts, fetchSnapchatAdsReport, snapchatConfigured } from "./oauth/snapchat";
 import { listRedditAdAccounts, fetchRedditAdsReport, redditConfigured } from "./oauth/reddit";
+import { listAmazonProfiles, fetchAmazonAdsReport, amazonConfigured } from "./oauth/amazon";
 import type { IntegrationDef, IntegrationConfig, IntegrationAccount } from "./types";
 
 // Providers that need their own app credentials stay "soon" until the env
@@ -711,6 +712,33 @@ export const redditAdsDef: IntegrationDef = {
   ],
   listAccounts: (at) => listRedditAdAccounts(at),
   fetchSnapshot: (at, id, days) => fetchRedditAdsReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// Paid-media source on the shared AdsReport shape. Amazon Advertising API v3 with
+// Login with Amazon OAuth (region-specific) and async Sponsored Products
+// reporting (create → poll → download), surfaced through the same contract.
+export const amazonAdsDef: IntegrationDef = {
+  id: "amazon_ads",
+  name: "Amazon Ads",
+  description: "Spend, clicks, purchases & sales",
+  icon: "ShoppingBag",
+  accent: "amber",
+  status: gated(amazonConfigured()),
+  oauthProviderId: "amazon",
+  connectPath: "/api/amazon/connect",
+  accountNoun: "profile",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Ad performance metrics (read-only)", why: "Spend, impressions, clicks, purchases and sales power the paid-media sections of your reports." },
+    { item: "Campaign-level results", why: "Shows which Sponsored Products campaigns drive results in the client's report." },
+    { item: "Your list of advertising profiles", why: "So you can pick which Amazon Ads profile this client's reports are built from." },
+  ],
+  listAccounts: (at) => listAmazonProfiles(at),
+  fetchSnapshot: (at, id, days) => fetchAmazonAdsReport(at, id, days),
   buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
   readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
