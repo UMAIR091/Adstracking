@@ -35,13 +35,13 @@ export const dynamic = "force-dynamic";
 // (e.g. Meta Ads) are connectable + synced, with their dashboards to follow.
 // Sources with a dashboard block. The core trio also shows labelled sample
 // data before connecting; the rest render once a synced snapshot exists.
-const HAS_VIZ = new Set(["gsc", "ga4", "instagram", "google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "pinterest_ads", "snapchat_ads", "reddit_ads", "amazon_ads", "x_ads", "adobe_analytics", "gbp", "shopify", "sheets", "hubspot", "salesforce", "bigquery"]);
+const HAS_VIZ = new Set(["gsc", "ga4", "instagram", "google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "pinterest_ads", "snapchat_ads", "reddit_ads", "amazon_ads", "x_ads", "adobe_analytics", "gbp", "shopify", "sheets", "hubspot", "salesforce", "bigquery", "youtube_analytics", "moz", "activecampaign"]);
 const SAMPLE_VIZ = new Set(["gsc", "ga4", "instagram"]);
 const ADS_VIZ = new Set(["google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "microsoft_ads", "pinterest_ads", "snapchat_ads", "reddit_ads", "amazon_ads", "x_ads"]);
 // Storefronts share the normalized CommerceReport shape + CommerceAnalytics.
 const COMMERCE_VIZ = new Set(["shopify", "woocommerce", "stripe"]);
 // Email-marketing platforms share the EmailReport shape + EmailAnalytics.
-const EMAIL_VIZ = new Set(["mailchimp", "klaviyo"]);
+const EMAIL_VIZ = new Set(["mailchimp", "klaviyo", "activecampaign"]);
 // SEO platforms share the SeoReport shape + SeoAnalytics.
 const SEO_VIZ = new Set(["ahrefs", "semrush", "moz"]);
 

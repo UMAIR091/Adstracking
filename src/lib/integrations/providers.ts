@@ -32,6 +32,7 @@ import { listAmazonProfiles, fetchAmazonAdsReport, amazonConfigured } from "./oa
 import { listXAdsAccounts, fetchXAdsReport, xAdsConfigured } from "./oauth/xads";
 import { listAdobeReportSuites, fetchAdobeReport, adobeConfigured } from "./oauth/adobe";
 import { listSalesforceOrgs, fetchSalesforceReport, salesforceConfigured } from "./oauth/salesforce";
+import { verifyActiveCampaignKey, fetchActiveCampaignReport } from "./oauth/activecampaign";
 import type { IntegrationDef, IntegrationConfig, IntegrationAccount } from "./types";
 
 // Providers that need their own app credentials stay "soon" until the env
@@ -824,6 +825,39 @@ export const salesforceDef: IntegrationDef = {
   listAccounts: (at) => listSalesforceOrgs(at),
   fetchSnapshot: (at, id, days) => fetchSalesforceReport(at, id, days),
   buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// Email-marketing source on the shared EmailReport shape (the same one Mailchimp
+// and Klaviyo fill, so it reuses EmailAnalytics). ActiveCampaign has no public
+// OAuth — an account-specific API URL + token, collected via the api-key flow.
+export const activecampaignDef: IntegrationDef = {
+  id: "activecampaign",
+  name: "ActiveCampaign",
+  description: "Campaigns, opens, clicks & contacts",
+  icon: "Send",
+  accent: "blue",
+  status: "live",
+  authKind: "apikey",
+  oauthProviderId: null,
+  connectPath: null,
+  accountNoun: "account",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Email metrics (read-only)", why: "Emails sent, opens, clicks, contact growth and unsubscribes power the email-marketing sections of your reports." },
+    { item: "Recent campaigns", why: "Shows which campaigns your client sent in the period." },
+  ],
+  connectFields: [
+    { name: "apiUrl", label: "API URL", placeholder: "https://youraccount.api-us1.com",
+      hint: "ActiveCampaign → Settings → Developer → API Access → URL." },
+    { name: "apiKey", label: "API key", placeholder: "your ActiveCampaign API key", secret: true,
+      hint: "ActiveCampaign → Settings → Developer → API Access → Key." },
+  ],
+  verifyApiKey: (fields) => verifyActiveCampaignKey(fields),
+  fetchSnapshot: (at, id, days) => fetchActiveCampaignReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts[0]?.id ?? null }),
   readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
 };

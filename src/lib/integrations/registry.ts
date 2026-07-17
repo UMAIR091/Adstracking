@@ -1,6 +1,6 @@
 // The integration registry — single source of truth that generic services and
 // UI read from. Adding a source = add a descriptor in providers.ts.
-import { gscDef, ga4Def, metaAdsDef, instagramDef, googleAdsDef, gbpDef, shopifyDef, woocommerceDef, mailchimpDef, klaviyoDef, callrailDef, microsoftAdsDef, ahrefsDef, semrushDef, mozDef, stripeDef, youtubeAnalyticsDef, bigqueryDef, sheetsDef, hubspotDef, linkedinAdsDef, tiktokAdsDef, pinterestAdsDef, snapchatAdsDef, redditAdsDef, amazonAdsDef, xAdsDef, adobeAnalyticsDef, salesforceDef, soonDefs } from "./providers";
+import { gscDef, ga4Def, metaAdsDef, instagramDef, googleAdsDef, gbpDef, shopifyDef, woocommerceDef, mailchimpDef, klaviyoDef, callrailDef, microsoftAdsDef, ahrefsDef, semrushDef, mozDef, stripeDef, youtubeAnalyticsDef, bigqueryDef, sheetsDef, hubspotDef, linkedinAdsDef, tiktokAdsDef, pinterestAdsDef, snapchatAdsDef, redditAdsDef, amazonAdsDef, xAdsDef, adobeAnalyticsDef, salesforceDef, activecampaignDef, soonDefs } from "./providers";
 import { googleOAuth, googleAdsOAuth, gbpOAuth, sheetsOAuth, youtubeOAuth, bigqueryOAuth } from "./oauth/google";
 import { metaOAuth } from "./oauth/meta";
 import { instagramOAuth } from "./oauth/instagram";
@@ -20,7 +20,7 @@ import { salesforceOAuth } from "./oauth/salesforce";
 import { stripeOAuth } from "./oauth/stripe";
 import type { IntegrationDef, OAuthProvider, IntegrationDescriptor } from "./types";
 
-const DEFS: IntegrationDef[] = [gscDef, ga4Def, googleAdsDef, metaAdsDef, instagramDef, gbpDef, shopifyDef, woocommerceDef, mailchimpDef, klaviyoDef, callrailDef, microsoftAdsDef, ahrefsDef, semrushDef, mozDef, stripeDef, youtubeAnalyticsDef, bigqueryDef, sheetsDef, hubspotDef, linkedinAdsDef, tiktokAdsDef, pinterestAdsDef, snapchatAdsDef, redditAdsDef, amazonAdsDef, xAdsDef, adobeAnalyticsDef, salesforceDef, ...soonDefs];
+const DEFS: IntegrationDef[] = [gscDef, ga4Def, googleAdsDef, metaAdsDef, instagramDef, gbpDef, shopifyDef, woocommerceDef, mailchimpDef, klaviyoDef, callrailDef, microsoftAdsDef, ahrefsDef, semrushDef, mozDef, stripeDef, youtubeAnalyticsDef, bigqueryDef, sheetsDef, hubspotDef, linkedinAdsDef, tiktokAdsDef, pinterestAdsDef, snapchatAdsDef, redditAdsDef, amazonAdsDef, xAdsDef, adobeAnalyticsDef, salesforceDef, activecampaignDef, ...soonDefs];
 
 const BY_ID: Record<string, IntegrationDef> = {};
 for (const d of DEFS) BY_ID[d.id] = d;
