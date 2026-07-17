@@ -35,7 +35,7 @@ export const dynamic = "force-dynamic";
 // (e.g. Meta Ads) are connectable + synced, with their dashboards to follow.
 // Sources with a dashboard block. The core trio also shows labelled sample
 // data before connecting; the rest render once a synced snapshot exists.
-const HAS_VIZ = new Set(["gsc", "ga4", "instagram", "google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "pinterest_ads", "snapchat_ads", "reddit_ads", "amazon_ads", "x_ads", "adobe_analytics", "gbp", "shopify", "sheets", "hubspot", "bigquery"]);
+const HAS_VIZ = new Set(["gsc", "ga4", "instagram", "google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "pinterest_ads", "snapchat_ads", "reddit_ads", "amazon_ads", "x_ads", "adobe_analytics", "gbp", "shopify", "sheets", "hubspot", "salesforce", "bigquery"]);
 const SAMPLE_VIZ = new Set(["gsc", "ga4", "instagram"]);
 const ADS_VIZ = new Set(["google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "microsoft_ads", "pinterest_ads", "snapchat_ads", "reddit_ads", "amazon_ads", "x_ads"]);
 // Storefronts share the normalized CommerceReport shape + CommerceAnalytics.
@@ -59,7 +59,8 @@ function Analytics({ id, snapshot }: { id: string; snapshot: unknown }) {
   if (COMMERCE_VIZ.has(id) && snapshot) return <CommerceAnalytics report={snapshot as CommerceReport} />;
   if (id === "sheets" && snapshot) return <SheetsAnalytics report={snapshot as SheetTable} />;
   if (id === "bigquery" && snapshot) return <BigQueryAnalytics report={snapshot as BigQueryReport} />;
-  if (id === "hubspot" && snapshot) return <CrmAnalytics report={snapshot as CrmReport} />;
+  // Salesforce fills the same normalized CrmReport shape as HubSpot.
+  if ((id === "hubspot" || id === "salesforce") && snapshot) return <CrmAnalytics report={snapshot as CrmReport} />;
   if (EMAIL_VIZ.has(id) && snapshot) return <EmailAnalytics report={snapshot as EmailReport} />;
   if (id === "callrail" && snapshot) return <CallAnalytics report={snapshot as CallReport} />;
   if (SEO_VIZ.has(id) && snapshot) return <SeoAnalytics report={snapshot as SeoReport} />;

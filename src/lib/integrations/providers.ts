@@ -31,6 +31,7 @@ import { listRedditAdAccounts, fetchRedditAdsReport, redditConfigured } from "./
 import { listAmazonProfiles, fetchAmazonAdsReport, amazonConfigured } from "./oauth/amazon";
 import { listXAdsAccounts, fetchXAdsReport, xAdsConfigured } from "./oauth/xads";
 import { listAdobeReportSuites, fetchAdobeReport, adobeConfigured } from "./oauth/adobe";
+import { listSalesforceOrgs, fetchSalesforceReport, salesforceConfigured } from "./oauth/salesforce";
 import type { IntegrationDef, IntegrationConfig, IntegrationAccount } from "./types";
 
 // Providers that need their own app credentials stay "soon" until the env
@@ -796,6 +797,32 @@ export const adobeAnalyticsDef: IntegrationDef = {
   ],
   listAccounts: (at) => listAdobeReportSuites(at),
   fetchSnapshot: (at, id, days) => fetchAdobeReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// Second CRM source on the shared CrmReport shape (the same one HubSpot fills,
+// so it reuses CrmAnalytics). Salesforce is per-org: the connection's instance_url
+// is packed into the stored token, so a connection maps to exactly one org.
+export const salesforceDef: IntegrationDef = {
+  id: "salesforce",
+  name: "Salesforce",
+  description: "Leads, opportunities & won revenue",
+  icon: "Magnet",
+  accent: "sky",
+  status: gated(salesforceConfigured()),
+  oauthProviderId: "salesforce",
+  connectPath: "/api/salesforce/connect",
+  accountNoun: "org",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Leads & opportunities (read-only)", why: "New leads, new and won opportunities and won revenue power the CRM sections of your reports." },
+    { item: "Top opportunities", why: "Shows the biggest deals in the period in the client's report." },
+  ],
+  listAccounts: (at) => listSalesforceOrgs(at),
+  fetchSnapshot: (at, id, days) => fetchSalesforceReport(at, id, days),
   buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
   readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
