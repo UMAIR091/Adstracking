@@ -33,6 +33,7 @@ import { listXAdsAccounts, fetchXAdsReport, xAdsConfigured } from "./oauth/xads"
 import { listAdobeReportSuites, fetchAdobeReport, adobeConfigured } from "./oauth/adobe";
 import { listSalesforceOrgs, fetchSalesforceReport, salesforceConfigured } from "./oauth/salesforce";
 import { verifyActiveCampaignKey, fetchActiveCampaignReport } from "./oauth/activecampaign";
+import { listConstantContactAccounts, fetchConstantContactReport, constantContactConfigured } from "./oauth/constantcontact";
 import type { IntegrationDef, IntegrationConfig, IntegrationAccount } from "./types";
 
 // Providers that need their own app credentials stay "soon" until the env
@@ -858,6 +859,31 @@ export const activecampaignDef: IntegrationDef = {
   verifyApiKey: (fields) => verifyActiveCampaignKey(fields),
   fetchSnapshot: (at, id, days) => fetchActiveCampaignReport(at, id, days),
   buildConfig: (accounts) => ({ accounts, account_id: accounts[0]?.id ?? null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// Email-marketing source on the shared EmailReport shape (reuses EmailAnalytics).
+// Constant Contact v3 with OAuth 2.0; offline_access provides the refresh token.
+export const constantContactDef: IntegrationDef = {
+  id: "constantcontact",
+  name: "Constant Contact",
+  description: "Campaigns, opens, clicks & contacts",
+  icon: "Send",
+  accent: "amber",
+  status: gated(constantContactConfigured()),
+  oauthProviderId: "constantcontact",
+  connectPath: "/api/constantcontact/connect",
+  accountNoun: "account",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Email metrics (read-only)", why: "Emails sent, opens, clicks, contact growth and unsubscribes power the email-marketing sections of your reports." },
+    { item: "Recent campaigns", why: "Shows which campaigns your client sent in the period." },
+  ],
+  listAccounts: (at) => listConstantContactAccounts(at),
+  fetchSnapshot: (at, id, days) => fetchConstantContactReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
   readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
 };
