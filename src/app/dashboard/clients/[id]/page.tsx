@@ -35,7 +35,7 @@ export const dynamic = "force-dynamic";
 // (e.g. Meta Ads) are connectable + synced, with their dashboards to follow.
 // Sources with a dashboard block. The core trio also shows labelled sample
 // data before connecting; the rest render once a synced snapshot exists.
-const HAS_VIZ = new Set(["gsc", "ga4", "instagram", "google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "pinterest_ads", "snapchat_ads", "reddit_ads", "amazon_ads", "x_ads", "gbp", "shopify", "sheets", "hubspot", "bigquery"]);
+const HAS_VIZ = new Set(["gsc", "ga4", "instagram", "google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "pinterest_ads", "snapchat_ads", "reddit_ads", "amazon_ads", "x_ads", "adobe_analytics", "gbp", "shopify", "sheets", "hubspot", "bigquery"]);
 const SAMPLE_VIZ = new Set(["gsc", "ga4", "instagram"]);
 const ADS_VIZ = new Set(["google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "microsoft_ads", "pinterest_ads", "snapchat_ads", "reddit_ads", "amazon_ads", "x_ads"]);
 // Storefronts share the normalized CommerceReport shape + CommerceAnalytics.
@@ -51,6 +51,8 @@ const SEO_VIZ = new Set(["ahrefs", "semrush", "moz"]);
 function Analytics({ id, snapshot }: { id: string; snapshot: unknown }) {
   if (id === "gsc") return snapshot ? <GscAnalytics report={snapshot as GscReportData} /> : <GscAnalytics report={SAMPLE_GSC} sample />;
   if (id === "ga4") return snapshot ? <Ga4Analytics report={snapshot as Ga4ReportData} /> : <Ga4Analytics report={SAMPLE_GA4} sample />;
+  // Adobe fills the same normalized analytics shape, so it reuses Ga4Analytics.
+  if (id === "adobe_analytics" && snapshot) return <Ga4Analytics report={snapshot as Ga4ReportData} />;
   if (id === "instagram") return snapshot ? <SocialAnalytics report={snapshot as SocialReport} /> : <SocialAnalytics report={SAMPLE_INSTAGRAM} sample />;
   if (ADS_VIZ.has(id) && snapshot) return <AdsAnalytics report={snapshot as AdsReportData} />;
   if (id === "gbp" && snapshot) return <GbpAnalytics report={snapshot as GbpReport} />;

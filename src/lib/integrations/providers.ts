@@ -30,6 +30,7 @@ import { listSnapchatAdAccounts, fetchSnapchatAdsReport, snapchatConfigured } fr
 import { listRedditAdAccounts, fetchRedditAdsReport, redditConfigured } from "./oauth/reddit";
 import { listAmazonProfiles, fetchAmazonAdsReport, amazonConfigured } from "./oauth/amazon";
 import { listXAdsAccounts, fetchXAdsReport, xAdsConfigured } from "./oauth/xads";
+import { listAdobeReportSuites, fetchAdobeReport, adobeConfigured } from "./oauth/adobe";
 import type { IntegrationDef, IntegrationConfig, IntegrationAccount } from "./types";
 
 // Providers that need their own app credentials stay "soon" until the env
@@ -768,6 +769,33 @@ export const xAdsDef: IntegrationDef = {
   ],
   listAccounts: (at) => listXAdsAccounts(at),
   fetchSnapshot: (at, id, days) => fetchXAdsReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// Web analytics source. Adobe Analytics 2.0 API via Adobe IMS OAuth. An account
+// is a "<globalCompanyId>:<rsid>" report suite; metrics normalize onto the same
+// Ga4ReportData shape GA4 fills, so it reuses Ga4Analytics.
+export const adobeAnalyticsDef: IntegrationDef = {
+  id: "adobe_analytics",
+  name: "Adobe Analytics",
+  description: "Visitors, visits, page views & revenue",
+  icon: "BarChart3",
+  accent: "rose",
+  status: gated(adobeConfigured()),
+  oauthProviderId: "adobe",
+  connectPath: "/api/adobe/connect",
+  accountNoun: "report suite",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Analytics metrics (read-only)", why: "Visitors, visits, page views, bounce rate, orders and revenue power the web-analytics sections of your reports." },
+    { item: "Top pages, sources, countries & devices", why: "Shows where your client's traffic comes from and what it engages with." },
+    { item: "Your list of report suites", why: "So you can pick which report suite this client's reports are built from." },
+  ],
+  listAccounts: (at) => listAdobeReportSuites(at),
+  fetchSnapshot: (at, id, days) => fetchAdobeReport(at, id, days),
   buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
   readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
