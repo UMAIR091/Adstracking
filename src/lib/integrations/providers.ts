@@ -29,6 +29,7 @@ import { listPinterestAdAccounts, fetchPinterestAdsReport, pinterestConfigured }
 import { listSnapchatAdAccounts, fetchSnapchatAdsReport, snapchatConfigured } from "./oauth/snapchat";
 import { listRedditAdAccounts, fetchRedditAdsReport, redditConfigured } from "./oauth/reddit";
 import { listAmazonProfiles, fetchAmazonAdsReport, amazonConfigured } from "./oauth/amazon";
+import { listXAdsAccounts, fetchXAdsReport, xAdsConfigured } from "./oauth/xads";
 import type { IntegrationDef, IntegrationConfig, IntegrationAccount } from "./types";
 
 // Providers that need their own app credentials stay "soon" until the env
@@ -739,6 +740,34 @@ export const amazonAdsDef: IntegrationDef = {
   ],
   listAccounts: (at) => listAmazonProfiles(at),
   fetchSnapshot: (at, id, days) => fetchAmazonAdsReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// Paid-media source on the shared AdsReport shape. X's Ads API uses OAuth 1.0a,
+// which doesn't fit the shared OAuthProvider contract — so oauthProviderId stays
+// null and connectPath points at dedicated /api/x/* routes that run the 1.0a
+// dance. Everything downstream (storage, sync, dashboard, disconnect) is shared.
+export const xAdsDef: IntegrationDef = {
+  id: "x_ads",
+  name: "X Ads",
+  description: "Spend, impressions & engagements",
+  icon: "Twitter",
+  accent: "ink",
+  status: gated(xAdsConfigured()),
+  oauthProviderId: null,
+  connectPath: "/api/x/connect",
+  accountNoun: "ad account",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Ad performance metrics (read-only)", why: "Spend, impressions and clicks power the paid-media sections of your reports." },
+    { item: "Campaign-level results", why: "Shows which campaigns drive results in the client's report." },
+    { item: "Your list of ad accounts", why: "So you can pick which X ad account this client's reports are built from." },
+  ],
+  listAccounts: (at) => listXAdsAccounts(at),
+  fetchSnapshot: (at, id, days) => fetchXAdsReport(at, id, days),
   buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
   readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
