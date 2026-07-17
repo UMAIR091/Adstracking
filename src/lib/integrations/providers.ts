@@ -34,6 +34,7 @@ import { listAdobeReportSuites, fetchAdobeReport, adobeConfigured } from "./oaut
 import { listSalesforceOrgs, fetchSalesforceReport, salesforceConfigured } from "./oauth/salesforce";
 import { verifyActiveCampaignKey, fetchActiveCampaignReport } from "./oauth/activecampaign";
 import { listConstantContactAccounts, fetchConstantContactReport, constantContactConfigured } from "./oauth/constantcontact";
+import { listCampaignMonitorClients, fetchCampaignMonitorReport, campaignMonitorConfigured } from "./oauth/campaignmonitor";
 import type { IntegrationDef, IntegrationConfig, IntegrationAccount } from "./types";
 
 // Providers that need their own app credentials stay "soon" until the env
@@ -883,6 +884,33 @@ export const constantContactDef: IntegrationDef = {
   ],
   listAccounts: (at) => listConstantContactAccounts(at),
   fetchSnapshot: (at, id, days) => fetchConstantContactReport(at, id, days),
+  buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
+  readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
+  readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
+};
+
+// Email-marketing source on the shared EmailReport shape (reuses EmailAnalytics).
+// Campaign Monitor nests clients under an account, so an "account" here is a
+// Campaign Monitor client — the granularity an agency reports on.
+export const campaignMonitorDef: IntegrationDef = {
+  id: "campaignmonitor",
+  name: "Campaign Monitor",
+  description: "Campaigns, opens, clicks & subscribers",
+  icon: "Send",
+  accent: "cyan",
+  status: gated(campaignMonitorConfigured()),
+  oauthProviderId: "campaignmonitor",
+  connectPath: "/api/campaignmonitor/connect",
+  accountNoun: "client",
+  accountConfigKey: "account_id",
+  snapshotTable: "integration_snapshots",
+  dataAccess: [
+    { item: "Email metrics (read-only)", why: "Emails sent, opens, clicks, subscribers and unsubscribes power the email-marketing sections of your reports." },
+    { item: "Recent campaigns", why: "Shows which campaigns your client sent in the period." },
+    { item: "Your list of Campaign Monitor clients", why: "So you can pick which client this report is built from." },
+  ],
+  listAccounts: (at) => listCampaignMonitorClients(at),
+  fetchSnapshot: (at, id, days) => fetchCampaignMonitorReport(at, id, days),
   buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
   readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
