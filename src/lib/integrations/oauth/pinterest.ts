@@ -80,7 +80,9 @@ export const pinterestOAuth: OAuthProvider = {
       client_id: env("PINTEREST_APP_ID"),
       redirect_uri: redirectUri(),
       response_type: "code",
-      scope: SCOPES.join(" "),
+      // Pinterest expects a COMMA-separated scope list (not the OAuth 2.0
+      // space-delimited default) — space-separated is rejected as invalid_scope.
+      scope: SCOPES.join(","),
       state,
     });
     return `https://www.pinterest.com/oauth/?${params.toString()}`;
