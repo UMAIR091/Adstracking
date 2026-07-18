@@ -10,6 +10,8 @@ import { getCurrentUserAndAgency } from "@/lib/agency";
 import { encrypt } from "@/lib/crypto";
 import { syncDataSource, type SyncableSource } from "@/lib/sync";
 import { getIntegration, getOAuthProvider } from "./registry";
+import { classifyIntegrationError } from "./errors";
+import { logError } from "@/lib/errorLog";
 import type { IntegrationConfig, IntegrationDef, OAuthProvider } from "./types";
 
 const NONCE_COOKIE = "oauth_nonce";
@@ -139,6 +141,14 @@ export async function handleCallback(req: Request): Promise<Response> {
     console.log("[oauth-debug] callback:success", JSON.stringify({ type: def.id, provider: provider ?? null, redirectTo: `${origin}/dashboard/clients/${clientId}?connected=${def.id}` }));
     return NextResponse.redirect(`${origin}/dashboard/clients/${clientId}?connected=${def.id}`);
   } catch (err) {
+    // Token exchange / account-listing / storage failed — record it, then fail.
+    await logError({
+      context: "oauth_callback",
+      agencyId: agency.id,
+      provider: def.id,
+      errorType: classifyIntegrationError(err),
+      message: (err as Error).message,
+    });
     return fail((err as Error).message);
   }
 }

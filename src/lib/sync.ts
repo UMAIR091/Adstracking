@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getValidAccessToken } from "@/lib/googleTokens";
 import { getIntegration } from "@/lib/integrations/registry";
 import { classifyIntegrationError, reconnectMessage } from "@/lib/integrations/errors";
+import { logError } from "@/lib/errorLog";
 
 // Periods we keep warm in the cache (match the report/analytics date ranges).
 const PERIODS = [28, 90];
@@ -84,6 +85,16 @@ export async function syncDataSource(
         : { status: "error", last_sync_error: message, last_sync_attempt_at: attemptedAt };
 
     await supabase.from("data_sources").update(patch).eq("id", ds.id);
+    // Append to the historical error log (best-effort; never blocks the sync).
+    await logError({
+      context: "sync",
+      agencyId: ds.agency_id,
+      dataSourceId: ds.id,
+      provider: ds.type ?? null,
+      errorType: kind,
+      message,
+      retryStatus: kind === "reauth" ? "needs_reconnect" : "will_retry",
+    });
     return { ok: false, error: message };
   }
 }

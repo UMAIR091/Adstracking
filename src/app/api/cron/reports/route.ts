@@ -6,6 +6,7 @@ import { cronAuthorized } from "@/lib/cronAuth";
 import { deliverReport } from "@/lib/delivery";
 import { emailConfigured } from "@/lib/email";
 import { nextRunAt, isFrequency } from "@/lib/schedule";
+import { logError, logRouteError } from "@/lib/errorLog";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,7 @@ export const maxDuration = 60;
 export async function GET(req: Request) {
   if (!cronAuthorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  try {
   const admin = createAdminClient();
   const now = new Date();
   const { data: due, error } = await admin
@@ -59,8 +61,11 @@ export async function GET(req: Request) {
       .eq("id", sched.id);
 
     if (!gen.ok) {
-      if (allowed) failed++;
-      else skipped++;
+      if (allowed) {
+        failed++;
+        // A real generation failure (not a subscription skip) — record it.
+        await logError({ context: "report", agencyId: sched.agency_id, message: gen.error, retryStatus: "will_retry" });
+      } else skipped++;
       continue;
     }
     if (!emailConfigured()) continue;
@@ -95,4 +100,9 @@ export async function GET(req: Request) {
   }
 
   return NextResponse.json({ ok: true, processed, sent, failed, skipped });
+  } catch (err) {
+    // Batch-level crash — logged to Vercel's stream (no single agency to scope).
+    const message = await logRouteError("cron", err);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

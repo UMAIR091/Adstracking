@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ShieldCheck, ChevronRight } from "lucide-react";
+import { ShieldCheck, ChevronRight, Activity } from "lucide-react";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { AgencySettingsForm } from "@/components/AgencySettingsForm";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,24 +30,46 @@ export default async function SettingsPage() {
         }}
       />
 
-      <div className="mt-8">
-        <h2 className="mb-3 text-sm font-medium text-ink-700">Privacy</h2>
-        <Link href="/dashboard/settings/data" className="block">
-          <Card className="transition-shadow hover:shadow-md">
-            <CardContent className="flex items-center justify-between gap-3 p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                  <ShieldCheck size={18} />
+      <div className="mt-8 space-y-6">
+        <div>
+          <h2 className="mb-3 text-sm font-medium text-ink-700">Monitoring</h2>
+          <Link href="/dashboard/settings/errors" className="block">
+            <Card className="transition-shadow hover:shadow-md">
+              <CardContent className="flex items-center justify-between gap-3 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                    <Activity size={18} />
+                  </div>
+                  <div>
+                    <p className="font-medium text-ink-900">Sync health</p>
+                    <p className="text-sm text-ink-500">Recent sync, connection and report failures across your clients — what failed, for whom, and whether it will retry.</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium text-ink-900">Data &amp; privacy</p>
-                  <p className="text-sm text-ink-500">See every connected data source, disconnect integrations, and delete stored data.</p>
+                <ChevronRight size={18} className="shrink-0 text-ink-400" />
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+
+        <div>
+          <h2 className="mb-3 text-sm font-medium text-ink-700">Privacy</h2>
+          <Link href="/dashboard/settings/data" className="block">
+            <Card className="transition-shadow hover:shadow-md">
+              <CardContent className="flex items-center justify-between gap-3 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                    <ShieldCheck size={18} />
+                  </div>
+                  <div>
+                    <p className="font-medium text-ink-900">Data &amp; privacy</p>
+                    <p className="text-sm text-ink-500">See every connected data source, disconnect integrations, and delete stored data.</p>
+                  </div>
                 </div>
-              </div>
-              <ChevronRight size={18} className="shrink-0 text-ink-400" />
-            </CardContent>
-          </Card>
-        </Link>
+                <ChevronRight size={18} className="shrink-0 text-ink-400" />
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
       </div>
     </div>
   );

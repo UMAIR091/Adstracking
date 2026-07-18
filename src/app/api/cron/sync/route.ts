@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { cronAuthorized } from "@/lib/cronAuth";
 import { runSyncBatch, batchSize } from "@/lib/syncBatch";
+import { logRouteError } from "@/lib/errorLog";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,9 @@ export async function GET(req: Request) {
     const { claimed, synced, failed } = await runSyncBatch(admin, batchSize());
     return NextResponse.json({ ok: true, batch: batchSize(), claimed, synced, failed });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    // Per-source failures are already logged inside syncDataSource; this catches
+    // a batch-level crash (e.g. the claim query failing).
+    const message = await logRouteError("cron", err);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -4,6 +4,7 @@ import { getCurrentUserAndAgency } from "@/lib/agency";
 import { encrypt } from "@/lib/crypto";
 import { syncDataSource, type SyncableSource } from "@/lib/sync";
 import { getIntegration } from "@/lib/integrations/registry";
+import { logError } from "@/lib/errorLog";
 
 export const runtime = "nodejs";
 
@@ -62,6 +63,8 @@ export async function POST(req: Request) {
     if (def.readSelected?.(config)) await syncDataSource(supabase, inserted as SyncableSource);
     return NextResponse.redirect(`${base}/dashboard/clients/${clientId}?connected=${def.id}`);
   } catch (err) {
+    // Invalid key, provider verification failure, or storage error.
+    await logError({ context: "api_route", agencyId: agency.id, provider: def.id, message: (err as Error).message });
     return fail((err as Error).message);
   }
 }
