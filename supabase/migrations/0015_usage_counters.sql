@@ -49,5 +49,8 @@ as $$
 $$;
 
 -- Only server code (service role) may write usage; clients can never call it.
-revoke all on function increment_usage(uuid, text, bigint) from public;
+-- Supabase auto-grants EXECUTE on public functions to anon + authenticated, so
+-- those must be revoked explicitly (revoking from PUBLIC alone leaves them) —
+-- otherwise a logged-in tenant could tamper with any workspace's counters.
+revoke all on function increment_usage(uuid, text, bigint) from public, anon, authenticated;
 grant execute on function increment_usage(uuid, text, bigint) to service_role;
