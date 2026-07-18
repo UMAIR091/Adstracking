@@ -4,6 +4,7 @@
 import crypto from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateReportInsights } from "@/lib/ai";
+import { trackUsage } from "@/lib/usage";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import { assembleReport, isGscEmpty, isGa4Empty, isReportEmpty, reportPeriod, toInsightsInput, type ReportData } from "@/lib/report";
 
@@ -68,6 +69,8 @@ export async function createClientReport(
 
   const unified = assembleReport(gscData, ga4Data, null);
   const insights = await generateReportInsights(toInsightsInput(unified, client.name, `the last ${periodDays} days`));
+  // Meter AI usage: one summary per report where the AI step actually ran.
+  if (insights) await trackUsage(agencyId, "ai_summaries");
   const data = assembleReport(gscData, ga4Data, insights);
   const period = reportPeriod({ gsc: gscData, ga4: ga4Data }, { start: isoDaysAgo(periodDays + 2), end: isoDaysAgo(2) });
   const title = `${client.name} — ${template?.name ?? "Performance Report"}`;
@@ -90,6 +93,9 @@ export async function createClientReport(
     .select("id, share_token")
     .single();
   if (error) return { ok: false, status: 400, error: error.message };
+
+  // Meter the generated report (covers both the manual route and the cron).
+  await trackUsage(agencyId, "reports_generated");
 
   return { ok: true, id: report.id, shareToken: report.share_token, title, data, period };
 }

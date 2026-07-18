@@ -3,6 +3,7 @@ import { getValidAccessToken } from "@/lib/googleTokens";
 import { getIntegration } from "@/lib/integrations/registry";
 import { classifyIntegrationError, reconnectMessage } from "@/lib/integrations/errors";
 import { logError } from "@/lib/errorLog";
+import { trackUsage } from "@/lib/usage";
 
 // Periods we keep warm in the cache (match the report/analytics date ranges).
 const PERIODS = [28, 90];
@@ -47,6 +48,9 @@ export async function syncDataSource(
       .eq("id", ds.id);
     return { ok: false, error };
   }
+
+  // A real sync execution is about to run (past the config-gap early returns).
+  await trackUsage(ds.agency_id, "sync_executions");
 
   try {
     const accessToken = await getValidAccessToken(supabase, ds);
