@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { OnboardingChecklist, type OnboardingStep } from "@/components/OnboardingChecklist";
 import { PerfKpiCard } from "@/components/PerfKpiCard";
 import { SAMPLE_GSC } from "@/lib/sampleData";
+import { getIntegrationHealth, summarize } from "@/lib/integrationHealth";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,9 @@ export default async function DashboardPage() {
   ]);
 
   const clients = (clientsRaw ?? []) as ClientWithSources[];
+
+  // Integration health roll-up across every connected data source.
+  const health = summarize(await getIntegrationHealth(supabase, agency.id));
 
   // Client connections — connected / pending / ready.
   const sources = (gscSources ?? []) as { id: string; client_id: string | null; config: { site_url?: string | null } | null; clients: JoinedName }[];
@@ -246,6 +250,30 @@ export default async function DashboardPage() {
       </div>
 
       {performanceSection}
+
+      {health.total > 0 && (
+        <Link href="/dashboard/settings/health" className="block">
+          <Card className="transition-shadow hover:shadow-md">
+            <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                  <HeartPulse size={18} />
+                </div>
+                <div>
+                  <p className="font-medium text-ink-900">Integration health</p>
+                  <p className="text-sm text-ink-500">{health.total} connected data source{health.total === 1 ? "" : "s"}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 text-sm">
+                <span className="inline-flex items-center gap-1.5 text-ink-600"><CheckCircle2 size={15} className="text-emerald-500" /> {health.connected} healthy</span>
+                {health.errored > 0 && <span className="inline-flex items-center gap-1.5 text-red-600"><AlertCircle size={15} /> {health.errored} error{health.errored === 1 ? "" : "s"}</span>}
+                {health.needsReconnect > 0 && <span className="inline-flex items-center gap-1.5 text-amber-600"><PlugZap size={15} /> {health.needsReconnect} need reconnect</span>}
+                <ArrowRight size={16} className="text-ink-400" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+      )}
 
       {!activeMode ? (
         /* ───────────── New-user mode: onboarding-focused ───────────── */

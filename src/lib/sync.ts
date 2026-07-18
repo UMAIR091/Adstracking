@@ -85,8 +85,8 @@ export async function syncDataSource(
     const kind = classifyIntegrationError(err);
     const patch =
       kind === "reauth"
-        ? { status: "revoked", last_sync_error: reconnectMessage(def.name), last_sync_attempt_at: attemptedAt }
-        : { status: "error", last_sync_error: message, last_sync_attempt_at: attemptedAt };
+        ? { status: "revoked", last_sync_error: reconnectMessage(def.name), last_sync_attempt_at: attemptedAt, last_sync_failed_at: attemptedAt }
+        : { status: "error", last_sync_error: message, last_sync_attempt_at: attemptedAt, last_sync_failed_at: attemptedAt };
 
     await supabase.from("data_sources").update(patch).eq("id", ds.id);
     // Append to the historical error log (best-effort; never blocks the sync).

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ShieldCheck, ChevronRight, Activity, Gauge } from "lucide-react";
+import { ShieldCheck, ChevronRight, Activity, Gauge, HeartPulse } from "lucide-react";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { AgencySettingsForm } from "@/components/AgencySettingsForm";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,6 +53,23 @@ export default async function SettingsPage() {
 
         <div>
           <h2 className="mb-3 text-sm font-medium text-ink-700">Monitoring</h2>
+          <div className="space-y-3">
+          <Link href="/dashboard/settings/health" className="block">
+            <Card className="transition-shadow hover:shadow-md">
+              <CardContent className="flex items-center justify-between gap-3 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                    <HeartPulse size={18} />
+                  </div>
+                  <div>
+                    <p className="font-medium text-ink-900">Integration health</p>
+                    <p className="text-sm text-ink-500">Live status of every connected data source — last sync, last failure, token status.</p>
+                  </div>
+                </div>
+                <ChevronRight size={18} className="shrink-0 text-ink-400" />
+              </CardContent>
+            </Card>
+          </Link>
           <Link href="/dashboard/settings/errors" className="block">
             <Card className="transition-shadow hover:shadow-md">
               <CardContent className="flex items-center justify-between gap-3 p-4">
@@ -69,6 +86,7 @@ export default async function SettingsPage() {
               </CardContent>
             </Card>
           </Link>
+          </div>
         </div>
 
         <div>
