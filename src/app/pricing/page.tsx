@@ -10,6 +10,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { Brand } from "@/components/Brand";
+import { PLAN_DISPLAY } from "@/lib/billing/config";
 import { SiteFooter } from "@/components/SiteFooter";
 import { PricingPlans } from "@/components/PricingPlans";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,7 @@ import { COMPANY } from "@/lib/company";
 
 const PAGE_TITLE = `Pricing — ${COMPANY.product}`;
 const PAGE_DESCRIPTION =
-  "Simple, transparent pricing for white-label client reporting. Every plan includes every feature — upgrade only when you need more active clients. Start with a 14-day free trial, no card required.";
+  "Simple, transparent pricing for white-label client reporting. Every plan includes every feature — upgrade only when you need more active clients. Start with a 7-day free trial, no card required.";
 
 export const metadata: Metadata = {
   title: PAGE_TITLE,
@@ -37,15 +38,16 @@ export const metadata: Metadata = {
   },
 };
 
-// ── Plans (display copy; prices must match PricingPlans.tsx) ──
+// ── Plans — derived from the single source of truth (billing/config.ts) ──
 
 type PlanColumn = { name: string; monthly: number; clients: string; featured?: boolean };
-const PLAN_COLUMNS: readonly PlanColumn[] = [
-  { name: "Starter", monthly: 19, clients: "5" },
-  { name: "Pro", monthly: 49, clients: "15", featured: true },
-  { name: "Agency", monthly: 99, clients: "50" },
-  { name: "Enterprise", monthly: 149, clients: "Unlimited" },
-];
+const PLAN_COLUMNS: readonly PlanColumn[] = PLAN_DISPLAY.map((p) => ({
+  name: p.name,
+  monthly: p.priceMonthly,
+  clients: String(p.maxClients),
+  featured: p.id === "pro",
+}));
+const CLIENT_LIMITS: readonly string[] = PLAN_DISPLAY.map((p) => String(p.maxClients));
 
 // ── Feature comparison table. Identical everywhere on purpose:
 //    the client limit is the only row that changes. ──
@@ -55,7 +57,7 @@ const FEATURE_GROUPS: { heading: string; rows: FeatureRow[] }[] = [
   {
     heading: "Usage",
     rows: [
-      { label: "Active clients", values: ["5", "15", "50", "Unlimited"] },
+      { label: "Active clients", values: CLIENT_LIMITS },
       { label: "Reports per month", values: ["Unlimited", "Unlimited", "Unlimited", "Unlimited"] },
       { label: "Scheduled report deliveries", values: ["Unlimited", "Unlimited", "Unlimited", "Unlimited"] },
       { label: "Report history & archive" },
@@ -90,7 +92,7 @@ const FEATURE_GROUPS: { heading: string; rows: FeatureRow[] }[] = [
   {
     heading: "Billing & support",
     rows: [
-      { label: "14-day free trial, no card required" },
+      { label: "7-day free trial, no card required" },
       { label: "Email support" },
       { label: "Cancel anytime" },
     ],
@@ -104,8 +106,8 @@ const FEATURE_GROUPS: { heading: string; rows: FeatureRow[] }[] = [
 
 const FAQS: { q: string; a: string }[] = [
   {
-    q: "How does the 14-day free trial work?",
-    a: "Every plan starts with 14 days of full access — every feature, no card required. Add a payment method only when you decide to continue. If you do nothing, the trial simply ends; you're never charged automatically.",
+    q: "How does the 7-day free trial work?",
+    a: "Every plan starts with 7 days of full access — every feature, no card required. Add a payment method only when you decide to continue. If you do nothing, the trial simply ends; you're never charged automatically.",
   },
   {
     q: "What counts as an active client?",
@@ -117,7 +119,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Do all plans really include every feature?",
-    a: "Yes. Starter gets the same AI insights, white-label branding, scheduling, PDF export and integrations as Enterprise. You upgrade for more active clients — nothing else.",
+    a: "Yes. Pro gets the same AI insights, white-label branding, scheduling, PDF export and integrations as Agency. You upgrade for more active clients — nothing else.",
   },
   {
     q: "How do upgrades work?",
@@ -172,8 +174,8 @@ function jsonLd() {
       offers: {
         "@type": "AggregateOffer",
         priceCurrency: "USD",
-        lowPrice: "19",
-        highPrice: "149",
+        lowPrice: "49",
+        highPrice: "299",
         offerCount: String(PLAN_COLUMNS.length),
         offers,
       },
@@ -244,7 +246,7 @@ export default function PricingPage() {
           <div className="mt-10 overflow-x-auto">
             <table className="w-full min-w-[720px] border-separate border-spacing-0 text-sm">
               <caption className="sr-only">
-                Feature comparison across the Starter, Pro, Agency and Enterprise plans. All features are identical;
+                Feature comparison across the Pro, Pro Plus, Growth and Agency plans. All features are identical;
                 only the active client limit differs.
               </caption>
               <thead>
@@ -284,7 +286,7 @@ export default function PricingPage() {
             </table>
           </div>
           <p className="mt-4 text-center text-xs text-ink-400">
-            Every plan starts with a 14-day free trial — no card required.
+            Every plan starts with a 7-day free trial — no card required.
           </p>
         </section>
 
@@ -314,8 +316,8 @@ export default function PricingPage() {
                 {
                   name: "ReportFlow",
                   example: "Agency plan",
-                  price: "$99/mo",
-                  detail: "flat, for up to 50 active clients — every feature included.",
+                  price: "$149/mo",
+                  detail: "flat, for up to 25 active clients — every feature included.",
                   highlight: true,
                 },
                 {
@@ -352,7 +354,7 @@ export default function PricingPage() {
                 <p className="text-sm font-semibold text-ink-900">The math at 20 clients</p>
                 <p className="mt-1.5 text-sm leading-relaxed text-ink-600">
                   Per-client tools raise your bill every time you win a client: at 20 clients, AgencyAnalytics runs
-                  ≈ $240/mo and Whatagraph starts around $249/mo. On ReportFlow, 20 clients is the $99 Agency plan —
+                  ≈ $240/mo and Whatagraph starts around $249/mo. On ReportFlow, 25 clients is the $149 Growth plan —
                   with every feature included. That&apos;s money back in your margin, every month.
                 </p>
                 <p className="mt-2 text-xs text-ink-400">
@@ -459,11 +461,11 @@ export default function PricingPage() {
               Send your first white-label report today
             </h2>
             <p className="mt-3 text-ink-500">
-              Every feature, on every plan, free for 14 days. If it doesn&apos;t save you a reporting weekend, walk away —
+              Every feature, on every plan, free for 7 days. If it doesn&apos;t save you a reporting weekend, walk away —
               no card, no commitment.
             </p>
             <div className="mt-6">
-              <Button asChild size="lg"><Link href="/signup">Start Your 14-Day Free Trial</Link></Button>
+              <Button asChild size="lg"><Link href="/signup">Start Your 7-Day Free Trial</Link></Button>
             </div>
             <p className="mt-3 text-sm text-ink-400">No card required · Every feature on every plan · Cancel anytime</p>
           </div>

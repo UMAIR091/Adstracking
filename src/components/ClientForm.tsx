@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { createClientAction } from "@/app/dashboard/clients/actions";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,12 +42,26 @@ export function ClientForm({ agencyId, initial }: { agencyId: string; initial?: 
       website: v.website.trim() || null,
       notes: v.notes.trim() || null,
     };
-    const { error } = isEdit
-      ? await supabase.from("clients").update(row).eq("id", initial!.id)
-      : await supabase.from("clients").insert({ ...row, agency_id: agencyId });
-    setSaving(false);
-    if (error) return toast.error(error.message);
-    toast.success(isEdit ? "Client updated" : "Client added");
+
+    if (isEdit) {
+      const { error } = await supabase.from("clients").update(row).eq("id", initial!.id);
+      setSaving(false);
+      if (error) return toast.error(error.message);
+      toast.success("Client updated");
+    } else {
+      // Creation goes through the server action so the plan client-limit is enforced.
+      const res = await createClientAction(row);
+      setSaving(false);
+      if (!res.ok) {
+        if (res.upgrade) {
+          toast.error(res.error, { action: { label: "Upgrade", onClick: () => router.push("/dashboard/billing") } });
+        } else {
+          toast.error(res.error);
+        }
+        return;
+      }
+      toast.success("Client added");
+    }
     router.push("/dashboard/clients");
     router.refresh();
   }

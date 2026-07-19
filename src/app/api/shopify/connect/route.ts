@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getIntegration } from "@/lib/integrations/registry";
+import { checkIntegrationLimit } from "@/lib/billing/limits";
 import { normalizeShopDomain, shopifyAuthUrl, shopifyConfigured } from "@/lib/integrations/oauth/shopify";
 
 export const runtime = "nodejs";
@@ -30,8 +31,14 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL(`/dashboard/connect/shopify?clientId=${clientId}`, req.url));
   }
 
-  const { data: client } = await supabase.from("clients").select("id").eq("id", clientId).maybeSingle();
+  const { data: client } = await supabase.from("clients").select("id, agency_id").eq("id", clientId).maybeSingle();
   if (!client) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+
+  const _lim = await checkIntegrationLimit(supabase, client.agency_id as string, clientId);
+  if (!_lim.allowed) {
+    const _base = process.env.NEXT_PUBLIC_APP_URL ?? url.origin;
+    return NextResponse.redirect(`${_base}/dashboard/clients/${clientId}?connect_error=${encodeURIComponent(_lim.reason ?? "Integration limit reached.")}`);
+  }
 
   const nonce = crypto.randomUUID();
   const state = Buffer.from(JSON.stringify({ clientId, nonce, type: "shopify", shop })).toString("base64url");

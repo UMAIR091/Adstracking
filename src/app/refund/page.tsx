@@ -22,7 +22,7 @@ export default function RefundPage() {
 
       <h2>1. Free trial</h2>
       <p>
-        New accounts start with a 14-day free trial with full access and no payment card required. You will not be
+        New accounts start with a 7-day free trial with full access and no payment card required. You will not be
         charged unless you choose to subscribe. If you do not subscribe, your trial simply ends and no payment is taken.
       </p>
 

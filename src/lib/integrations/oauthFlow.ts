@@ -12,6 +12,7 @@ import { syncDataSource, type SyncableSource } from "@/lib/sync";
 import { getIntegration, getOAuthProvider } from "./registry";
 import { classifyIntegrationError } from "./errors";
 import { logError } from "@/lib/errorLog";
+import { checkIntegrationLimit } from "@/lib/billing/limits";
 import type { IntegrationConfig, IntegrationDef, OAuthProvider } from "./types";
 
 const NONCE_COOKIE = "oauth_nonce";
@@ -38,8 +39,15 @@ export async function handleConnect(req: Request): Promise<Response> {
     return NextResponse.json({ error: "This integration can't be connected yet." }, { status: 400 });
   }
 
-  const { data: client } = await supabase.from("clients").select("id").eq("id", clientId).maybeSingle();
+  const { data: client } = await supabase.from("clients").select("id, agency_id").eq("id", clientId).maybeSingle();
   if (!client) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+
+  // Enforce the plan's per-client integration limit (trial only; paid = unlimited).
+  const limit = await checkIntegrationLimit(supabase, client.agency_id as string, clientId);
+  if (!limit.allowed) {
+    const base = process.env.NEXT_PUBLIC_APP_URL ?? url.origin;
+    return NextResponse.redirect(`${base}/dashboard/clients/${clientId}?connect_error=${encodeURIComponent(limit.reason ?? "Integration limit reached.")}`);
+  }
 
   // Identity-provider selection for integrations that accept more than one (e.g.
   // Microsoft Ads: microsoft | google). Default to the first declared provider;

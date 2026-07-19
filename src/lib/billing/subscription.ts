@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { TRIAL_DAYS, type BillingInterval, type PlanId } from "./config";
+import { TRIAL_DAYS, getPlan, planName as planNameFor, type BillingInterval, type PlanId } from "./config";
 
 // One place decides who has access to premium features. Rules:
 //  - active / on_trial LS subscription → access
@@ -42,21 +42,13 @@ export type SubscriptionState = {
 
 const ACCESS_STATUSES = new Set(["active", "on_trial", "past_due"]);
 
-const PLAN_NAMES: Record<string, string> = {
-  starter: "Starter",
-  pro: "Pro",
-  agency: "Agency",
-  enterprise: "Enterprise",
-  team: "Team",
-};
-
 export function resolveState(sub: SubscriptionRow | null, agencyCreatedAt: string): SubscriptionState {
   const now = Date.now();
 
   if (sub) {
-    const planName = PLAN_NAMES[sub.plan] ?? "Pro";
+    const planName = planNameFor(sub.plan);
     const base = {
-      plan: (PLAN_NAMES[sub.plan] ? sub.plan : "pro") as PlanId,
+      plan: (getPlan(sub.plan as PlanId) ? (sub.plan as PlanId) : "pro"),
       planName,
       status: sub.status,
       interval: (sub.billing_interval as BillingInterval | null) ?? null,
@@ -103,7 +95,7 @@ export function resolveState(sub: SubscriptionRow | null, agencyCreatedAt: strin
     status: trial.active ? "trial" : "expired",
     interval: null,
     hasAccess: trial.active,
-    blockedReason: trial.active ? null : "Your 14-day free trial has ended. Choose a plan to keep generating reports.",
+    blockedReason: trial.active ? null : `Your ${TRIAL_DAYS}-day free trial has ended. Choose a plan to keep using ReportFlow.`,
     renewsAt: null,
     endsAt: null,
     trialEndsAt: trial.endsAt,

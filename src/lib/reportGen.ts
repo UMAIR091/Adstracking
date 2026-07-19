@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateReportInsights } from "@/lib/ai";
 import { trackUsage } from "@/lib/usage";
+import { checkReportLimit } from "@/lib/billing/limits";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import { assembleReport, isGscEmpty, isGa4Empty, isReportEmpty, reportPeriod, toInsightsInput, type ReportData } from "@/lib/report";
 
@@ -33,6 +34,10 @@ export async function createClientReport(
   const { data: client } = await supabase
     .from("clients").select("id, name").eq("id", clientId).eq("agency_id", agencyId).maybeSingle();
   if (!client) return { ok: false, status: 404, error: "Client not found" };
+
+  // Report cap (only the trial sets one — paid plans return allowed immediately).
+  const reportLimit = await checkReportLimit(supabase, agencyId);
+  if (!reportLimit.allowed) return { ok: false, status: 402, error: reportLimit.reason ?? "Report limit reached." };
 
   const { data: sources } = await supabase
     .from("data_sources").select("id, type, config").eq("client_id", clientId).in("type", ["gsc", "ga4"]);

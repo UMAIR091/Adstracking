@@ -5,7 +5,7 @@ import { AlertTriangle, CheckCircle2, CreditCard, ExternalLink, Receipt } from "
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
 import { getSubscriptionState } from "@/lib/billing/subscription";
-import { billingConfigured, getPlans, type BillingInterval } from "@/lib/billing/config";
+import { billingConfigured, getPlans, PAID_FEATURES, type BillingInterval } from "@/lib/billing/config";
 import { getVariantPrice, listSubscriptionInvoices, type LsInvoice } from "@/lib/billing/lemonsqueezy";
 import { BillingPlans, type PlanView } from "@/components/BillingPlans";
 import { Card, CardContent } from "@/components/ui/card";
@@ -75,8 +75,8 @@ export default async function BillingPage({
   const planViews: PlanView[] = plans.map((p) => ({
     id: p.id,
     name: p.name,
-    blurb: p.blurb,
-    features: p.features,
+    blurb: `Up to ${p.limits.maxClients} active client${p.limits.maxClients === 1 ? "" : "s"} — every feature included.`,
+    features: PAID_FEATURES,
     prices: { monthly: priceMap[`${p.id}:monthly`] ?? null, annual: priceMap[`${p.id}:annual`] ?? null },
   }));
 

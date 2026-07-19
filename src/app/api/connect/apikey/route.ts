@@ -5,6 +5,7 @@ import { encrypt } from "@/lib/crypto";
 import { syncDataSource, type SyncableSource } from "@/lib/sync";
 import { getIntegration } from "@/lib/integrations/registry";
 import { logError } from "@/lib/errorLog";
+import { checkIntegrationLimit } from "@/lib/billing/limits";
 
 export const runtime = "nodejs";
 
@@ -31,8 +32,12 @@ export async function POST(req: Request) {
   if (!clientId) return fail("Missing client");
 
   const supabase = createClient();
-  const { data: client } = await supabase.from("clients").select("id").eq("id", clientId).maybeSingle();
+  const { data: client } = await supabase.from("clients").select("id, agency_id").eq("id", clientId).maybeSingle();
   if (!client) return fail("Client not found");
+
+  // Enforce the plan's per-client integration limit (trial only; paid = unlimited).
+  const limit = await checkIntegrationLimit(supabase, client.agency_id as string, clientId);
+  if (!limit.allowed) return fail(limit.reason ?? "Integration limit reached.");
 
   // Collect only the declared fields (trimmed).
   const fields: Record<string, string> = {};

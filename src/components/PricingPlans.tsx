@@ -6,54 +6,26 @@
 // everyone else lands on /signup with their plan choice preserved.
 
 import { useState } from "react";
-import { Check, Sparkles, Zap, Rocket, Building2, Users } from "lucide-react";
+import { Check, Zap, Rocket, Building2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PLAN_DISPLAY, PAID_FEATURES, TRIAL_DAYS } from "@/lib/billing/config";
 
 const ANNUAL_DISCOUNT = 0.2;
 
-export const PRICING_PLANS = [
-  {
-    id: "starter",
-    name: "Starter",
-    icon: Sparkles,
-    monthly: 19,
-    clients: "Up to 5 active clients",
-    blurb: "For freelancers sending their first client reports.",
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    icon: Zap,
-    monthly: 49,
-    clients: "Up to 15 active clients",
-    blurb: "For growing agencies with a steady client roster.",
-    featured: true,
-  },
-  {
-    id: "agency",
-    name: "Agency",
-    icon: Rocket,
-    monthly: 99,
-    clients: "Up to 50 active clients",
-    blurb: "For established agencies reporting at scale.",
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    icon: Building2,
-    monthly: 149,
-    clients: "Unlimited active clients",
-    blurb: "For large agencies with no ceiling in sight.",
-  },
-] as const;
+// Icons + featured flag are presentation-only; prices, names and client caps all
+// come from PLAN_DISPLAY (single source of truth in billing/config.ts).
+const ICONS: Record<string, typeof Zap> = { pro: Zap, pro_plus: Rocket, growth: Building2, agency: Building2 };
+const PRICING_PLANS = PLAN_DISPLAY.map((p) => ({
+  id: p.id,
+  name: p.name,
+  icon: ICONS[p.id] ?? Zap,
+  monthly: p.priceMonthly,
+  clients: `Up to ${p.maxClients} active client${p.maxClients === 1 ? "" : "s"}`,
+  featured: p.id === "pro",
+}));
 
-// Identical on purpose — the only difference between plans is client count.
-const IN_EVERY_PLAN = [
-  "Every feature included",
-  "Unlimited reports & schedules",
-  "AI-written insights",
-  "Full white-label branding",
-];
+// Identical on purpose — the only difference between plans is client count + price.
+const IN_EVERY_PLAN = PAID_FEATURES;
 
 export function annualMonthly(monthly: number): number {
   return Math.round(monthly * (1 - ANNUAL_DISCOUNT));
@@ -163,7 +135,7 @@ export function PricingPlans() {
                 </div>
                 <p className="font-semibold text-ink-900">{plan.name}</p>
               </div>
-              <p className="mt-2.5 text-sm leading-relaxed text-ink-500">{plan.blurb}</p>
+              <p className="mt-2.5 text-sm leading-relaxed text-ink-500">Same complete toolkit — {plan.clients.toLowerCase()}.</p>
 
               <div className="mt-5" aria-live="polite">
                 <p className="flex items-baseline gap-1.5">
@@ -197,9 +169,9 @@ export function PricingPlans() {
                 className="mt-5 w-full"
                 disabled={busy !== null}
                 onClick={() => startCheckout(plan.id)}
-                aria-label={`Start your 14-day free trial on the ${plan.name} plan`}
+                aria-label={`Start your ${TRIAL_DAYS}-day free trial on the ${plan.name} plan`}
               >
-                {busy === plan.id ? "Opening checkout…" : "Start 14-Day Free Trial"}
+                {busy === plan.id ? "Opening checkout…" : `Start ${TRIAL_DAYS}-Day Free Trial`}
               </Button>
 
               <ul className="mt-5 space-y-2 border-t border-ink-100 pt-5">
@@ -216,7 +188,7 @@ export function PricingPlans() {
       </div>
 
       <p className="mt-6 text-center text-sm text-ink-400">
-        Prices in USD. Every plan starts with a 14-day free trial — no card required.
+        Prices in USD. Every plan starts with a {TRIAL_DAYS}-day free trial — no card required.
       </p>
     </div>
   );

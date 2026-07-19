@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getIntegration } from "@/lib/integrations/registry";
+import { checkIntegrationLimit } from "@/lib/billing/limits";
 import { normalizeStoreUrl, wooAuthUrl, signWooState } from "@/lib/integrations/oauth/woocommerce";
 
 export const runtime = "nodejs";
@@ -30,8 +31,14 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL(`/dashboard/connect/woocommerce?clientId=${clientId}`, req.url));
   }
 
-  const { data: client } = await supabase.from("clients").select("id").eq("id", clientId).maybeSingle();
+  const { data: client } = await supabase.from("clients").select("id, agency_id").eq("id", clientId).maybeSingle();
   if (!client) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+
+  const _lim = await checkIntegrationLimit(supabase, client.agency_id as string, clientId);
+  if (!_lim.allowed) {
+    const _base = process.env.NEXT_PUBLIC_APP_URL ?? url.origin;
+    return NextResponse.redirect(`${_base}/dashboard/clients/${clientId}?connect_error=${encodeURIComponent(_lim.reason ?? "Integration limit reached.")}`);
+  }
 
   const state = signWooState({ clientId, storeUrl, nonce: crypto.randomUUID() });
   const base = process.env.NEXT_PUBLIC_APP_URL ?? url.origin;
