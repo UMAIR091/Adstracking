@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getIntegration } from "@/lib/integrations/registry";
 import { xRequestToken, X_OAUTH_COOKIE } from "@/lib/integrations/oauth/xads";
+import { checkIntegrationLimit } from "@/lib/billing/limits";
 
 export const runtime = "nodejs";
 
@@ -26,8 +27,14 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "This integration can't be connected yet." }, { status: 400 });
   }
 
-  const { data: client } = await supabase.from("clients").select("id").eq("id", clientId).maybeSingle();
+  const { data: client } = await supabase.from("clients").select("id, agency_id").eq("id", clientId).maybeSingle();
   if (!client) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+
+  const lim = await checkIntegrationLimit(supabase, client.agency_id as string, clientId);
+  if (!lim.allowed) {
+    const base = process.env.NEXT_PUBLIC_APP_URL ?? url.origin;
+    return NextResponse.redirect(`${base}/dashboard/clients/${clientId}?connect_error=${encodeURIComponent(lim.reason ?? "Integration limit reached.")}`);
+  }
 
   try {
     const { token, secret, authorizeUrl } = await xRequestToken();
