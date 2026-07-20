@@ -7,7 +7,7 @@ import {
   Star, MailCheck, LineChart,
 } from "lucide-react";
 import { Brand } from "@/components/Brand";
-import { PLAN_DISPLAY, annualPerMonth } from "@/lib/billing/config";
+import { getPlanPricing, headlineSavingPct, type PlanPricing } from "@/lib/billing/prices";
 import { SiteFooter } from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
@@ -31,14 +31,24 @@ const navLinks = [
   { label: "FAQ", href: "#faq" },
 ];
 
-const FAQS = [
+// Copy that quotes a price is built from the live Paddle amounts, so prose
+// can't drift out of step with the plan cards after a price change.
+function faqs(pricing: PlanPricing[], savingPct: number | null) {
+  const top = pricing[pricing.length - 1];
+  const topLine = top?.monthly ? `${top.maxClients} clients costs ${top.monthly.formatted}/mo` : "large rosters stay flat-priced";
+  const tiers = pricing
+    .filter((p) => p.monthly)
+    .map((p) => `${p.maxClients} (${p.monthly!.formatted}/mo)`)
+    .join(", ");
+
+  return [
   {
     q: "How is ReportFlow different from AgencyAnalytics or Whatagraph?",
-    a: "Three things. Pricing that stays simple as you grow — every plan includes every feature, and 100 clients costs $299/mo instead of the ~$240+ per-client tools charge. AI-written insights on every report, not just charts. And setup measured in minutes: connect a source, pick an account, generate. We deliberately skip the 100-widget dashboard maze and do the reporting part exceptionally well.",
+    a: `Three things. Pricing that stays simple as you grow — every plan includes every feature, and ${topLine} instead of the ~$240+ per-client tools charge. AI-written insights on every report, not just charts. And setup measured in minutes: connect a source, pick an account, generate. We deliberately skip the 100-widget dashboard maze and do the reporting part exceptionally well.`,
   },
   {
     q: "How does pricing work?",
-    a: "Every plan includes every feature — unlimited reports, AI insights, full white-label. The only difference is how many active clients you can report on: 5 ($49/mo), 10 ($95/mo), 25 ($149/mo), or 100 ($299/mo). Annual billing gives you two months free, and there are no per-client fees or feature gates.",
+    a: `Every plan includes every feature — unlimited reports, AI insights, full white-label. The only difference is how many active clients you can report on: ${tiers}.${savingPct ? ` Annual billing saves up to ${savingPct}%.` : ""} There are no per-client fees or feature gates.`,
   },
   {
     q: "Which data sources are live today?",
@@ -64,10 +74,14 @@ const FAQS = [
     q: "Can I cancel anytime?",
     a: "Yes. The trial needs no card, and paid plans can be cancelled in one click — you keep access until the end of the period you've paid for.",
   },
-];
+  ];
+}
 
-// Structured data: product + FAQ rich results.
-const JSON_LD = {
+// Structured data: product + FAQ rich results. The advertised offer price is
+// the cheapest live Paddle price, so rich results can't quote a stale figure.
+function jsonLd(pricing: PlanPricing[], savingPct: number | null) {
+  const cheapest = pricing.map((p) => p.monthly).filter((m): m is NonNullable<typeof m> => m != null)[0];
+  return {
   "@context": "https://schema.org",
   "@graph": [
     {
@@ -77,23 +91,32 @@ const JSON_LD = {
       operatingSystem: "Web",
       description:
         "White-label client reporting for marketing agencies with AI-written insights. Every plan includes every feature; plans differ only by number of active clients.",
-      offers: { "@type": "Offer", price: "49", priceCurrency: "USD" },
+      ...(cheapest
+        ? { offers: { "@type": "Offer", price: String((cheapest.amount / 100).toFixed(2)), priceCurrency: cheapest.currency } }
+        : {}),
     },
     {
       "@type": "FAQPage",
-      mainEntity: FAQS.map((f) => ({
+      mainEntity: faqs(pricing, savingPct).map((f) => ({
         "@type": "Question",
         name: f.q,
         acceptedAnswer: { "@type": "Answer", text: f.a },
       })),
     },
   ],
-};
+  };
+}
 
-export default function LandingPage() {
+// Prices come from Paddle; hourly revalidation keeps the landing page static
+// enough for SEO while never showing an amount Paddle wouldn't charge.
+export const revalidate = 3600;
+
+export default async function LandingPage() {
+  const pricing = await getPlanPricing();
+  const savingPct = headlineSavingPct(pricing);
   return (
     <div className="min-h-screen bg-white text-ink-900">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(pricing, savingPct)) }} />
 
       {/* ── Nav ── */}
       <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/80 backdrop-blur">
@@ -602,12 +625,13 @@ export default function LandingPage() {
           <SectionHeading
             eyebrow="Pricing"
             title="Every plan includes every feature."
-            subtitle="Upgrade only when you need more active clients. Annual billing gives you two months free, and new accounts start with a 7-day free trial, no card required."
+            subtitle={`Upgrade only when you need more active clients.${savingPct ? ` Save up to ${savingPct}% with annual billing.` : ""} New accounts start with a free trial, no card required.`}
           />
           <div className="mx-auto mt-14 grid max-w-5xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
-            {PLAN_DISPLAY.map((plan) => ({
+            {pricing.map((plan) => ({
               name: plan.name,
-              price: plan.priceMonthly,
+              price: plan.monthly?.formatted ?? "—",
+              annualPerMonth: plan.annualPerMonth?.formatted ?? null,
               clients: `Up to ${plan.maxClients} active client${plan.maxClients === 1 ? "" : "s"}`,
               featured: plan.id === "pro",
             })).map((p) => (
@@ -624,9 +648,11 @@ export default function LandingPage() {
                 )}
                 <p className="text-sm font-medium text-ink-500">{p.name}</p>
                 <p className="mt-2 text-4xl font-semibold">
-                  ${p.price}<span className="text-base font-normal text-ink-400">/mo</span>
+                  {p.price}<span className="text-base font-normal text-ink-400">/mo</span>
                 </p>
-                <p className="mt-1 text-xs text-ink-400">or ${annualPerMonth(p.price)}/mo billed annually</p>
+                {p.annualPerMonth && (
+                  <p className="mt-1 text-xs text-ink-400">or {p.annualPerMonth}/mo billed annually</p>
+                )}
                 <p className="mt-4 flex items-center gap-2 text-sm font-semibold text-ink-800">
                   <Users size={15} className="shrink-0 text-brand-600" aria-hidden /> {p.clients}
                 </p>
@@ -657,7 +683,7 @@ export default function LandingPage() {
       <section id="faq" className="mx-auto max-w-3xl scroll-mt-20 px-5 py-24">
         <SectionHeading eyebrow="FAQ" title="Questions, answered" />
         <div className="mt-10 divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white">
-          {FAQS.map((f) => (
+          {faqs(pricing, savingPct).map((f) => (
             <details key={f.q} className="group p-5">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium text-ink-800 marker:hidden">
                 {f.q}

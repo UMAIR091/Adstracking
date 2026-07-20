@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAgency } from "@/lib/agency";
-import { findPrice, getPlan, planForPrice, PLAN_DISPLAY, type BillingInterval, type PlanId } from "@/lib/billing/config";
+import { findPrice, getPlan, planForPrice, planRank, type BillingInterval, type PlanId } from "@/lib/billing/config";
 import {
   cancelSubscription,
   changeSubscriptionPrice,
@@ -27,11 +27,8 @@ type Body = { action?: string; plan?: string; interval?: string };
 
 const INTERVALS: BillingInterval[] = ["monthly", "annual"];
 
-// Rank plans by price so we can tell an upgrade from a downgrade. Upgrades
-// bill immediately; downgrades take effect without an interim charge.
-const RANK: Record<string, number> = Object.fromEntries(
-  PLAN_DISPLAY.map((p) => [p.id, p.priceMonthly])
-);
+// Upgrade vs downgrade is decided by catalog order (client capacity), not by
+// a price literal — prices live in Paddle and must not be duplicated here.
 
 export async function POST(req: Request) {
   const { user, agency } = await getCurrentUserAndAgency();
@@ -84,7 +81,7 @@ export async function POST(req: Request) {
     // Compare against the plan the current price maps to, not the stored plan
     // column, so a stale row can't misclassify the direction of the change.
     const currentPlan = (sub.price_id ? planForPrice(sub.price_id)?.plan : null) ?? (sub.plan as PlanId | null);
-    const isUpgrade = (RANK[plan] ?? 0) >= (RANK[currentPlan ?? ""] ?? 0);
+    const isUpgrade = planRank(plan) >= planRank(currentPlan);
 
     const updated = await changeSubscriptionPrice({ subscriptionId, priceId, immediate: isUpgrade });
     await persist(supabase, agency.id, updated);

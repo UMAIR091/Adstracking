@@ -4,8 +4,11 @@ import { format } from "date-fns";
 import { AlertTriangle, CalendarClock, CheckCircle2, CreditCard, Receipt, RefreshCw } from "lucide-react";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { checkTrialEligibility } from "@/lib/billing/trial";
 import { getSubscriptionState } from "@/lib/billing/subscription";
-import { billingConfigured, getPlans, PAID_FEATURES, annualTotal } from "@/lib/billing/config";
+import { billingConfigured, PAID_FEATURES, PAID_TRIAL_DAYS } from "@/lib/billing/config";
+import { getPlanPricing } from "@/lib/billing/prices";
 import { listInvoices, type InvoiceView } from "@/lib/billing/paddle";
 import { BillingPlans, type PlanView } from "@/components/BillingPlans";
 import { SubscriptionActions } from "@/components/SubscriptionActions";
@@ -54,25 +57,33 @@ export default async function BillingPage({
   const supabase = createClient();
   const state = await getSubscriptionState(supabase, agency.id);
   const configured = billingConfigured();
-  const plans = getPlans();
+  // Amounts come from Paddle rather than a local table, so the billing page
+  // and the checkout it opens can never quote different numbers.
+  const plans = configured ? await getPlanPricing() : [];
 
   // Invoice history is decorative — listInvoices never throws.
   const invoices: InvoiceView[] = state.subscriptionId && configured ? await listInvoices(state.subscriptionId) : [];
 
-  const planViews: PlanView[] = plans.map((p) => ({
+  const planViews: PlanView[] = plans.map((p, i) => ({
     id: p.id,
     name: p.name,
-    blurb: `Up to ${p.limits.maxClients} active client${p.limits.maxClients === 1 ? "" : "s"} — every feature included.`,
+    blurb: `Up to ${p.maxClients} active client${p.maxClients === 1 ? "" : "s"} — every feature included.`,
     features: PAID_FEATURES,
-    // Display prices are derived from the same constants the Paddle catalog
-    // was built from, so what's shown here is what Paddle charges. Checkout
-    // remains authoritative for local currency and tax.
-    prices: {
-      monthly: p.prices.monthly ? `$${p.priceMonthly}` : null,
-      annual: p.prices.annual ? `$${annualTotal(p.priceMonthly).toLocaleString("en-US")}` : null,
-    },
-    rank: p.priceMonthly,
+    // Straight from Paddle, so this page and the checkout it opens can never
+    // quote different numbers. Checkout stays authoritative for local currency
+    // and tax.
+    prices: { monthly: p.monthly?.formatted ?? null, annual: p.annual?.formatted ?? null },
+    // Catalog order, not price — upgrade/downgrade direction must not depend
+    // on an amount that lives in another system.
+    rank: i,
   }));
+
+  // Whether this agency can still take the one-time paid-plan trial, so the
+  // UI promises a trial only when checkout would actually grant one.
+  const trialEligible =
+    configured && !state.subscriptionId
+      ? (await checkTrialEligibility(createAdminClient(), { agencyId: agency.id, email: user.email })).eligible
+      : false;
 
   const badge = STATUS_BADGE[state.status] ?? { label: state.status, variant: "muted" as const };
   const cycleLabel = state.interval === "annual" ? "Yearly" : state.interval === "monthly" ? "Monthly" : "—";
@@ -180,6 +191,7 @@ export default async function BillingPage({
           plans={planViews}
           currentPlan={state.plan}
           currentInterval={state.interval}
+          trialDays={trialEligible ? PAID_TRIAL_DAYS : 0}
           hasSubscription={Boolean(state.subscriptionId)}
           initialInterval={searchParams.interval === "annual" ? "annual" : "monthly"}
           highlightPlan={plans.some((p) => p.id === searchParams.plan) ? searchParams.plan : undefined}

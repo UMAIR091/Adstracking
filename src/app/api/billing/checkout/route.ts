@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserAndAgency } from "@/lib/agency";
-import { billingConfigured, findPrice, type BillingInterval, type PlanId } from "@/lib/billing/config";
+import { billingConfigured, findPrice, findTrialPrice, PAID_TRIAL_DAYS, type BillingInterval, type PlanId } from "@/lib/billing/config";
 import { createCheckoutSession, PaddleError } from "@/lib/billing/paddle";
+import { checkTrialEligibility } from "@/lib/billing/trial";
 
 export const runtime = "nodejs";
 
@@ -69,14 +71,36 @@ export async function POST(req: Request) {
 
   const customerId = sub?.provider === "paddle" ? sub.provider_customer_id : null;
 
+  // Trial selection. Paddle attaches trials to the price, so "first paid
+  // subscription gets N days free" is expressed by checking out a different
+  // price id. Eligibility is read with the admin client because the ledger is
+  // keyed on email across agencies — an RLS-scoped read would make a fresh
+  // agency reusing an old email look eligible.
+  const trialPriceId = findTrialPrice(plan, interval);
+  let usedTrial = false;
+  let checkoutPriceId = priceId;
+
+  if (trialPriceId) {
+    const eligibility = await checkTrialEligibility(createAdminClient(), {
+      agencyId: agency.id,
+      email: user.email,
+    });
+    if (eligibility.eligible) {
+      checkoutPriceId = trialPriceId;
+      usedTrial = true;
+    }
+  }
+
   try {
     const session = await createCheckoutSession({
-      priceId,
+      priceId: checkoutPriceId,
       agencyId: agency.id,
       email: user.email,
       customerId,
     });
-    return NextResponse.json(session);
+    // `trial` tells the client what it just opened, so the UI can say
+    // "3 days free, then $X" instead of guessing.
+    return NextResponse.json({ ...session, trial: usedTrial, trialDays: usedTrial ? PAID_TRIAL_DAYS : 0 });
   } catch (err) {
     const e = err as PaddleError;
     console.error("Paddle checkout failed:", e.message);

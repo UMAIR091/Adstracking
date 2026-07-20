@@ -31,6 +31,7 @@ export function BillingPlans({
   currentPlan,
   currentInterval,
   hasSubscription,
+  trialDays = 0,
   initialInterval = "monthly",
   highlightPlan,
 }: {
@@ -38,6 +39,8 @@ export function BillingPlans({
   currentPlan: string; // "trial" | "free" | plan id
   currentInterval?: "monthly" | "annual" | null;
   hasSubscription: boolean; // a manageable Paddle subscription exists
+  /** Paid-plan trial length, already checked for eligibility; 0 = none. */
+  trialDays?: number;
   initialInterval?: "monthly" | "annual";
   highlightPlan?: string;
 }) {
@@ -193,13 +196,25 @@ export function BillingPlans({
                           : `Downgrade to ${p.name}`}
                   </Button>
                 ) : (
-                  <Button
-                    variant={accent ? "default" : "outline"}
-                    disabled={!price || busy !== null}
-                    onClick={() => startCheckout(p.id)}
-                  >
-                    {busy === p.id ? "Opening checkout…" : `Choose ${p.name}`}
-                  </Button>
+                  <>
+                    <Button
+                      variant={accent ? "default" : "outline"}
+                      disabled={!price || busy !== null}
+                      onClick={() => startCheckout(p.id)}
+                    >
+                      {busy === p.id
+                        ? "Opening checkout…"
+                        : trialDays > 0
+                          ? `Start ${trialDays}-day free trial`
+                          : `Choose ${p.name}`}
+                    </Button>
+                    {trialDays > 0 && (
+                      <p className="mt-2 text-center text-xs text-ink-400">
+                        Free for {trialDays} days, then {price}/{interval === "monthly" ? "month" : "year"}. Cancel
+                        before it ends and you won&apos;t be charged.
+                      </p>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>

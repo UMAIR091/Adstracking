@@ -11,6 +11,7 @@ import {
   type SubscriptionLike,
   type TransactionLike,
 } from "@/lib/billing/paddle";
+import { recordTrialGrant } from "@/lib/billing/trial";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -125,7 +126,36 @@ async function syncSubscription(admin: SupabaseClient, sub: SubscriptionLike): P
   const { error } = await admin.from("subscriptions").upsert(row, { onConflict: "agency_id" });
   if (error) throw new Error(error.message);
 
+  // Burn the one-time paid trial the moment Paddle confirms a trialing
+  // subscription. Recording it here (rather than at checkout) means it is only
+  // spent on a subscription that actually exists — an abandoned checkout
+  // leaves the customer's trial intact. The grant is keyed on email and
+  // idempotent, so replays and later resubscribes can't mint a second one.
+  if (facts.status === "on_trial") {
+    await recordTrialGrant(admin, {
+      agencyId,
+      email: await agencyEmail(admin, agencyId),
+      plan: (row.plan as string | undefined) ?? null,
+      interval: (row.billing_interval as string | undefined) ?? null,
+      customerId: facts.customerId,
+      subscriptionId: facts.subscriptionId,
+    });
+  }
+
   return { ok: true };
+}
+
+// The email a trial grant is bound to: the agency owner's. Read from the
+// agency's contact email, falling back to the auth user's address.
+async function agencyEmail(admin: SupabaseClient, agencyId: string): Promise<string | null> {
+  const { data } = await admin.from("agencies").select("contact_email, owner_id").eq("id", agencyId).maybeSingle();
+  const contact = (data?.contact_email as string | null) ?? null;
+  if (contact) return contact;
+
+  const ownerId = data?.owner_id as string | undefined;
+  if (!ownerId) return null;
+  const { data: userRes } = await admin.auth.admin.getUserById(ownerId);
+  return userRes?.user?.email ?? null;
 }
 
 // ── transaction.completed ────────────────────────────────────

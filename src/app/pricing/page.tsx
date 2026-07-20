@@ -10,7 +10,8 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { Brand } from "@/components/Brand";
-import { PLAN_DISPLAY } from "@/lib/billing/config";
+import { PLAN_DISPLAY, PAID_TRIAL_DAYS, TRIAL_DAYS } from "@/lib/billing/config";
+import { getPlanPricing, headlineSavingPct, type PlanPricing } from "@/lib/billing/prices";
 import { SiteFooter } from "@/components/SiteFooter";
 import { PricingPlans } from "@/components/PricingPlans";
 import { Button } from "@/components/ui/button";
@@ -40,11 +41,11 @@ export const metadata: Metadata = {
 
 // ── Plans — derived from the single source of truth (billing/config.ts) ──
 
-type PlanColumn = { id: string; name: string; monthly: number; clients: string; featured?: boolean };
+// Plan metadata only — amounts live in Paddle and are fetched per render.
+type PlanColumn = { id: string; name: string; clients: string; featured?: boolean };
 const PLAN_COLUMNS: readonly PlanColumn[] = PLAN_DISPLAY.map((p) => ({
   id: p.id,
   name: p.name,
-  monthly: p.priceMonthly,
   clients: String(p.maxClients),
   featured: p.id === "pro",
 }));
@@ -153,15 +154,20 @@ const FAQS: { q: string; a: string }[] = [
 
 // ── Structured data for SEO ──
 
-function jsonLd() {
-  const offers = PLAN_COLUMNS.map((p) => ({
+function jsonLd(pricing: PlanPricing[]) {
+  // Structured data must match the visible price, so it is built from the same
+  // Paddle-sourced amounts. Plans whose price couldn't be read are omitted
+  // rather than published with a placeholder.
+  const priced = pricing.filter((p) => p.monthly);
+  const offers = priced.map((p) => ({
     "@type": "Offer",
     name: `${p.name} plan`,
-    price: String(p.monthly),
-    priceCurrency: "USD",
-    description: `${p.clients === "Unlimited" ? "Unlimited" : `Up to ${p.clients}`} active clients — every feature included.`,
+    price: String((p.monthly!.amount / 100).toFixed(2)),
+    priceCurrency: p.monthly!.currency,
+    description: `Up to ${p.maxClients} active clients — every feature included.`,
     url: `${COMPANY.website}/pricing`,
   }));
+  const amounts = priced.map((p) => p.monthly!.amount / 100);
   return [
     {
       "@context": "https://schema.org",
@@ -173,10 +179,10 @@ function jsonLd() {
       url: COMPANY.website,
       offers: {
         "@type": "AggregateOffer",
-        priceCurrency: "USD",
-        lowPrice: "49",
-        highPrice: "299",
-        offerCount: String(PLAN_COLUMNS.length),
+        priceCurrency: priced[0]?.monthly?.currency ?? "USD",
+        lowPrice: amounts.length ? String(Math.min(...amounts).toFixed(2)) : undefined,
+        highPrice: amounts.length ? String(Math.max(...amounts).toFixed(2)) : undefined,
+        offerCount: String(offers.length),
         offers,
       },
     },
@@ -192,13 +198,21 @@ function jsonLd() {
   ];
 }
 
-export default function PricingPage() {
+// Amounts are read from Paddle. Revalidating hourly keeps the page effectively
+// static for SEO while guaranteeing the displayed price is one Paddle honours.
+export const revalidate = 3600;
+
+export default async function PricingPage() {
+  const pricing = await getPlanPricing();
+  const saving = headlineSavingPct(pricing);
+  const priceById = new Map<string, PlanPricing>(pricing.map((p) => [p.id as string, p]));
+  const trialOffered = pricing.some((p) => p.trialAvailable);
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <script
         type="application/ld+json"
         // Structured data is static, server-rendered content — safe to inline.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd()) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(pricing)) }}
       />
 
       <header className="border-b border-slate-100">
@@ -228,7 +242,21 @@ export default function PricingPage() {
           </div>
 
           <div className="mt-10 sm:mt-12">
-            <PricingPlans />
+            <PricingPlans
+              plans={pricing.map((p) => ({
+                id: p.id,
+                name: p.name,
+                maxClients: p.maxClients,
+                monthly: p.monthly?.formatted ?? null,
+                annual: p.annual?.formatted ?? null,
+                annualPerMonth: p.annualPerMonth?.formatted ?? null,
+                annualSavingPct: p.annualSavingPct,
+                trialAvailable: p.trialAvailable,
+              }))}
+              headlineSavingPct={saving}
+              trialDays={trialOffered ? PAID_TRIAL_DAYS : 0}
+              freeTrialDays={TRIAL_DAYS}
+            />
           </div>
         </section>
 
@@ -262,7 +290,7 @@ export default function PricingPage() {
                     >
                       <span className="block font-semibold">{p.name}</span>
                       <span className={`mt-0.5 block text-xs font-normal ${p.featured ? "text-brand-100" : "text-ink-400"}`}>
-                        ${p.monthly}/mo
+                        {priceById.get(p.id)?.monthly?.formatted ?? "—"}/mo
                       </span>
                     </th>
                   ))}

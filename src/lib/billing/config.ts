@@ -33,40 +33,26 @@ export const TRIAL_LIMITS: PlanLimits = {
   maxReports: 1,
 };
 
-// ── Annual billing ───────────────────────────────────────────
-// Paddle is the authority on what a customer is actually charged, so the
-// annual price is expressed the same way the Paddle catalog builds it:
-// N months paid for 12 months of service. Every surface derives its displayed
-// annual price and "save X%" badge from these two constants, so the app can
-// never advertise a number Paddle won't charge.
-//
-// Current Paddle catalog: yearly prices are 10x monthly ("2 months free").
-// If you change the yearly prices in Paddle, change this to match — and
-// re-run the price verification before deploying.
-export const ANNUAL_MONTHS_CHARGED = 10;
-const MONTHS_PER_YEAR = 12;
-
-/** Total charged for a year on the annual plan, e.g. 49 -> 490. */
-export function annualTotal(monthly: number): number {
-  return monthly * ANNUAL_MONTHS_CHARGED;
-}
-
-/** Effective per-month cost when billed annually, e.g. 49 -> 41. */
-export function annualPerMonth(monthly: number): number {
-  return Math.round((monthly * ANNUAL_MONTHS_CHARGED) / MONTHS_PER_YEAR);
-}
-
-/** Headline saving vs paying monthly, e.g. 17 (%). */
-export const ANNUAL_SAVING_PCT = Math.round((1 - ANNUAL_MONTHS_CHARGED / MONTHS_PER_YEAR) * 100);
+// ── Trial ────────────────────────────────────────────────────
+// Paid plans can carry a short trial. Paddle attaches trials to the *price*,
+// not to the checkout, so a trial requires a second price per plan/interval
+// carrying trialPeriod. Checkout picks the trial price only for customers who
+// have never consumed one (see lib/billing/trial.ts), which is what keeps the
+// offer strictly once-per-customer.
+export const PAID_TRIAL_DAYS = 3;
 
 // ── Paid plans (identical features; differ only by client cap + price) ──
+// NOTE: amounts deliberately live in Paddle, not here. Anything that displays
+// a price reads it from lib/billing/prices.ts, so the app can never advertise
+// a number Paddle won't charge.
 export type PlanDef = {
   id: PlanId;
   name: string;
-  priceMonthly: number; // USD/month, for display
   limits: PlanLimits;
   /** Paddle price ids (pri_…) — the checkout source of truth. */
   prices: Partial<Record<BillingInterval, string>>;
+  /** Trial-enabled Paddle price ids, used for a customer's first paid plan. */
+  trialPrices: Partial<Record<BillingInterval, string>>;
   /** Legacy Lemon Squeezy variant ids, kept so historical rows still resolve. */
   variants: Partial<Record<BillingInterval, string>>;
 };
@@ -84,18 +70,27 @@ function env(key: string): string | undefined {
   return process.env[key] || undefined;
 }
 
-// Prices + limits are static; only the provider ids are environment-bound.
-const CATALOG: Omit<PlanDef, "variants" | "prices">[] = [
-  { id: "pro", name: "Pro", priceMonthly: 49, limits: { maxClients: 5, maxIntegrationsPerClient: UNLIMITED, maxReports: UNLIMITED } },
-  { id: "pro_plus", name: "Pro Plus", priceMonthly: 95, limits: { maxClients: 10, maxIntegrationsPerClient: UNLIMITED, maxReports: UNLIMITED } },
-  { id: "growth", name: "Growth", priceMonthly: 149, limits: { maxClients: 25, maxIntegrationsPerClient: UNLIMITED, maxReports: UNLIMITED } },
-  { id: "agency", name: "Agency", priceMonthly: 299, limits: { maxClients: 100, maxIntegrationsPerClient: UNLIMITED, maxReports: UNLIMITED } },
+// Limits and ordering are static; amounts come from Paddle and the provider
+// ids from the environment. `rank` orders the plans (smallest cap first) so
+// upgrade/downgrade direction never depends on a hardcoded price.
+const CATALOG: Omit<PlanDef, "variants" | "prices" | "trialPrices">[] = [
+  { id: "pro", name: "Pro", limits: { maxClients: 5, maxIntegrationsPerClient: UNLIMITED, maxReports: UNLIMITED } },
+  { id: "pro_plus", name: "Pro Plus", limits: { maxClients: 10, maxIntegrationsPerClient: UNLIMITED, maxReports: UNLIMITED } },
+  { id: "growth", name: "Growth", limits: { maxClients: 25, maxIntegrationsPerClient: UNLIMITED, maxReports: UNLIMITED } },
+  { id: "agency", name: "Agency", limits: { maxClients: 100, maxIntegrationsPerClient: UNLIMITED, maxReports: UNLIMITED } },
 ];
 
-// Client-safe display data (no env reads) for the pricing/marketing UI, derived
-// from the same CATALOG so prices + client caps are never defined twice.
-export const PLAN_DISPLAY: { id: PlanId; name: string; priceMonthly: number; maxClients: number }[] =
-  CATALOG.map((p) => ({ id: p.id, name: p.name, priceMonthly: p.priceMonthly, maxClients: p.limits.maxClients }));
+/** Catalog order, used to tell an upgrade from a downgrade. */
+export function planRank(id: string | null | undefined): number {
+  const i = CATALOG.findIndex((p) => p.id === id);
+  return i === -1 ? -1 : i;
+}
+
+// Client-safe plan metadata (no env reads, no amounts) for the marketing UI.
+// Amounts are fetched from Paddle by lib/billing/prices.ts and passed in
+// alongside this, so no price literal exists anywhere in the codebase.
+export const PLAN_DISPLAY: { id: PlanId; name: string; maxClients: number }[] =
+  CATALOG.map((p) => ({ id: p.id, name: p.name, maxClients: p.limits.maxClients }));
 
 const ENV_KEY: Record<PlanId, string> = {
   pro: "PRO",
@@ -133,9 +128,37 @@ function pricesFor(id: PlanId): Partial<Record<BillingInterval, string>> {
   };
 }
 
+// Trial-enabled price ids (optional). Present only once trial prices exist in
+// Paddle; without them checkout simply charges immediately, with no trial.
+function trialPricesFor(id: PlanId): Partial<Record<BillingInterval, string>> {
+  const k = ENV_KEY[id];
+  return {
+    monthly: env(`PADDLE_${k}_MONTHLY_TRIAL_PRICE_ID`) ?? env(`PADDLE_PRICE_${k}_MONTHLY_TRIAL`),
+    annual:
+      env(`PADDLE_${k}_YEARLY_TRIAL_PRICE_ID`) ??
+      env(`PADDLE_${k}_ANNUAL_TRIAL_PRICE_ID`) ??
+      env(`PADDLE_PRICE_${k}_ANNUAL_TRIAL`),
+  };
+}
+
 // The full catalog with resolved ids (regardless of whether purchasable).
 export function allPlans(): PlanDef[] {
-  return CATALOG.map((p) => ({ ...p, prices: pricesFor(p.id), variants: variantsFor(p.id) }));
+  return CATALOG.map((p) => ({
+    ...p,
+    prices: pricesFor(p.id),
+    trialPrices: trialPricesFor(p.id),
+    variants: variantsFor(p.id),
+  }));
+}
+
+/** True once at least one trial-enabled price is configured. */
+export function trialPricingConfigured(): boolean {
+  return allPlans().some((p) => p.trialPrices.monthly || p.trialPrices.annual);
+}
+
+/** The trial-enabled price for a plan/interval, when one exists. */
+export function findTrialPrice(plan: PlanId, interval: BillingInterval): string | undefined {
+  return getPlan(plan)?.trialPrices[interval];
 }
 
 // Plans offered in the pricing UI — those with at least one purchasable price.
@@ -173,12 +196,15 @@ export function planForVariant(variantId: string): { plan: PlanId; interval: Bil
 }
 
 // Reverse lookup for Paddle webhooks: which plan/interval is this price id?
-// Returns null for prices that aren't in our catalog (e.g. a plan sold before
-// an env change) so callers can decide how to degrade.
-export function planForPrice(priceId: string): { plan: PlanId; interval: BillingInterval } | null {
+// Matches both the standard and the trial-enabled price, so a subscription
+// started on a trial still resolves to the right plan. Returns null for prices
+// that aren't in our catalog (e.g. a plan sold before an env change) so callers
+// can decide how to degrade.
+export function planForPrice(priceId: string): { plan: PlanId; interval: BillingInterval; trial: boolean } | null {
   for (const p of allPlans()) {
     for (const interval of ["monthly", "annual"] as const) {
-      if (p.prices[interval] === priceId) return { plan: p.id, interval };
+      if (p.prices[interval] === priceId) return { plan: p.id, interval, trial: false };
+      if (p.trialPrices[interval] === priceId) return { plan: p.id, interval, trial: true };
     }
   }
   return null;
