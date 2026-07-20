@@ -7,7 +7,7 @@ import {
   Star, MailCheck, LineChart,
 } from "lucide-react";
 import { Brand } from "@/components/Brand";
-import { PLAN_DISPLAY } from "@/lib/billing/config";
+import { PLAN_DISPLAY, annualPerMonth } from "@/lib/billing/config";
 import { SiteFooter } from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
@@ -38,7 +38,7 @@ const FAQS = [
   },
   {
     q: "How does pricing work?",
-    a: "Every plan includes every feature — unlimited reports, AI insights, full white-label. The only difference is how many active clients you can report on: 5 ($49/mo), 10 ($95/mo), 25 ($149/mo), or 100 ($299/mo). Annual billing saves 20%, and there are no per-client fees or feature gates.",
+    a: "Every plan includes every feature — unlimited reports, AI insights, full white-label. The only difference is how many active clients you can report on: 5 ($49/mo), 10 ($95/mo), 25 ($149/mo), or 100 ($299/mo). Annual billing gives you two months free, and there are no per-client fees or feature gates.",
   },
   {
     q: "Which data sources are live today?",
@@ -602,7 +602,7 @@ export default function LandingPage() {
           <SectionHeading
             eyebrow="Pricing"
             title="Every plan includes every feature."
-            subtitle="Upgrade only when you need more active clients. Save 20% with annual billing — and every plan starts with a 7-day free trial, no card required."
+            subtitle="Upgrade only when you need more active clients. Annual billing gives you two months free, and new accounts start with a 7-day free trial, no card required."
           />
           <div className="mx-auto mt-14 grid max-w-5xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
             {PLAN_DISPLAY.map((plan) => ({
@@ -626,7 +626,7 @@ export default function LandingPage() {
                 <p className="mt-2 text-4xl font-semibold">
                   ${p.price}<span className="text-base font-normal text-ink-400">/mo</span>
                 </p>
-                <p className="mt-1 text-xs text-ink-400">or ${Math.round(p.price * 0.8)}/mo billed annually</p>
+                <p className="mt-1 text-xs text-ink-400">or ${annualPerMonth(p.price)}/mo billed annually</p>
                 <p className="mt-4 flex items-center gap-2 text-sm font-semibold text-ink-800">
                   <Users size={15} className="shrink-0 text-brand-600" aria-hidden /> {p.clients}
                 </p>

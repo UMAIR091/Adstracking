@@ -33,6 +33,32 @@ export const TRIAL_LIMITS: PlanLimits = {
   maxReports: 1,
 };
 
+// ── Annual billing ───────────────────────────────────────────
+// Paddle is the authority on what a customer is actually charged, so the
+// annual price is expressed the same way the Paddle catalog builds it:
+// N months paid for 12 months of service. Every surface derives its displayed
+// annual price and "save X%" badge from these two constants, so the app can
+// never advertise a number Paddle won't charge.
+//
+// Current Paddle catalog: yearly prices are 10x monthly ("2 months free").
+// If you change the yearly prices in Paddle, change this to match — and
+// re-run the price verification before deploying.
+export const ANNUAL_MONTHS_CHARGED = 10;
+const MONTHS_PER_YEAR = 12;
+
+/** Total charged for a year on the annual plan, e.g. 49 -> 490. */
+export function annualTotal(monthly: number): number {
+  return monthly * ANNUAL_MONTHS_CHARGED;
+}
+
+/** Effective per-month cost when billed annually, e.g. 49 -> 41. */
+export function annualPerMonth(monthly: number): number {
+  return Math.round((monthly * ANNUAL_MONTHS_CHARGED) / MONTHS_PER_YEAR);
+}
+
+/** Headline saving vs paying monthly, e.g. 17 (%). */
+export const ANNUAL_SAVING_PCT = Math.round((1 - ANNUAL_MONTHS_CHARGED / MONTHS_PER_YEAR) * 100);
+
 // ── Paid plans (identical features; differ only by client cap + price) ──
 export type PlanDef = {
   id: PlanId;
@@ -89,14 +115,21 @@ function variantsFor(id: PlanId): Partial<Record<BillingInterval, string>> {
   };
 }
 
-// Paddle price ids, e.g. PADDLE_PRICE_PRO_MONTHLY / PADDLE_PRICE_PRO_ANNUAL.
-// Yearly prices also accept the _YEARLY spelling, which is what Paddle's own
-// dashboard calls the billing cycle.
+// Paddle price ids. Two naming conventions are accepted so the variables can
+// be named whichever way the Paddle dashboard was transcribed:
+//   PADDLE_PRO_MONTHLY_PRICE_ID   (plan-first — what this deployment uses)
+//   PADDLE_PRICE_PRO_MONTHLY      (prefix-grouped alternative)
+// "YEARLY" and "ANNUAL" are interchangeable; Paddle's UI says yearly, our
+// billing interval is called annual.
 function pricesFor(id: PlanId): Partial<Record<BillingInterval, string>> {
   const k = ENV_KEY[id];
   return {
-    monthly: env(`PADDLE_PRICE_${k}_MONTHLY`),
-    annual: env(`PADDLE_PRICE_${k}_ANNUAL`) ?? env(`PADDLE_PRICE_${k}_YEARLY`),
+    monthly: env(`PADDLE_${k}_MONTHLY_PRICE_ID`) ?? env(`PADDLE_PRICE_${k}_MONTHLY`),
+    annual:
+      env(`PADDLE_${k}_YEARLY_PRICE_ID`) ??
+      env(`PADDLE_${k}_ANNUAL_PRICE_ID`) ??
+      env(`PADDLE_PRICE_${k}_ANNUAL`) ??
+      env(`PADDLE_PRICE_${k}_YEARLY`),
   };
 }
 

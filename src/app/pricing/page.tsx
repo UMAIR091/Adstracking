@@ -139,7 +139,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "How does annual billing work?",
-    a: "Pay for a year upfront and save 20% on any plan. You can switch between monthly and annual billing from your billing settings at any time.",
+    a: "Pay for a year upfront and get two months free on any plan. You can switch between monthly and annual billing from your billing settings at any time.",
   },
   {
     q: "What payment methods do you accept?",

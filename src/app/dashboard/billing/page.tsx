@@ -5,7 +5,7 @@ import { AlertTriangle, CalendarClock, CheckCircle2, CreditCard, Receipt, Refres
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
 import { getSubscriptionState } from "@/lib/billing/subscription";
-import { billingConfigured, getPlans, PAID_FEATURES } from "@/lib/billing/config";
+import { billingConfigured, getPlans, PAID_FEATURES, annualTotal } from "@/lib/billing/config";
 import { listInvoices, type InvoiceView } from "@/lib/billing/paddle";
 import { BillingPlans, type PlanView } from "@/components/BillingPlans";
 import { SubscriptionActions } from "@/components/SubscriptionActions";
@@ -64,11 +64,12 @@ export default async function BillingPage({
     name: p.name,
     blurb: `Up to ${p.limits.maxClients} active client${p.limits.maxClients === 1 ? "" : "s"} — every feature included.`,
     features: PAID_FEATURES,
-    // Display prices come straight from the catalog; Paddle's checkout shows
-    // the authoritative amount, including local currency and tax.
+    // Display prices are derived from the same constants the Paddle catalog
+    // was built from, so what's shown here is what Paddle charges. Checkout
+    // remains authoritative for local currency and tax.
     prices: {
       monthly: p.prices.monthly ? `$${p.priceMonthly}` : null,
-      annual: p.prices.annual ? `$${Math.round(p.priceMonthly * 12 * 0.8)}` : null,
+      annual: p.prices.annual ? `$${annualTotal(p.priceMonthly).toLocaleString("en-US")}` : null,
     },
     rank: p.priceMonthly,
   }));

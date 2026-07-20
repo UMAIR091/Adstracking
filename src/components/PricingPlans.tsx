@@ -12,9 +12,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { Check, Zap, Rocket, Building2, Users, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PLAN_DISPLAY, PAID_FEATURES, TRIAL_DAYS } from "@/lib/billing/config";
-
-const ANNUAL_DISCOUNT = 0.2;
+import {
+  PLAN_DISPLAY,
+  PAID_FEATURES,
+  TRIAL_DAYS,
+  ANNUAL_SAVING_PCT,
+  annualPerMonth,
+  annualTotal,
+} from "@/lib/billing/config";
 
 // Icons + featured flag are presentation-only; prices, names and client caps all
 // come from PLAN_DISPLAY (single source of truth in billing/config.ts).
@@ -31,8 +36,10 @@ const PRICING_PLANS = PLAN_DISPLAY.map((p) => ({
 // Identical on purpose — the only difference between plans is client count + price.
 const IN_EVERY_PLAN = PAID_FEATURES;
 
+// Re-exported so other marketing surfaces share one definition of the
+// annual price rather than repeating the discount arithmetic.
 export function annualMonthly(monthly: number): number {
-  return Math.round(monthly * (1 - ANNUAL_DISCOUNT));
+  return annualPerMonth(monthly);
 }
 
 export function PricingPlans() {
@@ -94,7 +101,7 @@ export function PricingPlans() {
                       active ? "bg-brand-50 text-brand-700" : "bg-ink-200/60 text-ink-600"
                     }`}
                   >
-                    −20%
+                    −{ANNUAL_SAVING_PCT}%
                   </span>
                 )}
               </button>
@@ -102,7 +109,9 @@ export function PricingPlans() {
           })}
         </div>
         <p className="text-xs text-ink-400" aria-live="polite">
-          {annual ? "Billed once a year — save 20% on every plan." : "Switch to yearly billing and save 20%."}
+          {annual
+            ? `Billed once a year — save ${ANNUAL_SAVING_PCT}% on every plan.`
+            : `Switch to yearly billing and save ${ANNUAL_SAVING_PCT}%.`}
         </p>
       </div>
 
@@ -169,8 +178,10 @@ export function PricingPlans() {
                   <span className="text-sm text-ink-400">/mo</span>
                 </p>
                 <p className="mt-1 text-xs text-ink-400">
+                  {/* The exact Paddle total, not the rounded per-month figure
+                      multiplied out — those disagree by a few dollars. */}
                   {annual
-                    ? `Billed annually — $${(price * 12).toLocaleString("en-US")}/yr`
+                    ? `Billed annually — $${annualTotal(plan.monthly).toLocaleString("en-US")}/yr`
                     : "Billed monthly · Cancel anytime"}
                 </p>
               </div>
