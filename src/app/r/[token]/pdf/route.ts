@@ -22,7 +22,7 @@ export async function GET(_req: Request, { params }: { params: { token: string }
 
   const { data: agency } = await admin
     .from("agencies")
-    .select("name, brand_color, website, footer_text, contact_email")
+    .select("name, brand_color, website, footer_text, contact_email, logo_url")
     .eq("id", report.agency_id)
     .maybeSingle();
 
@@ -38,6 +38,7 @@ export async function GET(_req: Request, { params }: { params: { token: string }
         website: agency?.website ?? null,
         footer_text: agency?.footer_text ?? null,
         contact_email: agency?.contact_email ?? null,
+        logo_url: agency?.logo_url ?? null,
       },
       clientName,
       title: report.title,

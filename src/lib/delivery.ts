@@ -11,6 +11,7 @@ export type DeliveryBranding = {
   website: string | null;
   footer_text: string | null;
   contact_email?: string | null;
+  logo_url?: string | null;
 };
 
 export type DeliverInput = {

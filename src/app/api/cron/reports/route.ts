@@ -76,7 +76,7 @@ export async function GET(req: Request) {
     if (recipients.length === 0) continue;
 
     const { data: ag } = await admin
-      .from("agencies").select("name, brand_color, website, footer_text, contact_email").eq("id", sched.agency_id).maybeSingle();
+      .from("agencies").select("name, brand_color, website, footer_text, contact_email, logo_url").eq("id", sched.agency_id).maybeSingle();
 
     const clientName = client?.name ?? "Client";
     const result = await deliverReport(admin, {
@@ -87,6 +87,7 @@ export async function GET(req: Request) {
         website: ag?.website ?? null,
         footer_text: ag?.footer_text ?? null,
         contact_email: ag?.contact_email ?? null,
+        logo_url: ag?.logo_url ?? null,
       },
       clientName,
       recipients,

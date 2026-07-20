@@ -53,7 +53,7 @@ export async function POST(req: Request) {
   const subjectBase = schedule?.subject || `${client.name} — your latest performance report`;
   const result = await deliverReport(supabase, {
     agencyId: agency.id,
-    branding: { name: agency.name, brand_color: agency.brand_color, website: agency.website, footer_text: agency.footer_text, contact_email: agency.contact_email },
+    branding: { name: agency.name, brand_color: agency.brand_color, website: agency.website, footer_text: agency.footer_text, contact_email: agency.contact_email, logo_url: agency.logo_url },
     clientName: client.name,
     recipients,
     subject: mode === "test" ? `[TEST] ${subjectBase}` : subjectBase,
