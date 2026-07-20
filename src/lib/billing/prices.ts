@@ -56,8 +56,21 @@ const money = (amountMinor: number, currency: string): Money => ({
   formatted: format(amountMinor, currency),
 });
 
-// Fetches every configured price in one API call and indexes it by price id.
-async function fetchPriceIndex(): Promise<Record<string, { amount: number; currency: string }>> {
+export type PriceIndex = {
+  prices: Record<string, { amount: number; currency: string }>;
+  /** False when any configured price failed to resolve — see the note below. */
+  complete: boolean;
+};
+
+// Fetches every configured price and indexes it by id.
+//
+// Each price is fetched individually rather than through prices.list(). The
+// list endpoint returns a *stateful* collection: calling next() a second time
+// advances the cursor instead of repeating the request, so wrapping it in a
+// retry silently yields a partial page. That shipped once and left two plans
+// priced "—" on production for an hour. Independent gets have no shared
+// cursor, retry cleanly, and confine any failure to a single price.
+async function fetchPriceIndex(): Promise<PriceIndex> {
   const ids = new Set<string>();
   for (const p of allPlans()) {
     for (const iv of ["monthly", "annual"] as const) {
@@ -65,38 +78,71 @@ async function fetchPriceIndex(): Promise<Record<string, { amount: number; curre
       if (p.trialPrices[iv]) ids.add(p.trialPrices[iv]!);
     }
   }
-  if (ids.size === 0) return {};
+  if (ids.size === 0) return { prices: {}, complete: true };
 
-  const collection = paddle().prices.list({ id: Array.from(ids), perPage: 100 });
-  const rows = await withRetry(() => collection.next());
+  const results = await Promise.all(
+    Array.from(ids).map(async (id) => {
+      try {
+        const price = await withRetry(() => paddle().prices.get(id));
+        const amount = Number(price.unitPrice?.amount ?? NaN);
+        if (!Number.isFinite(amount)) return null;
+        return [id, { amount, currency: price.unitPrice?.currencyCode ?? "USD" }] as const;
+      } catch (err) {
+        console.error(`Paddle price ${id} failed to load: ${(err as Error).message}`);
+        return null;
+      }
+    })
+  );
 
-  const index: Record<string, { amount: number; currency: string }> = {};
-  for (const price of rows) {
-    const amount = Number(price.unitPrice?.amount ?? NaN);
-    if (!Number.isFinite(amount)) continue;
-    index[price.id] = { amount, currency: price.unitPrice?.currencyCode ?? "USD" };
-  }
-  return index;
+  const prices: Record<string, { amount: number; currency: string }> = {};
+  for (const row of results) if (row) prices[row[0]] = row[1];
+
+  return { prices, complete: Object.keys(prices).length === ids.size };
 }
 
 // Cached across requests; revalidates hourly. Prices change rarely, and a
 // stale-by-an-hour figure is still a figure Paddle will honour.
 const cachedPriceIndex = unstable_cache(
-  async () => {
+  async (): Promise<PriceIndex> => {
     try {
       return await fetchPriceIndex();
     } catch (err) {
       console.error("Paddle price fetch failed:", (err as Error).message);
-      return {};
+      return { prices: {}, complete: false };
     }
   },
   ["paddle-price-index"],
   { revalidate: 3600, tags: ["paddle-prices"] }
 );
 
+// A partial catalog must never be served from cache: doing so pins a page
+// showing "—" for some plans until the entry expires. If the cached result is
+// incomplete we pay for one live refetch instead, which is bounded (a handful
+// of small requests) and only happens while genuinely degraded.
+async function priceIndex(): Promise<PriceIndex> {
+  // unstable_cache requires a Next request context; outside one (scripts,
+  // tests) fall through to a direct fetch rather than throwing.
+  let cached: PriceIndex;
+  try {
+    cached = await cachedPriceIndex();
+  } catch {
+    return fetchPriceIndex();
+  }
+  if (cached.complete) return cached;
+
+  console.warn("Paddle price cache is incomplete — refetching live.");
+  try {
+    const fresh = await fetchPriceIndex();
+    // Prefer whichever resolved more prices; never regress on a flaky retry.
+    return Object.keys(fresh.prices).length >= Object.keys(cached.prices).length ? fresh : cached;
+  } catch {
+    return cached;
+  }
+}
+
 // Pricing for every plan that has at least one purchasable price.
 export async function getPlanPricing(): Promise<PlanPricing[]> {
-  const index = await cachedPriceIndex();
+  const { prices: index } = await priceIndex();
 
   return allPlans()
     .filter((p) => p.prices.monthly || p.prices.annual)
@@ -111,8 +157,11 @@ export async function getPlanPricing(): Promise<PlanPricing[]> {
       const annual = lookup("annual");
 
       // Derived from the two real amounts — never from a discount constant.
-      const annualPerMonth =
-        annual ? money(Math.round(annual.amount / 12), annual.currency) : null;
+      // Rounded to whole currency units: this is an illustrative "works out at"
+      // figure, and the exact yearly total is always shown beside it.
+      const annualPerMonth = annual
+        ? money(Math.round(annual.amount / 12 / 100) * 100, annual.currency)
+        : null;
       const annualSavingPct =
         monthly && annual && monthly.amount > 0
           ? Math.round((1 - annual.amount / (monthly.amount * 12)) * 100)
