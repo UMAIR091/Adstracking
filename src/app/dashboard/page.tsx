@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { OnboardingChecklist, type OnboardingStep } from "@/components/OnboardingChecklist";
 import { PerfKpiCard } from "@/components/PerfKpiCard";
-import { SAMPLE_GSC } from "@/lib/sampleData";
+import { NoIntegrationsState, AwaitingSyncState, NoDataYet } from "@/components/AnalyticsEmptyState";
 import { getIntegrationHealth, summarize } from "@/lib/integrationHealth";
 
 export const dynamic = "force-dynamic";
@@ -67,34 +67,32 @@ export default async function DashboardPage() {
   const readyCount = new Set(sources.filter((s) => s.config?.site_url).map((s) => s.client_id)).size;
   const pendingCount = Math.max(0, (clientCount ?? 0) - connectedCount);
 
-  // Performance — aggregate real cached metrics + daily series, else sample.
+  // Performance — aggregated strictly from real cached snapshots. When there
+  // is nothing to aggregate the KPI block is not rendered at all: ReportFlow
+  // never shows invented numbers, so an empty state takes its place.
   const snapRows = (snaps ?? []) as { data_source_id: string; data: { totals: Day; byDate?: Day[] } }[];
-  const hasReal = snapRows.length > 0;
 
-  let series: Day[];
-  let perf: { clicks: number; impressions: number; ctr: number; position: number };
-  if (hasReal) {
-    const byDate = new Map<string, { clicks: number; impressions: number; posW: number }>();
-    let tClicks = 0, tImpr = 0, tPosW = 0;
-    for (const s of snapRows) {
-      const t = s.data?.totals;
-      if (t) { tClicks += t.clicks; tImpr += t.impressions; tPosW += t.position * t.impressions; }
-      for (const d of s.data?.byDate ?? []) {
-        const e = byDate.get(d.date) ?? { clicks: 0, impressions: 0, posW: 0 };
-        e.clicks += d.clicks; e.impressions += d.impressions; e.posW += d.position * d.impressions;
-        byDate.set(d.date, e);
-      }
+  const byDate = new Map<string, { clicks: number; impressions: number; posW: number }>();
+  let tClicks = 0, tImpr = 0, tPosW = 0;
+  for (const s of snapRows) {
+    const t = s.data?.totals;
+    if (t) { tClicks += t.clicks; tImpr += t.impressions; tPosW += t.position * t.impressions; }
+    for (const d of s.data?.byDate ?? []) {
+      const e = byDate.get(d.date) ?? { clicks: 0, impressions: 0, posW: 0 };
+      e.clicks += d.clicks; e.impressions += d.impressions; e.posW += d.position * d.impressions;
+      byDate.set(d.date, e);
     }
-    series = Array.from(byDate.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([date, e]) => ({
-      date, clicks: e.clicks, impressions: e.impressions,
-      ctr: e.impressions ? e.clicks / e.impressions : 0,
-      position: e.impressions ? e.posW / e.impressions : 0,
-    }));
-    perf = { clicks: tClicks, impressions: tImpr, ctr: tImpr ? tClicks / tImpr : 0, position: tImpr ? tPosW / tImpr : 0 };
-  } else {
-    series = SAMPLE_GSC.byDate;
-    perf = SAMPLE_GSC.totals;
   }
+  const series: Day[] = Array.from(byDate.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([date, e]) => ({
+    date, clicks: e.clicks, impressions: e.impressions,
+    ctr: e.impressions ? e.clicks / e.impressions : 0,
+    position: e.impressions ? e.posW / e.impressions : 0,
+  }));
+  const perf = { clicks: tClicks, impressions: tImpr, ctr: tImpr ? tClicks / tImpr : 0, position: tImpr ? tPosW / tImpr : 0 };
+
+  // Real data means a snapshot that actually carries measurements — a synced
+  // source with an all-zero window still counts, an empty table does not.
+  const hasReal = snapRows.length > 0 && series.length > 0;
 
   const clicksArr = series.map((d) => d.clicks);
   const imprArr = series.map((d) => d.impressions);
@@ -166,31 +164,31 @@ export default async function DashboardPage() {
       </CardHeader>
       <CardContent>
         {hasReal ? (
-          <ul className="space-y-2.5">
-            <li className="flex gap-2 text-sm text-ink-700">
-              <TrendingUp size={15} className="mt-0.5 flex-shrink-0 text-brand-500" />
-              <span><span className="font-medium text-ink-900">Traffic:</span> organic clicks are {pctText(clicksT)} and impressions {pctText(imprT)} over the last 28 days.</span>
-            </li>
-            <li className="flex gap-2 text-sm text-ink-700">
-              <Activity size={15} className="mt-0.5 flex-shrink-0 text-emerald-500" />
-              <span><span className="font-medium text-ink-900">Engagement:</span> click-through rate is {pctText(ctrT)} at an average position of {perf.position.toFixed(1)}.</span>
-            </li>
-            <li className="flex gap-2 text-sm text-ink-700">
-              <Target size={15} className="mt-0.5 flex-shrink-0 text-amber-500" />
-              <span><span className="font-medium text-ink-900">Opportunity:</span> queries ranking on page two are the fastest path to more clicks.</span>
-            </li>
-            <li className="flex gap-2 text-sm text-ink-700">
-              <Sparkles size={15} className="mt-0.5 flex-shrink-0 text-brand-500" />
-              <span><span className="font-medium text-ink-900">Recommendation:</span> refresh the titles &amp; meta on your highest-impression pages to lift CTR next month.</span>
-            </li>
-          </ul>
+          // Only statements derived from the synced numbers above — no canned
+          // advice dressed up as analysis. The full AI narrative is generated
+          // per report, where the model actually sees the data.
+          <>
+            <ul className="space-y-2.5">
+              <li className="flex gap-2 text-sm text-ink-700">
+                <TrendingUp size={15} className="mt-0.5 flex-shrink-0 text-brand-500" />
+                <span><span className="font-medium text-ink-900">Traffic:</span> organic clicks are {pctText(clicksT)} and impressions {pctText(imprT)} over the last 28 days.</span>
+              </li>
+              <li className="flex gap-2 text-sm text-ink-700">
+                <Activity size={15} className="mt-0.5 flex-shrink-0 text-emerald-500" />
+                <span><span className="font-medium text-ink-900">Engagement:</span> click-through rate is {pctText(ctrT)} at an average position of {perf.position.toFixed(1)}.</span>
+              </li>
+            </ul>
+            <p className="mt-3 text-xs text-ink-400">
+              Full AI analysis — wins, risks and recommended actions — is written into every generated report.
+            </p>
+          </>
         ) : (
           <>
-            <p className="text-sm text-ink-700">Connect Google Search Console to receive automated AI insights — traffic summaries, trends, and the opportunities to act on.</p>
-            <p className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm italic leading-relaxed text-ink-500">
-              Example: “Organic clicks up 18% this month, led by ‘best running shoes’. Next: optimise ‘carbon plate shoes’ (pos 6.8) to break onto page one.”
+            <p className="text-sm text-ink-700">
+              Once a data source is connected and synced, every report you generate includes an AI-written executive
+              summary, key wins, risks and recommended actions based on that client&apos;s real numbers.
             </p>
-            <Button asChild size="sm" variant="outline" className="mt-3"><Link href="/dashboard/clients"><PlugZap size={15} /> Connect Search Console</Link></Button>
+            <Button asChild size="sm" variant="outline" className="mt-3"><Link href="/dashboard/clients"><PlugZap size={15} /> Connect a data source</Link></Button>
           </>
         )}
       </CardContent>
@@ -203,37 +201,33 @@ export default async function DashboardPage() {
     { l: "Ready to report", v: readyCount, icon: FileBarChart2, tint: "text-brand-600" },
   ];
 
-  // Performance section — shared, with a results caption in active mode.
-  const performanceSection = (
+  // Performance section — rendered only when real synced metrics exist.
+  // Otherwise the appropriate empty state explains which stage setup is at:
+  // nothing connected yet, or connected and waiting on the first sync.
+  const performanceSection = hasReal ? (
     <section>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold text-ink-700">Performance overview</h2>
           <span className="text-xs text-ink-400">· last 28 days</span>
-          {!hasReal && <Badge variant="muted">Sample data</Badge>}
         </div>
-        {!hasReal && (
-          <Button asChild size="sm" variant="outline">
-            <Link href="/dashboard/clients"><PlugZap size={15} /> Connect Search Console</Link>
-          </Button>
-        )}
       </div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {perfCards.map((k) => (
           <PerfKpiCard key={k.l} label={k.l} value={k.v} deltaPct={k.t.pct} good={k.t.good} color={k.color} data={k.arr} icon={k.icon} />
         ))}
       </div>
-      {hasReal ? (
-        <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-500">
-          <span className="inline-flex items-center gap-1 font-medium text-emerald-600"><CheckCircle2 size={13} /> Win:</span>
-          clicks are {pctText(clicksT)} vs the prior period.
-          <span className="inline-flex items-center gap-1 font-medium text-amber-600"><Target size={13} /> Opportunity:</span>
-          average position {perf.position.toFixed(1)} — focus on page-two queries to climb.
-        </p>
-      ) : (
-        <p className="mt-2 text-xs text-ink-400">Example numbers — connect a client&apos;s Google Search Console to see real performance here.</p>
-      )}
+      <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-500">
+        <span className="inline-flex items-center gap-1 font-medium text-emerald-600"><CheckCircle2 size={13} /> Win:</span>
+        clicks are {pctText(clicksT)} vs the prior period.
+        <span className="inline-flex items-center gap-1 font-medium text-amber-600"><Target size={13} /> Opportunity:</span>
+        average position {perf.position.toFixed(1)} — focus on page-two queries to climb.
+      </p>
     </section>
+  ) : health.total > 0 ? (
+    <AwaitingSyncState sourceCount={health.total} failing={health.errored + health.needsReconnect} />
+  ) : (
+    <NoIntegrationsState hasClients={(clientCount ?? 0) > 0} steps={steps} />
   );
 
   return (
@@ -439,7 +433,10 @@ export default async function DashboardPage() {
               <CardHeader><CardTitle className="flex items-center gap-2"><Trophy size={16} className="text-brand-500" /> Top performing clients</CardTitle></CardHeader>
               <CardContent>
                 {topClients.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-ink-400">Connect a client&apos;s Search Console to rank performance.</p>
+                  <NoDataYet
+                    message="No performance data yet. Once a client's Search Console has synced, your top performers are ranked here."
+                    action={<Button asChild size="sm" variant="outline"><Link href="/dashboard/clients">View clients</Link></Button>}
+                  />
                 ) : (
                   <ul className="space-y-1">
                     {topClients.map((c, i) => (
@@ -467,7 +464,10 @@ export default async function DashboardPage() {
               </CardHeader>
               <CardContent>
                 {reports.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-ink-400">No reports generated yet.</p>
+                  <NoDataYet
+                    message="No reports generated yet. Generate one from a client once their data has synced."
+                    action={<Button asChild size="sm" variant="outline"><Link href="/dashboard/clients">Go to clients</Link></Button>}
+                  />
                 ) : (
                   <ul className="space-y-1">
                     {reports.map((r) => (

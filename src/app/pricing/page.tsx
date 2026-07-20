@@ -18,7 +18,7 @@ import { COMPANY } from "@/lib/company";
 
 const PAGE_TITLE = `Pricing — ${COMPANY.product}`;
 const PAGE_DESCRIPTION =
-  "Simple, transparent pricing for white-label client reporting. Every plan includes every feature — upgrade only when you need more active clients. Start with a 7-day free trial, no card required.";
+  "Simple, transparent pricing for white-label client reporting. Every plan includes every feature — upgrade only when you need more active clients. New accounts begin with a 7-day free trial, no card required.";
 
 export const metadata: Metadata = {
   title: PAGE_TITLE,
@@ -40,8 +40,9 @@ export const metadata: Metadata = {
 
 // ── Plans — derived from the single source of truth (billing/config.ts) ──
 
-type PlanColumn = { name: string; monthly: number; clients: string; featured?: boolean };
+type PlanColumn = { id: string; name: string; monthly: number; clients: string; featured?: boolean };
 const PLAN_COLUMNS: readonly PlanColumn[] = PLAN_DISPLAY.map((p) => ({
+  id: p.id,
   name: p.name,
   monthly: p.priceMonthly,
   clients: String(p.maxClients),
@@ -92,7 +93,6 @@ const FEATURE_GROUPS: { heading: string; rows: FeatureRow[] }[] = [
   {
     heading: "Billing & support",
     rows: [
-      { label: "7-day free trial, no card required" },
       { label: "Email support" },
       { label: "Cancel anytime" },
     ],
@@ -107,7 +107,7 @@ const FEATURE_GROUPS: { heading: string; rows: FeatureRow[] }[] = [
 const FAQS: { q: string; a: string }[] = [
   {
     q: "How does the 7-day free trial work?",
-    a: "Every plan starts with 7 days of full access — every feature, no card required. Add a payment method only when you decide to continue. If you do nothing, the trial simply ends; you're never charged automatically.",
+    a: "New accounts begin with 7 days of full access — every feature, no card required. Choose a plan whenever you're ready to continue. If you do nothing, the trial simply ends; you're never charged automatically.",
   },
   {
     q: "What counts as an active client?",
@@ -135,7 +135,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Do you offer refunds?",
-    a: "Because every plan starts with a free trial, we encourage you to test everything before paying. For billing mistakes or exceptional cases, see our Refund & Cancellation Policy — we handle requests case by case and aim to be fair.",
+    a: "Because every account starts with a free trial, we encourage you to test everything before paying. For billing mistakes or exceptional cases, see our Refund & Cancellation Policy — we handle requests case by case and aim to be fair.",
   },
   {
     q: "How does annual billing work?",
@@ -277,7 +277,7 @@ export default function PricingPage() {
                   {PLAN_COLUMNS.map((p) => (
                     <td key={p.name} className={`p-4 text-center ${p.featured ? "rounded-b-xl border-x border-b border-brand-100 bg-brand-50/40" : ""}`}>
                       <Button asChild size="sm" variant={p.featured ? "default" : "outline"}>
-                        <Link href="/signup" aria-label={`Start a free trial on the ${p.name} plan`}>Start free trial</Link>
+                        <Link href={`/signup?plan=${p.id}`} aria-label={`Choose the ${p.name} plan`}>Choose {p.name}</Link>
                       </Button>
                     </td>
                   ))}
@@ -286,7 +286,7 @@ export default function PricingPage() {
             </table>
           </div>
           <p className="mt-4 text-center text-xs text-ink-400">
-            Every plan starts with a 7-day free trial — no card required.
+            All prices in USD. Cancel anytime.
           </p>
         </section>
 
@@ -388,7 +388,7 @@ export default function PricingPage() {
                 <p className="mt-2 pr-10 text-sm leading-relaxed text-ink-500">
                   {item.q === "Do you offer refunds?" ? (
                     <>
-                      Because every plan starts with a free trial, we encourage you to test everything before paying.
+                      Because every account starts with a free trial, we encourage you to test everything before paying.
                       For billing mistakes or exceptional cases, see our{" "}
                       <Link href="/refund" className="font-medium text-brand-600 hover:underline">
                         Refund &amp; Cancellation Policy
@@ -461,8 +461,8 @@ export default function PricingPage() {
               Send your first white-label report today
             </h2>
             <p className="mt-3 text-ink-500">
-              Every feature, on every plan, free for 7 days. If it doesn&apos;t save you a reporting weekend, walk away —
-              no card, no commitment.
+              Start free for 7 days with every feature unlocked. If it doesn&apos;t save you a reporting weekend, walk
+              away — no card, no commitment.
             </p>
             <div className="mt-6">
               <Button asChild size="lg"><Link href="/signup">Start Your 7-Day Free Trial</Link></Button>

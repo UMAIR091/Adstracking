@@ -23,20 +23,17 @@ import { SeoAnalytics } from "@/components/SeoAnalytics";
 import { VideoAnalytics } from "@/components/VideoAnalytics";
 import type { SocialReport } from "@/lib/integrations/social";
 import type { GbpReport, CommerceReport, SheetTable, CrmReport, EmailReport, CallReport, SeoReport, VideoReport, BigQueryReport } from "@/lib/integrations/metrics";
-import { SAMPLE_GSC, SAMPLE_GA4, SAMPLE_INSTAGRAM } from "@/lib/sampleData";
 import { GenerateReport } from "@/components/GenerateReport";
 import { ReportSchedule, type ScheduleData } from "@/components/ReportSchedule";
 import { DeliveryHistory, type DeliveryLog } from "@/components/DeliveryHistory";
+import { AwaitingSyncState } from "@/components/AnalyticsEmptyState";
 import { liveIntegrations, descriptor } from "@/lib/integrations/registry";
 
 export const dynamic = "force-dynamic";
 
-// Providers that have a dedicated analytics visualization on this page. Others
-// (e.g. Meta Ads) are connectable + synced, with their dashboards to follow.
-// Sources with a dashboard block. The core trio also shows labelled sample
-// data before connecting; the rest render once a synced snapshot exists.
+// Sources with a dashboard block. Every one of them renders only once a real
+// synced snapshot exists — no source ever displays placeholder analytics.
 const HAS_VIZ = new Set(["gsc", "ga4", "instagram", "google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "pinterest_ads", "snapchat_ads", "reddit_ads", "amazon_ads", "x_ads", "adobe_analytics", "gbp", "shopify", "sheets", "hubspot", "salesforce", "bigquery", "youtube_analytics", "moz", "activecampaign", "constantcontact", "campaignmonitor"]);
-const SAMPLE_VIZ = new Set(["gsc", "ga4", "instagram"]);
 const ADS_VIZ = new Set(["google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "microsoft_ads", "pinterest_ads", "snapchat_ads", "reddit_ads", "amazon_ads", "x_ads"]);
 // Storefronts share the normalized CommerceReport shape + CommerceAnalytics.
 const COMMERCE_VIZ = new Set(["shopify", "woocommerce", "stripe"]);
@@ -49,11 +46,11 @@ const SEO_VIZ = new Set(["ahrefs", "semrush", "moz"]);
 // source visualizes different metrics). Everything else flows from the registry.
 // Social platforms share SocialAnalytics; paid-media platforms share AdsAnalytics.
 function Analytics({ id, snapshot }: { id: string; snapshot: unknown }) {
-  if (id === "gsc") return snapshot ? <GscAnalytics report={snapshot as GscReportData} /> : <GscAnalytics report={SAMPLE_GSC} sample />;
-  if (id === "ga4") return snapshot ? <Ga4Analytics report={snapshot as Ga4ReportData} /> : <Ga4Analytics report={SAMPLE_GA4} sample />;
+  if (id === "gsc" && snapshot) return <GscAnalytics report={snapshot as GscReportData} />;
+  if (id === "ga4" && snapshot) return <Ga4Analytics report={snapshot as Ga4ReportData} />;
   // Adobe fills the same normalized analytics shape, so it reuses Ga4Analytics.
   if (id === "adobe_analytics" && snapshot) return <Ga4Analytics report={snapshot as Ga4ReportData} />;
-  if (id === "instagram") return snapshot ? <SocialAnalytics report={snapshot as SocialReport} /> : <SocialAnalytics report={SAMPLE_INSTAGRAM} sample />;
+  if (id === "instagram" && snapshot) return <SocialAnalytics report={snapshot as SocialReport} />;
   if (ADS_VIZ.has(id) && snapshot) return <AdsAnalytics report={snapshot as AdsReportData} />;
   if (id === "gbp" && snapshot) return <GbpAnalytics report={snapshot as GbpReport} />;
   if (COMMERCE_VIZ.has(id) && snapshot) return <CommerceAnalytics report={snapshot as CommerceReport} />;
@@ -129,6 +126,9 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   );
 
   const anyReady = integrations.some((i) => i.ready);
+  // Sources the user has actually connected — drives the awaiting-sync state
+  // that replaces the old sample analytics.
+  const connectedSources = integrations.filter((i) => i.source !== null);
 
   const { data: schedule } = await supabase
     .from("report_schedules")
@@ -201,13 +201,24 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         </Link>
       </div>
 
-      {/* Performance — real cached metrics, or a sample placeholder until connected. */}
-      {integrations.filter((i) => HAS_VIZ.has(i.def.id) && (SAMPLE_VIZ.has(i.def.id) || i.snapshot)).map((i) => (
+      {/* Performance — only ever rendered from a real synced snapshot. A
+          connected source with no data yet shows the awaiting-sync state
+          instead, so nothing on this page is fabricated. */}
+      {integrations.filter((i) => HAS_VIZ.has(i.def.id) && i.snapshot).map((i) => (
         <div key={i.def.id} className="mt-8">
           <h2 className="mb-3 text-sm font-medium text-ink-700">{i.def.name}</h2>
           <Analytics id={i.def.id} snapshot={i.snapshot} />
         </div>
       ))}
+
+      {connectedSources.length > 0 && !integrations.some((i) => HAS_VIZ.has(i.def.id) && i.snapshot) && (
+        <div className="mt-8">
+          <AwaitingSyncState
+            sourceCount={connectedSources.length}
+            failing={connectedSources.filter((i) => i.lastSyncError).length}
+          />
+        </div>
+      )}
 
       <div className="mt-8">
         <GenerateReport clientId={client.id} ready={anyReady} />

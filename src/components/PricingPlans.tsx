@@ -1,12 +1,16 @@
 "use client";
 
 // Public pricing plans with a monthly/annual billing toggle.
-// Every CTA goes through the Lemon Squeezy checkout flow: signed-in users
-// with a configured variant are sent straight to the hosted checkout;
-// everyone else lands on /signup with their plan choice preserved.
+// Signed-in visitors are routed to the dashboard billing page with their pick
+// preserved (Paddle checkout runs there as an overlay); everyone else lands on
+// /signup with the same plan choice carried through.
+//
+// The free trial is advertised once, in its own row above the grid. Paid plan
+// cards deliberately show price only — no per-plan trial messaging.
 
 import { useState } from "react";
-import { Check, Zap, Rocket, Building2, Users } from "lucide-react";
+import Link from "next/link";
+import { Check, Zap, Rocket, Building2, Users, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PLAN_DISPLAY, PAID_FEATURES, TRIAL_DAYS } from "@/lib/billing/config";
 
@@ -102,8 +106,27 @@ export function PricingPlans() {
         </p>
       </div>
 
+      {/* Free trial — the one place the trial is advertised. Paid plans below
+          show their price only, so nothing implies a trial per tier. */}
+      <div className="mt-10 flex flex-col items-center justify-between gap-4 rounded-2xl border border-brand-100 bg-brand-50/50 px-6 py-5 sm:flex-row">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-brand-600 ring-1 ring-inset ring-brand-100">
+            <Sparkles size={18} aria-hidden />
+          </div>
+          <div>
+            <p className="font-semibold text-ink-900">{TRIAL_DAYS}-Day Free Trial</p>
+            <p className="mt-0.5 text-sm text-ink-600">
+              Try every feature free for {TRIAL_DAYS} days — no card required. Pick a plan whenever you&apos;re ready.
+            </p>
+          </div>
+        </div>
+        <Button asChild size="lg" variant="outline" className="w-full shrink-0 sm:w-auto">
+          <Link href="/signup">Start free trial</Link>
+        </Button>
+      </div>
+
       {/* Plan cards */}
-      <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
+      <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
         {PRICING_PLANS.map((plan) => {
           const Icon = plan.icon;
           const featured = "featured" in plan && plan.featured;
@@ -167,9 +190,9 @@ export function PricingPlans() {
                 className="mt-5 w-full"
                 disabled={busy !== null}
                 onClick={() => startCheckout(plan.id)}
-                aria-label={`Start your ${TRIAL_DAYS}-day free trial on the ${plan.name} plan`}
+                aria-label={`Choose the ${plan.name} plan`}
               >
-                {busy === plan.id ? "Opening checkout…" : `Start ${TRIAL_DAYS}-Day Free Trial`}
+                {busy === plan.id ? "Opening checkout…" : `Choose ${plan.name}`}
               </Button>
 
               <ul className="mt-5 space-y-2 border-t border-ink-100 pt-5">
@@ -186,7 +209,7 @@ export function PricingPlans() {
       </div>
 
       <p className="mt-6 text-center text-sm text-ink-400">
-        Prices in USD. Every plan starts with a {TRIAL_DAYS}-day free trial — no card required.
+        Prices in USD. Cancel anytime.
       </p>
     </div>
   );

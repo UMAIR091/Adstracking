@@ -4,13 +4,25 @@ import { getIntegration } from "@/lib/integrations/registry";
 import { classifyIntegrationError, reconnectMessage } from "@/lib/integrations/errors";
 import { logError } from "@/lib/errorLog";
 import { trackUsage } from "@/lib/usage";
+import { recordDailyMetrics } from "@/lib/metrics/history";
 
 // Periods we keep warm in the cache (match the report/analytics date ranges).
 const PERIODS = [28, 90];
+// The window mirrored into the historical archive — the widest we fetch, so
+// each sync contributes the most days and gaps close fastest after downtime.
+const WIDEST_PERIOD = Math.max(...PERIODS);
+
+// Only needed for callers that didn't already select client_id.
+async function lookupClientId(supabase: SupabaseClient, dataSourceId: string): Promise<string | null> {
+  const { data } = await supabase.from("data_sources").select("client_id").eq("id", dataSourceId).maybeSingle();
+  return (data?.client_id as string | undefined) ?? null;
+}
 
 export type SyncableSource = {
   id: string;
   agency_id: string;
+  /** Optional: callers that already selected it save a lookup in the archive step. */
+  client_id?: string | null;
   type?: string | null;
   config: Record<string, unknown> | null;
   access_token: string | null;
@@ -60,6 +72,8 @@ export async function syncDataSource(
     // through so the backend can add any provider-specific API headers.
     const provider = typeof ds.config?.identity_provider === "string" ? ds.config.identity_provider : undefined;
 
+    // Widest window first, so the archive write below sees the most history.
+    let widest: unknown = null;
     for (const period of PERIODS) {
       const data = await def.fetchSnapshot(accessToken, accountId, period, { provider }, ds.config ?? {});
       await supabase
@@ -68,6 +82,25 @@ export async function syncDataSource(
           { data_source_id: ds.id, agency_id: ds.agency_id, period_days: period, data, synced_at: now },
           { onConflict: "data_source_id,period_days" }
         );
+      if (period === WIDEST_PERIOD) widest = data;
+    }
+
+    // Snapshots above are a rolling cache — each sync overwrites them, so
+    // nothing older than the widest window survives there. Mirror the daily
+    // totals into the append-only archive so long-range (monthly, quarterly,
+    // yearly) reporting can be served from our own database later, even once
+    // the provider stops offering the range. Best-effort: a failure here is
+    // logged but never fails the sync.
+    if (widest) {
+      const clientId = ds.client_id !== undefined ? ds.client_id : await lookupClientId(supabase, ds.id);
+      const archived = await recordDailyMetrics(supabase, {
+        dataSourceId: ds.id,
+        agencyId: ds.agency_id,
+        clientId,
+        provider: ds.type ?? "unknown",
+        snapshot: widest,
+      });
+      if (archived.error) console.error(`metric_daily write failed for ${ds.id}: ${archived.error}`);
     }
 
     await supabase

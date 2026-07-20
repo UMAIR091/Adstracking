@@ -58,7 +58,7 @@ function sleep(ms: number): Promise<void> {
 export async function claimSyncBatch(admin: SupabaseClient, limit: number): Promise<SyncableSource[]> {
   const { data, error } = await admin
     .from("data_sources")
-    .select("id, agency_id, type, config, access_token, refresh_token, token_expires_at")
+    .select("id, agency_id, client_id, type, config, access_token, refresh_token, token_expires_at")
     .in("type", syncableTypes())
     .order("last_sync_attempt_at", { ascending: true, nullsFirst: true })
     .limit(limit);
