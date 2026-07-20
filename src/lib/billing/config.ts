@@ -7,9 +7,10 @@
 // exports, scheduling, white-label, integrations, future features) is ever
 // gated behind a higher plan — do not add per-plan feature flags here.
 //
-// Lemon Squeezy variant IDs come from env so the same code runs against test
-// and production stores; a plan renders in the pricing UI only when it has a
-// configured variant.
+// Paddle price IDs come from env so the same code runs against the sandbox and
+// live catalogs; a plan renders in the pricing UI only when it has a configured
+// price. Lemon Squeezy variant ids are still resolved for historical rows but
+// are no longer used for checkout.
 
 export type PlanId = "pro" | "pro_plus" | "growth" | "agency";
 export type BillingInterval = "monthly" | "annual";
@@ -38,6 +39,9 @@ export type PlanDef = {
   name: string;
   priceMonthly: number; // USD/month, for display
   limits: PlanLimits;
+  /** Paddle price ids (pri_…) — the checkout source of truth. */
+  prices: Partial<Record<BillingInterval, string>>;
+  /** Legacy Lemon Squeezy variant ids, kept so historical rows still resolve. */
   variants: Partial<Record<BillingInterval, string>>;
 };
 
@@ -54,8 +58,8 @@ function env(key: string): string | undefined {
   return process.env[key] || undefined;
 }
 
-// Prices + limits are static; only the variant ids are environment-bound.
-const CATALOG: Omit<PlanDef, "variants">[] = [
+// Prices + limits are static; only the provider ids are environment-bound.
+const CATALOG: Omit<PlanDef, "variants" | "prices">[] = [
   { id: "pro", name: "Pro", priceMonthly: 49, limits: { maxClients: 5, maxIntegrationsPerClient: UNLIMITED, maxReports: UNLIMITED } },
   { id: "pro_plus", name: "Pro Plus", priceMonthly: 95, limits: { maxClients: 10, maxIntegrationsPerClient: UNLIMITED, maxReports: UNLIMITED } },
   { id: "growth", name: "Growth", priceMonthly: 149, limits: { maxClients: 25, maxIntegrationsPerClient: UNLIMITED, maxReports: UNLIMITED } },
@@ -85,14 +89,25 @@ function variantsFor(id: PlanId): Partial<Record<BillingInterval, string>> {
   };
 }
 
-// The full catalog with resolved variants (regardless of whether purchasable).
-export function allPlans(): PlanDef[] {
-  return CATALOG.map((p) => ({ ...p, variants: variantsFor(p.id) }));
+// Paddle price ids, e.g. PADDLE_PRICE_PRO_MONTHLY / PADDLE_PRICE_PRO_ANNUAL.
+// Yearly prices also accept the _YEARLY spelling, which is what Paddle's own
+// dashboard calls the billing cycle.
+function pricesFor(id: PlanId): Partial<Record<BillingInterval, string>> {
+  const k = ENV_KEY[id];
+  return {
+    monthly: env(`PADDLE_PRICE_${k}_MONTHLY`),
+    annual: env(`PADDLE_PRICE_${k}_ANNUAL`) ?? env(`PADDLE_PRICE_${k}_YEARLY`),
+  };
 }
 
-// Plans offered in the pricing UI — those with at least one purchasable variant.
+// The full catalog with resolved ids (regardless of whether purchasable).
+export function allPlans(): PlanDef[] {
+  return CATALOG.map((p) => ({ ...p, prices: pricesFor(p.id), variants: variantsFor(p.id) }));
+}
+
+// Plans offered in the pricing UI — those with at least one purchasable price.
 export function getPlans(): PlanDef[] {
-  return allPlans().filter((p) => p.variants.monthly || p.variants.annual);
+  return allPlans().filter((p) => p.prices.monthly || p.prices.annual);
 }
 
 export function getPlan(id: PlanId): PlanDef | undefined {
@@ -109,6 +124,11 @@ export function findVariant(plan: PlanId, interval: BillingInterval): string | u
   return getPlan(plan)?.variants[interval];
 }
 
+// The Paddle price id to check out for a given plan + interval.
+export function findPrice(plan: PlanId, interval: BillingInterval): string | undefined {
+  return getPlan(plan)?.prices[interval];
+}
+
 // Reverse lookup for webhooks: which plan/interval does a variant id belong to?
 export function planForVariant(variantId: string): { plan: PlanId; interval: BillingInterval } | null {
   for (const p of allPlans()) {
@@ -119,10 +139,24 @@ export function planForVariant(variantId: string): { plan: PlanId; interval: Bil
   return null;
 }
 
+// Reverse lookup for Paddle webhooks: which plan/interval is this price id?
+// Returns null for prices that aren't in our catalog (e.g. a plan sold before
+// an env change) so callers can decide how to degrade.
+export function planForPrice(priceId: string): { plan: PlanId; interval: BillingInterval } | null {
+  for (const p of allPlans()) {
+    for (const interval of ["monthly", "annual"] as const) {
+      if (p.prices[interval] === priceId) return { plan: p.id, interval };
+    }
+  }
+  return null;
+}
+
 export function planName(id: string | null | undefined): string {
   return (id && getPlan(id as PlanId)?.name) || "Pro";
 }
 
+// Paddle is usable when the server key, the browser token and at least one
+// purchasable price are all present. Checkout routes fail closed without this.
 export function billingConfigured(): boolean {
-  return Boolean(process.env.LEMONSQUEEZY_API_KEY && process.env.LEMONSQUEEZY_STORE_ID && getPlans().length > 0);
+  return Boolean(process.env.PADDLE_API_KEY && process.env.PADDLE_CLIENT_TOKEN && getPlans().length > 0);
 }

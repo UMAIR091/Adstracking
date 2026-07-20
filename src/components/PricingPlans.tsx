@@ -36,27 +36,25 @@ export function PricingPlans() {
   const [busy, setBusy] = useState<string | null>(null);
   const annual = interval === "annual";
 
-  // Lemon Squeezy checkout flow. Signed-in users with a purchasable variant
-  // get the hosted checkout URL; anyone else (not signed in, or billing not
-  // configured yet) continues to signup with the chosen plan preserved, and
-  // completes checkout from the dashboard billing page.
+  // Paddle checkout runs as an overlay on the dashboard billing page, so this
+  // marketing page only needs to route the visitor to the right place with
+  // their pick preserved: signed-in customers go straight to billing, everyone
+  // else signs up first and lands there afterwards. The probe is a GET with no
+  // side effects — it never creates a Paddle transaction.
   async function startCheckout(planId: string) {
     setBusy(planId);
+    const query = `plan=${planId}&interval=${interval}`;
     try {
-      const res = await fetch("/api/billing/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: planId, interval }),
-      });
+      const res = await fetch("/api/billing/checkout", { method: "GET" });
       const body = await res.json().catch(() => null);
-      if (res.ok && body?.url) {
-        window.location.href = body.url as string;
+      if (res.ok && body?.authenticated) {
+        window.location.href = `/dashboard/billing?${query}`;
         return;
       }
     } catch {
       /* fall through to signup */
     }
-    window.location.href = `/signup?plan=${planId}&interval=${interval}`;
+    window.location.href = `/signup?${query}`;
   }
 
   return (

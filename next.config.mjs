@@ -12,6 +12,18 @@ const supabaseOrigin = (() => {
 })();
 const supabaseWs = supabaseOrigin.replace(/^https:/, "wss:");
 
+// Paddle.js loads from Paddle's CDN, renders checkout in an iframe from
+// buy.paddle.com, and talks to its checkout service over XHR. All three are
+// blocked by a 'self'-only policy, so the checkout overlay silently fails
+// without these entries. Sandbox and live hosts are both listed because the
+// active one is chosen at runtime by PADDLE_ENV.
+const paddleScript = "https://cdn.paddle.com https://sandbox-cdn.paddle.com https://public-cdn.paddle.com";
+const paddleFrame = "https://buy.paddle.com https://sandbox-buy.paddle.com";
+const paddleConnect =
+  "https://api.paddle.com https://sandbox-api.paddle.com " +
+  "https://checkout-service.paddle.com https://sandbox-checkout-service.paddle.com " +
+  "https://cdn.paddle.com https://sandbox-cdn.paddle.com";
+
 // Conservative Content-Security-Policy. script/style keep 'unsafe-inline'
 // because Next.js App Router injects inline bootstrap scripts and the app has
 // inline JSON-LD; the high-value directives (object-src none, base-uri,
@@ -20,12 +32,12 @@ const supabaseWs = supabaseOrigin.replace(/^https:/, "wss:");
 // https so agency logo URLs render.
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline' ${paddleScript}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: https:",
   "font-src 'self' data:",
-  `connect-src 'self' ${supabaseOrigin} ${supabaseWs}`.replace(/\s+/g, " ").trim(),
-  "frame-src 'self'",
+  `connect-src 'self' ${supabaseOrigin} ${supabaseWs} ${paddleConnect}`.replace(/\s+/g, " ").trim(),
+  `frame-src 'self' ${paddleFrame}`,
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

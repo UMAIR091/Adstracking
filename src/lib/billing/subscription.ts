@@ -2,20 +2,27 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { TRIAL_DAYS, getPlan, planName as planNameFor, type BillingInterval, type PlanId } from "./config";
 
 // One place decides who has access to premium features. Rules:
-//  - active / on_trial LS subscription → access
-//  - past_due → access (grace period while Lemon Squeezy retries the card)
+//  - active / on_trial subscription → access
+//  - past_due → access (grace period while Paddle retries the card)
 //  - cancelled but ends_at in the future → access until the paid period ends
 //  - paused / unpaid / expired / no subscription → fall back to the app-level
-//    14-day trial that starts when the agency is created
+//    trial that starts when the agency is created
+//
+// Provider-agnostic: Paddle writes the same columns Lemon Squeezy used to, so
+// nothing below needed to change when the provider was swapped.
 export type SubscriptionRow = {
   id: string;
   plan: string;
   status: string;
+  provider: string | null;
+  provider_customer_id: string | null;
   provider_subscription_id: string | null;
   variant_id: string | null;
+  price_id: string | null;
   billing_interval: string | null;
   current_period_end: string | null;
   ends_at: string | null;
+  cancel_at_period_end: boolean | null;
   trial_ends_at: string | null;
   card_brand: string | null;
   card_last_four: string | null;
@@ -37,7 +44,12 @@ export type SubscriptionState = {
   trialDaysLeft: number | null;
   paymentFailed: boolean;
   card: { brand: string; lastFour: string } | null;
-  lsSubscriptionId: string | null;
+  /** Provider subscription id (Paddle sub_…) — presence means "manageable". */
+  subscriptionId: string | null;
+  customerId: string | null;
+  priceId: string | null;
+  /** A cancellation is scheduled; access continues until `endsAt`. */
+  cancelAtPeriodEnd: boolean;
 };
 
 const ACCESS_STATUSES = new Set(["active", "on_trial", "past_due"]);
@@ -58,7 +70,10 @@ export function resolveState(sub: SubscriptionRow | null, agencyCreatedAt: strin
       trialDaysLeft: null,
       paymentFailed: Boolean(sub.payment_failed_at),
       card: sub.card_brand && sub.card_last_four ? { brand: sub.card_brand, lastFour: sub.card_last_four } : null,
-      lsSubscriptionId: sub.provider_subscription_id,
+      subscriptionId: sub.provider_subscription_id,
+      customerId: sub.provider_customer_id,
+      priceId: sub.price_id,
+      cancelAtPeriodEnd: Boolean(sub.cancel_at_period_end),
     };
 
     if (ACCESS_STATUSES.has(sub.status)) {
@@ -102,7 +117,10 @@ export function resolveState(sub: SubscriptionRow | null, agencyCreatedAt: strin
     trialDaysLeft: trial.daysLeft,
     paymentFailed: false,
     card: null,
-    lsSubscriptionId: null,
+    subscriptionId: null,
+    customerId: null,
+    priceId: null,
+    cancelAtPeriodEnd: false,
   };
 }
 
@@ -119,7 +137,7 @@ export async function getSubscriptionState(supabase: SupabaseClient, agencyId: s
     supabase
       .from("subscriptions")
       .select(
-        "id, plan, status, provider_subscription_id, variant_id, billing_interval, current_period_end, ends_at, trial_ends_at, card_brand, card_last_four, payment_failed_at"
+        "id, plan, status, provider, provider_customer_id, provider_subscription_id, variant_id, price_id, billing_interval, current_period_end, ends_at, cancel_at_period_end, trial_ends_at, card_brand, card_last_four, payment_failed_at"
       )
       .eq("agency_id", agencyId)
       .maybeSingle(),

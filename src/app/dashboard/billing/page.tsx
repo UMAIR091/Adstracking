@@ -1,16 +1,16 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { format } from "date-fns";
-import { AlertTriangle, CheckCircle2, CreditCard, ExternalLink, Receipt } from "lucide-react";
+import { AlertTriangle, CalendarClock, CheckCircle2, CreditCard, Receipt, RefreshCw } from "lucide-react";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
 import { getSubscriptionState } from "@/lib/billing/subscription";
-import { billingConfigured, getPlans, PAID_FEATURES, type BillingInterval } from "@/lib/billing/config";
-import { getVariantPrice, listSubscriptionInvoices, type LsInvoice } from "@/lib/billing/lemonsqueezy";
+import { billingConfigured, getPlans, PAID_FEATURES } from "@/lib/billing/config";
+import { listInvoices, type InvoiceView } from "@/lib/billing/paddle";
 import { BillingPlans, type PlanView } from "@/components/BillingPlans";
+import { SubscriptionActions } from "@/components/SubscriptionActions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
@@ -30,8 +30,17 @@ function fmtDate(iso: string | null): string {
   return iso ? format(new Date(iso), "MMM d, yyyy") : "—";
 }
 
-function fmtPrice(cents: number): string {
-  return (cents / 100) % 1 === 0 ? `$${cents / 100}` : `$${(cents / 100).toFixed(2)}`;
+// One labelled fact in the subscription summary grid.
+function Fact({ label, value, icon }: { label: string; value: string; icon?: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-xs uppercase tracking-wide text-ink-400">{label}</p>
+      <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-ink-800">
+        {icon}
+        {value}
+      </p>
+    </div>
+  );
 }
 
 export default async function BillingPage({
@@ -45,57 +54,50 @@ export default async function BillingPage({
   const supabase = createClient();
   const state = await getSubscriptionState(supabase, agency.id);
   const configured = billingConfigured();
-
-  // Live display prices + invoices — parallel, and never block the page on failures.
   const plans = getPlans();
-  const [priceMap, invoices] = await Promise.all([
-    (async () => {
-      const entries = await Promise.all(
-        plans.flatMap((p) =>
-          (["monthly", "annual"] as BillingInterval[]).map(async (iv) => {
-            const v = p.variants[iv];
-            if (!v || !configured) return [`${p.id}:${iv}`, null] as const;
-            const price = await getVariantPrice(v);
-            return [`${p.id}:${iv}`, price ? fmtPrice(price.cents) : null] as const;
-          })
-        )
-      );
-      return Object.fromEntries(entries) as Record<string, string | null>;
-    })(),
-    (async (): Promise<LsInvoice[]> => {
-      if (!state.lsSubscriptionId || !configured) return [];
-      try {
-        return await listSubscriptionInvoices(state.lsSubscriptionId);
-      } catch {
-        return [];
-      }
-    })(),
-  ]);
+
+  // Invoice history is decorative — listInvoices never throws.
+  const invoices: InvoiceView[] = state.subscriptionId && configured ? await listInvoices(state.subscriptionId) : [];
 
   const planViews: PlanView[] = plans.map((p) => ({
     id: p.id,
     name: p.name,
     blurb: `Up to ${p.limits.maxClients} active client${p.limits.maxClients === 1 ? "" : "s"} — every feature included.`,
     features: PAID_FEATURES,
-    prices: { monthly: priceMap[`${p.id}:monthly`] ?? null, annual: priceMap[`${p.id}:annual`] ?? null },
+    // Display prices come straight from the catalog; Paddle's checkout shows
+    // the authoritative amount, including local currency and tax.
+    prices: {
+      monthly: p.prices.monthly ? `$${p.priceMonthly}` : null,
+      annual: p.prices.annual ? `$${Math.round(p.priceMonthly * 12 * 0.8)}` : null,
+    },
+    rank: p.priceMonthly,
   }));
 
   const badge = STATUS_BADGE[state.status] ?? { label: state.status, variant: "muted" as const };
+  const cycleLabel = state.interval === "annual" ? "Yearly" : state.interval === "monthly" ? "Monthly" : "—";
+
+  // What the customer should read as "what happens next".
+  const renewalLabel = state.cancelAtPeriodEnd
+    ? `Ends ${fmtDate(state.endsAt ?? state.renewsAt)}`
+    : state.status === "cancelled" && state.endsAt
+      ? `Access until ${fmtDate(state.endsAt)}`
+      : state.plan === "trial" && state.trialEndsAt
+        ? `Trial ends ${fmtDate(state.trialEndsAt)}`
+        : state.renewsAt
+          ? fmtDate(state.renewsAt)
+          : "—";
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Billing</h1>
-        <p className="text-sm text-ink-500">Manage your plan and invoices.</p>
+        <p className="text-sm text-ink-500">Manage your plan, payment method and invoices.</p>
       </div>
 
       {searchParams.checkout === "success" && (
         <div className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
           <CheckCircle2 size={17} className="mt-0.5 shrink-0" />
-          <span>
-            Payment received — thank you! Your subscription activates within a few seconds. Refresh if it doesn&apos;t
-            appear yet.
-          </span>
+          <span>Payment received — thank you! Your subscription activates within a few seconds. Refresh if it doesn&apos;t appear yet.</span>
         </div>
       )}
       {searchParams.portal_error && (
@@ -104,13 +106,21 @@ export default async function BillingPage({
           <span>{searchParams.portal_error}</span>
         </div>
       )}
+      {state.cancelAtPeriodEnd && state.hasAccess && (
+        <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <CalendarClock size={17} className="mt-0.5 shrink-0" />
+          <span>
+            Your subscription is scheduled to end on {fmtDate(state.endsAt ?? state.renewsAt)}. You keep full access until
+            then — resume any time to stay subscribed.
+          </span>
+        </div>
+      )}
       {state.paymentFailed && state.hasAccess && (
         <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <AlertTriangle size={17} className="mt-0.5 shrink-0" />
           <span>
             Your last payment failed — we&apos;ll retry automatically.{" "}
-            <a href="/api/billing/portal" className="font-medium underline">Update your payment method</a> to avoid
-            interruption.
+            <a href="/api/billing/portal" className="font-medium underline">Update your payment method</a> to avoid interruption.
           </span>
         </div>
       )}
@@ -121,37 +131,43 @@ export default async function BillingPage({
         </div>
       )}
 
-      {/* Current plan */}
+      {/* Current subscription */}
       <Card>
         <CardContent className="p-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2.5">
                 <p className="text-lg font-semibold text-ink-900">{state.planName}</p>
                 <Badge variant={badge.variant} dot>{badge.label}</Badge>
               </div>
-              <p className="mt-1 text-sm text-ink-500">
-                {state.plan === "trial" && state.trialDaysLeft !== null
-                  ? `${state.trialDaysLeft} day${state.trialDaysLeft === 1 ? "" : "s"} left — ends ${fmtDate(state.trialEndsAt)}`
-                  : state.status === "cancelled" && state.endsAt
-                    ? `Access until ${fmtDate(state.endsAt)}`
-                    : state.renewsAt
-                      ? `Renews ${fmtDate(state.renewsAt)}${state.interval ? ` · billed ${state.interval === "annual" ? "annually" : "monthly"}` : ""}`
-                      : "No active subscription"}
-              </p>
-              {state.card && (
-                <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-500">
-                  <CreditCard size={14} className="text-ink-400" />
-                  <span className="capitalize">{state.card.brand}</span> ending {state.card.lastFour}
+
+              <div className="mt-5 grid gap-5 sm:grid-cols-3">
+                <Fact label="Billing cycle" value={cycleLabel} icon={<RefreshCw size={13} className="text-ink-400" />} />
+                <Fact
+                  label={state.cancelAtPeriodEnd || state.status === "cancelled" ? "Access ends" : "Next renewal"}
+                  value={renewalLabel}
+                  icon={<CalendarClock size={13} className="text-ink-400" />}
+                />
+                <Fact
+                  label="Payment method"
+                  value={state.card ? `${state.card.brand} ending ${state.card.lastFour}` : "Managed by Paddle"}
+                  icon={<CreditCard size={13} className="text-ink-400" />}
+                />
+              </div>
+
+              {state.plan === "trial" && state.trialDaysLeft !== null && (
+                <p className="mt-4 text-sm text-ink-500">
+                  {state.trialDaysLeft} day{state.trialDaysLeft === 1 ? "" : "s"} left in your free trial. Choose a plan
+                  below to continue without interruption.
                 </p>
               )}
             </div>
-            {state.lsSubscriptionId && (
-              <Button asChild variant="outline">
-                <a href="/api/billing/portal">
-                  Manage subscription <ExternalLink size={14} />
-                </a>
-              </Button>
+
+            {state.subscriptionId && (
+              <SubscriptionActions
+                cancelAtPeriodEnd={state.cancelAtPeriodEnd}
+                endsAtLabel={state.endsAt ? fmtDate(state.endsAt) : state.renewsAt ? fmtDate(state.renewsAt) : null}
+              />
             )}
           </div>
         </CardContent>
@@ -162,16 +178,17 @@ export default async function BillingPage({
         <BillingPlans
           plans={planViews}
           currentPlan={state.plan}
-          hasSubscription={Boolean(state.lsSubscriptionId)}
+          currentInterval={state.interval}
+          hasSubscription={Boolean(state.subscriptionId)}
           initialInterval={searchParams.interval === "annual" ? "annual" : "monthly"}
           highlightPlan={plans.some((p) => p.id === searchParams.plan) ? searchParams.plan : undefined}
         />
       ) : (
         <Card>
           <CardContent className="p-6 text-sm text-ink-500">
-            Billing isn&apos;t configured yet. Set <code className="text-ink-700">LEMONSQUEEZY_API_KEY</code>,{" "}
-            <code className="text-ink-700">LEMONSQUEEZY_STORE_ID</code> and the variant IDs in your environment to
-            enable checkout.
+            Billing isn&apos;t configured yet. Set <code className="text-ink-700">PADDLE_API_KEY</code>,{" "}
+            <code className="text-ink-700">PADDLE_CLIENT_TOKEN</code> and the{" "}
+            <code className="text-ink-700">PADDLE_PRICE_*</code> variables in your environment to enable checkout.
           </CardContent>
         </Card>
       )}
@@ -186,29 +203,27 @@ export default async function BillingPage({
                 <div key={inv.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 text-sm">
                   <span className="flex items-center gap-2.5 text-ink-700">
                     <Receipt size={15} className="text-ink-400" />
-                    {fmtDate(inv.attributes.created_at)}
+                    {fmtDate(inv.billedAt)}
                   </span>
                   <span className="flex items-center gap-4">
-                    <span className="font-medium text-ink-800">{inv.attributes.total_formatted}</span>
-                    <Badge variant={inv.attributes.status === "paid" ? "success" : inv.attributes.status === "refunded" ? "muted" : "warning"}>
-                      {inv.attributes.status_formatted}
+                    <span className="font-medium text-ink-800">{inv.total}</span>
+                    <Badge variant={inv.status === "completed" || inv.status === "paid" ? "success" : inv.status === "canceled" ? "muted" : "warning"}>
+                      {inv.status}
                     </Badge>
-                    {inv.attributes.urls.invoice_url && (
-                      <a href={inv.attributes.urls.invoice_url} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-600 hover:underline">
-                        View
-                      </a>
-                    )}
                   </span>
                 </div>
               ))}
             </CardContent>
           </Card>
+          <p className="mt-2 text-xs text-ink-400">
+            Full invoices and receipts are available in{" "}
+            <a href="/api/billing/portal" className="underline">the billing portal</a>.
+          </p>
         </div>
       )}
 
       <p className="text-center text-xs text-ink-400">
-        Payments are processed securely by our merchant of record. Cancel anytime from{" "}
-        {state.lsSubscriptionId ? <a href="/api/billing/portal" className="underline">the customer portal</a> : "the customer portal"} —
+        Payments are processed securely by Paddle, our merchant of record. Cancel any time —{" "}
         see our <Link href="/terms" className="underline">Terms</Link>.
       </p>
     </div>
