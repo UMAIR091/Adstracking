@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ShieldCheck, ChevronRight, Activity, Gauge, HeartPulse } from "lucide-react";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { AgencySettingsForm } from "@/components/AgencySettingsForm";
+import { EmailBrandingSettings } from "@/components/EmailBrandingSettings";
 import { Card, CardContent } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,18 @@ export default async function SettingsPage() {
           footer_text: agency.footer_text ?? "",
         }}
       />
+
+      <div className="mt-6">
+        <EmailBrandingSettings
+          agencyId={agency.id}
+          initial={{
+            email_sender_name: agency.email_sender_name ?? "",
+            email_sender_email: agency.email_sender_email ?? "",
+            email_reply_to: agency.email_reply_to ?? "",
+            email_footer: agency.email_footer ?? "",
+          }}
+        />
+      </div>
 
       <div className="mt-8 space-y-6">
         <div>

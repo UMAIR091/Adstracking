@@ -10,6 +10,11 @@ export type Agency = {
   contact_email: string | null;
   contact_phone: string | null;
   footer_text: string | null;
+  // Email branding (white-label sending) — see lib/email/sender.ts.
+  email_sender_name: string | null;
+  email_sender_email: string | null;
+  email_reply_to: string | null;
+  email_footer: string | null;
 };
 
 // Returns the signed-in user and their agency, creating the agency on first login.

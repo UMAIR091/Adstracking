@@ -46,7 +46,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const result = await deliverReport(supabase, {
     agencyId: agency.id,
-    branding: { name: agency.name, brand_color: agency.brand_color, website: agency.website, footer_text: agency.footer_text, contact_email: agency.contact_email, logo_url: agency.logo_url },
+    branding: { name: agency.name, brand_color: agency.brand_color, website: agency.website, footer_text: agency.footer_text, contact_email: agency.contact_email, logo_url: agency.logo_url, email_footer: agency.email_footer },
     clientName,
     recipients,
     subject,
