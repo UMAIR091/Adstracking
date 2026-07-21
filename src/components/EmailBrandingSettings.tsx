@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { AtSign, CheckCircle2, Copy, Globe, Loader2, MailCheck, RefreshCw, Trash2 } from "lucide-react";
+import { AtSign, CheckCircle2, Copy, Globe, Loader2, MailCheck, RefreshCw, Send, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -50,7 +50,7 @@ export function EmailBrandingSettings({ agencyId, initial }: { agencyId: string;
   const [domain, setDomain] = useState<DomainView | null>(null);
   const [domainLoaded, setDomainLoaded] = useState(false);
   const [newDomain, setNewDomain] = useState("");
-  const [busy, setBusy] = useState<"add" | "verify" | "remove" | null>(null);
+  const [busy, setBusy] = useState<"add" | "verify" | "remove" | "test" | null>(null);
 
   const loadDomain = useCallback(async () => {
     try {
@@ -137,6 +137,22 @@ export function EmailBrandingSettings({ agencyId, initial }: { agencyId: string;
       toast.success("Sending domain removed.");
     } catch (err) {
       toast.error((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // Sends a real email through the same path scheduled reports use, so the
+  // result reflects what clients would actually receive.
+  async function sendTest() {
+    setBusy("test");
+    try {
+      const res = await fetch("/api/email/test", { method: "POST" });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error ?? "Couldn't send the test email");
+      toast[body.whiteLabel ? "success" : "info"](body.message, { duration: 8000 });
+    } catch (err) {
+      toast.error((err as Error).message, { duration: 8000 });
     } finally {
       setBusy(null);
     }
@@ -276,7 +292,15 @@ export function EmailBrandingSettings({ agencyId, initial }: { agencyId: string;
           )}
         </div>
 
-        <div className="flex justify-end border-t border-slate-100 pt-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+          <div>
+            <Button variant="outline" onClick={sendTest} disabled={busy !== null}>
+              {busy === "test" ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />} Send test email
+            </Button>
+            <p className="mt-1.5 text-xs text-ink-400">
+              Sends a branded sample to your own address using these exact settings — save first if you&apos;ve made changes.
+            </p>
+          </div>
           <Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save email settings"}</Button>
         </div>
       </CardContent>
