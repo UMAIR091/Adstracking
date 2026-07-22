@@ -34,6 +34,84 @@ export type ReportEmailArgs = {
   footerText?: string | null;
 };
 
+// ── Subscription welcome ─────────────────────────────────────
+// Sent by the Paddle webhook when an agency's subscription first activates.
+// This one is ReportFlow → agency (our own customer), so platform branding is
+// correct here — unlike report emails, which are agency → their client and
+// must stay white-label.
+export type WelcomeEmailArgs = {
+  agencyName: string | null;
+  planName: string;
+  interval: "monthly" | "annual" | null;
+  maxClients: number | null;
+  /** ISO date of the next charge / trial conversion. */
+  renewsAt: string | null;
+  trial: boolean;
+  trialDays: number;
+  dashboardUrl: string;
+  billingUrl: string;
+};
+
+function fmtDay(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? null : d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+}
+
+export function welcomeEmailHtml(a: WelcomeEmailArgs): string {
+  const color = "#4f46e5";
+  const hi = a.agencyName ? `Hi ${esc(a.agencyName)},` : "Hi,";
+  const day = fmtDay(a.renewsAt);
+  const cycle = a.interval === "annual" ? "annually" : a.interval === "monthly" ? "monthly" : null;
+
+  const heading = a.trial ? `Your ${a.trialDays}-day free trial has started` : `Your ${esc(a.planName)} plan is active`;
+  const renewalLine = a.trial
+    ? `Your trial runs for ${a.trialDays} days${day ? ` — your first charge is on ${day}` : ""}. Cancel any time before then from your billing page and you won't be charged.`
+    : day && cycle
+      ? `You're billed ${cycle}; your next renewal is ${day}. Manage or cancel any time from your billing page.`
+      : `Manage or cancel any time from your billing page.`;
+
+  const features = [
+    a.maxClients ? `Up to ${a.maxClients} active clients` : null,
+    "Unlimited integrations & reports",
+    "AI insights on every report",
+    "Full white-label branding, PDF exports & scheduled delivery",
+  ].filter(Boolean) as string[];
+
+  return `<!doctype html>
+<html lang="en">
+  <body style="margin:0;padding:0;background:#f4f6f8;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:36px 12px;">
+      <tr><td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e9edf2;">
+          <tr><td style="background:${color};padding:22px 32px;"><span style="font-size:18px;font-weight:700;color:#ffffff;">ReportFlow</span></td></tr>
+          <tr><td style="padding:32px;">
+            <h1 style="margin:0 0 14px;font-size:20px;line-height:1.35;color:#0f172a;">${heading}</h1>
+            <p style="margin:0 0 8px;font-size:15px;color:#0f172a;font-weight:600;">${hi}</p>
+            <p style="margin:0 0 18px;font-size:15px;line-height:1.65;color:#334155;">
+              Thanks for choosing ReportFlow. Everything is unlocked and ready:
+            </p>
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
+              ${features.map((f) => `<tr><td style="padding:3px 0;font-size:14px;color:#334155;">✓&nbsp; ${esc(f)}</td></tr>`).join("")}
+            </table>
+            <p style="margin:0 0 22px;font-size:13px;line-height:1.6;color:#64748b;">${renewalLine}</p>
+            <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:10px;background:${color};">
+              <a href="${esc(a.dashboardUrl)}" style="display:inline-block;padding:13px 26px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">Open your dashboard</a>
+            </td></tr></table>
+            <p style="margin:16px 0 0;font-size:13px;color:#64748b;">
+              Billing details, invoices and plan changes live at <a href="${esc(a.billingUrl)}" style="color:${color};font-weight:600;text-decoration:none;">your billing page</a>.
+            </p>
+          </td></tr>
+          <tr><td style="padding:18px 32px;border-top:1px solid #eef1f5;">
+            <p style="margin:0;font-size:12px;line-height:1.7;color:#94a3b8;">ReportFlow · white-label client reporting on autopilot<br/>Questions? Just reply to this email.</p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+}
+
 export function reportEmailHtml(args: ReportEmailArgs): string {
   const color = safeColor(args.brandColor);
   const agency = esc(args.agencyName || "Your Agency");

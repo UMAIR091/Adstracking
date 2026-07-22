@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EventEntity } from "@paddle/paddle-node-sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { planForPrice } from "@/lib/billing/config";
+import { planForPrice, planName, getPlan, PAID_TRIAL_DAYS, type PlanId } from "@/lib/billing/config";
+import { emailConfigured, sendEmailWithRetry, welcomeEmailHtml } from "@/lib/email";
 import {
   verifyWebhook,
   webhookConfigured,
@@ -94,6 +95,14 @@ async function syncSubscription(admin: SupabaseClient, sub: SubscriptionLike): P
     return { ok: true, ignored: "unattributed subscription" };
   }
 
+  // Previous state, read before the write: it decides whether this event is a
+  // first activation (welcome email) or just a lifecycle update.
+  const { data: prevRow } = await admin
+    .from("subscriptions")
+    .select("status")
+    .eq("agency_id", agencyId)
+    .maybeSingle();
+
   const mapped = facts.priceId ? planForPrice(facts.priceId) : null;
 
   const row: Record<string, unknown> = {
@@ -134,7 +143,7 @@ async function syncSubscription(admin: SupabaseClient, sub: SubscriptionLike): P
   if (facts.status === "on_trial") {
     await recordTrialGrant(admin, {
       agencyId,
-      email: await agencyEmail(admin, agencyId),
+      email: (await agencyContact(admin, agencyId)).email,
       plan: (row.plan as string | undefined) ?? null,
       interval: (row.billing_interval as string | undefined) ?? null,
       customerId: facts.customerId,
@@ -142,20 +151,91 @@ async function syncSubscription(admin: SupabaseClient, sub: SubscriptionLike): P
     });
   }
 
+  // First activation → welcome email. "First" means the row didn't exist or
+  // was inactive; a past_due→active recovery or plan change never re-welcomes.
+  // The prev-status guard also makes webhook replays a no-op, since after the
+  // first processing the stored status is already active/on_trial.
+  if ((facts.status === "active" || facts.status === "on_trial") && (!prevRow || prevRow.status === "inactive")) {
+    await sendWelcomeEmail(admin, {
+      agencyId,
+      plan: (row.plan as string | null) ?? null,
+      interval: (row.billing_interval as string | null) ?? null,
+      trial: facts.status === "on_trial",
+      renewsAt: facts.trialEndsAt ?? facts.currentPeriodEnd,
+    });
+  }
+
   return { ok: true };
 }
 
-// The email a trial grant is bound to: the agency owner's. Read from the
-// agency's contact email, falling back to the auth user's address.
-async function agencyEmail(admin: SupabaseClient, agencyId: string): Promise<string | null> {
-  const { data } = await admin.from("agencies").select("contact_email, owner_id").eq("id", agencyId).maybeSingle();
+// The agency's reachable identity: contact email (falling back to the auth
+// owner's address) plus display name. Used for trial grants + welcome email.
+async function agencyContact(admin: SupabaseClient, agencyId: string): Promise<{ email: string | null; name: string | null }> {
+  const { data } = await admin.from("agencies").select("name, contact_email, owner_id").eq("id", agencyId).maybeSingle();
+  const name = (data?.name as string | null) ?? null;
   const contact = (data?.contact_email as string | null) ?? null;
-  if (contact) return contact;
+  if (contact) return { email: contact, name };
 
   const ownerId = data?.owner_id as string | undefined;
-  if (!ownerId) return null;
+  if (!ownerId) return { email: null, name };
   const { data: userRes } = await admin.auth.admin.getUserById(ownerId);
-  return userRes?.user?.email ?? null;
+  return { email: userRes?.user?.email ?? null, name };
+}
+
+// ── Welcome email ────────────────────────────────────────────
+// ReportFlow → agency, sent once when their subscription first activates.
+// Complements (never replaces) Paddle's receipt — Paddle is merchant of record
+// and owns the tax invoice; this is the product's own onboarding touch.
+// Best-effort: a mail failure must never fail the webhook that grants access.
+async function sendWelcomeEmail(
+  admin: SupabaseClient,
+  args: { agencyId: string; plan: string | null; interval: string | null; trial: boolean; renewsAt: string | null }
+): Promise<void> {
+  try {
+    if (!emailConfigured()) return;
+    const { email, name } = await agencyContact(admin, args.agencyId);
+    if (!email) {
+      console.warn(`Welcome email skipped for agency ${args.agencyId}: no contact email`);
+      return;
+    }
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tryreportflow.com";
+    const planNm = planName(args.plan);
+    const subject = args.trial
+      ? `Your ReportFlow trial has started`
+      : `Welcome to ReportFlow ${planNm}`;
+
+    const html = welcomeEmailHtml({
+      agencyName: name,
+      planName: planNm,
+      interval: args.interval === "annual" || args.interval === "monthly" ? args.interval : null,
+      maxClients: args.plan ? getPlan(args.plan as PlanId)?.limits.maxClients ?? null : null,
+      renewsAt: args.renewsAt,
+      trial: args.trial,
+      trialDays: PAID_TRIAL_DAYS,
+      dashboardUrl: `${appUrl}/dashboard`,
+      billingUrl: `${appUrl}/dashboard/billing`,
+    });
+
+    const from = (process.env.EMAIL_FROM ?? "").trim();
+    const { id, attempts } = await sendEmailWithRetry({ from, to: email, subject, html }, 2);
+
+    const fromEmail = (from.match(/<([^>]+)>/)?.[1] ?? from).trim();
+    await admin.from("email_logs").insert({
+      agency_id: args.agencyId,
+      report_id: null,
+      to_email: email,
+      subject,
+      status: "sent",
+      provider_id: id,
+      attempts,
+      from_email: fromEmail,
+      from_domain: fromEmail.slice(fromEmail.lastIndexOf("@") + 1).toLowerCase(),
+      sent_at: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error(`Welcome email failed for agency ${args.agencyId}: ${(err as Error).message}`);
+  }
 }
 
 // ── transaction.completed ────────────────────────────────────
@@ -216,6 +296,20 @@ async function recordPayment(admin: SupabaseClient, tx: TransactionLike): Promis
 
   const { error } = await admin.from("subscriptions").upsert(row, { onConflict: "agency_id" });
   if (error) throw new Error(error.message);
+
+  // When this event performs the first activation (it usually beats
+  // subscription.created), the welcome email goes out here; the later
+  // subscription event then sees an active row and skips it. Recovery from
+  // past_due/unpaid is deliberately not a "welcome".
+  if (row.status === "active" && (!existing || existing.status === "inactive")) {
+    await sendWelcomeEmail(admin, {
+      agencyId,
+      plan: mapped?.plan ?? null,
+      interval: mapped?.interval ?? null,
+      trial: false,
+      renewsAt: null,
+    });
+  }
 
   return { ok: true };
 }
