@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserAndAgency } from "@/lib/agency";
-import { billingConfigured, findPrice, findTrialPrice, PAID_TRIAL_DAYS, type BillingInterval, type PlanId } from "@/lib/billing/config";
+import { billingConfigured, findPrice, findTrialPrice, trialPricingConfigured, PAID_TRIAL_DAYS, type BillingInterval, type PlanId } from "@/lib/billing/config";
 import { createCheckoutSession, PaddleError } from "@/lib/billing/paddle";
 import { checkTrialEligibility } from "@/lib/billing/trial";
 
@@ -17,7 +17,16 @@ const INTERVALS: BillingInterval[] = ["monthly", "annual"];
 export async function GET() {
   const { user, agency } = await getCurrentUserAndAgency().catch(() => ({ user: null, agency: null }));
   return NextResponse.json(
-    { authenticated: Boolean(user && agency), configured: billingConfigured() },
+    {
+      authenticated: Boolean(user && agency),
+      configured: billingConfigured(),
+      // Whether trial-enabled prices are configured in this runtime. Public
+      // and harmless (a boolean, no ids) — and the only direct way to see
+      // what the deployed environment actually resolves, which matters
+      // because static pages bake this at build time where it can't be
+      // observed after the fact.
+      trialConfigured: trialPricingConfigured(),
+    },
     { headers: { "Cache-Control": "no-store" } }
   );
 }
