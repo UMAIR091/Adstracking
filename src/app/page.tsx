@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Brand } from "@/components/Brand";
 import { getPlanPricing, headlineSavingPct, type PlanPricing } from "@/lib/billing/prices";
+import { PAID_TRIAL_DAYS } from "@/lib/billing/config";
 import { SiteFooter } from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
@@ -634,6 +635,7 @@ export default async function LandingPage() {
               annualPerMonth: plan.annualPerMonth?.formatted ?? null,
               clients: `Up to ${plan.maxClients} active client${plan.maxClients === 1 ? "" : "s"}`,
               featured: plan.id === "pro",
+              trialAvailable: plan.trialAvailable,
             })).map((p) => (
               <div
                 key={p.name}
@@ -667,7 +669,9 @@ export default async function LandingPage() {
                       : "border border-slate-200 text-ink-700 hover:bg-slate-50"
                   }`}
                 >
-                  Start 7-day free trial
+                  {/* Paid plans carry the Paddle-backed trial; the length is
+                      claimed only when the trial price actually exists. */}
+                  {p.trialAvailable ? `Start ${PAID_TRIAL_DAYS}-day free trial` : `Choose ${p.name}`}
                 </Link>
               </div>
             ))}
