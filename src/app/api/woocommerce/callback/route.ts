@@ -49,21 +49,23 @@ export async function POST(req: Request) {
     const displayName = await getWooStoreName(storeUrl, consumer_key, consumer_secret);
     const config = wooConfig(storeUrl, displayName);
 
-    // Replace any existing WooCommerce source for this client.
-    await supabase.from("data_sources").delete().eq("client_id", clientId).eq("type", "woocommerce");
+    // Atomic reconnect: UPSERT on (client_id, type) — see migration 0023.
     const { data: inserted, error } = await supabase
       .from("data_sources")
-      .insert({
-        agency_id: client.agency_id,
-        client_id: clientId,
-        type: "woocommerce",
-        display_name: displayName,
-        config,
-        access_token: encrypt(packWooToken(consumer_key, consumer_secret)),
-        refresh_token: null, // key pairs don't rotate — revocation = reconnect
-        token_expires_at: new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000).toISOString(),
-        status: "connected",
-      })
+      .upsert(
+        {
+          agency_id: client.agency_id,
+          client_id: clientId,
+          type: "woocommerce",
+          display_name: displayName,
+          config,
+          access_token: encrypt(packWooToken(consumer_key, consumer_secret)),
+          refresh_token: null, // key pairs don't rotate — revocation = reconnect
+          token_expires_at: new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000).toISOString(),
+          status: "connected",
+        },
+        { onConflict: "client_id,type" }
+      )
       .select("id, agency_id, type, config, access_token, refresh_token, token_expires_at")
       .single();
     if (error) throw new Error(error.message);

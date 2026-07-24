@@ -20,6 +20,11 @@ export async function GET(req: Request) {
   const admin = createAdminClient();
   try {
     const { claimed, synced, failed } = await runSyncBatch(admin, batchSize());
+
+    // Best-effort housekeeping: drop expired rate-limit buckets so the table
+    // stays small. Never affects the response.
+    admin.rpc("purge_rate_limits").then(() => {}, () => {});
+
     return NextResponse.json({ ok: true, batch: batchSize(), claimed, synced, failed });
   } catch (err) {
     // Per-source failures are already logged inside syncDataSource; this catches

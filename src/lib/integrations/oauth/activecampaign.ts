@@ -7,7 +7,7 @@
 // Metrics normalize into the shared EmailReport (EmailAnalytics), the same shape
 // Mailchimp and Klaviyo fill — no new visualization code.
 import type { IntegrationAccount } from "../types";
-import { assertPublicUrl } from "@/lib/ssrf";
+import { safeFetch } from "@/lib/ssrf";
 import { dayRange, ratio, withRetry, type EmailCampaign, type EmailDay, type EmailReport, type EmailTotals } from "../metrics";
 
 function pack(apiKey: string, apiUrl: string): string {
@@ -28,10 +28,10 @@ function normalizeUrl(input: string): string {
 
 async function acGet<T>(stored: string, path: string, params?: Record<string, string>): Promise<T> {
   const { apiKey, apiUrl } = unpack(stored);
-  await assertPublicUrl(apiUrl); // SSRF guard: block internal/metadata addresses
+  // SSRF-safe: validates the API URL, pins the resolved IP, re-checks redirects.
   return withRetry(async () => {
     const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
-    const res = await fetch(`${apiUrl}/api/3${path}${qs}`, {
+    const res = await safeFetch(`${apiUrl}/api/3${path}${qs}`, {
       headers: { "Api-Token": apiKey, Accept: "application/json" },
     });
     if (res.status === 429) throw new Error("ActiveCampaign rate limit (429)");

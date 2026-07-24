@@ -6,7 +6,11 @@
 // so every request is checked — this also blunts DNS-rebinding (a host that
 // resolved to a public IP at connect time but flips to a private one later).
 import dns from "node:dns/promises";
+import dnsCb from "node:dns";
 import net from "node:net";
+import http from "node:http";
+import https from "node:https";
+import type { IncomingHttpHeaders } from "node:http";
 
 function ipv4ToInt(ip: string): number {
   const p = ip.split(".").map(Number);
@@ -87,4 +91,108 @@ export async function assertPublicUrl(rawUrl: string): Promise<void> {
   if (!addrs.length || addrs.some((a) => isPrivateIP(a.address))) {
     throw new Error(PRIVATE_MSG);
   }
+}
+
+// ─────────────────────────────────────────────────────────────
+// safeFetch — the fetch every tenant-supplied URL MUST go through.
+//
+// assertPublicUrl alone leaves two holes that a determined attacker uses:
+//   1. Redirects: a public URL can 30x to http://169.254.169.254 and the
+//      default fetch follows it without re-checking.
+//   2. DNS rebinding: the host resolves public during the pre-flight check, then
+//      flips to a private IP by the time the socket actually connects (TOCTOU).
+//
+// safeFetch closes both:
+//   • redirects are handled manually — every hop is re-validated with
+//     assertPublicUrl before it is followed (bounded by maxRedirects);
+//   • a custom DNS `lookup` runs at ACTUAL connect time and rejects private
+//     addresses there, so a rebind between check and connect is caught on the
+//     socket. TLS still validates against the real hostname (we resolve, we
+//     don't rewrite the URL to an IP), so certificates keep working.
+// ─────────────────────────────────────────────────────────────
+
+export type SafeFetchInit = {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  timeoutMs?: number;
+  maxRedirects?: number;
+};
+
+// Node lookup that rejects private/reserved IPs at connect time (closes DNS
+// rebinding). Mirrors the addresses back in whatever shape the caller asked for.
+function guardedLookup(
+  hostname: string,
+  options: dnsCb.LookupOptions,
+  callback: (err: NodeJS.ErrnoException | null, address: string | dnsCb.LookupAddress[], family?: number) => void
+): void {
+  dnsCb.lookup(hostname, { ...options, all: true }, (err, addresses) => {
+    if (err) return callback(err, "", 4);
+    const list = (addresses as dnsCb.LookupAddress[]) ?? [];
+    for (const a of list) {
+      if (isPrivateIP(a.address)) return callback(new Error(PRIVATE_MSG), "", a.family);
+    }
+    const first = list[0];
+    if (!first) return callback(new Error("Could not resolve the host for this URL."), "", 4);
+    if (options.all) callback(null, list);
+    else callback(null, first.address, first.family);
+  });
+}
+
+type RawResponse = { status: number; statusText: string; headers: IncomingHttpHeaders; body: Buffer };
+
+function requestOnce(urlStr: string, init: SafeFetchInit): Promise<RawResponse> {
+  return new Promise((resolve, reject) => {
+    const u = new URL(urlStr);
+    const mod = u.protocol === "http:" ? http : https;
+    const req = mod.request(
+      u,
+      { method: init.method ?? "GET", headers: init.headers, lookup: guardedLookup },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () =>
+          resolve({
+            status: res.statusCode ?? 0,
+            statusText: res.statusMessage ?? "",
+            headers: res.headers,
+            body: Buffer.concat(chunks),
+          })
+        );
+      }
+    );
+    req.setTimeout(init.timeoutMs ?? 10_000, () => req.destroy(new Error("The request timed out.")));
+    req.on("error", reject);
+    if (init.body) req.write(init.body);
+    req.end();
+  });
+}
+
+// Convert Node headers into a fetch Headers object (arrays flattened; set-cookie
+// dropped — irrelevant for server-to-server data fetches and safest not to echo).
+function toHeaders(h: IncomingHttpHeaders): Headers {
+  const out = new Headers();
+  for (const [k, v] of Object.entries(h)) {
+    if (v === undefined || k.toLowerCase() === "set-cookie") continue;
+    out.set(k, Array.isArray(v) ? v.join(", ") : v);
+  }
+  return out;
+}
+
+// SSRF-safe fetch. Returns a standard Response, so callers use res.ok / res.json
+// / res.headers exactly as before. Throws PRIVATE_MSG if any hop resolves to a
+// private address.
+export async function safeFetch(rawUrl: string, init: SafeFetchInit = {}): Promise<Response> {
+  const maxRedirects = init.maxRedirects ?? 3;
+  let current = rawUrl;
+  for (let hop = 0; hop <= maxRedirects; hop++) {
+    await assertPublicUrl(current);
+    const r = await requestOnce(current, init);
+    if (r.status >= 300 && r.status < 400 && r.headers.location) {
+      current = new URL(r.headers.location, current).toString();
+      continue; // re-validated at the top of the next iteration
+    }
+    return new Response(r.body, { status: r.status, statusText: r.statusText, headers: toHeaders(r.headers) });
+  }
+  throw new Error("Too many redirects.");
 }

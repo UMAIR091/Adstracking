@@ -5,6 +5,7 @@ import { encrypt } from "@/lib/crypto";
 import { syncDataSource, type SyncableSource } from "@/lib/sync";
 import { getIntegration } from "@/lib/integrations/registry";
 import { logError } from "@/lib/errorLog";
+import { publicMessage } from "@/lib/errors";
 import { checkIntegrationLimit } from "@/lib/billing/limits";
 
 export const runtime = "nodejs";
@@ -47,20 +48,23 @@ export async function POST(req: Request) {
     const { displayName, token, accounts } = await def.verifyApiKey(fields);
     const config = def.buildConfig(accounts);
 
-    await supabase.from("data_sources").delete().eq("client_id", clientId).eq("type", def.id);
+    // Atomic reconnect via UPSERT on (client_id, type) — see migration 0023.
     const { data: inserted, error } = await supabase
       .from("data_sources")
-      .insert({
-        agency_id: agency.id,
-        client_id: clientId,
-        type: def.id,
-        display_name: displayName,
-        config,
-        access_token: encrypt(token),
-        refresh_token: null, // api keys don't rotate — revocation = reconnect
-        token_expires_at: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString(),
-        status: "connected",
-      })
+      .upsert(
+        {
+          agency_id: agency.id,
+          client_id: clientId,
+          type: def.id,
+          display_name: displayName,
+          config,
+          access_token: encrypt(token),
+          refresh_token: null, // api keys don't rotate — revocation = reconnect
+          token_expires_at: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString(),
+          status: "connected",
+        },
+        { onConflict: "client_id,type" }
+      )
       .select("id, agency_id, type, config, access_token, refresh_token, token_expires_at")
       .single();
     if (error) throw new Error(error.message);
@@ -68,8 +72,10 @@ export async function POST(req: Request) {
     if (def.readSelected?.(config)) await syncDataSource(supabase, inserted as SyncableSource);
     return NextResponse.redirect(`${base}/dashboard/clients/${clientId}?connected=${def.id}`);
   } catch (err) {
-    // Invalid key, provider verification failure, or storage error.
+    // Invalid key, provider verification failure, or storage error. Log the raw
+    // detail; show the user a safe message (an invalid-key message is surfaced
+    // verbatim by publicMessage's allowlist; internals are masked).
     await logError({ context: "api_route", agencyId: agency.id, provider: def.id, message: (err as Error).message });
-    return fail((err as Error).message);
+    return fail(publicMessage(err, `Couldn't connect ${def.name}. Check your details and try again.`, { provider: def.id }));
   }
 }

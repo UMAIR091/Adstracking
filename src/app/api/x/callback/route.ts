@@ -60,20 +60,23 @@ export async function GET(req: Request) {
     const [identity, accounts] = await Promise.all([xIdentity(stored), listXAdsAccounts(stored)]);
     const config = def.buildConfig(accounts);
 
-    await supabase.from("data_sources").delete().eq("client_id", saved.clientId).eq("type", def.id);
+    // Atomic reconnect: UPSERT on (client_id, type) — see migration 0023.
     const { data: inserted, error } = await supabase
       .from("data_sources")
-      .insert({
-        agency_id: agency.id,
-        client_id: saved.clientId,
-        type: def.id,
-        display_name: identity,
-        config,
-        access_token: encrypt(stored),
-        refresh_token: null, // 1.0a tokens are permanent — nothing to refresh
-        token_expires_at: new Date(Date.now() + HUNDRED_YEARS_MS).toISOString(),
-        status: "connected",
-      })
+      .upsert(
+        {
+          agency_id: agency.id,
+          client_id: saved.clientId,
+          type: def.id,
+          display_name: identity,
+          config,
+          access_token: encrypt(stored),
+          refresh_token: null, // 1.0a tokens are permanent — nothing to refresh
+          token_expires_at: new Date(Date.now() + HUNDRED_YEARS_MS).toISOString(),
+          status: "connected",
+        },
+        { onConflict: "client_id,type" }
+      )
       .select("id, agency_id, type, config, access_token, refresh_token, token_expires_at")
       .single();
     if (error) throw new Error(error.message);

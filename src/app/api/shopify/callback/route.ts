@@ -54,21 +54,24 @@ export async function GET(req: Request) {
     const displayName = await getShopName(shop, tokens.access_token);
     const config = { accounts: [{ id: shop, name: displayName }], account_id: shop };
 
-    // Replace any existing Shopify source for this client (same as the generic flow).
-    await supabase.from("data_sources").delete().eq("client_id", clientId).eq("type", "shopify");
+    // Atomic reconnect: UPSERT on (client_id, type) replaces any existing Shopify
+    // source in one statement (no delete-then-insert window). See migration 0023.
     const { data: inserted, error } = await supabase
       .from("data_sources")
-      .insert({
-        agency_id: agency.id,
-        client_id: clientId,
-        type: "shopify",
-        display_name: displayName,
-        config,
-        access_token: encrypt(tokens.access_token),
-        refresh_token: null, // offline tokens don't rotate — revocation = reconnect
-        token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-        status: "connected",
-      })
+      .upsert(
+        {
+          agency_id: agency.id,
+          client_id: clientId,
+          type: "shopify",
+          display_name: displayName,
+          config,
+          access_token: encrypt(tokens.access_token),
+          refresh_token: null, // offline tokens don't rotate — revocation = reconnect
+          token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+          status: "connected",
+        },
+        { onConflict: "client_id,type" }
+      )
       .select("id, agency_id, type, config, access_token, refresh_token, token_expires_at")
       .single();
     if (error) throw new Error(error.message);

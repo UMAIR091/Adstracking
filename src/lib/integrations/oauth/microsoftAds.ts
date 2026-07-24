@@ -299,7 +299,6 @@ function userIdFromGetUser(xml: string): string | undefined {
 export async function listMicrosoftAdsAccounts(accessToken: string, provider?: string): Promise<IntegrationAccount[]> {
   const userXml = await soapCall(CUSTOMER_MGMT, CM_NS, "GetUser", accessToken, "", `<GetUserRequest xmlns="${CM_NS}"><UserId i:nil="true"/></GetUserRequest>`, provider);
   const userId = userIdFromGetUser(userXml);
-  console.log("[oauth-debug] ms-ads:getuser", JSON.stringify({ provider: provider ?? null, userId: userId ?? null }));
   if (!userId) throw new Error("Couldn't read the Microsoft Ads user.");
 
   const searchBody =

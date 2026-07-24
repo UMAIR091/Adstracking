@@ -4,6 +4,8 @@ import { getCurrentUserAndAgency } from "@/lib/agency";
 import { requireActiveAccess } from "@/lib/billing/subscription";
 import { emailConfigured } from "@/lib/email";
 import { deliverReport } from "@/lib/delivery";
+import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
+import { publicError } from "@/lib/errors";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -13,6 +15,10 @@ export const maxDuration = 60;
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const { user, agency } = await getCurrentUserAndAgency();
   if (!user || !agency) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Bound per workspace: renders a PDF + sends email (cost + anti-spam).
+  const rl = await rateLimit(`report-send:${agency.id}`, { limit: 30, windowSeconds: 60 });
+  if (!rl.allowed) return tooManyRequests(rl.windowSeconds);
 
   if (!emailConfigured()) {
     return NextResponse.json({ error: "Email isn't configured yet. Add RESEND_API_KEY and EMAIL_FROM, then try again." }, { status: 400 });
@@ -54,6 +60,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     report: { id: report.id, title: report.title, shareToken: report.share_token, data: report.data, period: { start: report.period_start as string, end: report.period_end as string } },
   });
 
-  if (!result.ok) return NextResponse.json({ error: result.error }, { status: 502 });
+  if (!result.ok) {
+    const { error } = publicError(result.error, "Couldn't send the report. Please try again.", { route: "reports_send", agencyId: agency.id });
+    return NextResponse.json({ error }, { status: 502 });
+  }
   return NextResponse.json({ ok: true, sent: result.sent });
 }

@@ -10,7 +10,7 @@
 import React from "react";
 import { Document, Page, View, Text, Font, renderToBuffer } from "@react-pdf/renderer";
 import { normalizeReportData } from "@/lib/report";
-import { assertPublicUrl } from "@/lib/ssrf";
+import { safeFetch } from "@/lib/ssrf";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import { makeStyles, safeColor, tint, tones, seriesColors, ink, up, down, type Tone } from "./theme";
 import { fmt, pct1, fmtDate, deltaPct, deltaLabel, pagePathOf } from "./format";
@@ -511,11 +511,8 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
 async function fetchLogoDataUri(url: string | null | undefined): Promise<string | null> {
   if (!url || !/^https?:\/\//i.test(url)) return null;
   try {
-    await assertPublicUrl(url);
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 3500);
-    const res = await fetch(url, { signal: ctrl.signal, redirect: "manual" });
-    clearTimeout(timer);
+    // SSRF-safe: IP-pinned at connect time + per-hop redirect validation.
+    const res = await safeFetch(url, { timeoutMs: 3500 });
     if (!res.ok) return null;
     const ct = (res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
     if (ct !== "image/png" && ct !== "image/jpeg" && ct !== "image/jpg") return null;

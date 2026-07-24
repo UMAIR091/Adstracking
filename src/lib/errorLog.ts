@@ -12,6 +12,7 @@
 // Failures here are swallowed on purpose: monitoring must never take down the
 // path it's monitoring.
 import { createAdminClient } from "@/lib/supabase/admin";
+import { captureException } from "@/lib/monitoring";
 
 export type ErrorContext = "sync" | "oauth_callback" | "report" | "cron" | "api_route";
 export type ErrorType = "reauth" | "transient" | "config" | "unexpected";
@@ -62,6 +63,17 @@ export async function logError(event: ErrorEvent): Promise<void> {
     );
   } catch {
     /* logging must never throw */
+  }
+
+  // (1b) Forward genuine faults (not user-fixable reauth/config conditions) to
+  // the external monitor when one is configured. Sentry-ready, no-op otherwise.
+  if (errorType === "unexpected" || errorType === "transient") {
+    captureException(new Error(message), {
+      context: event.context,
+      provider: event.provider ?? null,
+      agencyId: event.agencyId ?? null,
+      errorType,
+    });
   }
 
   // (2) Best-effort structured history (requires an agency to scope the row).

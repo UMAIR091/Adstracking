@@ -4,6 +4,8 @@ import { getCurrentUserAndAgency } from "@/lib/agency";
 import { requireActiveAccess } from "@/lib/billing/subscription";
 import { createClientReport } from "@/lib/reportGen";
 import { logError, logRouteError } from "@/lib/errorLog";
+import { publicError } from "@/lib/errors";
+import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -11,6 +13,10 @@ export const runtime = "nodejs";
 export async function POST(req: Request) {
   const { user, agency } = await getCurrentUserAndAgency();
   if (!user || !agency) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Bound this compute + AI-heavy endpoint per workspace (well above normal use).
+  const rl = await rateLimit(`report-gen:${agency.id}`, { limit: 20, windowSeconds: 60 });
+  if (!rl.allowed) return tooManyRequests(rl.windowSeconds);
 
   const body = await req.json().catch(() => null);
   const clientId: string = body?.clientId;
@@ -36,7 +42,8 @@ export async function POST(req: Request) {
     }
     return NextResponse.json({ ok: true, id: result.id });
   } catch (err) {
-    const message = await logRouteError("report", err, { agencyId: agency.id });
-    return NextResponse.json({ error: message }, { status: 500 });
+    await logRouteError("report", err, { agencyId: agency.id });
+    const { error } = publicError(err, "Couldn't generate the report. Please try again.", { route: "reports_generate" });
+    return NextResponse.json({ error }, { status: 500 });
   }
 }

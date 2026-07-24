@@ -12,6 +12,7 @@ import { syncDataSource, type SyncableSource } from "@/lib/sync";
 import { getIntegration, getOAuthProvider } from "./registry";
 import { classifyIntegrationError } from "./errors";
 import { logError } from "@/lib/errorLog";
+import { publicMessage } from "@/lib/errors";
 import { checkIntegrationLimit } from "@/lib/billing/limits";
 import type { IntegrationConfig, IntegrationDef, OAuthProvider } from "./types";
 
@@ -65,37 +66,16 @@ export async function handleConnect(req: Request): Promise<Response> {
   cookies().set(NONCE_COOKIE, nonce, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 600, path: "/" });
 
   const authorizationUrl = oauth.authUrl(state);
-  // Debug: the callback's cookies (session + CSRF nonce) are only sent if the
-  // provider redirects back to the SAME host the user is on. Log the request
-  // host and the authorize redirect_uri host so a mismatch (e.g. a stale
-  // GOOGLE_OAUTH_REDIRECT_URI pointing at *.vercel.app) is visible in logs.
-  try {
-    const authUrlObj = new URL(authorizationUrl);
-    console.log("[oauth-debug] connect", JSON.stringify({
-      type: def.id,
-      provider: provider ?? null,
-      requestHost: url.host,
-      authorizeHost: authUrlObj.host,
-      redirectUri: authUrlObj.searchParams.get("redirect_uri"),
-      state,
-    }));
-  } catch { /* logging must never break the flow */ }
-
   return NextResponse.redirect(authorizationUrl);
 }
 
 // Handles the provider's redirect back: verifies CSRF state, then completes the
 // connection (token exchange, account listing, storage, initial sync).
 export async function handleCallback(req: Request): Promise<Response> {
-  const { searchParams, origin, host } = new URL(req.url);
+  const { searchParams, origin } = new URL(req.url);
   const code = searchParams.get("code");
   const state = searchParams.get("state");
-  console.log("[oauth-debug] callback:enter", JSON.stringify({
-    callbackHost: host, hasCode: Boolean(code), hasState: Boolean(state),
-    providerError: searchParams.get("error") ?? null,
-  }));
   const fail = (msg: string) => {
-    console.log("[oauth-debug] callback:fail", JSON.stringify({ reason: msg, redirectTo: `${origin}/dashboard/clients` }));
     // Single-use nonce: clear on failure too, so a retried/replayed callback
     // can't reuse it, and the next connect attempt starts clean.
     cookies().set(NONCE_COOKIE, "", { maxAge: 0, path: "/" });
@@ -117,10 +97,6 @@ export async function handleCallback(req: Request): Promise<Response> {
     provider = parsed.provider;
     if (!clientId || !type) return fail("Invalid state");
     const cookieNonce = cookies().get(NONCE_COOKIE)?.value;
-    console.log("[oauth-debug] callback:state", JSON.stringify({
-      resolvedType: type, provider: provider ?? null, hasClientId: Boolean(clientId),
-      nonceCookiePresent: Boolean(cookieNonce), nonceMatches: cookieNonce === parsed.nonce,
-    }));
     if (!cookieNonce || cookieNonce !== parsed.nonce) return fail("Invalid state");
   } catch {
     return fail("Invalid state");
@@ -131,13 +107,7 @@ export async function handleCallback(req: Request): Promise<Response> {
   if (!def || def.status !== "live" || !oauth) return fail("Unsupported integration");
 
   const { user, agency } = await getCurrentUserAndAgency();
-  console.log("[oauth-debug] callback:session", JSON.stringify({
-    resolvedType: type, provider: provider ?? null, userPresent: Boolean(user), agencyPresent: Boolean(agency),
-  }));
-  if (!user || !agency) {
-    console.log("[oauth-debug] callback:redirect-login", JSON.stringify({ callbackHost: host, redirectTo: `${origin}/login` }));
-    return NextResponse.redirect(`${origin}/login`);
-  }
+  if (!user || !agency) return NextResponse.redirect(`${origin}/login`);
 
   const supabase = createClient();
   const { data: client } = await supabase.from("clients").select("id").eq("id", clientId).maybeSingle();
@@ -146,10 +116,10 @@ export async function handleCallback(req: Request): Promise<Response> {
   try {
     await completeOAuthConnect(supabase, agency.id, clientId, def, oauth, code, provider);
     cookies().set(NONCE_COOKIE, "", { maxAge: 0, path: "/" });
-    console.log("[oauth-debug] callback:success", JSON.stringify({ type: def.id, provider: provider ?? null, redirectTo: `${origin}/dashboard/clients/${clientId}?connected=${def.id}` }));
     return NextResponse.redirect(`${origin}/dashboard/clients/${clientId}?connected=${def.id}`);
   } catch (err) {
-    // Token exchange / account-listing / storage failed — record it, then fail.
+    // Token exchange / account-listing / storage failed — record it, then fail
+    // with a user-safe message (raw provider/DB detail stays in the logs).
     await logError({
       context: "oauth_callback",
       agencyId: agency.id,
@@ -157,7 +127,7 @@ export async function handleCallback(req: Request): Promise<Response> {
       errorType: classifyIntegrationError(err),
       message: (err as Error).message,
     });
-    return fail((err as Error).message);
+    return fail(publicMessage(err, `Couldn't connect ${def.name}. Please try again.`, { provider: def.id }));
   }
 }
 
@@ -187,22 +157,27 @@ export async function completeOAuthConnect(
   // refresh (and any provider-specific API headers) can route correctly later.
   if (provider) (config as IntegrationConfig).identity_provider = provider;
 
-  // Replace any existing source of the same type for this client.
-  await supabase.from("data_sources").delete().eq("client_id", clientId).eq("type", def.id);
-
+  // Atomic reconnect: a single UPSERT keyed on (client_id, type) replaces any
+  // existing source of the same type in one statement (migration 0023). This
+  // removes the old delete-then-insert window where a crash between the two
+  // left the client with no source, and updates the row in place so historical
+  // snapshots stay linked instead of being cascade-deleted.
   const { data: inserted, error } = await supabase
     .from("data_sources")
-    .insert({
-      agency_id: agencyId,
-      client_id: clientId,
-      type: def.id,
-      display_name: identity,
-      config,
-      access_token: encrypt(accessToken),
-      refresh_token: tokens.refresh_token ? encrypt(tokens.refresh_token) : null,
-      token_expires_at: expiresAt,
-      status: "connected",
-    })
+    .upsert(
+      {
+        agency_id: agencyId,
+        client_id: clientId,
+        type: def.id,
+        display_name: identity,
+        config,
+        access_token: encrypt(accessToken),
+        refresh_token: tokens.refresh_token ? encrypt(tokens.refresh_token) : null,
+        token_expires_at: expiresAt,
+        status: "connected",
+      },
+      { onConflict: "client_id,type" }
+    )
     .select("id, agency_id, type, config, access_token, refresh_token, token_expires_at")
     .single();
   if (error) throw new Error(error.message);

@@ -3,7 +3,7 @@
 // unified GSC + GA4 report purely from cached snapshots — no live Google calls.
 import crypto from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { generateReportInsights } from "@/lib/ai";
+import { generateReportInsightsCached } from "@/lib/ai";
 import { trackUsage } from "@/lib/usage";
 import { checkReportLimit } from "@/lib/billing/limits";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
@@ -73,9 +73,9 @@ export async function createClientReport(
     .from("report_templates").select("name, sections").eq("key", templateKey).is("agency_id", null).maybeSingle();
 
   const unified = assembleReport(gscData, ga4Data, null);
-  const insights = await generateReportInsights(toInsightsInput(unified, client.name, `the last ${periodDays} days`));
-  // Meter AI usage: one summary per report where the AI step actually ran.
-  if (insights) await trackUsage(agencyId, "ai_summaries");
+  const { insights, cached } = await generateReportInsightsCached(toInsightsInput(unified, client.name, `the last ${periodDays} days`));
+  // Meter AI usage only when the model actually ran (a cache hit costs nothing).
+  if (insights && !cached) await trackUsage(agencyId, "ai_summaries");
   const data = assembleReport(gscData, ga4Data, insights);
   const period = reportPeriod({ gsc: gscData, ga4: ga4Data }, { start: isoDaysAgo(periodDays + 2), end: isoDaysAgo(2) });
   const title = `${client.name} — ${template?.name ?? "Performance Report"}`;

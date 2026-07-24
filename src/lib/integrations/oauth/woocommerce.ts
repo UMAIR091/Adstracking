@@ -7,7 +7,7 @@
 // the same everywhere. No app-level credentials are needed, so it's always live.
 import type { IntegrationAccount, OAuthProvider, TokenSet } from "../types";
 import { encrypt, decrypt } from "@/lib/crypto";
-import { assertPublicUrl } from "@/lib/ssrf";
+import { safeFetch } from "@/lib/ssrf";
 import { isoDay, ratio, withRetry, type CommerceDay, type CommerceReport, type CommerceTotals } from "../metrics";
 
 const API_VERSION = "wc/v3";
@@ -91,9 +91,10 @@ function authHeader(consumerKey: string, consumerSecret: string): string {
 async function wooGet<T>(
   storeUrl: string, consumerKey: string, consumerSecret: string, path: string
 ): Promise<{ body: T; totalPages: number }> {
-  await assertPublicUrl(storeUrl); // SSRF guard: never let a store URL reach an internal address
+  // SSRF-safe: validates the store URL, pins the resolved IP at connect time,
+  // and re-checks every redirect hop (blocks rebinding + redirect-to-internal).
   return withRetry(async () => {
-    const res = await fetch(`${storeUrl}/wp-json/${API_VERSION}${path}`, {
+    const res = await safeFetch(`${storeUrl}/wp-json/${API_VERSION}${path}`, {
       headers: { Authorization: authHeader(consumerKey, consumerSecret), Accept: "application/json" },
     });
     if (res.status === 429) throw new Error("WooCommerce rate limit (429)"); // withRetry backs off
@@ -112,8 +113,7 @@ export async function getWooStoreName(storeUrl: string, consumerKey: string, con
   // A cheap authenticated call to confirm the keys are valid (throws otherwise).
   await wooGet(storeUrl, consumerKey, consumerSecret, "/orders?per_page=1&_fields=id");
   try {
-    await assertPublicUrl(storeUrl); // SSRF guard on the unauthenticated store-name probe
-    const res = await fetch(`${storeUrl}/wp-json`, { headers: { Accept: "application/json" } });
+    const res = await safeFetch(`${storeUrl}/wp-json`, { headers: { Accept: "application/json" } }); // SSRF-safe probe
     const data = (await res.json().catch(() => ({}))) as { name?: string };
     const host = new URL(storeUrl).host;
     return data.name ? `${data.name} (${host})` : host;

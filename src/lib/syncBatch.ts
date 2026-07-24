@@ -51,17 +51,19 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-// Claims the N stalest syncable sources. NULLS FIRST means never-synced sources
-// are picked up before anything else. Uses the admin client (the cron has no
-// user session); every row still carries its agency_id, so downstream writes
-// stay tenant-scoped and no data crosses agencies.
+// Atomically claims the N stalest syncable sources via the claim_sync_batch RPC
+// (migration 0024): FOR UPDATE SKIP LOCKED selects the stalest rows AND stamps
+// last_sync_attempt_at = now() in one statement. This makes overlapping cron
+// runs (or cron + a manual trigger) claim DISJOINT sets instead of the same
+// rows — no double-processing, no double-metering — while preserving fair
+// rotation (a claimed row sorts to the back immediately). Uses the admin client
+// (the cron has no user session); every row still carries its agency_id, so
+// downstream writes stay tenant-scoped and no data crosses agencies.
 export async function claimSyncBatch(admin: SupabaseClient, limit: number): Promise<SyncableSource[]> {
-  const { data, error } = await admin
-    .from("data_sources")
-    .select("id, agency_id, client_id, type, config, access_token, refresh_token, token_expires_at")
-    .in("type", syncableTypes())
-    .order("last_sync_attempt_at", { ascending: true, nullsFirst: true })
-    .limit(limit);
+  const { data, error } = await admin.rpc("claim_sync_batch", {
+    p_types: syncableTypes(),
+    p_limit: limit,
+  });
   if (error) throw new Error(error.message);
   return (data ?? []) as SyncableSource[];
 }

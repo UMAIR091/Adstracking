@@ -3,8 +3,10 @@
 //
 // Adding a provider: implement AIProvider (see ./providers/anthropic.ts),
 // register it in PROVIDERS below, and select it at runtime with AI_PROVIDER.
+import crypto from "node:crypto";
 import { AnthropicProvider } from "./providers/anthropic";
 import { SYSTEM, SCHEMA, buildPrompt } from "./prompt";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { AIProvider, InsightsInput, ReportInsights } from "./types";
 
 export type { InsightsInput, ReportInsights, Totals } from "./types";
@@ -53,4 +55,36 @@ export async function generateReportInsights(input: InsightsInput): Promise<Repo
     console.error("AI insights generation failed:", (err as Error).message);
     return null;
   }
+}
+
+// Cache-aware wrapper (audit #11). The model input is deterministic in the
+// cached snapshot, so re-generating a report whose data hasn't changed (e.g. a
+// schedule re-running before the next sync) would spend tokens for an identical
+// answer. Keyed on a hash of the exact model input. Returns `cached` so callers
+// meter AI usage only when the model actually ran. Best-effort: any cache error
+// falls back to a live generation.
+export async function generateReportInsightsCached(
+  input: InsightsInput
+): Promise<{ insights: ReportInsights | null; cached: boolean }> {
+  if (!getProvider().isConfigured()) return { insights: null, cached: false };
+
+  const key = crypto.createHash("sha256").update(JSON.stringify(input)).digest("hex");
+  const admin = createAdminClient();
+
+  try {
+    const { data } = await admin.from("ai_insights_cache").select("insights").eq("cache_key", key).maybeSingle();
+    if (data?.insights) return { insights: data.insights as ReportInsights, cached: true };
+  } catch {
+    /* cache miss/unavailable — fall through to live generation */
+  }
+
+  const insights = await generateReportInsights(input);
+  if (insights) {
+    try {
+      await admin.from("ai_insights_cache").insert({ cache_key: key, insights });
+    } catch {
+      /* ignore duplicate-key races / missing table */
+    }
+  }
+  return { insights, cached: false };
 }
