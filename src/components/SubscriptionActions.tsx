@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 // Manage-billing / cancel / resume controls for an active Paddle subscription.
 // Cancellation is always end-of-period, so the copy promises exactly that.
@@ -14,11 +15,20 @@ export function SubscriptionActions({ cancelAtPeriodEnd, endsAtLabel }: {
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<"cancel" | "resume" | null>(null);
+  const confirm = useConfirm();
 
   async function run(action: "cancel" | "resume") {
-    if (action === "cancel" && !window.confirm(
-      `Cancel your subscription?\n\nYou'll keep full access${endsAtLabel ? ` until ${endsAtLabel}` : " until the end of the current billing period"}, and you won't be charged again.`
-    )) return;
+    if (
+      action === "cancel" &&
+      !(await confirm({
+        title: "Cancel your subscription?",
+        description: `You’ll keep full access${endsAtLabel ? ` until ${endsAtLabel}` : " until the end of the current billing period"}, and you won’t be charged again.`,
+        confirmLabel: "Cancel subscription",
+        cancelLabel: "Keep subscription",
+        destructive: true,
+      }))
+    )
+      return;
 
     setBusy(action);
     try {

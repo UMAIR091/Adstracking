@@ -8,6 +8,7 @@ import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 
 // Serializable plan info prepared by the server (no env access here).
@@ -45,6 +46,7 @@ export function BillingPlans({
   highlightPlan?: string;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [interval, setInterval] = useState<"monthly" | "annual">(initialInterval);
   const [busy, setBusy] = useState<string | null>(null);
   const paddleRef = useRef<Paddle | null>(null);
@@ -95,11 +97,13 @@ export function BillingPlans({
   // Existing subscribers change plan in place — Paddle swaps the price on the
   // one subscription rather than creating a second one.
   async function changePlan(planId: string, planName: string, isUpgrade: boolean) {
-    if (!window.confirm(
-      isUpgrade
-        ? `Upgrade to ${planName}? You'll be charged the prorated difference today.`
-        : `Change to ${planName}? The lower rate applies from your next renewal.`
-    )) return;
+    if (!(await confirm({
+      title: isUpgrade ? `Upgrade to ${planName}?` : `Change to ${planName}?`,
+      description: isUpgrade
+        ? "You’ll be charged the prorated difference today."
+        : "The lower rate applies from your next renewal.",
+      confirmLabel: isUpgrade ? "Upgrade" : "Change plan",
+    }))) return;
 
     setBusy(planId);
     try {
@@ -209,7 +213,7 @@ export function BillingPlans({
                           : `Choose ${p.name}`}
                     </Button>
                     {trialDays > 0 && (
-                      <p className="mt-2 text-center text-xs text-ink-400">
+                      <p className="mt-2 text-center text-xs text-ink-500">
                         Free for {trialDays} days, then {price}/{interval === "monthly" ? "month" : "year"}. Cancel
                         before it ends and you won&apos;t be charged.
                       </p>

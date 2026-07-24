@@ -74,7 +74,7 @@ export default async function DataPrivacyPage() {
                         <p className="font-medium text-ink-900">{def?.name ?? s.type}</p>
                         <Badge variant="muted">{clientName}</Badge>
                       </div>
-                      <p className="mt-1 text-xs text-ink-400">
+                      <p className="mt-1 text-xs text-ink-500">
                         {s.display_name ? `Connected as ${s.display_name} · ` : ""}
                         {s.last_synced_at
                           ? `Last synced ${formatDistanceToNow(new Date(s.last_synced_at), { addSuffix: true })}`
@@ -95,7 +95,7 @@ export default async function DataPrivacyPage() {
         <Card>
           <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5">
             <div className="flex items-start gap-3">
-              <Database size={18} className="mt-0.5 shrink-0 text-ink-400" />
+              <Database size={18} className="mt-0.5 shrink-0 text-ink-500" />
               <p className="max-w-md text-sm leading-relaxed text-ink-600">
                 To permanently delete your account and everything in it — clients, connections, snapshots, and
                 reports — email us and we&apos;ll complete it within 30 days.

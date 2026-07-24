@@ -72,12 +72,12 @@ export function LogoUpload({
       {uploading ? (
         <Loader2 className="h-6 w-6 animate-spin text-brand-500" />
       ) : (
-        <UploadCloud className="h-6 w-6 text-ink-400" />
+        <UploadCloud className="h-6 w-6 text-ink-500" />
       )}
       <p className="text-sm font-medium text-ink-700">
         {uploading ? "Uploading…" : "Upload logo"}
       </p>
-      <p className="text-xs text-ink-400">Drag & drop or click — PNG/JPG/SVG, up to 4 MB</p>
+      <p className="text-xs text-ink-500">Drag & drop or click — PNG/JPG/SVG, up to 4 MB</p>
       <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
     </div>
   );

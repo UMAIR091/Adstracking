@@ -41,7 +41,7 @@ export function SetupProgress({ steps }: { steps: SetupStep[] }) {
               {s.done
                 ? <CheckCircle2 size={15} className="flex-shrink-0 text-emerald-500" />
                 : <Circle size={15} className="flex-shrink-0 text-ink-300" />}
-              <span className={`flex-1 text-sm ${s.done ? "text-ink-400 line-through" : "text-ink-700"}`}>{s.label}</span>
+              <span className={`flex-1 text-sm ${s.done ? "text-ink-500 line-through" : "text-ink-700"}`}>{s.label}</span>
               {s === next && (
                 <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
                   Next

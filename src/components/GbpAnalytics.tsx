@@ -77,7 +77,7 @@ export function GbpAnalytics({ report }: { report: GbpReport }) {
         <Stat icon={MessageSquare} label="Conversations" value={fmtNum(t.conversations)} />
         <Stat icon={CalendarCheck} label="Bookings" value={fmtNum(t.bookings)} />
       </div>
-      <p className="text-xs text-ink-400">
+      <p className="text-xs text-ink-500">
         Business Profile data lags a few days — the window ends 3 days ago by design.
       </p>
     </div>

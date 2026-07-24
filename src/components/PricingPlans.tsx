@@ -118,7 +118,7 @@ export function PricingPlans({
           })}
         </div>
         {headlineSavingPct != null && (
-          <p className="text-xs text-ink-400" aria-live="polite">
+          <p className="text-xs text-ink-500" aria-live="polite">
             {annual
               ? `Billed once a year — save up to ${headlineSavingPct}%.`
               : `Switch to yearly billing and save up to ${headlineSavingPct}%.`}
@@ -188,9 +188,9 @@ export function PricingPlans({
                     </span>
                   )}
                   <span className="text-4xl font-semibold tracking-tight text-ink-900">{price ?? "—"}</span>
-                  <span className="text-sm text-ink-400">/mo</span>
+                  <span className="text-sm text-ink-500">/mo</span>
                 </p>
-                <p className="mt-1 text-xs text-ink-400">
+                <p className="mt-1 text-xs text-ink-500">
                   {/* The exact Paddle yearly total, not the rounded per-month
                       figure multiplied out — those disagree by a few dollars. */}
                   {annual
@@ -257,7 +257,7 @@ export function PricingPlans({
             <ShieldCheck size={15} className="text-emerald-500" aria-hidden /> 100% money-back guarantee
           </span>
         </div>
-        <p className="max-w-xl text-center text-xs leading-relaxed text-ink-400">
+        <p className="max-w-xl text-center text-xs leading-relaxed text-ink-500">
           Prices in USD, billed by Paddle. The money-back guarantee covers your{" "}
           <span className="font-medium text-ink-500">first payment only</span>, refundable in full if you ask within 3
           days of that charge. Cancelling later stops future renewals but does not refund past ones.

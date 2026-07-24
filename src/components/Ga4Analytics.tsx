@@ -105,13 +105,13 @@ function DimTable({
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm">
-          <Icon size={15} className="text-ink-400" /> {title}
+          <Icon size={15} className="text-ink-500" /> {title}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-xs text-ink-400">
+            <tr className="text-left text-xs text-ink-500">
               <th className="pb-2 font-medium">{label}</th>
               <th className="pb-2 text-right font-medium">Sessions</th>
               <th className="pb-2 text-right font-medium">Users</th>

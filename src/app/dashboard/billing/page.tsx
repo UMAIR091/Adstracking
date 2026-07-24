@@ -37,7 +37,7 @@ function fmtDate(iso: string | null): string {
 function Fact({ label, value, icon }: { label: string; value: string; icon?: React.ReactNode }) {
   return (
     <div>
-      <p className="text-xs uppercase tracking-wide text-ink-400">{label}</p>
+      <p className="text-xs uppercase tracking-wide text-ink-500">{label}</p>
       <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-ink-800">
         {icon}
         {value}
@@ -154,16 +154,16 @@ export default async function BillingPage({
               </div>
 
               <div className="mt-5 grid gap-5 sm:grid-cols-3">
-                <Fact label="Billing cycle" value={cycleLabel} icon={<RefreshCw size={13} className="text-ink-400" />} />
+                <Fact label="Billing cycle" value={cycleLabel} icon={<RefreshCw size={13} className="text-ink-500" />} />
                 <Fact
                   label={state.cancelAtPeriodEnd || state.status === "cancelled" ? "Access ends" : "Next renewal"}
                   value={renewalLabel}
-                  icon={<CalendarClock size={13} className="text-ink-400" />}
+                  icon={<CalendarClock size={13} className="text-ink-500" />}
                 />
                 <Fact
                   label="Payment method"
                   value={state.card ? `${state.card.brand} ending ${state.card.lastFour}` : "Managed by Paddle"}
-                  icon={<CreditCard size={13} className="text-ink-400" />}
+                  icon={<CreditCard size={13} className="text-ink-500" />}
                 />
               </div>
 
@@ -215,7 +215,7 @@ export default async function BillingPage({
               {invoices.map((inv) => (
                 <div key={inv.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 text-sm">
                   <span className="flex items-center gap-2.5 text-ink-700">
-                    <Receipt size={15} className="text-ink-400" />
+                    <Receipt size={15} className="text-ink-500" />
                     {fmtDate(inv.billedAt)}
                   </span>
                   <span className="flex items-center gap-4">
@@ -228,14 +228,14 @@ export default async function BillingPage({
               ))}
             </CardContent>
           </Card>
-          <p className="mt-2 text-xs text-ink-400">
+          <p className="mt-2 text-xs text-ink-500">
             Full invoices and receipts are available in{" "}
             <a href="/api/billing/portal" className="underline">the billing portal</a>.
           </p>
         </div>
       )}
 
-      <p className="text-center text-xs text-ink-400">
+      <p className="text-center text-xs text-ink-500">
         Payments are processed securely by Paddle, our merchant of record. Cancel any time —{" "}
         see our <Link href="/terms" className="underline">Terms</Link>.
       </p>

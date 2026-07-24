@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { LayoutDashboard, Users, FileBarChart2, Cable, Settings, LogOut, Menu, X, Search, ChevronUp } from "lucide-react";
 import { Brand } from "@/components/Brand";
 import { CommandTrigger } from "@/components/CommandPalette";
+import { useDismissable } from "@/lib/useDismissable";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -34,7 +35,7 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
             )}
           >
             {active && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-brand-500" />}
-            <Icon size={18} strokeWidth={active ? 2.4 : 2} className={cn("transition-colors", !active && "text-ink-400 group-hover:text-ink-600")} />
+            <Icon size={18} strokeWidth={active ? 2.4 : 2} className={cn("transition-colors", !active && "text-ink-500 group-hover:text-ink-600")} />
             {item.label}
           </Link>
         );
@@ -45,11 +46,12 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
 
 function AccountMenu({ email, agencyName }: { email: string; agencyName: string }) {
   const [open, setOpen] = useState(false);
+  const ref = useDismissable<HTMLDivElement>(open, () => setOpen(false));
   const initials = (email[0] || "U").toUpperCase();
   return (
-    <div className="relative border-t border-slate-100 p-3">
+    <div ref={ref} className="relative border-t border-slate-100 p-3">
       {open && (
-        <div className="absolute bottom-full left-3 right-3 mb-1 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+        <div role="menu" className="absolute bottom-full left-3 right-3 mb-1 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
           <Link href="/dashboard/settings" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm text-ink-700 hover:bg-slate-50">Settings</Link>
           <Link href="/dashboard/billing" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm text-ink-700 hover:bg-slate-50">Billing</Link>
           <Link href="/dashboard/team" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm text-ink-700 hover:bg-slate-50">Team</Link>
@@ -58,13 +60,13 @@ function AccountMenu({ email, agencyName }: { email: string; agencyName: string 
           </form>
         </div>
       )}
-      <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-slate-100">
+      <button onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
         <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-brand-500 text-sm font-semibold text-white">{initials}</div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-ink-800">{agencyName}</p>
-          <p className="truncate text-xs text-ink-400">{email}</p>
+          <p className="truncate text-xs text-ink-500">{email}</p>
         </div>
-        <ChevronUp size={16} className={cn("text-ink-400 transition-transform", open && "rotate-180")} />
+        <ChevronUp size={16} className={cn("text-ink-500 transition-transform", open && "rotate-180")} />
       </button>
     </div>
   );

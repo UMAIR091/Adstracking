@@ -247,7 +247,7 @@ export function ReportDocument({
             <div className="overflow-x-auto">
               <table className="w-full min-w-[520px] text-sm">
                 <thead>
-                  <tr className="text-left text-xs text-ink-400">
+                  <tr className="text-left text-xs text-ink-500">
                     <th className="pb-2 font-medium">Page</th>
                     {gsc && <th className="pb-2 text-right font-medium">Clicks</th>}
                     {gsc && <th className="pb-2 text-right font-medium">Impr.</th>}
@@ -277,7 +277,7 @@ export function ReportDocument({
             <div className="overflow-x-auto">
               <table className="w-full min-w-[460px] text-sm">
                 <thead>
-                  <tr className="text-left text-xs text-ink-400">
+                  <tr className="text-left text-xs text-ink-500">
                     <th className="pb-2 font-medium">Query</th>
                     <th className="pb-2 text-right font-medium">Clicks</th>
                     <th className="pb-2 text-right font-medium">Impr.</th>
@@ -434,7 +434,7 @@ export function ReportDocument({
         {/* Agency Notes */}
         <Section n={next()} title="Agency Notes" subtitle="A note from your team" color={color}>
           <div className="flex gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-4">
-            <StickyNote size={18} className="mt-0.5 flex-shrink-0 text-ink-400" />
+            <StickyNote size={18} className="mt-0.5 flex-shrink-0 text-ink-500" />
             <p className="text-sm italic leading-relaxed text-ink-600">
               {branding.footer_text
                 ? branding.footer_text
@@ -444,7 +444,7 @@ export function ReportDocument({
         </Section>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-slate-100 pt-5 text-xs text-ink-400">
+        <div className="flex items-center justify-between border-t border-slate-100 pt-5 text-xs text-ink-500">
           <span>Prepared by {branding.name || "Your Agency"}</span>
           {branding.website && <span>{branding.website}</span>}
         </div>
@@ -544,7 +544,7 @@ function DimTable({ rows, label, format = (k) => k }: { rows: { key: string; ses
   return (
     <table className="w-full text-sm">
       <thead>
-        <tr className="text-left text-xs text-ink-400">
+        <tr className="text-left text-xs text-ink-500">
           <th className="pb-2 font-medium">{label}</th>
           <th className="pb-2 text-right font-medium">Sessions</th>
           <th className="pb-2 text-right font-medium">Users</th>

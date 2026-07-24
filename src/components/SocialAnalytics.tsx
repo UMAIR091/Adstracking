@@ -95,15 +95,15 @@ export function SocialAnalytics({ report, sample = false }: { report: SocialRepo
           <div className="flex gap-6 text-center">
             <div>
               <p className="text-lg font-semibold text-ink-900">{fmtNum(profile.followers)}</p>
-              <p className="text-xs text-ink-400">Followers</p>
+              <p className="text-xs text-ink-500">Followers</p>
             </div>
             <div>
               <p className="text-lg font-semibold text-ink-900">{fmtNum(profile.following)}</p>
-              <p className="text-xs text-ink-400">Following</p>
+              <p className="text-xs text-ink-500">Following</p>
             </div>
             <div>
               <p className="text-lg font-semibold text-ink-900">{fmtNum(profile.mediaCount)}</p>
-              <p className="text-xs text-ink-400">Posts</p>
+              <p className="text-xs text-ink-500">Posts</p>
             </div>
           </div>
         </CardContent>
@@ -133,13 +133,13 @@ export function SocialAnalytics({ report, sample = false }: { report: SocialRepo
         <Card className={sample ? "opacity-70" : ""}>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <Heart size={15} className="text-ink-400" /> Top content
+              <Heart size={15} className="text-ink-500" /> Top content
             </CardTitle>
           </CardHeader>
           <CardContent>
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs text-ink-400">
+                <tr className="text-left text-xs text-ink-500">
                   <th className="pb-2 font-medium">Content</th>
                   <th className="pb-2 text-right font-medium">Likes</th>
                   <th className="pb-2 text-right font-medium">Comments</th>
@@ -178,7 +178,7 @@ export function SocialAnalytics({ report, sample = false }: { report: SocialRepo
       {notes.length > 0 && (
         <div className="space-y-1">
           {notes.map((n) => (
-            <p key={n} className="flex items-start gap-1.5 text-xs text-ink-400">
+            <p key={n} className="flex items-start gap-1.5 text-xs text-ink-500">
               <Info size={12} className="mt-0.5 shrink-0" /> {n}
             </p>
           ))}

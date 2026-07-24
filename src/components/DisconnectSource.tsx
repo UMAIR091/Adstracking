@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 // Disconnects any integration and deletes its stored data (tokens + cached
 // snapshots cascade at the database level). Works for every provider — the
@@ -12,9 +13,10 @@ import { Button } from "@/components/ui/button";
 export function DisconnectSource({ dataSourceId, label }: { dataSourceId: string; label: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const confirm = useConfirm();
 
   async function disconnect() {
-    if (!confirm(`Disconnect ${label}?\n\nThis permanently deletes the stored connection tokens and all cached data for this source. Reports already generated are kept.`)) return;
+    if (!(await confirm({ title: `Disconnect ${label}?`, description: "This permanently deletes the stored connection tokens and all cached data for this source. Reports you’ve already generated are kept.", confirmLabel: "Disconnect", destructive: true }))) return;
     setBusy(true);
     const res = await fetch("/api/google/disconnect", {
       method: "POST",

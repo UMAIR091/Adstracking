@@ -12,7 +12,7 @@ export function SiteFooter() {
           <div className="lg:col-span-2">
             <Brand />
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-ink-500">{COMPANY.tagline}</p>
-            <p className="mt-3 max-w-xs text-xs leading-relaxed text-ink-400">{DATA_PROMISE}</p>
+            <p className="mt-3 max-w-xs text-xs leading-relaxed text-ink-500">{DATA_PROMISE}</p>
           </div>
           {FOOTER_LINKS.map((col) => (
             <nav key={col.heading} aria-label={col.heading}>
@@ -30,8 +30,8 @@ export function SiteFooter() {
           ))}
         </div>
         <div className="mt-10 flex flex-col items-start justify-between gap-2 border-t border-slate-100 pt-6 sm:flex-row sm:items-center">
-          <p className="text-sm text-ink-400">© {new Date().getFullYear()} {COMPANY.product}. All rights reserved.</p>
-          <p className="text-xs text-ink-400">{COMPANY.legalName}</p>
+          <p className="text-sm text-ink-500">© {new Date().getFullYear()} {COMPANY.product}. All rights reserved.</p>
+          <p className="text-xs text-ink-500">{COMPANY.legalName}</p>
         </div>
       </div>
     </footer>

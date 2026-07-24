@@ -7,6 +7,7 @@ import { CalendarClock, Send, FlaskConical } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { FREQUENCIES, type Frequency } from "@/lib/schedule";
 
 export type ScheduleData = {
@@ -33,6 +34,7 @@ export function ReportSchedule({
   schedule: ScheduleData;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [frequency, setFrequency] = useState<Frequency>(schedule?.frequency ?? "monthly");
   const [sendDay, setSendDay] = useState<number>(schedule?.send_day ?? (schedule?.frequency === "weekly" ? 1 : 1));
   const [sendHour, setSendHour] = useState<number>(schedule?.send_hour ?? 8);
@@ -88,7 +90,7 @@ export function ReportSchedule({
   }
 
   async function remove() {
-    if (!confirm("Stop automated delivery for this client?")) return;
+    if (!(await confirm({ title: "Stop automated delivery?", description: "This client’s scheduled reports will no longer be generated or emailed automatically. You can re-enable it any time.", confirmLabel: "Stop delivery", destructive: true }))) return;
     setBusy(true);
     await fetch(`/api/schedules?clientId=${clientId}`, { method: "DELETE" });
     setBusy(false);
@@ -170,7 +172,7 @@ export function ReportSchedule({
           <Button variant="outline" onClick={() => run("test")} disabled={busy}><FlaskConical size={15} /> Send test</Button>
           <Button variant="outline" onClick={() => run("now")} disabled={busy}><Send size={15} /> Send now</Button>
         </div>
-        <p className="mt-3 text-xs text-ink-400">Reports are generated from the latest synced data and emailed as a branded PDF under your branding. Times are UTC.</p>
+        <p className="mt-3 text-xs text-ink-500">Reports are generated from the latest synced data and emailed as a branded PDF under your branding. Times are UTC.</p>
       </CardContent>
     </Card>
   );

@@ -4,7 +4,7 @@ import Link from "next/link";
 // creating an account accepts the legal terms.
 export function AuthLegalNote() {
   return (
-    <p className="mt-6 max-w-sm text-center text-xs leading-relaxed text-ink-400">
+    <p className="mt-6 max-w-sm text-center text-xs leading-relaxed text-ink-500">
       By continuing you agree to our{" "}
       <Link href="/terms" className="font-medium text-ink-500 hover:text-ink-800 hover:underline">Terms of Service</Link>{" "}
       and{" "}

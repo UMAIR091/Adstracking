@@ -20,7 +20,7 @@ function Stat({ label, value, icon: Icon }: { label: string; value: string; icon
   return (
     <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
       <p className="flex items-center gap-1.5 text-xs text-ink-500">
-        <Icon size={13} className="text-ink-400" /> {label}
+        <Icon size={13} className="text-ink-500" /> {label}
       </p>
       <p className="mt-1 text-lg font-semibold text-ink-900">{value}</p>
     </div>
@@ -34,7 +34,7 @@ export function BigQueryAnalytics({ report }: { report: BigQueryReport }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex items-center gap-2 text-sm text-ink-500">
-          <Database size={15} className="text-ink-400" />
+          <Database size={15} className="text-ink-500" />
           <span className="font-medium text-ink-700">{path || report.projectId}</span>
           {report.tableType && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-ink-500">{report.tableType.toLowerCase()}</span>}
         </p>
@@ -48,14 +48,14 @@ export function BigQueryAnalytics({ report }: { report: BigQueryReport }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <Table2 size={15} className="text-ink-400" /> Datasets &amp; tables
+              <Table2 size={15} className="text-ink-500" /> Datasets &amp; tables
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs text-ink-400">
+                  <tr className="text-left text-xs text-ink-500">
                     {report.headers.map((h) => <th key={h} className="pb-2 pr-3 font-medium">{h}</th>)}
                   </tr>
                 </thead>
@@ -68,7 +68,7 @@ export function BigQueryAnalytics({ report }: { report: BigQueryReport }) {
                 </tbody>
               </table>
             </div>
-            <p className="mt-3 text-xs text-ink-400">Select a dataset and table on the connection above to sync its schema and a read-only row preview.</p>
+            <p className="mt-3 text-xs text-ink-500">Select a dataset and table on the connection above to sync its schema and a read-only row preview.</p>
           </CardContent>
         </Card>
       ) : (
@@ -83,13 +83,13 @@ export function BigQueryAnalytics({ report }: { report: BigQueryReport }) {
           {report.schema.length > 0 && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm"><Table2 size={15} className="text-ink-400" /> Schema</CardTitle>
+                <CardTitle className="flex items-center gap-2 text-sm"><Table2 size={15} className="text-ink-500" /> Schema</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="text-left text-xs text-ink-400">
+                      <tr className="text-left text-xs text-ink-500">
                         <th className="pb-2 pr-3 font-medium">Column</th>
                         <th className="pb-2 pr-3 font-medium">Type</th>
                         <th className="pb-2 font-medium">Mode</th>
@@ -114,15 +114,15 @@ export function BigQueryAnalytics({ report }: { report: BigQueryReport }) {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-sm">
-                  <Rows3 size={15} className="text-ink-400" /> Preview
-                  <span className="text-xs font-normal text-ink-400">(first {report.rows.length} rows)</span>
+                  <Rows3 size={15} className="text-ink-500" /> Preview
+                  <span className="text-xs font-normal text-ink-500">(first {report.rows.length} rows)</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="text-left text-xs text-ink-400">
+                      <tr className="text-left text-xs text-ink-500">
                         {report.headers.map((h, i) => <th key={`${h}-${i}`} className="whitespace-nowrap pb-2 pr-3 font-medium">{h}</th>)}
                       </tr>
                     </thead>
@@ -138,7 +138,7 @@ export function BigQueryAnalytics({ report }: { report: BigQueryReport }) {
                   </table>
                 </div>
                 {report.querySql && (
-                  <p className="mt-3 flex items-center gap-1.5 font-mono text-xs text-ink-400">
+                  <p className="mt-3 flex items-center gap-1.5 font-mono text-xs text-ink-500">
                     <Code2 size={12} /> {report.querySql}
                   </p>
                 )}

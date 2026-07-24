@@ -46,7 +46,7 @@ export default async function IntegrationsPage() {
       <div>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-medium text-ink-700">Data sources</h2>
-          <span className="text-xs text-ink-400">{liveCount} available · {integrations.length - liveCount} coming soon</span>
+          <span className="text-xs text-ink-500">{liveCount} available · {integrations.length - liveCount} coming soon</span>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {integrations.map((def) => (

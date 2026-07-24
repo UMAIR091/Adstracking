@@ -162,7 +162,7 @@ function BrandingPreview({ values }: { values: Values }) {
           ))}
         </div>
 
-        <p className="mt-5 border-t border-slate-100 pt-3 text-center text-[11px] text-ink-400">
+        <p className="mt-5 border-t border-slate-100 pt-3 text-center text-[11px] text-ink-500">
           {values.footer_text || `Prepared by ${values.name || "Your Agency"}`}
         </p>
       </CardContent>

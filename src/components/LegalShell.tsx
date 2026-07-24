@@ -31,7 +31,7 @@ export function LegalShell({
       <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-12 sm:py-16">
         <h1 className="text-3xl font-semibold tracking-tight text-ink-900">{title}</h1>
         {subtitle && <p className="mt-2 text-ink-500">{subtitle}</p>}
-        {lastUpdated && <p className="mt-2 text-sm text-ink-400">Last updated: {lastUpdated}</p>}
+        {lastUpdated && <p className="mt-2 text-sm text-ink-500">Last updated: {lastUpdated}</p>}
 
         <article
           className={[

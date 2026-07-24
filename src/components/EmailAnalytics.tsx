@@ -85,13 +85,13 @@ export function EmailAnalytics({ report }: { report: EmailReport }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <MailOpen size={15} className="text-ink-400" /> Recent campaigns
+              <MailOpen size={15} className="text-ink-500" /> Recent campaigns
             </CardTitle>
           </CardHeader>
           <CardContent>
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs text-ink-400">
+                <tr className="text-left text-xs text-ink-500">
                   <th className="pb-2 font-medium">Campaign</th>
                   <th className="pb-2 text-right font-medium">Sent</th>
                   <th className="pb-2 text-right font-medium">Open rate</th>

@@ -19,6 +19,7 @@ import { AtSign, CheckCircle2, Copy, Globe, Loader2, MailCheck, RefreshCw, Send,
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +52,7 @@ export function EmailBrandingSettings({ agencyId, initial }: { agencyId: string;
   const [domainLoaded, setDomainLoaded] = useState(false);
   const [newDomain, setNewDomain] = useState("");
   const [busy, setBusy] = useState<"add" | "verify" | "remove" | "test" | null>(null);
+  const confirm = useConfirm();
 
   const loadDomain = useCallback(async () => {
     try {
@@ -127,7 +129,7 @@ export function EmailBrandingSettings({ agencyId, initial }: { agencyId: string;
   }
 
   async function removeDomain() {
-    if (!window.confirm("Remove this sending domain? Reports will fall back to the default sender.")) return;
+    if (!(await confirm({ title: "Remove sending domain?", description: "Reports will fall back to the default platform sender until you add and verify a domain again.", confirmLabel: "Remove domain", destructive: true }))) return;
     setBusy("remove");
     try {
       const res = await fetch("/api/email/domain", { method: "DELETE" });
@@ -214,12 +216,12 @@ export function EmailBrandingSettings({ agencyId, initial }: { agencyId: string;
         {/* Domain verification */}
         <div className="border-t border-slate-100 pt-5">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <p className="flex items-center gap-2 text-sm font-medium text-ink-800"><Globe size={15} className="text-ink-400" /> Sending domain</p>
+            <p className="flex items-center gap-2 text-sm font-medium text-ink-800"><Globe size={15} className="text-ink-500" /> Sending domain</p>
             {badge && <Badge variant={badge.variant} dot>{badge.label}</Badge>}
           </div>
 
           {!domainLoaded ? (
-            <p className="flex items-center gap-2 py-3 text-sm text-ink-400"><Loader2 size={14} className="animate-spin" /> Loading…</p>
+            <p className="flex items-center gap-2 py-3 text-sm text-ink-500"><Loader2 size={14} className="animate-spin" /> Loading…</p>
           ) : !domain ? (
             <div className="space-y-3">
               <p className="text-sm leading-relaxed text-ink-500">
@@ -237,7 +239,7 @@ export function EmailBrandingSettings({ agencyId, initial }: { agencyId: string;
           ) : (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="flex items-center gap-1.5 text-sm text-ink-700"><AtSign size={14} className="text-ink-400" /><span className="font-semibold">{domain.domain}</span></p>
+                <p className="flex items-center gap-1.5 text-sm text-ink-700"><AtSign size={14} className="text-ink-500" /><span className="font-semibold">{domain.domain}</span></p>
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={verifyDomain} disabled={busy !== null}>
                     {busy === "verify" ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} {verified ? "Re-verify" : "Verify DNS"}
@@ -278,7 +280,7 @@ export function EmailBrandingSettings({ agencyId, initial }: { agencyId: string;
                             <Badge variant={r.status === "verified" ? "success" : "muted"}>{r.status ?? "pending"}</Badge>
                           </td>
                           <td className="px-3 py-2">
-                            <button type="button" onClick={() => copy(r.value)} className="text-ink-400 hover:text-ink-700" aria-label={`Copy ${r.type} value`}>
+                            <button type="button" onClick={() => copy(r.value)} className="text-ink-500 hover:text-ink-700" aria-label={`Copy ${r.type} value`}>
                               <Copy size={13} />
                             </button>
                           </td>
@@ -297,7 +299,7 @@ export function EmailBrandingSettings({ agencyId, initial }: { agencyId: string;
             <Button variant="outline" onClick={sendTest} disabled={busy !== null}>
               {busy === "test" ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />} Send test email
             </Button>
-            <p className="mt-1.5 text-xs text-ink-400">
+            <p className="mt-1.5 text-xs text-ink-500">
               Sends a branded sample to your own address using these exact settings — save first if you&apos;ve made changes.
             </p>
           </div>

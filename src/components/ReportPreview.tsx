@@ -183,7 +183,7 @@ export function ReportPreview({ branding }: { branding: Branding }) {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[460px] text-sm">
               <thead>
-                <tr className="text-left text-xs text-ink-400">
+                <tr className="text-left text-xs text-ink-500">
                   <th className="pb-2 font-medium">Query</th>
                   <th className="pb-2 text-right font-medium">Clicks</th>
                   <th className="pb-2 text-right font-medium">Impr.</th>
@@ -301,7 +301,7 @@ export function ReportPreview({ branding }: { branding: Branding }) {
         {/* 11 ── Agency Notes ── */}
         <Section n={11} title="Agency Notes" subtitle="A personal note from your team" color={color}>
           <div className="flex gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-4">
-            <StickyNote size={18} className="mt-0.5 flex-shrink-0 text-ink-400" />
+            <StickyNote size={18} className="mt-0.5 flex-shrink-0 text-ink-500" />
             <p className="text-sm italic leading-relaxed text-ink-600">
               “Great momentum this month, team. We&apos;re especially pleased with the carbon-plate category breaking into the top five — that aligns directly with the Q3 product push. Next month we&apos;ll focus on the beginner audience to widen the funnel. As always, reach out any time with questions.”
             </p>
@@ -309,7 +309,7 @@ export function ReportPreview({ branding }: { branding: Branding }) {
         </Section>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-slate-100 pt-5 text-xs text-ink-400">
+        <div className="flex items-center justify-between border-t border-slate-100 pt-5 text-xs text-ink-500">
           <span>{branding.footer_text || `Prepared by ${branding.name || "Your Agency"}`}</span>
           {branding.website && <span>{branding.website}</span>}
         </div>

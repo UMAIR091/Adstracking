@@ -22,10 +22,10 @@ function Stat({
     <Card>
       <CardContent className="p-5">
         <p className="flex items-center gap-2 text-sm text-ink-500">
-          <Icon size={15} className="text-ink-400" /> {label}
+          <Icon size={15} className="text-ink-500" /> {label}
         </p>
         <p className="mt-2 text-3xl font-semibold tracking-tight text-ink-900">{value}</p>
-        <p className="mt-1 text-xs text-ink-400">{sub}</p>
+        <p className="mt-1 text-xs text-ink-500">{sub}</p>
       </CardContent>
     </Card>
   );
@@ -72,7 +72,7 @@ export default async function UsagePage() {
         <Stat label="AI summaries" value={fmt(usage.aiSummaries)} sub="AI-written report insights" icon={Sparkles} />
       </div>
 
-      <p className="mt-6 text-xs text-ink-400">
+      <p className="mt-6 text-xs text-ink-500">
         Monthly figures reset at the start of each calendar month (UTC). These metrics are what upcoming plan limits will be measured against.
       </p>
     </div>

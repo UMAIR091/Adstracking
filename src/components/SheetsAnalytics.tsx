@@ -12,7 +12,7 @@ const SHOW_ROWS = 12;
 export function SheetsAnalytics({ report }: { report: SheetTable }) {
   const { headers, rows } = report;
   if (headers.length === 0 && rows.length === 0) {
-    return <p className="text-sm text-ink-400">The connected sheet is empty.</p>;
+    return <p className="text-sm text-ink-500">The connected sheet is empty.</p>;
   }
   return (
     <Card>
@@ -20,7 +20,7 @@ export function SheetsAnalytics({ report }: { report: SheetTable }) {
         <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <span className="flex items-center gap-2">
             <FileSpreadsheet size={15} className="text-emerald-600" /> {report.title}
-            <span className="font-normal text-ink-400">· {report.sheetTitle}</span>
+            <span className="font-normal text-ink-500">· {report.sheetTitle}</span>
           </span>
           {report.url && (
             <a href={report.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline">
@@ -33,7 +33,7 @@ export function SheetsAnalytics({ report }: { report: SheetTable }) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs text-ink-400">
+              <tr className="text-left text-xs text-ink-500">
                 {headers.map((h, i) => (
                   <th key={`${h}-${i}`} className="whitespace-nowrap pb-2 pr-4 font-medium">{h || "—"}</th>
                 ))}
@@ -51,7 +51,7 @@ export function SheetsAnalytics({ report }: { report: SheetTable }) {
           </table>
         </div>
         {report.totalRows > SHOW_ROWS && (
-          <p className="mt-2 text-xs text-ink-400">Showing {SHOW_ROWS} of {report.totalRows} rows — the full table is available to reports.</p>
+          <p className="mt-2 text-xs text-ink-500">Showing {SHOW_ROWS} of {report.totalRows} rows — the full table is available to reports.</p>
         )}
       </CardContent>
     </Card>

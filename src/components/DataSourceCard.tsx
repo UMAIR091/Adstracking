@@ -60,7 +60,7 @@ export function DataSourceCard({ data }: { data: DataSourceCardData }) {
         <p className="mt-0.5 text-sm text-ink-500">{description}</p>
 
         <div className="mt-4 flex items-center justify-between pt-1">
-          <p className="text-xs text-ink-400">
+          <p className="text-xs text-ink-500">
             {isConnected
               ? `Connected for ${connectedCount} client${connectedCount === 1 ? "" : "s"}`
               : isAvailable

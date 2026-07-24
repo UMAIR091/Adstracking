@@ -68,7 +68,7 @@ export default async function ConnectConsentPage({
               </span>
             </p>
             <p className="flex items-start gap-2">
-              <Trash2 size={16} className="mt-0.5 shrink-0 text-ink-400" />
+              <Trash2 size={16} className="mt-0.5 shrink-0 text-ink-500" />
               <span>
                 You can disconnect at any time from the client&apos;s page or{" "}
                 <Link href="/dashboard/settings/data" className="font-medium text-brand-600 hover:underline">
@@ -80,7 +80,7 @@ export default async function ConnectConsentPage({
           </div>
 
           <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-ink-400">
+            <p className="text-xs text-ink-500">
               By continuing you agree to our{" "}
               <Link href="/privacy" className="text-brand-600 hover:underline">Privacy Policy</Link> and{" "}
               <Link href="/security" className="text-brand-600 hover:underline">data practices</Link>.
@@ -103,7 +103,7 @@ export default async function ConnectConsentPage({
                       placeholder={f.placeholder}
                       className="h-10 w-full rounded-lg border border-ink-300 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                     />
-                    {f.hint && <p className="text-xs text-ink-400">{f.hint}</p>}
+                    {f.hint && <p className="text-xs text-ink-500">{f.hint}</p>}
                   </div>
                 ))}
                 <div className="flex gap-2">
@@ -131,7 +131,7 @@ export default async function ConnectConsentPage({
                   placeholder={def.connectField.placeholder}
                   className="h-10 w-full rounded-lg border border-ink-300 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                 />
-                {def.connectField.hint && <p className="text-xs text-ink-400">{def.connectField.hint}</p>}
+                {def.connectField.hint && <p className="text-xs text-ink-500">{def.connectField.hint}</p>}
                 <div className="flex gap-2">
                   <Button asChild variant="outline">
                     <Link href={backHref}>Cancel</Link>

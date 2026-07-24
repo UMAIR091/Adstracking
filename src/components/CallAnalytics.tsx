@@ -89,13 +89,13 @@ export function CallAnalytics({ report }: { report: CallReport }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <PhoneIncoming size={15} className="text-ink-400" /> Top call sources
+              <PhoneIncoming size={15} className="text-ink-500" /> Top call sources
             </CardTitle>
           </CardHeader>
           <CardContent>
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs text-ink-400">
+                <tr className="text-left text-xs text-ink-500">
                   <th className="pb-2 font-medium">Source</th>
                   <th className="pb-2 text-right font-medium">Calls</th>
                 </tr>

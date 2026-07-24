@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Users, Search, Globe, Plug, Clock, MoreHorizontal } from "lucide-react";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/EmptyState";
 
 export type ClientRow = {
@@ -33,6 +34,24 @@ export function ClientsList({ clients }: { clients: ClientRow[] }) {
   const [showArchived, setShowArchived] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [menuId, setMenuId] = useState<string | null>(null);
+  const confirm = useConfirm();
+
+  // Close the row menu on outside-click or Escape (consistent dropdown behavior).
+  useEffect(() => {
+    if (!menuId) return;
+    function onDown(e: MouseEvent) {
+      if (!(e.target as Element).closest("[data-row-menu]")) setMenuId(null);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuId(null);
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuId]);
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -57,7 +76,7 @@ export function ClientsList({ clients }: { clients: ClientRow[] }) {
 
   async function remove(id: string, name: string) {
     setMenuId(null);
-    if (!confirm(`Delete "${name}"? This also removes its reports and cannot be undone.`)) return;
+    if (!(await confirm({ title: "Delete client?", description: `Deleting “${name}” also removes its reports. This can’t be undone.`, confirmLabel: "Delete", destructive: true }))) return;
     setBusyId(id);
     await supabase.from("clients").delete().eq("id", id);
     setBusyId(null);
@@ -69,7 +88,7 @@ export function ClientsList({ clients }: { clients: ClientRow[] }) {
     <div>
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <div className="relative flex-1">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-500" />
           <Input placeholder="Search clients…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
         <div className="flex rounded-lg border border-slate-200 p-0.5 text-sm">
@@ -105,12 +124,12 @@ export function ClientsList({ clients }: { clients: ClientRow[] }) {
             return (
               <Card key={c.id} className="group relative flex flex-col p-5 transition-all hover:-translate-y-0.5 hover:shadow-md">
                 {/* menu */}
-                <div className="absolute right-3 top-3">
-                  <button onClick={() => setMenuId(menuId === c.id ? null : c.id)} className="rounded-md p-1.5 text-ink-400 hover:bg-slate-100" disabled={busyId === c.id}>
+                <div className="absolute right-3 top-3" data-row-menu>
+                  <button onClick={() => setMenuId(menuId === c.id ? null : c.id)} aria-haspopup="menu" aria-expanded={menuId === c.id} aria-label="Client actions" className="rounded-md p-1.5 text-ink-500 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300" disabled={busyId === c.id}>
                     <MoreHorizontal size={16} />
                   </button>
                   {menuId === c.id && (
-                    <div className="absolute right-0 z-10 mt-1 w-36 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                    <div role="menu" className="absolute right-0 z-10 mt-1 w-36 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
                       <Link href={`/dashboard/clients/${c.id}/edit`} className="block px-3 py-1.5 text-sm text-ink-700 hover:bg-slate-50">Edit</Link>
                       <button onClick={() => setArchived(c.id, !c.archived)} className="block w-full px-3 py-1.5 text-left text-sm text-ink-700 hover:bg-slate-50">
                         {c.archived ? "Unarchive" : "Archive"}
@@ -141,12 +160,12 @@ export function ClientsList({ clients }: { clients: ClientRow[] }) {
                   {sources.length ? (
                     sources.map((s) => <Badge key={s.type} variant="default">{INTEGRATION_LABEL[s.type] ?? s.type}</Badge>)
                   ) : (
-                    <span className="flex items-center gap-1 text-xs text-ink-400"><Plug size={12} /> No integrations</span>
+                    <span className="flex items-center gap-1 text-xs text-ink-500"><Plug size={12} /> No integrations</span>
                   )}
                 </div>
 
                 <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
-                  <span className="flex items-center gap-1 text-xs text-ink-400">
+                  <span className="flex items-center gap-1 text-xs text-ink-500">
                     <Clock size={12} /> {lastSync ? `Synced ${format(new Date(lastSync), "MMM d")}` : "Never synced"}
                   </span>
                   <Badge variant={statusVariant}>{status}</Badge>

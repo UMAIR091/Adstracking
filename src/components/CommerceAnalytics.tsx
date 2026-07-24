@@ -91,13 +91,13 @@ export function CommerceAnalytics({ report }: { report: CommerceReport }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <Package size={15} className="text-ink-400" /> Top products by revenue
+              <Package size={15} className="text-ink-500" /> Top products by revenue
             </CardTitle>
           </CardHeader>
           <CardContent>
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs text-ink-400">
+                <tr className="text-left text-xs text-ink-500">
                   <th className="pb-2 font-medium">Product</th>
                   <th className="pb-2 text-right font-medium">Units</th>
                   <th className="pb-2 text-right font-medium">Revenue</th>

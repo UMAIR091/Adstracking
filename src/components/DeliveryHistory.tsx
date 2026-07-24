@@ -35,7 +35,7 @@ export function DeliveryHistory({ logs }: { logs: DeliveryLog[] }) {
             <li key={l.id} className="flex items-center justify-between gap-3 py-2.5">
               <div className="min-w-0">
                 <p className="truncate text-sm text-ink-800">{l.to_email}</p>
-                <p className="truncate text-xs text-ink-400">
+                <p className="truncate text-xs text-ink-500">
                   {formatDistanceToNow(new Date(l.sent_at), { addSuffix: true })}
                   {l.status === "failed" && l.error ? ` · ${l.error}` : ""}
                   {(l.attempts ?? 0) > 1 ? ` · ${l.attempts} attempts` : ""}

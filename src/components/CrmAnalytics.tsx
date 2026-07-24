@@ -90,13 +90,13 @@ export function CrmAnalytics({ report }: { report: CrmReport }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <Trophy size={15} className="text-ink-400" /> Largest new deals
+              <Trophy size={15} className="text-ink-500" /> Largest new deals
             </CardTitle>
           </CardHeader>
           <CardContent>
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs text-ink-400">
+                <tr className="text-left text-xs text-ink-500">
                   <th className="pb-2 font-medium">Deal</th>
                   <th className="pb-2 text-right font-medium">Amount</th>
                   <th className="pb-2 text-right font-medium">Created</th>

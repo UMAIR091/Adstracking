@@ -7,6 +7,7 @@ import { RefreshCw, AlertTriangle, Search, BarChart3, Megaphone, MapPin, Faceboo
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { IntegrationDescriptor } from "@/lib/integrations/types";
 
 // Serializable, already-normalized connection passed from the server.
@@ -53,6 +54,7 @@ export function IntegrationCard({
   const router = useRouter();
   const [account, setAccount] = useState(source?.selectedAccountId ?? "");
   const [busy, setBusy] = useState(false);
+  const confirm = useConfirm();
 
   const Icon = ICONS[descriptor.icon] ?? Plug;
   const tint = TINTS[descriptor.accent] ?? "bg-ink-100 text-ink-600";
@@ -116,7 +118,7 @@ export function IntegrationCard({
   }
 
   async function disconnect() {
-    if (!confirm(`Disconnect ${descriptor.name} for this client?`)) return;
+    if (!(await confirm({ title: `Disconnect ${descriptor.name}?`, description: "This removes the connection and its cached data for this client. Reports you’ve already generated are kept.", confirmLabel: "Disconnect", destructive: true }))) return;
     setBusy(true);
     await fetch("/api/google/disconnect", {
       method: "POST",
@@ -200,7 +202,7 @@ export function IntegrationCard({
         )}
 
         {source.selectedAccountId && (
-          <p className="mt-3 text-xs text-ink-400">
+          <p className="mt-3 text-xs text-ink-500">
             {lastSyncedAt
               ? `Auto-synced ${formatDistanceToNow(new Date(lastSyncedAt), { addSuffix: true })} · refreshes automatically every few hours`
               : "Not synced yet — click Refresh now or wait for the next scheduled sync."}

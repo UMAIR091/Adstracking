@@ -13,7 +13,7 @@ function Stat({ label, value, icon: Icon }: { label: string; value: string; icon
   return (
     <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
       <p className="flex items-center gap-1.5 text-xs text-ink-500">
-        <Icon size={13} className="text-ink-400" /> {label}
+        <Icon size={13} className="text-ink-500" /> {label}
       </p>
       <p className="mt-1 text-xl font-semibold text-ink-900">{value}</p>
     </div>
@@ -39,13 +39,13 @@ export function SeoAnalytics({ report }: { report: SeoReport }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <Search size={15} className="text-ink-400" /> Top organic keywords
+              <Search size={15} className="text-ink-500" /> Top organic keywords
             </CardTitle>
           </CardHeader>
           <CardContent>
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs text-ink-400">
+                <tr className="text-left text-xs text-ink-500">
                   <th className="pb-2 font-medium">Keyword</th>
                   <th className="pb-2 text-right font-medium">Position</th>
                   <th className="pb-2 text-right font-medium">Volume</th>

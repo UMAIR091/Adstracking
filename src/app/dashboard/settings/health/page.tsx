@@ -98,7 +98,7 @@ export default async function IntegrationHealthPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100 text-left text-xs text-ink-400">
+                  <tr className="border-b border-slate-100 text-left text-xs text-ink-500">
                     <th className="px-4 py-3 font-medium">Source</th>
                     <th className="px-4 py-3 font-medium">Client</th>
                     <th className="px-4 py-3 font-medium">Status</th>

@@ -53,24 +53,24 @@ export function CommandPalette() {
       <div className="absolute inset-0 bg-ink-900/40 backdrop-blur-sm" />
       <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 border-b border-slate-100 px-4">
-          <Search size={18} className="text-ink-400" />
+          <Search size={18} className="text-ink-500" />
           <input
             autoFocus
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Jump to…"
-            className="h-12 flex-1 bg-transparent text-sm outline-none placeholder:text-ink-400"
+            className="h-12 flex-1 bg-transparent text-sm outline-none placeholder:text-ink-500"
           />
-          <kbd className="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] text-ink-400">ESC</kbd>
+          <kbd className="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] text-ink-500">ESC</kbd>
         </div>
         <ul className="max-h-72 overflow-y-auto p-2">
-          {items.length === 0 && <li className="px-3 py-6 text-center text-sm text-ink-400">No results</li>}
+          {items.length === 0 && <li className="px-3 py-6 text-center text-sm text-ink-500">No results</li>}
           {items.map((i) => {
             const Icon = i.icon;
             return (
               <li key={i.href}>
                 <button onClick={() => go(i.href)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-ink-700 hover:bg-slate-100">
-                  <Icon size={16} className="text-ink-400" />
+                  <Icon size={16} className="text-ink-500" />
                   {i.label}
                 </button>
               </li>
@@ -86,7 +86,7 @@ export function CommandTrigger({ className = "" }: { className?: string }) {
   return (
     <button
       onClick={() => window.dispatchEvent(new Event("open-command"))}
-      className={`flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-ink-400 transition-colors hover:bg-slate-100 ${className}`}
+      className={`flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-ink-500 transition-colors hover:bg-slate-100 ${className}`}
     >
       <Search size={15} />
       <span className="flex-1 text-left">Search…</span>

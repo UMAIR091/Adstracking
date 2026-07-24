@@ -110,7 +110,7 @@ export default async function DashboardPage() {
   const steps: OnboardingStep[] = [
     { label: "Add your first client", done: (clientCount ?? 0) > 0, href: "/dashboard/clients/new" },
     { label: "Connect Google Search Console", done: connectedCount > 0, href: "/dashboard/clients" },
-    { label: "Configure your branding", done: !!agency.logo_url || !!agency.contact_email, href: "/dashboard/settings" },
+    { label: "Add your logo & branding", done: !!agency.logo_url, href: "/dashboard/settings" },
     { label: "Generate your first report", done: (reportCount ?? 0) > 0, href: "/dashboard/reports/preview" },
   ];
   const nextStep = steps.find((s) => !s.done);
@@ -178,7 +178,7 @@ export default async function DashboardPage() {
                 <span><span className="font-medium text-ink-900">Engagement:</span> click-through rate is {pctText(ctrT)} at an average position of {perf.position.toFixed(1)}.</span>
               </li>
             </ul>
-            <p className="mt-3 text-xs text-ink-400">
+            <p className="mt-3 text-xs text-ink-500">
               Full AI analysis — wins, risks and recommended actions — is written into every generated report.
             </p>
           </>
@@ -209,7 +209,7 @@ export default async function DashboardPage() {
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold text-ink-700">Performance overview</h2>
-          <span className="text-xs text-ink-400">· last 28 days</span>
+          <span className="text-xs text-ink-500">· last 28 days</span>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -262,7 +262,7 @@ export default async function DashboardPage() {
                 <span className="inline-flex items-center gap-1.5 text-ink-600"><CheckCircle2 size={15} className="text-emerald-500" /> {health.connected} healthy</span>
                 {health.errored > 0 && <span className="inline-flex items-center gap-1.5 text-red-600"><AlertCircle size={15} /> {health.errored} error{health.errored === 1 ? "" : "s"}</span>}
                 {health.needsReconnect > 0 && <span className="inline-flex items-center gap-1.5 text-amber-600"><PlugZap size={15} /> {health.needsReconnect} need reconnect</span>}
-                <ArrowRight size={16} className="text-ink-400" />
+                <ArrowRight size={16} className="text-ink-500" />
               </div>
             </CardContent>
           </Card>
@@ -309,7 +309,7 @@ export default async function DashboardPage() {
                             {a.kind === "client" ? <>Added client <span className="font-medium">{a.name}</span></> : <>Connected a source for <span className="font-medium">{a.name}</span></>}
                           </p>
                         </div>
-                        <span className="flex-shrink-0 text-xs text-ink-400">{formatDistanceToNow(new Date(a.at), { addSuffix: true })}</span>
+                        <span className="flex-shrink-0 text-xs text-ink-500">{formatDistanceToNow(new Date(a.at), { addSuffix: true })}</span>
                       </li>
                     ))}
                   </ul>
@@ -445,7 +445,7 @@ export default async function DashboardPage() {
                           <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-600">{i + 1}</span>
                           <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink-800">{c.name}</span>
                           <span className="flex-shrink-0 text-sm font-semibold text-ink-900">{fmt(c.clicks)}</span>
-                          <span className="flex-shrink-0 text-[11px] text-ink-400">clicks</span>
+                          <span className="flex-shrink-0 text-[11px] text-ink-500">clicks</span>
                         </Link>
                       </li>
                     ))}

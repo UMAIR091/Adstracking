@@ -289,7 +289,7 @@ export default async function PricingPage() {
                       }`}
                     >
                       <span className="block font-semibold">{p.name}</span>
-                      <span className={`mt-0.5 block text-xs font-normal ${p.featured ? "text-brand-100" : "text-ink-400"}`}>
+                      <span className={`mt-0.5 block text-xs font-normal ${p.featured ? "text-brand-100" : "text-ink-500"}`}>
                         {priceById.get(p.id)?.monthly?.formatted ?? "—"}/mo
                       </span>
                     </th>
@@ -313,7 +313,7 @@ export default async function PricingPage() {
               </tbody>
             </table>
           </div>
-          <p className="mt-4 text-center text-xs text-ink-400">
+          <p className="mt-4 text-center text-xs text-ink-500">
             All prices in USD. Cancel anytime.
           </p>
         </section>
@@ -365,7 +365,7 @@ export default async function PricingPage() {
                   }`}
                 >
                   <p className={`text-sm font-semibold ${c.highlight ? "text-brand-600" : "text-ink-500"}`}>{c.name}</p>
-                  <p className="mt-0.5 text-xs text-ink-400">{c.example}</p>
+                  <p className="mt-0.5 text-xs text-ink-500">{c.example}</p>
                   <p className={`mt-3 text-3xl font-semibold tracking-tight ${c.highlight ? "text-brand-600" : "text-ink-900"}`}>
                     {c.price}
                   </p>
@@ -385,7 +385,7 @@ export default async function PricingPage() {
                   ≈ $240/mo and Whatagraph starts around $249/mo. On ReportFlow, 25 clients is the $149 Growth plan —
                   with every feature included. That&apos;s money back in your margin, every month.
                 </p>
-                <p className="mt-2 text-xs text-ink-400">
+                <p className="mt-2 text-xs text-ink-500">
                   Competitor pricing reflects public rates at time of writing and may change.
                 </p>
               </div>
@@ -430,7 +430,7 @@ export default async function PricingPage() {
               </details>
             ))}
           </div>
-          <p className="mt-6 text-center text-sm text-ink-400">
+          <p className="mt-6 text-center text-sm text-ink-500">
             By subscribing you agree to our{" "}
             <Link href="/terms" className="font-medium text-brand-600 hover:underline">Terms of Service</Link>,{" "}
             <Link href="/refund" className="font-medium text-brand-600 hover:underline">Refund Policy</Link>, and{" "}
@@ -475,7 +475,7 @@ export default async function PricingPage() {
                 </span>
               ))}
             </div>
-            <p className="mt-4 text-center text-xs text-ink-400">
+            <p className="mt-4 text-center text-xs text-ink-500">
               Prices in USD · Sales tax / VAT handled at checkout · Read more in{" "}
               <Link href="/security" className="font-medium text-brand-600 hover:underline">Data &amp; Security</Link>
             </p>
@@ -495,7 +495,7 @@ export default async function PricingPage() {
             <div className="mt-6">
               <Button asChild size="lg"><Link href="/signup">Start Your 7-Day Free Trial</Link></Button>
             </div>
-            <p className="mt-3 text-sm text-ink-400">No card required · Every feature on every plan · Cancel anytime</p>
+            <p className="mt-3 text-sm text-ink-500">No card required · Every feature on every plan · Cancel anytime</p>
           </div>
         </section>
       </main>
@@ -514,7 +514,7 @@ function FeatureGroupRows({ group }: { group: { heading: string; rows: FeatureRo
         <th
           scope="colgroup"
           colSpan={PLAN_COLUMNS.length + 1}
-          className="border-b border-slate-200 px-4 pb-2 pt-6 text-left text-xs font-semibold uppercase tracking-wide text-ink-400"
+          className="border-b border-slate-200 px-4 pb-2 pt-6 text-left text-xs font-semibold uppercase tracking-wide text-ink-500"
         >
           {group.heading}
         </th>

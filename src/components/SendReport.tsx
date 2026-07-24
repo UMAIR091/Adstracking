@@ -4,13 +4,15 @@ import { useState } from "react";
 import { Mail } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 // "Email report" — sends the report's share link to the client by email.
 export function SendReport({ reportId, clientEmail }: { reportId: string; clientEmail: string | null }) {
   const [busy, setBusy] = useState(false);
+  const confirm = useConfirm();
 
   async function send() {
-    if (!confirm(clientEmail ? `Email this report to ${clientEmail}?` : "Email this report to the client?")) return;
+    if (!(await confirm({ title: "Send report to client?", description: clientEmail ? `This will email the report to ${clientEmail}.` : "This will email the report to the client’s address on file.", confirmLabel: "Send report" }))) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/reports/${reportId}/send`, {

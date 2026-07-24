@@ -58,7 +58,7 @@ export default async function SettingsPage() {
                     <p className="text-sm text-ink-500">Connected integrations, reports generated, sync executions and AI usage for your workspace.</p>
                   </div>
                 </div>
-                <ChevronRight size={18} className="shrink-0 text-ink-400" />
+                <ChevronRight size={18} className="shrink-0 text-ink-500" />
               </CardContent>
             </Card>
           </Link>
@@ -79,7 +79,7 @@ export default async function SettingsPage() {
                     <p className="text-sm text-ink-500">Live status of every connected data source — last sync, last failure, token status.</p>
                   </div>
                 </div>
-                <ChevronRight size={18} className="shrink-0 text-ink-400" />
+                <ChevronRight size={18} className="shrink-0 text-ink-500" />
               </CardContent>
             </Card>
           </Link>
@@ -95,7 +95,7 @@ export default async function SettingsPage() {
                     <p className="text-sm text-ink-500">Recent sync, connection and report failures across your clients — what failed, for whom, and whether it will retry.</p>
                   </div>
                 </div>
-                <ChevronRight size={18} className="shrink-0 text-ink-400" />
+                <ChevronRight size={18} className="shrink-0 text-ink-500" />
               </CardContent>
             </Card>
           </Link>
@@ -116,7 +116,7 @@ export default async function SettingsPage() {
                     <p className="text-sm text-ink-500">See every connected data source, disconnect integrations, and delete stored data.</p>
                   </div>
                 </div>
-                <ChevronRight size={18} className="shrink-0 text-ink-400" />
+                <ChevronRight size={18} className="shrink-0 text-ink-500" />
               </CardContent>
             </Card>
           </Link>

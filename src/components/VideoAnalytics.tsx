@@ -77,7 +77,7 @@ function Breakdown({ title, icon: Icon, items }: { title: string; icon: typeof P
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm">
-          <Icon size={15} className="text-ink-400" /> {title}
+          <Icon size={15} className="text-ink-500" /> {title}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -119,13 +119,13 @@ export function VideoAnalytics({ report }: { report: VideoReport }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <Video size={15} className="text-ink-400" /> Top videos
+              <Video size={15} className="text-ink-500" /> Top videos
             </CardTitle>
           </CardHeader>
           <CardContent>
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs text-ink-400">
+                <tr className="text-left text-xs text-ink-500">
                   <th className="pb-2 font-medium">Video</th>
                   <th className="pb-2 text-right font-medium">Views</th>
                   <th className="pb-2 text-right font-medium">Watch time</th>

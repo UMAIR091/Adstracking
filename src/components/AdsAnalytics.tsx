@@ -111,13 +111,13 @@ export function AdsAnalytics({ report }: { report: AdsReportData }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <Megaphone size={15} className="text-ink-400" /> Top campaigns by spend
+              <Megaphone size={15} className="text-ink-500" /> Top campaigns by spend
             </CardTitle>
           </CardHeader>
           <CardContent>
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs text-ink-400">
+                <tr className="text-left text-xs text-ink-500">
                   <th className="pb-2 font-medium">Campaign</th>
                   <th className="pb-2 text-right font-medium">Spend</th>
                   <th className="pb-2 text-right font-medium">Impressions</th>
@@ -143,7 +143,7 @@ export function AdsAnalytics({ report }: { report: AdsReportData }) {
         </Card>
       )}
 
-      <p className="flex items-center gap-1.5 text-xs text-ink-400">
+      <p className="flex items-center gap-1.5 text-xs text-ink-500">
         <Target size={12} aria-hidden /> Conversions and values reflect the platform&apos;s own attribution settings.
       </p>
     </div>

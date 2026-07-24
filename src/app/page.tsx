@@ -171,7 +171,7 @@ export default async function LandingPage() {
               View a sample report
             </Link>
           </div>
-          <p className="mt-4 text-xs text-ink-400">
+          <p className="mt-4 text-xs text-ink-500">
             7-day free trial · Every feature on every plan · Live in 5 minutes · Cancel anytime
           </p>
 
@@ -354,11 +354,11 @@ export default async function LandingPage() {
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3 text-left">
                 <div className="rounded-lg bg-slate-50 p-3">
-                  <p className="text-[10px] uppercase tracking-wide text-ink-400">Frequency</p>
+                  <p className="text-[10px] uppercase tracking-wide text-ink-500">Frequency</p>
                   <p className="mt-0.5 text-sm font-medium text-ink-800">Monthly · 1st · 8:00</p>
                 </div>
                 <div className="rounded-lg bg-slate-50 p-3">
-                  <p className="text-[10px] uppercase tracking-wide text-ink-400">Recipients</p>
+                  <p className="text-[10px] uppercase tracking-wide text-ink-500">Recipients</p>
                   <p className="mt-0.5 text-sm font-medium text-ink-800">sarah@acme.co</p>
                 </div>
               </div>
@@ -370,7 +370,7 @@ export default async function LandingPage() {
                 ].map((r) => (
                   <div key={r.d} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-xs">
                     <span className="flex items-center gap-2 text-ink-600">
-                      <FileBarChart2 size={13} className="text-ink-400" aria-hidden /> Performance report · {r.d}
+                      <FileBarChart2 size={13} className="text-ink-500" aria-hidden /> Performance report · {r.d}
                     </span>
                     <span className={`rounded-full px-2 py-0.5 font-semibold ${r.c}`}>{r.s} · PDF attached</span>
                   </div>
@@ -425,7 +425,7 @@ export default async function LandingPage() {
                   <div key={i} className="flex-1 rounded-t bg-brand-500/80" style={{ height: h }} />
                 ))}
               </div>
-              <p className="pt-1 text-center text-[10px] text-ink-400">
+              <p className="pt-1 text-center text-[10px] text-ink-500">
                 Prepared by Northbeam Digital · northbeamdigital.example
               </p>
             </div>
@@ -486,7 +486,7 @@ export default async function LandingPage() {
                   <p className="mt-3 text-sm font-medium text-ink-800">{it.n}</p>
                   <span
                     className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                      it.live ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-ink-400"
+                      it.live ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-ink-500"
                     }`}
                   >
                     {it.live ? "Live" : "Coming soon"}
@@ -543,7 +543,7 @@ export default async function LandingPage() {
             </tbody>
           </table>
         </div>
-        <p className="mt-4 text-center text-xs text-ink-400">
+        <p className="mt-4 text-center text-xs text-ink-500">
           Comparison reflects typical positioning and public pricing at time of writing; competitor plans change over time.
         </p>
         <div className="mt-8 text-center">
@@ -574,13 +574,13 @@ export default async function LandingPage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-ink-800">{t.n}</p>
-                    <p className="text-xs text-ink-400">{t.a}</p>
+                    <p className="text-xs text-ink-500">{t.a}</p>
                   </div>
                 </figcaption>
               </figure>
             ))}
           </div>
-          <p className="mt-4 text-center text-xs text-ink-400">Illustrative quotes shown during launch.</p>
+          <p className="mt-4 text-center text-xs text-ink-500">Illustrative quotes shown during launch.</p>
         </div>
       </section>
 
@@ -613,7 +613,7 @@ export default async function LandingPage() {
               );
             })}
           </div>
-          <p className="mt-8 text-center text-xs text-ink-400">
+          <p className="mt-8 text-center text-xs text-ink-500">
             Read the details: <Link href="/security" className="font-medium text-brand-600 hover:underline">Data &amp; Security</Link> ·{" "}
             <Link href="/privacy" className="font-medium text-brand-600 hover:underline">Privacy Policy</Link>
           </p>
@@ -650,10 +650,10 @@ export default async function LandingPage() {
                 )}
                 <p className="text-sm font-medium text-ink-500">{p.name}</p>
                 <p className="mt-2 text-4xl font-semibold">
-                  {p.price}<span className="text-base font-normal text-ink-400">/mo</span>
+                  {p.price}<span className="text-base font-normal text-ink-500">/mo</span>
                 </p>
                 {p.annualPerMonth && (
-                  <p className="mt-1 text-xs text-ink-400">or {p.annualPerMonth}/mo billed annually</p>
+                  <p className="mt-1 text-xs text-ink-500">or {p.annualPerMonth}/mo billed annually</p>
                 )}
                 <p className="mt-4 flex items-center gap-2 text-sm font-semibold text-ink-800">
                   <Users size={15} className="shrink-0 text-brand-600" aria-hidden /> {p.clients}
@@ -676,7 +676,7 @@ export default async function LandingPage() {
               </div>
             ))}
           </div>
-          <p className="mt-6 text-center text-sm text-ink-400">
+          <p className="mt-6 text-center text-sm text-ink-500">
             AgencyAnalytics at 20 clients ≈ $240/mo. Whatagraph from ~$249/mo. ReportFlow at 20 clients: $149/mo —
             every feature included. <Link href="/pricing" className="font-medium text-brand-600 hover:underline">See full pricing →</Link>
           </p>
@@ -691,7 +691,7 @@ export default async function LandingPage() {
             <details key={f.q} className="group p-5">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium text-ink-800 marker:hidden">
                 {f.q}
-                <span className="shrink-0 text-ink-400 transition group-open:rotate-45" aria-hidden>+</span>
+                <span className="shrink-0 text-ink-500 transition group-open:rotate-45" aria-hidden>+</span>
               </summary>
               <p className="mt-3 text-sm leading-relaxed text-ink-500">{f.a}</p>
             </details>
@@ -764,7 +764,7 @@ function BrowserBar({ url }: { url: string }) {
         <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
         <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
       </span>
-      <span className="mx-auto flex items-center gap-1.5 rounded-md bg-white px-3 py-1 text-[11px] text-ink-400 ring-1 ring-slate-200">
+      <span className="mx-auto flex items-center gap-1.5 rounded-md bg-white px-3 py-1 text-[11px] text-ink-500 ring-1 ring-slate-200">
         <Lock size={10} /> {url}
       </span>
     </div>

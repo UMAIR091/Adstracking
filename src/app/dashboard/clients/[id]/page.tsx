@@ -24,6 +24,7 @@ import { VideoAnalytics } from "@/components/VideoAnalytics";
 import type { SocialReport } from "@/lib/integrations/social";
 import type { GbpReport, CommerceReport, SheetTable, CrmReport, EmailReport, CallReport, SeoReport, VideoReport, BigQueryReport } from "@/lib/integrations/metrics";
 import { GenerateReport } from "@/components/GenerateReport";
+import { BrandingNotice } from "@/components/BrandingNotice";
 import { ReportSchedule, type ScheduleData } from "@/components/ReportSchedule";
 import { DeliveryHistory, type DeliveryLog } from "@/components/DeliveryHistory";
 import { AwaitingSyncState } from "@/components/AnalyticsEmptyState";
@@ -219,6 +220,8 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
           />
         </div>
       )}
+
+      <BrandingNotice hasLogo={!!agency.logo_url} />
 
       <div className="mt-8">
         <GenerateReport clientId={client.id} ready={anyReady} />

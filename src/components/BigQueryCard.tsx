@@ -12,6 +12,7 @@ import { Database, RefreshCw, AlertTriangle, PlugZap } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { IntegrationDescriptor } from "@/lib/integrations/types";
 import type { IntegrationSource } from "@/components/IntegrationCard";
 
@@ -47,6 +48,7 @@ export function BigQueryCard({
   const [loadingDatasets, setLoadingDatasets] = useState(false);
   const [loadingTables, setLoadingTables] = useState(false);
   const [busy, setBusy] = useState(false);
+  const confirm = useConfirm();
 
   // Load datasets whenever the selected project changes.
   useEffect(() => {
@@ -116,7 +118,7 @@ export function BigQueryCard({
   }
 
   async function disconnect() {
-    if (!confirm(`Disconnect ${descriptor.name} for this client?`)) return;
+    if (!(await confirm({ title: `Disconnect ${descriptor.name}?`, description: "This removes the connection and its cached data for this client. Reports you’ve already generated are kept.", confirmLabel: "Disconnect", destructive: true }))) return;
     setBusy(true);
     await fetch("/api/google/disconnect", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -127,7 +129,7 @@ export function BigQueryCard({
     router.refresh();
   }
 
-  const selectClass = "h-10 w-full rounded-lg border border-ink-300 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-ink-400";
+  const selectClass = "h-10 w-full rounded-lg border border-ink-300 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-ink-500";
 
   return (
     <Card>
@@ -203,7 +205,7 @@ export function BigQueryCard({
         )}
 
         {source.selectedAccountId && (
-          <p className="mt-3 text-xs text-ink-400">
+          <p className="mt-3 text-xs text-ink-500">
             {lastSyncedAt
               ? `Last synced ${formatDistanceToNow(new Date(lastSyncedAt), { addSuffix: true })} · refreshes automatically every few hours`
               : "Not synced yet — choose a table and click Save & sync, or wait for the next scheduled sync."}

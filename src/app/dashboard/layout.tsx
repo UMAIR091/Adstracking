@@ -6,6 +6,7 @@ import { getSubscriptionState } from "@/lib/billing/subscription";
 import { Sidebar } from "@/components/Sidebar";
 import { BillingBanner } from "@/components/BillingBanner";
 import { CommandPalette } from "@/components/CommandPalette";
+import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, agency } = await getCurrentUserAndAgency();
@@ -14,23 +15,25 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const billing = agency ? await getSubscriptionState(createClient(), agency.id) : null;
 
   return (
-    <div className="min-h-screen">
-      <Sidebar agencyName={agency?.name ?? "My Agency"} userEmail={user.email ?? ""} />
-      <div className="lg:pl-60">
-        <main className="animate-fade-in mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
-          {billing && (
-            <BillingBanner
-              hasAccess={billing.hasAccess}
-              blockedReason={billing.blockedReason}
-              trialDaysLeft={billing.trialDaysLeft}
-              isTrial={billing.plan === "trial"}
-            />
-          )}
-          {children}
-        </main>
+    <ConfirmProvider>
+      <div className="min-h-screen">
+        <Sidebar agencyName={agency?.name ?? "My Agency"} userEmail={user.email ?? ""} />
+        <div className="lg:pl-60">
+          <main className="animate-fade-in mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
+            {billing && (
+              <BillingBanner
+                hasAccess={billing.hasAccess}
+                blockedReason={billing.blockedReason}
+                trialDaysLeft={billing.trialDaysLeft}
+                isTrial={billing.plan === "trial"}
+              />
+            )}
+            {children}
+          </main>
+        </div>
+        <CommandPalette />
+        <Toaster richColors position="top-right" toastOptions={{ style: { borderRadius: "12px" } }} />
       </div>
-      <CommandPalette />
-      <Toaster richColors position="top-right" toastOptions={{ style: { borderRadius: "12px" } }} />
-    </div>
+    </ConfirmProvider>
   );
 }

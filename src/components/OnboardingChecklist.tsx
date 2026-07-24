@@ -38,7 +38,7 @@ export function OnboardingChecklist({ steps }: { steps: OnboardingStep[] }) {
               ) : (
                 <Circle className={`h-5 w-5 flex-shrink-0 ${isNext ? "text-brand-500" : "text-slate-300"}`} />
               )}
-              <span className={`flex-1 text-sm ${s.done ? "text-ink-400 line-through" : isNext ? "font-medium text-ink-900" : "text-ink-800"}`}>{s.label}</span>
+              <span className={`flex-1 text-sm ${s.done ? "text-ink-500 line-through" : isNext ? "font-medium text-ink-900" : "text-ink-800"}`}>{s.label}</span>
               {isNext && <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">Next</span>}
               {!s.done && <ArrowRight className={`h-4 w-4 ${isNext ? "text-brand-500" : "text-slate-300 group-hover:text-brand-500"}`} />}
             </Link>
