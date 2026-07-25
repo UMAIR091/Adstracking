@@ -143,7 +143,7 @@ export function ClientsList({ clients }: { clients: ClientRow[] }) {
                   <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-ink-500">
                     {c.logo_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={c.logo_url} alt="" className="h-full w-full object-cover" />
+                      <img src={c.logo_url} alt="" width={44} height={44} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                     ) : (
                       c.name.charAt(0).toUpperCase()
                     )}

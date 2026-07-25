@@ -4,21 +4,31 @@ import { Eye } from "lucide-react";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
-import { ReportsBrowser, type ReportRow } from "@/components/ReportsBrowser";
+import { ReportsBrowser, type ReportRow, type ClientOption } from "@/components/ReportsBrowser";
 
 export const dynamic = "force-dynamic";
+
+const PAGE = 20;
 
 export default async function ReportsPage() {
   const { user } = await getCurrentUserAndAgency();
   if (!user) redirect("/login");
 
   const supabase = createClient();
-  const { data: reports } = await supabase
-    .from("reports")
-    .select("id, title, status, period_start, period_end, created_at, share_token, clients(name)")
-    .order("created_at", { ascending: false });
+  // First page only (perf audit P1) + the client list for the filter dropdown.
+  // Fetch one extra row to know whether a "Load more" is needed.
+  const [{ data: reports }, { data: clientRows }] = await Promise.all([
+    supabase
+      .from("reports")
+      .select("id, title, status, period_start, period_end, created_at, share_token, clients(name)")
+      .order("created_at", { ascending: false })
+      .range(0, PAGE),
+    supabase.from("clients").select("id, name").eq("archived", false).order("name"),
+  ]);
 
-  const rows: ReportRow[] = (reports ?? []).map((r) => {
+  const all = reports ?? [];
+  const hasMore = all.length > PAGE;
+  const rows: ReportRow[] = all.slice(0, PAGE).map((r) => {
     const c = r.clients as unknown as { name: string | null } | { name: string | null }[] | null;
     return {
       id: r.id as string,
@@ -31,6 +41,7 @@ export default async function ReportsPage() {
       clientName: (Array.isArray(c) ? c[0]?.name : c?.name) ?? "Client",
     };
   });
+  const clients: ClientOption[] = (clientRows ?? []).map((c) => ({ id: c.id as string, name: (c.name as string) ?? "Client" }));
 
   return (
     <div className="space-y-6">
@@ -44,7 +55,7 @@ export default async function ReportsPage() {
         </Button>
       </div>
 
-      <ReportsBrowser reports={rows} />
+      <ReportsBrowser initialRows={rows} initialHasMore={hasMore} clients={clients} hasAny={rows.length > 0} />
     </div>
   );
 }

@@ -85,12 +85,11 @@ async function runPool<T>(items: T[], limit: number, worker: (item: T) => Promis
 
 export type BatchResult = { claimed: number; synced: number; failed: number };
 
-// Processes one bounded batch: claim → group by provider → run each group's pool
-// in parallel (different providers don't share quota). syncDataSource never
-// throws, so a single bad source can't abort the batch.
-export async function runSyncBatch(admin: SupabaseClient, limit = batchSize()): Promise<BatchResult> {
-  const sources = await claimSyncBatch(admin, limit);
-
+// Syncs a given set of sources with provider-aware concurrency: group by quota
+// family → run each group's pool in parallel (different providers don't share
+// quota). syncDataSource never throws, so one bad source can't abort the run.
+// Shared by the single-function path (runSyncBatch) and the fan-out worker.
+export async function processSources(admin: SupabaseClient, sources: SyncableSource[]): Promise<{ synced: number; failed: number }> {
   const groups = new Map<string, SyncableSource[]>();
   for (const ds of sources) {
     const key = concurrencyGroup(ds.type);
@@ -112,5 +111,14 @@ export async function runSyncBatch(admin: SupabaseClient, limit = batchSize()): 
     )
   );
 
+  return { synced, failed };
+}
+
+// Processes one bounded batch in a single function: claim → process. Retained
+// for the single-invocation path (small deployments, manual runs); the cron now
+// uses the fan-out dispatcher (lib/syncDispatch.ts) for horizontal scale.
+export async function runSyncBatch(admin: SupabaseClient, limit = batchSize()): Promise<BatchResult> {
+  const sources = await claimSyncBatch(admin, limit);
+  const { synced, failed } = await processSources(admin, sources);
   return { claimed: sources.length, synced, failed };
 }

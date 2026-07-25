@@ -1,8 +1,10 @@
 // Integration health — per-connection status for the dashboard. Reads only the
 // non-secret health columns from data_sources (never access/refresh tokens) and
 // derives a token-expiration signal from token_expires_at + status.
+import { unstable_cache } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getIntegration } from "@/lib/integrations/registry";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type ConnectionStatus = "connected" | "error" | "revoked";
 export type TokenState = "auto_refresh" | "no_expiry" | "expiring" | "reconnect";
@@ -56,6 +58,18 @@ function clientName(row: Row): string {
 // Every connected data source for the agency, newest-touched first. `supabase`
 // should be the caller's RLS-scoped client; the agency filter is explicit so the
 // admin client is safe too.
+// Short-TTL cached health rollup for the dashboard (perf audit P2-7). The badge
+// tolerates ~60s staleness, so this cuts the 5-query rollup out of most dashboard
+// loads. Uses the admin client (the read is explicitly agency-scoped below), so
+// it's safe outside a request's RLS session and cacheable across requests.
+export function getIntegrationHealthCached(agencyId: string): Promise<IntegrationHealth[]> {
+  return unstable_cache(
+    () => getIntegrationHealth(createAdminClient(), agencyId),
+    ["integration-health", agencyId],
+    { revalidate: 60 }
+  )();
+}
+
 export async function getIntegrationHealth(supabase: SupabaseClient, agencyId: string): Promise<IntegrationHealth[]> {
   const { data } = await supabase
     .from("data_sources")

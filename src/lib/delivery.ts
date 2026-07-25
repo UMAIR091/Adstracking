@@ -4,7 +4,8 @@
 // Shared by the manual send route, "Send Now"/"Send Test", and the cron.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendEmailWithRetry, reportEmailHtml, resolveSender, type ResolvedSender } from "@/lib/email";
-import { renderReportPdf } from "@/lib/pdf";
+import { getOrRenderReportPdf } from "@/lib/pdf/cache";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeReportData } from "@/lib/report";
 
 export type DeliveryBranding = {
@@ -71,7 +72,17 @@ export async function deliverReport(supabase: SupabaseClient, input: DeliverInpu
     const sender = await resolveSender(supabase, agencyId);
     if (!sender) throw new Error("Email is not configured (EMAIL_FROM).");
 
-    const pdf = await renderReportPdf({ data: report.data, branding, clientName, title: report.title, period: report.period });
+    // Serve from the shared PDF cache (perf audit P2-8): re-sends of the same
+    // report (e.g. monthly schedules) reuse the rendered bytes instead of paying
+    // the fontkit/wasm render each time. Storage writes require the service role,
+    // so the cache always uses the admin client regardless of the caller's.
+    const cacheAdmin = createAdminClient();
+    const { data: cacheRow } = await cacheAdmin.from("reports").select("pdf_cached_hash").eq("id", report.id).maybeSingle();
+    const pdf = await getOrRenderReportPdf(
+      cacheAdmin,
+      { id: report.id, pdf_cached_hash: (cacheRow?.pdf_cached_hash as string | null) ?? null },
+      { data: report.data, branding, clientName, title: report.title, period: report.period }
+    );
     const html = reportEmailHtml({
       agencyName: branding.name,
       brandColor: branding.brand_color,

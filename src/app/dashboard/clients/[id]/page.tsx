@@ -8,21 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { IntegrationCard, type IntegrationSource } from "@/components/IntegrationCard";
 import { BigQueryCard } from "@/components/BigQueryCard";
-import { BigQueryAnalytics } from "@/components/BigQueryAnalytics";
-import { GscAnalytics, type GscReportData } from "@/components/GscAnalytics";
-import { Ga4Analytics, type Ga4ReportData } from "@/components/Ga4Analytics";
-import { SocialAnalytics } from "@/components/SocialAnalytics";
-import { AdsAnalytics, type AdsReportData } from "@/components/AdsAnalytics";
-import { GbpAnalytics } from "@/components/GbpAnalytics";
-import { CommerceAnalytics } from "@/components/CommerceAnalytics";
-import { SheetsAnalytics } from "@/components/SheetsAnalytics";
-import { CrmAnalytics } from "@/components/CrmAnalytics";
-import { EmailAnalytics } from "@/components/EmailAnalytics";
-import { CallAnalytics } from "@/components/CallAnalytics";
-import { SeoAnalytics } from "@/components/SeoAnalytics";
-import { VideoAnalytics } from "@/components/VideoAnalytics";
-import type { SocialReport } from "@/lib/integrations/social";
-import type { GbpReport, CommerceReport, SheetTable, CrmReport, EmailReport, CallReport, SeoReport, VideoReport, BigQueryReport } from "@/lib/integrations/metrics";
+import { ClientAnalytics } from "@/components/ClientAnalytics";
 import { GenerateReport } from "@/components/GenerateReport";
 import { BrandingNotice } from "@/components/BrandingNotice";
 import { ReportSchedule, type ScheduleData } from "@/components/ReportSchedule";
@@ -32,39 +18,10 @@ import { liveIntegrations, descriptor } from "@/lib/integrations/registry";
 
 export const dynamic = "force-dynamic";
 
-// Sources with a dashboard block. Every one of them renders only once a real
-// synced snapshot exists — no source ever displays placeholder analytics.
+// Sources with a dashboard block. Every one renders only once a real synced
+// snapshot exists — no source ever displays placeholder analytics. (The chart
+// rendering itself lives in the lazy-loaded ClientAnalytics client component.)
 const HAS_VIZ = new Set(["gsc", "ga4", "instagram", "google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "pinterest_ads", "snapchat_ads", "reddit_ads", "amazon_ads", "x_ads", "adobe_analytics", "gbp", "shopify", "sheets", "hubspot", "salesforce", "bigquery", "youtube_analytics", "moz", "activecampaign", "constantcontact", "campaignmonitor"]);
-const ADS_VIZ = new Set(["google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "microsoft_ads", "pinterest_ads", "snapchat_ads", "reddit_ads", "amazon_ads", "x_ads"]);
-// Storefronts share the normalized CommerceReport shape + CommerceAnalytics.
-const COMMERCE_VIZ = new Set(["shopify", "woocommerce", "stripe"]);
-// Email-marketing platforms share the EmailReport shape + EmailAnalytics.
-const EMAIL_VIZ = new Set(["mailchimp", "klaviyo", "activecampaign", "constantcontact", "campaignmonitor"]);
-// SEO platforms share the SeoReport shape + SeoAnalytics.
-const SEO_VIZ = new Set(["ahrefs", "semrush", "moz"]);
-
-// Provider-specific analytics view (the only part that isn't generic, since each
-// source visualizes different metrics). Everything else flows from the registry.
-// Social platforms share SocialAnalytics; paid-media platforms share AdsAnalytics.
-function Analytics({ id, snapshot }: { id: string; snapshot: unknown }) {
-  if (id === "gsc" && snapshot) return <GscAnalytics report={snapshot as GscReportData} />;
-  if (id === "ga4" && snapshot) return <Ga4Analytics report={snapshot as Ga4ReportData} />;
-  // Adobe fills the same normalized analytics shape, so it reuses Ga4Analytics.
-  if (id === "adobe_analytics" && snapshot) return <Ga4Analytics report={snapshot as Ga4ReportData} />;
-  if (id === "instagram" && snapshot) return <SocialAnalytics report={snapshot as SocialReport} />;
-  if (ADS_VIZ.has(id) && snapshot) return <AdsAnalytics report={snapshot as AdsReportData} />;
-  if (id === "gbp" && snapshot) return <GbpAnalytics report={snapshot as GbpReport} />;
-  if (COMMERCE_VIZ.has(id) && snapshot) return <CommerceAnalytics report={snapshot as CommerceReport} />;
-  if (id === "sheets" && snapshot) return <SheetsAnalytics report={snapshot as SheetTable} />;
-  if (id === "bigquery" && snapshot) return <BigQueryAnalytics report={snapshot as BigQueryReport} />;
-  // Salesforce fills the same normalized CrmReport shape as HubSpot.
-  if ((id === "hubspot" || id === "salesforce") && snapshot) return <CrmAnalytics report={snapshot as CrmReport} />;
-  if (EMAIL_VIZ.has(id) && snapshot) return <EmailAnalytics report={snapshot as EmailReport} />;
-  if (id === "callrail" && snapshot) return <CallAnalytics report={snapshot as CallReport} />;
-  if (SEO_VIZ.has(id) && snapshot) return <SeoAnalytics report={snapshot as SeoReport} />;
-  if (id === "youtube_analytics" && snapshot) return <VideoAnalytics report={snapshot as VideoReport} />;
-  return null;
-}
 
 export default async function ClientDetailPage({ params }: { params: { id: string } }) {
   const { user, agency } = await getCurrentUserAndAgency();
@@ -78,53 +35,70 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     .maybeSingle();
   if (!client) notFound();
 
-  // Load every live integration's connection + cached 28-day snapshot generically
-  // from the registry. Never select token columns into the page.
-  const integrations = await Promise.all(
-    liveIntegrations().map(async (def) => {
-      const { data: ds } = await supabase
-        .from("data_sources")
-        .select("id, display_name, config, status, last_synced_at, last_sync_error")
-        .eq("client_id", client.id)
-        .eq("type", def.id)
-        .maybeSingle();
+  // Load this client's connections + cached 28-day snapshots WITHOUT an N+1:
+  // one query for all data_sources, then one query per snapshot table for the
+  // connected sources (was: 2 queries × every live integration ≈ 60/page load).
+  type DsRow = {
+    id: string; type: string; display_name: string | null;
+    config: Record<string, unknown> | null; status: string | null;
+    last_synced_at: string | null; last_sync_error: string | null;
+  };
+  const { data: dsRows } = await supabase
+    .from("data_sources")
+    .select("id, type, display_name, config, status, last_synced_at, last_sync_error")
+    .eq("client_id", client.id);
+  const dsByType = new Map<string, DsRow>();
+  for (const d of (dsRows ?? []) as DsRow[]) dsByType.set(d.type, d);
 
-      let snapshot: unknown = null;
-      if (ds?.id && def.snapshotTable) {
-        const { data: snap } = await supabase
-          .from(def.snapshotTable)
-          .select("data")
-          .eq("data_source_id", ds.id)
-          .eq("period_days", 28)
-          .maybeSingle();
-        snapshot = snap?.data ?? null;
-      }
-
-      const config = (ds?.config as Record<string, unknown> | null) ?? {};
-      const source: IntegrationSource = ds
-        ? {
-            id: ds.id as string,
-            display_name: (ds.display_name as string | null) ?? null,
-            accounts: def.readAccounts?.(config) ?? [],
-            selectedAccountId: def.readSelected?.(config) ?? null,
-          }
-        : null;
-
-      return {
-        def,
-        source,
-        snapshot,
-        status: (ds?.status as string | null) ?? null,
-        lastSyncedAt: (ds?.last_synced_at as string | null) ?? null,
-        lastSyncError: (ds?.last_sync_error as string | null) ?? null,
-        ready: Boolean(source?.selectedAccountId),
-        // BigQuery drills deeper than a single account — surface its dataset/table
-        // selection so its dedicated card can restore the picker state.
-        selectedDatasetId: (config.dataset_id as string | null) ?? null,
-        selectedTableId: (config.table_id as string | null) ?? null,
-      };
+  // Group connected sources by snapshot table, then bulk-fetch snapshots.
+  const tableToIds = new Map<string, string[]>();
+  for (const def of liveIntegrations()) {
+    const ds = dsByType.get(def.id);
+    if (ds?.id && def.snapshotTable) {
+      const arr = tableToIds.get(def.snapshotTable) ?? [];
+      arr.push(ds.id);
+      tableToIds.set(def.snapshotTable, arr);
+    }
+  }
+  const snapshotByDsId = new Map<string, unknown>();
+  await Promise.all(
+    Array.from(tableToIds, async ([table, ids]) => {
+      const { data: snaps } = await supabase
+        .from(table)
+        .select("data_source_id, data")
+        .in("data_source_id", ids)
+        .eq("period_days", 28);
+      for (const s of snaps ?? []) snapshotByDsId.set(s.data_source_id as string, (s.data as unknown) ?? null);
     })
   );
+
+  const integrations = liveIntegrations().map((def) => {
+    const ds = dsByType.get(def.id) ?? null;
+    const snapshot = ds?.id ? snapshotByDsId.get(ds.id) ?? null : null;
+    const config = (ds?.config as Record<string, unknown> | null) ?? {};
+    const source: IntegrationSource = ds
+      ? {
+          id: ds.id,
+          display_name: ds.display_name ?? null,
+          accounts: def.readAccounts?.(config) ?? [],
+          selectedAccountId: def.readSelected?.(config) ?? null,
+        }
+      : null;
+
+    return {
+      def,
+      source,
+      snapshot,
+      status: ds?.status ?? null,
+      lastSyncedAt: ds?.last_synced_at ?? null,
+      lastSyncError: ds?.last_sync_error ?? null,
+      ready: Boolean(source?.selectedAccountId),
+      // BigQuery drills deeper than a single account — surface its dataset/table
+      // selection so its dedicated card can restore the picker state.
+      selectedDatasetId: (config.dataset_id as string | null) ?? null,
+      selectedTableId: (config.table_id as string | null) ?? null,
+    };
+  });
 
   const anyReady = integrations.some((i) => i.ready);
   // Sources the user has actually connected — drives the awaiting-sync state
@@ -208,7 +182,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       {integrations.filter((i) => HAS_VIZ.has(i.def.id) && i.snapshot).map((i) => (
         <div key={i.def.id} className="mt-8">
           <h2 className="mb-3 text-sm font-medium text-ink-700">{i.def.name}</h2>
-          <Analytics id={i.def.id} snapshot={i.snapshot} />
+          <ClientAnalytics id={i.def.id} snapshot={i.snapshot} />
         </div>
       ))}
 

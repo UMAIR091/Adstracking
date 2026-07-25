@@ -16,7 +16,7 @@ import { PerfKpiCard } from "@/components/PerfKpiCard";
 import { NoIntegrationsState, AwaitingSyncState, NoDataYet } from "@/components/AnalyticsEmptyState";
 import { WelcomeBack, type WelcomeBackData } from "@/components/WelcomeBack";
 import { HelpHint } from "@/components/ui/help-hint";
-import { getIntegrationHealth, summarize } from "@/lib/integrationHealth";
+import { getIntegrationHealthCached, summarize } from "@/lib/integrationHealth";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +51,9 @@ export default async function DashboardPage() {
     supabase.from("clients").select("id", { count: "exact", head: true }).eq("archived", false),
     supabase.from("reports").select("id", { count: "exact", head: true }),
     supabase.from("clients").select("id, name, created_at, data_sources(type, created_at)").eq("archived", false).order("created_at", { ascending: false }).limit(8),
-    supabase.from("gsc_snapshots").select("data_source_id, data").eq("period_days", 28),
+    // Only the two fields the dashboard actually aggregates — drops the large
+    // topQueries/topPages/movers arrays from the payload (perf audit P1-4).
+    supabase.from("gsc_snapshots").select("data_source_id, totals:data->totals, series:data->byDate").eq("period_days", 28),
     supabase.from("data_sources").select("id, client_id, config, clients(name)").eq("type", "gsc"),
     supabase.from("reports").select("id, title, status, period_start, period_end, data, created_at, clients(name)").order("created_at", { ascending: false }).limit(5),
     supabase.from("report_schedules").select("id, frequency, next_run_at, template_key, clients(name)").eq("enabled", true).order("next_run_at", { ascending: true }).limit(5),
@@ -60,7 +62,7 @@ export default async function DashboardPage() {
   const clients = (clientsRaw ?? []) as ClientWithSources[];
 
   // Integration health roll-up across every connected data source.
-  const health = summarize(await getIntegrationHealth(supabase, agency.id));
+  const health = summarize(await getIntegrationHealthCached(agency.id));
 
   // Client connections — connected / pending / ready.
   const sources = (gscSources ?? []) as { id: string; client_id: string | null; config: { site_url?: string | null } | null; clients: JoinedName }[];
@@ -72,14 +74,14 @@ export default async function DashboardPage() {
   // Performance — aggregated strictly from real cached snapshots. When there
   // is nothing to aggregate the KPI block is not rendered at all: ReportFlow
   // never shows invented numbers, so an empty state takes its place.
-  const snapRows = (snaps ?? []) as { data_source_id: string; data: { totals: Day; byDate?: Day[] } }[];
+  const snapRows = (snaps ?? []) as { data_source_id: string; totals: Day | null; series: Day[] | null }[];
 
   const byDate = new Map<string, { clicks: number; impressions: number; posW: number }>();
   let tClicks = 0, tImpr = 0, tPosW = 0;
   for (const s of snapRows) {
-    const t = s.data?.totals;
+    const t = s.totals;
     if (t) { tClicks += t.clicks; tImpr += t.impressions; tPosW += t.position * t.impressions; }
-    for (const d of s.data?.byDate ?? []) {
+    for (const d of s.series ?? []) {
       const e = byDate.get(d.date) ?? { clicks: 0, impressions: 0, posW: 0 };
       e.clicks += d.clicks; e.impressions += d.impressions; e.posW += d.position * d.impressions;
       byDate.set(d.date, e);
@@ -125,7 +127,7 @@ export default async function DashboardPage() {
   const perClient = new Map<string, { name: string; clicks: number; impressions: number }>();
   for (const sn of snapRows) {
     const src = srcById.get(sn.data_source_id);
-    const t = sn.data?.totals;
+    const t = sn.totals;
     if (!src || !src.client_id || !t) continue;
     const e = perClient.get(src.client_id) ?? { name: nameOf(src.clients), clicks: 0, impressions: 0 };
     e.clicks += t.clicks; e.impressions += t.impressions;
