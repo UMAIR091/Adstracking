@@ -12,6 +12,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const { user, agency } = await getCurrentUserAndAgency();
   if (!user) redirect("/login");
 
+  // First-run guard: send brand-new agencies through onboarding first, so their
+  // first report is already white-labeled (journey audit P0-2).
+  if (agency && !agency.onboarding_completed_at) redirect("/onboarding");
+
   const billing = agency ? await getSubscriptionState(createClient(), agency.id) : null;
 
   return (

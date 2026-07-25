@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { LogoUpload } from "@/components/LogoUpload";
 
 export type ClientValues = {
   id?: string;
@@ -78,15 +79,18 @@ export function ClientForm({ agencyId, initial }: { agencyId: string; initial?: 
             <Label>Client name *</Label>
             <Input value={v.name} onChange={(e) => set("name", e.target.value)} required />
           </div>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <div>
-              <Label>Website</Label>
-              <Input placeholder="https://client.com" value={v.website} onChange={(e) => set("website", e.target.value)} />
-            </div>
-            <div>
-              <Label>Logo URL</Label>
-              <Input placeholder="https://…/logo.png" value={v.logo_url} onChange={(e) => set("logo_url", e.target.value)} />
-            </div>
+          <div>
+            <Label>Website</Label>
+            <Input placeholder="https://client.com" value={v.website} onChange={(e) => set("website", e.target.value)} />
+          </div>
+          <div>
+            <Label>Client logo</Label>
+            <LogoUpload value={v.logo_url} onChange={(url) => set("logo_url", url)} folder={`client-${agencyId}`} />
+            <details className="mt-2">
+              <summary className="cursor-pointer text-xs text-ink-500 hover:text-ink-700">Paste a logo URL instead</summary>
+              <Input className="mt-2" placeholder="https://…/logo.png" value={v.logo_url} onChange={(e) => set("logo_url", e.target.value)} />
+            </details>
+            <p className="mt-2 text-xs text-ink-500">Optional — appears on this client&apos;s reports alongside your agency branding.</p>
           </div>
         </CardContent>
       </Card>

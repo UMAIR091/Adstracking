@@ -27,7 +27,7 @@ import { GenerateReport } from "@/components/GenerateReport";
 import { BrandingNotice } from "@/components/BrandingNotice";
 import { ReportSchedule, type ScheduleData } from "@/components/ReportSchedule";
 import { DeliveryHistory, type DeliveryLog } from "@/components/DeliveryHistory";
-import { AwaitingSyncState } from "@/components/AnalyticsEmptyState";
+import { SyncStatusPoller } from "@/components/SyncStatusPoller";
 import { liveIntegrations, descriptor } from "@/lib/integrations/registry";
 
 export const dynamic = "force-dynamic";
@@ -214,9 +214,10 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
 
       {connectedSources.length > 0 && !integrations.some((i) => HAS_VIZ.has(i.def.id) && i.snapshot) && (
         <div className="mt-8">
-          <AwaitingSyncState
+          <SyncStatusPoller
+            clientId={client.id}
             sourceCount={connectedSources.length}
-            failing={connectedSources.filter((i) => i.lastSyncError).length}
+            initialFailing={connectedSources.filter((i) => i.lastSyncError).length}
           />
         </div>
       )}
@@ -232,6 +233,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
           clientId={client.id}
           clientEmail={(client.email as string | null) ?? null}
           schedule={(schedule as unknown as ScheduleData) ?? null}
+          brandingReady={!!agency.logo_url}
         />
         <DeliveryHistory logs={(deliveryLogs as unknown as DeliveryLog[]) ?? []} />
       </div>

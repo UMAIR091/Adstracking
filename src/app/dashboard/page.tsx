@@ -14,6 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { OnboardingChecklist, type OnboardingStep } from "@/components/OnboardingChecklist";
 import { PerfKpiCard } from "@/components/PerfKpiCard";
 import { NoIntegrationsState, AwaitingSyncState, NoDataYet } from "@/components/AnalyticsEmptyState";
+import { WelcomeBack, type WelcomeBackData } from "@/components/WelcomeBack";
+import { HelpHint } from "@/components/ui/help-hint";
 import { getIntegrationHealth, summarize } from "@/lib/integrationHealth";
 
 export const dynamic = "force-dynamic";
@@ -155,11 +157,44 @@ export default async function DashboardPage() {
 
   const pctText = (t: { pct: number | null }) => (t.pct === null ? "steady" : `${t.pct < 0 ? "down" : "up"} ${Math.abs(t.pct).toFixed(0)}%`);
 
+  // ── Returning-user "welcome back" summary (journey audit P2-9) ──
+  // Only on a genuine return (last seen > 6h ago). Compute what changed since,
+  // then stamp last_seen_at for next time.
+  const lastSeen = agency.last_seen_at;
+  const SIX_HOURS = 6 * 60 * 60 * 1000;
+  const isReturn = !!lastSeen && Date.now() - new Date(lastSeen).getTime() > SIX_HOURS;
+  let welcomeBack: WelcomeBackData | null = null;
+  if (isReturn && lastSeen) {
+    const todayStart = new Date(); todayStart.setUTCHours(0, 0, 0, 0);
+    const todayEnd = new Date(); todayEnd.setUTCHours(23, 59, 59, 999);
+    const [rep, syncedSrc, failedSrc, schedToday] = await Promise.all([
+      supabase.from("reports").select("id", { count: "exact", head: true }).gt("created_at", lastSeen),
+      supabase.from("data_sources").select("id", { count: "exact", head: true }).gt("last_synced_at", lastSeen),
+      supabase.from("data_sources").select("id", { count: "exact", head: true }).in("status", ["error", "revoked"]),
+      supabase.from("report_schedules").select("id", { count: "exact", head: true }).eq("enabled", true).gte("next_run_at", todayStart.toISOString()).lte("next_run_at", todayEnd.toISOString()),
+    ]);
+    const d: WelcomeBackData = {
+      lastSeen,
+      reportsSent: rep.count ?? 0,
+      syncedSources: syncedSrc.count ?? 0,
+      failedSyncs: failedSrc.count ?? 0,
+      schedulesToday: schedToday.count ?? 0,
+    };
+    // Only show if there's something worth saying.
+    if (d.reportsSent || d.syncedSources || d.failedSyncs || d.schedulesToday) welcomeBack = d;
+  }
+  // Stamp last-seen for next visit. Awaited so it reliably persists (an
+  // un-awaited promise in a Server Component can be dropped before it settles).
+  await supabase.from("agencies").update({ last_seen_at: new Date().toISOString() }).eq("id", agency.id);
+
   // AI insights — real, multi-line analysis in active mode; connect prompt otherwise.
   const aiInsightsCard = (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2"><Sparkles size={16} className="text-brand-500" /> AI insights</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <Sparkles size={16} className="text-brand-500" /> AI insights
+          <HelpHint label="About AI insights">Written from your client&apos;s real synced numbers — an executive summary, wins, risks and next steps. Never generic filler.</HelpHint>
+        </CardTitle>
         <CardDescription>Plain-English analysis, generated automatically for every report.</CardDescription>
       </CardHeader>
       <CardContent>
@@ -232,6 +267,8 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {welcomeBack && <WelcomeBack data={welcomeBack} />}
+
       {/* Welcome */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>

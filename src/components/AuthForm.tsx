@@ -45,9 +45,12 @@ export function AuthForm({ mode, next = "/dashboard" }: { mode: "login" | "signu
       });
       setLoading(false);
       if (error) return setError(error.message);
-      // If email confirmation is on, there's no session yet.
+      // If email confirmation is on there's no session yet — send them to the
+      // verification screen, which auto-detects confirmation and continues (no
+      // manual re-login). If confirmation is off, go straight in.
       if (!data.session) {
-        return setInfo("Check your email to confirm your account, then sign in.");
+        router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+        return;
       }
       router.push(next);
       router.refresh();

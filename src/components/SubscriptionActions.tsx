@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { useConfirm } from "@/components/ui/confirm-dialog";
+import { CancelSubscriptionDialog } from "@/components/CancelSubscriptionDialog";
 
 // Manage-billing / cancel / resume controls for an active Paddle subscription.
 // Cancellation is always end-of-period, so the copy promises exactly that.
@@ -15,27 +15,15 @@ export function SubscriptionActions({ cancelAtPeriodEnd, endsAtLabel }: {
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<"cancel" | "resume" | null>(null);
-  const confirm = useConfirm();
+  const [showCancel, setShowCancel] = useState(false);
 
-  async function run(action: "cancel" | "resume") {
-    if (
-      action === "cancel" &&
-      !(await confirm({
-        title: "Cancel your subscription?",
-        description: `You’ll keep full access${endsAtLabel ? ` until ${endsAtLabel}` : " until the end of the current billing period"}, and you won’t be charged again.`,
-        confirmLabel: "Cancel subscription",
-        cancelLabel: "Keep subscription",
-        destructive: true,
-      }))
-    )
-      return;
-
-    setBusy(action);
+  async function resume() {
+    setBusy("resume");
     try {
       const res = await fetch("/api/billing/subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action: "resume" }),
       });
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(body?.error ?? "Something went wrong");
@@ -48,22 +36,52 @@ export function SubscriptionActions({ cancelAtPeriodEnd, endsAtLabel }: {
     }
   }
 
+  async function cancel(reason: string, comment: string) {
+    setBusy("cancel");
+    try {
+      const res = await fetch("/api/billing/subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel", reason, comment }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error ?? "Something went wrong");
+      setShowCancel(false);
+      toast.success(body.message ?? "Your subscription will end at the period's close.");
+      router.refresh();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Button asChild variant="outline">
-        <a href="/api/billing/portal">
-          Manage billing <ExternalLink size={14} />
-        </a>
-      </Button>
-      {cancelAtPeriodEnd ? (
-        <Button variant="outline" disabled={busy !== null} onClick={() => run("resume")}>
-          {busy === "resume" ? "Resuming…" : "Resume subscription"}
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button asChild variant="outline">
+          <a href="/api/billing/portal">
+            Manage billing <ExternalLink size={14} />
+          </a>
         </Button>
-      ) : (
-        <Button variant="ghost" disabled={busy !== null} onClick={() => run("cancel")} className="text-ink-500 hover:text-red-600">
-          {busy === "cancel" ? "Cancelling…" : "Cancel subscription"}
-        </Button>
-      )}
-    </div>
+        {cancelAtPeriodEnd ? (
+          <Button variant="outline" disabled={busy !== null} onClick={resume}>
+            {busy === "resume" ? "Resuming…" : "Resume subscription"}
+          </Button>
+        ) : (
+          <Button variant="ghost" disabled={busy !== null} onClick={() => setShowCancel(true)} className="text-ink-500 hover:text-red-600">
+            Cancel subscription
+          </Button>
+        )}
+      </div>
+
+      <CancelSubscriptionDialog
+        open={showCancel}
+        endsAtLabel={endsAtLabel}
+        busy={busy === "cancel"}
+        onKeep={() => !busy && setShowCancel(false)}
+        onConfirm={cancel}
+      />
+    </>
   );
 }

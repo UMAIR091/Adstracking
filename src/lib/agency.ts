@@ -15,6 +15,11 @@ export type Agency = {
   email_sender_email: string | null;
   email_reply_to: string | null;
   email_footer: string | null;
+  // Onboarding / localization / retention (migration 0028).
+  timezone: string | null;
+  report_language: string | null;
+  onboarding_completed_at: string | null;
+  last_seen_at: string | null;
 };
 
 // Returns the signed-in user and their agency, creating the agency on first login.

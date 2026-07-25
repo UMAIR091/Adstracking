@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { HelpHint } from "@/components/ui/help-hint";
 import { FREQUENCIES, type Frequency } from "@/lib/schedule";
 
 export type ScheduleData = {
@@ -28,10 +29,14 @@ export function ReportSchedule({
   clientId,
   clientEmail,
   schedule,
+  brandingReady = true,
 }: {
   clientId: string;
   clientEmail: string | null;
   schedule: ScheduleData;
+  /** Minimum branding (a logo) is set — scheduling is blocked until it is, so
+   *  automated reports never go out unbranded (journey audit P0-2). */
+  brandingReady?: boolean;
 }) {
   const router = useRouter();
   const confirm = useConfirm();
@@ -109,7 +114,10 @@ export function ReportSchedule({
               <CalendarClock size={18} />
             </div>
             <div>
-              <p className="font-medium text-ink-900">Automated delivery</p>
+              <p className="flex items-center gap-1.5 font-medium text-ink-900">
+                Automated delivery
+                <HelpHint label="About automated delivery">Set it once and ReportFlow generates, writes and emails a branded PDF on your schedule — from your domain, with delivery history. True set-and-forget.</HelpHint>
+              </p>
               <p className="text-sm text-ink-500">
                 {active && schedule
                   ? `${FREQ_LABEL[schedule.frequency]} · next ${formatDistanceToNow(new Date(schedule.next_run_at), { addSuffix: true })}`
@@ -165,8 +173,15 @@ export function ReportSchedule({
           </Field>
         </div>
 
+        {!brandingReady && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+            <p className="text-xs text-amber-800">Add your agency logo before scheduling — it keeps client reports on-brand.</p>
+            <a href="/dashboard/settings" className="text-xs font-semibold text-amber-800 hover:underline">Set up branding →</a>
+          </div>
+        )}
+
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <Button onClick={() => save(true)} disabled={busy}>{busy ? "Saving…" : active ? "Update schedule" : "Schedule"}</Button>
+          <Button onClick={() => save(true)} disabled={busy || !brandingReady}>{busy ? "Saving…" : active ? "Update schedule" : "Schedule"}</Button>
           {active && <Button variant="outline" onClick={() => save(false)} disabled={busy}>Pause</Button>}
           <div className="flex-1" />
           <Button variant="outline" onClick={() => run("test")} disabled={busy}><FlaskConical size={15} /> Send test</Button>

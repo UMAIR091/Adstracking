@@ -23,7 +23,7 @@ export const runtime = "nodejs";
 // same facts moments later — both paths are idempotent upserts, so whichever
 // lands first wins and the other is a no-op.
 
-type Body = { action?: string; plan?: string; interval?: string };
+type Body = { action?: string; plan?: string; interval?: string; reason?: string; comment?: string };
 
 const INTERVALS: BillingInterval[] = ["monthly", "annual"];
 
@@ -56,6 +56,12 @@ export async function POST(req: Request) {
     if (action === "cancel") {
       const updated = await cancelSubscription(subscriptionId);
       await persist(supabase, agency.id, updated);
+      // Capture churn reason (best-effort; never blocks the cancellation).
+      const reason = typeof body?.reason === "string" ? body.reason.slice(0, 120) : null;
+      const comment = typeof body?.comment === "string" ? body.comment.slice(0, 1000) : null;
+      if (reason || comment) {
+        await supabase.from("cancellation_feedback").insert({ agency_id: agency.id, reason, comment }).then(() => {}, () => {});
+      }
       return NextResponse.json({ ok: true, message: "Your subscription will end at the close of the current period." });
     }
 
