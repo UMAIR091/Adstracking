@@ -61,6 +61,21 @@ function buildCsp(nonce: string, strict: boolean): string {
 // per-request auth-server hop on the majority of traffic.
 export async function updateSession(request: NextRequest) {
   const path = request.nextUrl.pathname;
+
+  // Maintenance mode (launch audit P1-8): flip MAINTENANCE_MODE=on in the env to
+  // route all traffic to /maintenance, while keeping the health check and the
+  // maintenance page itself reachable (so uptime monitors still work).
+  if (
+    process.env.MAINTENANCE_MODE === "on" &&
+    path !== "/maintenance" &&
+    !path.startsWith("/api/health") &&
+    !path.startsWith("/monitoring") // Sentry tunnel
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/maintenance";
+    return NextResponse.rewrite(url);
+  }
+
   const nonce = crypto.randomUUID();
   // Strict, nonce'd CSP for the dynamically-rendered dashboard; legacy policy
   // for static/marketing routes (see buildCsp).

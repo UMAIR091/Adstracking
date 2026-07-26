@@ -13,6 +13,15 @@ import {
   type TransactionLike,
 } from "@/lib/billing/paddle";
 import { recordTrialGrant } from "@/lib/billing/trial";
+import { captureServer } from "@/lib/analyticsServer";
+import { ANALYTICS } from "@/lib/analytics";
+
+// The auth user id behind an agency — used as the analytics distinct id so
+// server money-events stitch to the same person as client-side events.
+async function agencyOwnerId(admin: SupabaseClient, agencyId: string): Promise<string | null> {
+  const { data } = await admin.from("agencies").select("owner_id").eq("id", agencyId).maybeSingle();
+  return (data?.owner_id as string | undefined) ?? null;
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -134,6 +143,19 @@ async function syncSubscription(admin: SupabaseClient, sub: SubscriptionLike): P
 
   const { error } = await admin.from("subscriptions").upsert(row, { onConflict: "agency_id" });
   if (error) throw new Error(error.message);
+
+  // Product analytics — the money funnel (launch audit P0-4). Best-effort.
+  const firstActivation = !prevRow || prevRow.status === "inactive";
+  const ownerId = await agencyOwnerId(admin, agencyId);
+  if (facts.status === "on_trial" && firstActivation) {
+    await captureServer(ownerId, ANALYTICS.trialStarted, { plan: row.plan ?? null });
+  } else if (facts.status === "active" && firstActivation) {
+    await captureServer(ownerId, ANALYTICS.trialConverted, { plan: row.plan ?? null });
+  } else if (facts.status === "active" && prevRow?.status === "past_due") {
+    await captureServer(ownerId, ANALYTICS.subscriptionUpgraded, { plan: row.plan ?? null });
+  } else if (facts.status === "canceled" || facts.status === "cancelled") {
+    await captureServer(ownerId, ANALYTICS.subscriptionCancelled, { plan: row.plan ?? null });
+  }
 
   // Burn the one-time paid trial the moment Paddle confirms a trialing
   // subscription. Recording it here (rather than at checkout) means it is only

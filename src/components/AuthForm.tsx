@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Brand } from "@/components/Brand";
 import { PasswordField, passwordChecks } from "@/components/ui/password-field";
+import { track, ANALYTICS } from "@/lib/analytics";
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-ink-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100";
@@ -45,6 +46,7 @@ export function AuthForm({ mode, next = "/dashboard" }: { mode: "login" | "signu
       });
       setLoading(false);
       if (error) return setError(error.message);
+      track(ANALYTICS.signedUp, { method: "email" });
       // If email confirmation is on there's no session yet — send them to the
       // verification screen, which auto-detects confirmation and continues (no
       // manual re-login). If confirmation is off, go straight in.
@@ -65,6 +67,7 @@ export function AuthForm({ mode, next = "/dashboard" }: { mode: "login" | "signu
 
   async function google() {
     setError(null);
+    if (isSignup) track(ANALYTICS.signedUp, { method: "google" });
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: callbackUrl() },

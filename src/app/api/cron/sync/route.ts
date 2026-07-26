@@ -26,7 +26,8 @@ export async function GET(req: Request) {
   try {
     const result = await dispatchSyncBatch(admin, baseUrl, secret);
 
-    // Best-effort housekeeping: drop expired rate-limit buckets. Never blocks.
+    // Heartbeat (uptime monitoring) + best-effort housekeeping. Never block.
+    admin.rpc("record_heartbeat", { p_job: "sync", p_ok: true, p_detail: `claimed ${result.claimed}` }).then(() => {}, () => {});
     admin.rpc("purge_rate_limits").then(() => {}, () => {});
 
     return NextResponse.json({ ok: true, ...dispatchConfig(), ...result });

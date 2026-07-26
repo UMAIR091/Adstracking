@@ -21,7 +21,8 @@ export async function GET(req: Request) {
   try {
     const result = await runScheduledReports(admin, scheduleBatchSize());
 
-    // Housekeeping (best-effort; never affects the response).
+    // Heartbeat (uptime monitoring) + housekeeping (best-effort; never blocks).
+    admin.rpc("record_heartbeat", { p_job: "reports", p_ok: true, p_detail: `sent ${result.sent} failed ${result.failed}` }).then(() => {}, () => {});
     admin.rpc("purge_old_metrics", { p_days: Number(process.env.METRIC_RETENTION_DAYS) || 400 }).then(
       () => {},
       () => {}

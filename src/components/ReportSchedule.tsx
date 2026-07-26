@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { HelpHint } from "@/components/ui/help-hint";
+import { track, ANALYTICS } from "@/lib/analytics";
 import { FREQUENCIES, type Frequency } from "@/lib/schedule";
 
 export type ScheduleData = {
@@ -67,6 +68,7 @@ export function ReportSchedule({
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return toast.error(data.error ?? "Couldn't save the schedule");
       toast.success(enabled ? "Automated delivery scheduled" : "Schedule paused");
+      if (enabled) track(ANALYTICS.scheduleCreated, { frequency });
       router.refresh();
     } catch {
       toast.error("Couldn't reach the server. Please try again.");

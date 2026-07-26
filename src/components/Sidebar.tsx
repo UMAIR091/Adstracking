@@ -55,6 +55,7 @@ function AccountMenu({ email, agencyName }: { email: string; agencyName: string 
           <Link href="/dashboard/settings" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm text-ink-700 hover:bg-slate-50">Settings</Link>
           <Link href="/dashboard/billing" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm text-ink-700 hover:bg-slate-50">Billing</Link>
           <Link href="/dashboard/team" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm text-ink-700 hover:bg-slate-50">Team</Link>
+          <Link href="/help" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm text-ink-700 hover:bg-slate-50">Help Center</Link>
           <form action="/auth/signout" method="post" className="border-t border-slate-100">
             <button className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink-600 hover:bg-slate-50"><LogOut size={15} /> Sign out</button>
           </form>

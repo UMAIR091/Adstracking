@@ -33,4 +33,22 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// Wrap with Sentry ONLY when a DSN is configured. This means zero Sentry client
+// bundle / build overhead until you enable it (set NEXT_PUBLIC_SENTRY_DSN +
+// SENTRY_DSN in the environment and redeploy) — and full frontend+backend error
+// tracking, with source maps when SENTRY_AUTH_TOKEN is also set, once you do.
+import { withSentryConfig } from "@sentry/nextjs";
+
+const sentryEnabled = Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN);
+
+export default sentryEnabled
+  ? withSentryConfig(nextConfig, {
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      silent: !process.env.CI,
+      widenClientFileUpload: true,
+      // Route Sentry's browser requests through the app to dodge ad-blockers.
+      tunnelRoute: "/monitoring",
+    })
+  : nextConfig;

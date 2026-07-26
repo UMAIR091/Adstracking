@@ -7,6 +7,9 @@ import { Sidebar } from "@/components/Sidebar";
 import { BillingBanner } from "@/components/BillingBanner";
 import { CommandPalette } from "@/components/CommandPalette";
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
+import { AnalyticsIdentify } from "@/components/AnalyticsIdentify";
+import { IncidentBanner } from "@/components/IncidentBanner";
+import { FeedbackWidget } from "@/components/FeedbackWidget";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, agency } = await getCurrentUserAndAgency();
@@ -20,6 +23,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <ConfirmProvider>
+      <AnalyticsIdentify userId={user.id} email={user.email ?? null} agencyName={agency?.name ?? null} />
+      <IncidentBanner />
+      <FeedbackWidget />
       <div className="min-h-screen">
         <Sidebar agencyName={agency?.name ?? "My Agency"} userEmail={user.email ?? ""} />
         <div className="lg:pl-60">

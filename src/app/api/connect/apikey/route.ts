@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { encrypt } from "@/lib/crypto";
 import { syncDataSource, type SyncableSource } from "@/lib/sync";
-import { getIntegration } from "@/lib/integrations/registry";
+import { getIntegration, isLive } from "@/lib/integrations/registry";
 import { logError } from "@/lib/errorLog";
 import { revalidateIntegrationHealth } from "@/lib/integrationHealth";
 import { publicMessage } from "@/lib/errors";
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     NextResponse.redirect(`${base}/dashboard/${cid ? `clients/${cid}` : "clients"}?connect_error=${encodeURIComponent(msg)}`);
 
   const def = getIntegration(type);
-  if (!def || def.status !== "live" || def.authKind !== "apikey" || !def.verifyApiKey || !def.buildConfig) {
+  if (!def || !isLive(def.id) || def.authKind !== "apikey" || !def.verifyApiKey || !def.buildConfig) {
     return fail("This integration can't be connected this way.");
   }
   if (!clientId) return fail("Missing client");

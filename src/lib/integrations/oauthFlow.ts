@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { encrypt } from "@/lib/crypto";
 import { syncDataSource, type SyncableSource } from "@/lib/sync";
-import { getIntegration, getOAuthProvider } from "./registry";
+import { getIntegration, getOAuthProvider, isLive } from "./registry";
 import { classifyIntegrationError } from "./errors";
 import { revalidateIntegrationHealth } from "@/lib/integrationHealth";
 import { logError } from "@/lib/errorLog";
@@ -37,7 +37,7 @@ export async function handleConnect(req: Request): Promise<Response> {
   if (!type) return NextResponse.json({ error: "type required" }, { status: 400 });
   const def = getIntegration(type);
   const oauth = getOAuthProvider(def?.oauthProviderId);
-  if (!def || def.status !== "live" || !oauth) {
+  if (!def || !isLive(def.id) || !oauth) {
     return NextResponse.json({ error: "This integration can't be connected yet." }, { status: 400 });
   }
 
@@ -105,7 +105,7 @@ export async function handleCallback(req: Request): Promise<Response> {
 
   const def = getIntegration(type);
   const oauth = getOAuthProvider(def?.oauthProviderId);
-  if (!def || def.status !== "live" || !oauth) return fail("Unsupported integration");
+  if (!def || !isLive(def.id) || !oauth) return fail("Unsupported integration");
 
   const { user, agency } = await getCurrentUserAndAgency();
   if (!user || !agency) return NextResponse.redirect(`${origin}/login`);

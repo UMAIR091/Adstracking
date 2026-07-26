@@ -6,6 +6,7 @@ import { FileBarChart2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { track, ANALYTICS } from "@/lib/analytics";
 
 const TEMPLATES = [
   { key: "seo", name: "SEO Report" },
@@ -32,6 +33,7 @@ export function GenerateReport({ clientId, ready }: { clientId: string; ready: b
       return toast.error(data.error ?? "Failed to generate report");
     }
     toast.success("Report generated");
+    track(ANALYTICS.reportGenerated, { template });
     router.push(`/dashboard/reports/${data.id}`);
   }
 

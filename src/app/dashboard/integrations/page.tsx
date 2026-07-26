@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/EmptyState";
 import { DataSourceCard } from "@/components/DataSourceCard";
-import { listIntegrations, liveIntegrations } from "@/lib/integrations/registry";
+import { listIntegrations, liveIntegrations, effectiveStatus } from "@/lib/integrations/registry";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +34,7 @@ export default async function IntegrationsPage() {
   const connectHref =
     list.length === 0 ? "/dashboard/clients/new" : list.length === 1 ? `/dashboard/clients/${list[0].id}` : "/dashboard/clients";
 
-  const liveCount = integrations.filter((d) => d.status === "live").length;
+  const liveCount = integrations.filter((d) => effectiveStatus(d) === "live").length;
 
   return (
     <div className="space-y-8">
@@ -58,8 +58,8 @@ export default async function IntegrationsPage() {
                 description: def.description,
                 icon: def.icon,
                 accent: def.accent,
-                status: def.status,
-                connectedCount: def.status === "live" ? connectedCount(def.id) : 0,
+                status: effectiveStatus(def),
+                connectedCount: effectiveStatus(def) === "live" ? connectedCount(def.id) : 0,
                 connectHref,
               }}
             />

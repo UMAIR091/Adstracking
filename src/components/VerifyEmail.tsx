@@ -12,6 +12,7 @@ import Link from "next/link";
 import { MailCheck, RefreshCw, Loader2, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Brand } from "@/components/Brand";
+import { track, ANALYTICS } from "@/lib/analytics";
 
 const RESEND_COOLDOWN = 45; // seconds
 
@@ -28,6 +29,7 @@ export function VerifyEmail({ email }: { email: string }) {
   const goOnVerified = useCallback(() => {
     if (redirected.current) return;
     redirected.current = true;
+    track(ANALYTICS.emailVerified);
     setVerified(true);
     // The dashboard layout routes un-onboarded users to /onboarding, so this
     // single destination works for every signup.

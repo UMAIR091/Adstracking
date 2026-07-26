@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LogoUpload } from "@/components/LogoUpload";
+import { track, ANALYTICS } from "@/lib/analytics";
 
 const SWATCHES = ["#4f46e5", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#0f172a"];
 const LANGUAGES = [
@@ -77,6 +78,7 @@ export function OnboardingWizard({ agency }: { agency: Agency }) {
     setSaving(true);
     try {
       await persist({ onboarding_completed_at: new Date().toISOString() });
+      track(ANALYTICS.onboardingCompleted, { has_logo: !!logo });
       router.push(target);
       router.refresh();
     } catch (e) {

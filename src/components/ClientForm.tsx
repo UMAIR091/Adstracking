@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { LogoUpload } from "@/components/LogoUpload";
+import { track, ANALYTICS } from "@/lib/analytics";
 
 export type ClientValues = {
   id?: string;
@@ -62,6 +63,7 @@ export function ClientForm({ agencyId, initial }: { agencyId: string; initial?: 
         return;
       }
       toast.success("Client added");
+      track(ANALYTICS.clientCreated);
     }
     router.push("/dashboard/clients");
     router.refresh();

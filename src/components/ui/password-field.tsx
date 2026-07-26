@@ -4,26 +4,10 @@
 // and a real-time requirements checklist. Used on signup and password-reset.
 import { useState } from "react";
 import { Eye, EyeOff, Check, X } from "lucide-react";
+import { passwordChecks, type PasswordChecks } from "@/lib/password";
 
-export type PasswordChecks = {
-  length: boolean;
-  letter: boolean;
-  number: boolean;
-  score: number; // 0..4
-  valid: boolean;
-};
-
-// Single source of truth for password rules, so the form can gate submit on the
-// same logic the UI shows.
-export function passwordChecks(v: string): PasswordChecks {
-  const length = v.length >= 8;
-  const letter = /[a-zA-Z]/.test(v);
-  const number = /\d/.test(v);
-  const symbol = /[^a-zA-Z0-9]/.test(v);
-  const long = v.length >= 12;
-  const score = [length, letter, number, symbol || long].filter(Boolean).length;
-  return { length, letter, number, score, valid: length && letter && number };
-}
+// Re-exported for existing import sites (forms import from here).
+export { passwordChecks, type PasswordChecks };
 
 const STRENGTH = [
   { label: "Too short", color: "bg-red-400", text: "text-red-600" },

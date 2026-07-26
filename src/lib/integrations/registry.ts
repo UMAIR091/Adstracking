@@ -58,8 +58,35 @@ export function listIntegrations(): IntegrationDef[] {
   return DEFS;
 }
 
+// Integration honesty (launch audit P0-2). An integration is only truly
+// connectable in production if its provider credentials are actually configured.
+// LIVE_INTEGRATIONS is an explicit allowlist of ids that are production-ready in
+// THIS environment; anything coded as "live" but not on the list is presented as
+// "coming soon" and cannot be connected. When the var is unset, all coded-live
+// integrations are treated as live (dev/preview convenience).
+function liveAllowlist(): Set<string> | null {
+  const raw = process.env.LIVE_INTEGRATIONS?.trim();
+  if (!raw) return null;
+  return new Set(raw.split(",").map((s) => s.trim()).filter(Boolean));
+}
+
+// The status a user actually sees/experiences, after applying the allowlist.
+export function effectiveStatus(def: IntegrationDef): IntegrationDef["status"] {
+  if (def.status !== "live") return def.status;
+  const allow = liveAllowlist();
+  return !allow || allow.has(def.id) ? "live" : "soon";
+}
+
+// True only when the integration is genuinely connectable here. The single guard
+// every connect path and the UI use — so a half-configured provider can never be
+// connected.
+export function isLive(id: string | null | undefined): boolean {
+  const def = getIntegration(id);
+  return !!def && effectiveStatus(def) === "live";
+}
+
 export function liveIntegrations(): IntegrationDef[] {
-  return DEFS.filter((d) => d.status === "live");
+  return DEFS.filter((d) => effectiveStatus(d) === "live");
 }
 
 // Types the background sync can process (live + fetchable + has a snapshot
@@ -89,7 +116,9 @@ export function oauthForType(type: string | null | undefined): OAuthProvider | u
 export function descriptor(d: IntegrationDef): IntegrationDescriptor {
   return {
     id: d.id, name: d.name, description: d.description, icon: d.icon,
-    accent: d.accent, status: d.status, connectPath: d.connectPath, accountNoun: d.accountNoun,
+    // Surface the EFFECTIVE status so the UI shows "coming soon" for anything
+    // not on the production allowlist.
+    accent: d.accent, status: effectiveStatus(d), connectPath: d.connectPath, accountNoun: d.accountNoun,
   };
 }
 
