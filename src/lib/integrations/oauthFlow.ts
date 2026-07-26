@@ -11,6 +11,7 @@ import { encrypt } from "@/lib/crypto";
 import { syncDataSource, type SyncableSource } from "@/lib/sync";
 import { getIntegration, getOAuthProvider } from "./registry";
 import { classifyIntegrationError } from "./errors";
+import { revalidateIntegrationHealth } from "@/lib/integrationHealth";
 import { logError } from "@/lib/errorLog";
 import { publicMessage } from "@/lib/errors";
 import { checkIntegrationLimit } from "@/lib/billing/limits";
@@ -185,4 +186,7 @@ export async function completeOAuthConnect(
   if (def.readSelected?.(config)) {
     await syncDataSource(supabase, inserted as SyncableSource);
   }
+
+  // Reflect the new connection in the cached dashboard health rollup at once.
+  revalidateIntegrationHealth(agencyId);
 }

@@ -82,7 +82,7 @@ export function SocialAnalytics({ report, sample = false }: { report: SocialRepo
         <CardContent className="flex flex-wrap items-center gap-4 p-5">
           {profile.picture ? (
             // eslint-disable-next-line @next/next/no-img-element -- external CDN avatar, unknown host
-            <img src={profile.picture} alt="" className="h-12 w-12 rounded-full border border-slate-200 object-cover" />
+            <img src={profile.picture} alt="" width={48} height={48} loading="lazy" decoding="async" className="h-12 w-12 rounded-full border border-slate-200 object-cover" />
           ) : (
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-fuchsia-50 text-lg font-semibold text-fuchsia-600" aria-hidden>
               {(profile.username || profile.name).charAt(0).toUpperCase()}

@@ -1,9 +1,13 @@
 "use client";
 
-import { Area, AreaChart, ResponsiveContainer } from "recharts";
+import dynamic from "next/dynamic";
 import { ArrowUpRight, ArrowDownRight, MousePointerClick, Eye, Percent, TrendingUp } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+
+// Lazy sparkline (ssr:false) so recharts loads only when the chart hydrates,
+// keeping it out of the dashboard's initial JS. The KPI value paints instantly.
+const Sparkline = dynamic(() => import("@/components/Sparkline").then((m) => m.Sparkline), { ssr: false });
 
 // Icons resolved here (client side) — server components can't pass component
 // functions across the boundary, so the dashboard passes an icon name instead.
@@ -57,17 +61,7 @@ export function PerfKpiCard({
         <p className="mt-2 text-2xl font-semibold text-ink-900">{value}</p>
         {chart.length > 1 && (
           <div className="mt-2 h-10">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chart} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={color} stopOpacity={0.3} />
-                    <stop offset="100%" stopColor={color} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <Area type="monotone" dataKey="v" stroke={color} strokeWidth={1.8} fill={`url(#${id})`} />
-              </AreaChart>
-            </ResponsiveContainer>
+            <Sparkline id={id} color={color} data={chart} />
           </div>
         )}
       </CardContent>

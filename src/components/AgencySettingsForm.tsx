@@ -137,7 +137,7 @@ function BrandingPreview({ values }: { values: Values }) {
           <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white">
             {values.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={values.logo_url} alt="" className="max-h-full max-w-full object-contain" />
+              <img src={values.logo_url} alt="" loading="lazy" decoding="async" className="max-h-full max-w-full object-contain" />
             ) : (
               <span className="text-lg font-semibold" style={{ color: values.brand_color }}>
                 {(values.name || "A").charAt(0).toUpperCase()}

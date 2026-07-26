@@ -1,10 +1,23 @@
 // Integration health — per-connection status for the dashboard. Reads only the
 // non-secret health columns from data_sources (never access/refresh tokens) and
 // derives a token-expiration signal from token_expires_at + status.
-import { unstable_cache } from "next/cache";
+import { unstable_cache, revalidateTag } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getIntegration } from "@/lib/integrations/registry";
 import { createAdminClient } from "@/lib/supabase/admin";
+
+const healthTag = (agencyId: string) => `integration-health-${agencyId}`;
+
+// Call after any change to an agency's connections (connect / reconnect /
+// disconnect) so the cached health rollup reflects it immediately instead of
+// waiting out the TTL. Safe to call from route handlers; no-op elsewhere.
+export function revalidateIntegrationHealth(agencyId: string): void {
+  try {
+    revalidateTag(healthTag(agencyId));
+  } catch {
+    /* outside a request context (e.g. cron) — the short TTL covers it */
+  }
+}
 
 export type ConnectionStatus = "connected" | "error" | "revoked";
 export type TokenState = "auto_refresh" | "no_expiry" | "expiring" | "reconnect";
@@ -66,7 +79,7 @@ export function getIntegrationHealthCached(agencyId: string): Promise<Integratio
   return unstable_cache(
     () => getIntegrationHealth(createAdminClient(), agencyId),
     ["integration-health", agencyId],
-    { revalidate: 60 }
+    { revalidate: 60, tags: [healthTag(agencyId)] }
   )();
 }
 

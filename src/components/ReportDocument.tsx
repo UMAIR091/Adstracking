@@ -148,7 +148,7 @@ export function ReportDocument({
             <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg bg-white/95">
               {branding.logo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={branding.logo_url} alt="" className="max-h-full max-w-full object-contain" />
+                <img src={branding.logo_url} alt="" decoding="async" className="max-h-full max-w-full object-contain" />
               ) : (
                 <span className="text-lg font-bold" style={{ color }}>{(branding.name || "A").charAt(0)}</span>
               )}

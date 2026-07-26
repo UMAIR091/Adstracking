@@ -5,6 +5,7 @@ import { encrypt } from "@/lib/crypto";
 import { syncDataSource, type SyncableSource } from "@/lib/sync";
 import { getIntegration } from "@/lib/integrations/registry";
 import { logError } from "@/lib/errorLog";
+import { revalidateIntegrationHealth } from "@/lib/integrationHealth";
 import { publicMessage } from "@/lib/errors";
 import { checkIntegrationLimit } from "@/lib/billing/limits";
 
@@ -70,6 +71,7 @@ export async function POST(req: Request) {
     if (error) throw new Error(error.message);
 
     if (def.readSelected?.(config)) await syncDataSource(supabase, inserted as SyncableSource);
+    revalidateIntegrationHealth(agency.id);
     return NextResponse.redirect(`${base}/dashboard/clients/${clientId}?connected=${def.id}`);
   } catch (err) {
     // Invalid key, provider verification failure, or storage error. Log the raw

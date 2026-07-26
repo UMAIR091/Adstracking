@@ -43,7 +43,7 @@ export function LogoUpload({
       <div className="flex items-center gap-4">
         <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={value} alt="Logo" className="max-h-full max-w-full object-contain" />
+          <img src={value} alt="Logo" loading="lazy" decoding="async" className="max-h-full max-w-full object-contain" />
         </div>
         <div className="flex flex-col gap-2">
           <button type="button" onClick={() => inputRef.current?.click()} className="text-sm font-medium text-brand-600 hover:underline">

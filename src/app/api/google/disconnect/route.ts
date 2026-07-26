@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/crypto";
 import { oauthForType } from "@/lib/integrations/registry";
+import { revalidateIntegrationHealth } from "@/lib/integrationHealth";
 
 export const runtime = "nodejs";
 
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
   // side) so we can revoke; they never leave this route.
   const { data: ds } = await supabase
     .from("data_sources")
-    .select("id, type, access_token, refresh_token")
+    .select("id, type, agency_id, access_token, refresh_token")
     .eq("id", dataSourceId)
     .maybeSingle();
   if (!ds) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -46,5 +47,6 @@ export async function POST(req: Request) {
   const { error } = await supabase.from("data_sources").delete().eq("id", dataSourceId);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
+  if (ds.agency_id) revalidateIntegrationHealth(ds.agency_id as string);
   return NextResponse.json({ ok: true });
 }

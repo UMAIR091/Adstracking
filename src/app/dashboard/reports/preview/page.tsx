@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getCurrentUserAndAgency } from "@/lib/agency";
-import { ReportPreview } from "@/components/ReportPreview";
+import { ReportPreview } from "@/components/ReportPreviewLazy";
 
 export const dynamic = "force-dynamic";
 

@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
-import { ReportDocument } from "@/components/ReportDocument";
+import { ReportDocument } from "@/components/ReportDocumentLazy";
 import { ReportActions } from "@/components/ReportActions";
 import { RegenerateInsights } from "@/components/RegenerateInsights";
 import { SendReport } from "@/components/SendReport";
