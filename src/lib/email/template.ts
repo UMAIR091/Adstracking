@@ -42,7 +42,7 @@ export type ReportEmailArgs = {
 export type WelcomeEmailArgs = {
   agencyName: string | null;
   planName: string;
-  interval: "monthly" | "annual" | null;
+  interval: "monthly" | "quarterly" | null;
   maxClients: number | null;
   /** ISO date of the next charge / trial conversion. */
   renewsAt: string | null;
@@ -62,7 +62,7 @@ export function welcomeEmailHtml(a: WelcomeEmailArgs): string {
   const color = "#4f46e5";
   const hi = a.agencyName ? `Hi ${esc(a.agencyName)},` : "Hi,";
   const day = fmtDay(a.renewsAt);
-  const cycle = a.interval === "annual" ? "annually" : a.interval === "monthly" ? "monthly" : null;
+  const cycle = a.interval === "quarterly" ? "every 3 months" : a.interval === "monthly" ? "monthly" : null;
 
   const heading = a.trial ? `Your ${a.trialDays}-day free trial has started` : `Your ${esc(a.planName)} plan is active`;
   const renewalLine = a.trial

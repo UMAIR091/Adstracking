@@ -1,6 +1,6 @@
 "use client";
 
-// Public pricing plans with a monthly/annual billing toggle.
+// Public pricing plans with a monthly / every-3-months billing toggle.
 // Signed-in visitors are routed to the dashboard billing page with their pick
 // preserved (Paddle checkout runs there as an overlay); everyone else lands on
 // /signup with the same plan choice carried through.
@@ -19,10 +19,10 @@ export type PlanPricingView = {
   id: string;
   name: string;
   maxClients: number;
-  monthly: string | null;        // formatted, e.g. "$49"
-  annual: string | null;         // formatted yearly total, e.g. "$470"
-  annualPerMonth: string | null; // formatted, e.g. "$39"
-  annualSavingPct: number | null;
+  monthly: string | null;           // formatted, e.g. "$49"
+  quarterly: string | null;         // formatted 3-month total, e.g. "$132.30"
+  quarterlyPerMonth: string | null; // formatted, e.g. "$44"
+  quarterlySavingPct: number | null;
   trialAvailable: boolean;
 };
 
@@ -44,9 +44,9 @@ export function PricingPlans({
   /** The separate no-card free trial offered on signup. */
   freeTrialDays: number;
 }) {
-  const [interval, setInterval] = useState<"monthly" | "annual">("monthly");
+  const [interval, setInterval] = useState<"monthly" | "quarterly">("monthly");
   const [busy, setBusy] = useState<string | null>(null);
-  const annual = interval === "annual";
+  const quarterly = interval === "quarterly";
   const trialOffered = trialDays > 0 && plans.some((p) => p.trialAvailable);
 
   const PRICING_PLANS = plans.map((p) => ({
@@ -89,7 +89,7 @@ export function PricingPlans({
           {(
             [
               { key: "monthly", label: "Monthly" },
-              { key: "annual", label: "Yearly" },
+              { key: "quarterly", label: "Every 3 months" },
             ] as const
           ).map((opt) => {
             const active = interval === opt.key;
@@ -104,7 +104,7 @@ export function PricingPlans({
                 }`}
               >
                 {opt.label}
-                {opt.key === "annual" && headlineSavingPct != null && (
+                {opt.key === "quarterly" && headlineSavingPct != null && (
                   <span
                     className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
                       active ? "bg-brand-50 text-brand-700" : "bg-ink-200/60 text-ink-600"
@@ -119,9 +119,9 @@ export function PricingPlans({
         </div>
         {headlineSavingPct != null && (
           <p className="text-xs text-ink-500" aria-live="polite">
-            {annual
-              ? `Billed once a year — save up to ${headlineSavingPct}%.`
-              : `Switch to yearly billing and save up to ${headlineSavingPct}%.`}
+            {quarterly
+              ? `Billed once every 3 months — save up to ${headlineSavingPct}%.`
+              : `Switch to 3-month billing and save up to ${headlineSavingPct}%.`}
           </p>
         )}
       </div>
@@ -152,7 +152,7 @@ export function PricingPlans({
           const featured = "featured" in plan && plan.featured;
           // Both figures come straight from Paddle; "—" when the catalog
           // couldn't be reached, never a guessed or stale number.
-          const price = annual ? plan.annualPerMonth : plan.monthly;
+          const price = quarterly ? plan.quarterlyPerMonth : plan.monthly;
           return (
             <div
               key={plan.id}
@@ -182,7 +182,7 @@ export function PricingPlans({
 
               <div className="mt-5" aria-live="polite">
                 <p className="flex items-baseline gap-1.5">
-                  {annual && plan.monthly && (
+                  {quarterly && plan.monthly && (
                     <span className="text-lg font-medium text-ink-300 line-through" aria-hidden>
                       {plan.monthly}
                     </span>
@@ -191,12 +191,12 @@ export function PricingPlans({
                   <span className="text-sm text-ink-500">/mo</span>
                 </p>
                 <p className="mt-1 text-xs text-ink-500">
-                  {/* The exact Paddle yearly total, not the rounded per-month
+                  {/* The exact Paddle 3-month total, not the rounded per-month
                       figure multiplied out — those disagree by a few dollars. */}
-                  {annual
-                    ? plan.annual
-                      ? `Billed annually — ${plan.annual}/yr${plan.annualSavingPct ? ` · save ${plan.annualSavingPct}%` : ""}`
-                      : "Billed annually"
+                  {quarterly
+                    ? plan.quarterly
+                      ? `Billed every 3 months — ${plan.quarterly}/quarter${plan.quarterlySavingPct ? ` · save ${plan.quarterlySavingPct}%` : ""}`
+                      : "Billed every 3 months"
                     : "Billed monthly · Cancel anytime"}
                 </p>
                 {trialOffered && plan.trialAvailable && (

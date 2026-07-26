@@ -7,8 +7,8 @@
 //
 //   * the API key authenticates against the right environment
 //   * every configured price id exists, is active, and has a billing cycle
-//   * monthly and yearly prices for a plan share a currency, and yearly is a
-//     genuine discount on 12x monthly
+//   * monthly and quarterly prices for a plan share a currency, and quarterly
+//     is a genuine discount on 3x monthly
 //   * plans are priced in ascending order of client capacity
 //   * trial prices (if configured) mirror their standard counterpart exactly
 //     and actually carry a trial period
@@ -43,6 +43,8 @@ const PLANS = [["Pro", "PRO"], ["Pro Plus", "PRO_PLUS"], ["Growth", "GROWTH"], [
 
 let failures = 0;
 const fail = (msg) => { console.log(`  ! ${msg}`); failures++; };
+// Something the app already handles gracefully — reported, but not a failure.
+const warn = (msg) => console.log(`  ~ ${msg}`);
 
 console.log(`Key environment : ${keyIsSandbox ? "SANDBOX" : "LIVE"}  (${base})`);
 console.log(`PADDLE_ENV      : ${env.PADDLE_ENV || "(unset — defaults to sandbox)"}`);
@@ -64,10 +66,21 @@ async function getPrice(id) {
   return { ok: true, price: body.data };
 }
 
-const readId = (envKey, suffix, trial) =>
-  trial
-    ? env[`PADDLE_${envKey}_${suffix}_TRIAL_PRICE_ID`] ?? env[`PADDLE_PRICE_${envKey}_${suffix}_TRIAL`]
-    : env[`PADDLE_${envKey}_${suffix}_PRICE_ID`] ?? env[`PADDLE_PRICE_${envKey}_${suffix}`];
+// Mirrors the app's env resolution (src/lib/billing/config.ts): the recurring
+// interval is QUARTERLY, but this deployment's variables are still named
+// *_YEARLY_* because they were repointed at 3-month prices rather than renamed.
+// A *_QUARTERLY_* variable wins when both are present.
+const SUFFIXES = { monthly: ["MONTHLY"], quarterly: ["QUARTERLY", "YEARLY", "ANNUAL"] };
+
+const readId = (envKey, interval, trial) => {
+  for (const suffix of SUFFIXES[interval]) {
+    const id = trial
+      ? env[`PADDLE_${envKey}_${suffix}_TRIAL_PRICE_ID`] ?? env[`PADDLE_PRICE_${envKey}_${suffix}_TRIAL`]
+      : env[`PADDLE_${envKey}_${suffix}_PRICE_ID`] ?? env[`PADDLE_PRICE_${envKey}_${suffix}`];
+    if (id) return id;
+  }
+  return undefined;
+};
 
 const money = (p) => Number(p.unit_price?.amount ?? NaN);
 const cur = (p) => p.unit_price?.currency_code ?? "?";
@@ -77,10 +90,10 @@ const resolved = [];
 let trialCount = 0;
 
 for (const [label, envKey] of PLANS) {
-  const row = { label, envKey, monthly: null, yearly: null, trialMonthly: null, trialYearly: null };
+  const row = { label, envKey, monthly: null, quarterly: null };
 
-  for (const [interval, suffix, wantCycle] of [["monthly", "MONTHLY", "month"], ["yearly", "YEARLY", "year"]]) {
-    const id = readId(envKey, suffix, false);
+  for (const [interval, wantFreq, wantCycle] of [["monthly", 1, "month"], ["quarterly", 3, "month"]]) {
+    const id = readId(envKey, interval, false);
     const tag = `  ${label} ${interval}`.padEnd(24);
     if (!id) { console.log(`${tag} not configured`); continue; }
 
@@ -92,23 +105,23 @@ for (const [label, envKey] of PLANS) {
     console.log(`${tag} ${id}  ${(amount / 100).toString().padStart(7)} ${cur(p)}/${p.billing_cycle?.interval ?? "one-time"}  ${p.product?.name ?? ""}`);
 
     if (p.status !== "active") fail(`${label} ${interval} is ${p.status}, not active.`);
-    if (p.billing_cycle?.interval !== wantCycle || Number(p.billing_cycle?.frequency) !== 1) {
-      fail(`${label} ${interval} has cycle ${p.billing_cycle?.frequency} ${p.billing_cycle?.interval}, expected 1 ${wantCycle}.`);
+    if (p.billing_cycle?.interval !== wantCycle || Number(p.billing_cycle?.frequency) !== wantFreq) {
+      fail(`${label} ${interval} has cycle ${p.billing_cycle?.frequency} ${p.billing_cycle?.interval}, expected ${wantFreq} ${wantCycle}.`);
     }
     row[interval] = { id, amount, currency: cur(p), product: p.product_id, price: p };
   }
 
-  // Yearly must actually be a discount, and in the same currency.
-  if (row.monthly && row.yearly) {
-    if (row.monthly.currency !== row.yearly.currency) {
-      fail(`${label}: monthly is ${row.monthly.currency} but yearly is ${row.yearly.currency}.`);
+  // Quarterly must actually be a discount, and in the same currency.
+  if (row.monthly && row.quarterly) {
+    if (row.monthly.currency !== row.quarterly.currency) {
+      fail(`${label}: monthly is ${row.monthly.currency} but quarterly is ${row.quarterly.currency}.`);
     }
-    const twelve = row.monthly.amount * 12;
-    if (row.yearly.amount > twelve) {
-      fail(`${label}: yearly (${row.yearly.amount / 100}) costs more than 12x monthly (${twelve / 100}).`);
+    const three = row.monthly.amount * 3;
+    if (row.quarterly.amount > three) {
+      fail(`${label}: quarterly (${row.quarterly.amount / 100}) costs more than 3x monthly (${three / 100}).`);
     } else {
-      const pct = Math.round((1 - row.yearly.amount / twelve) * 100);
-      console.log(`  ${label.padEnd(10)} annual saving: ${pct}%`);
+      const pct = Math.round((1 - row.quarterly.amount / three) * 100);
+      console.log(`  ${label.padEnd(10)} quarterly saving: ${pct}%`);
     }
   }
   resolved.push(row);
@@ -125,8 +138,8 @@ for (let i = 1; i < resolved.length; i++) {
 
 console.log("\nTrial prices");
 for (const row of resolved) {
-  for (const [interval, suffix] of [["monthly", "MONTHLY"], ["yearly", "YEARLY"]]) {
-    const id = readId(row.envKey, suffix, true);
+  for (const interval of ["monthly", "quarterly"]) {
+    const id = readId(row.envKey, interval, true);
     if (!id) continue;
     trialCount++;
 
@@ -139,7 +152,18 @@ for (const row of resolved) {
     const standard = row[interval];
     console.log(`${tag} ${id}  ${(money(p) / 100).toString().padStart(7)} ${cur(p)}  trial=${t ? `${t.frequency} ${t.interval}` : "NONE"}`);
 
-    if (p.status !== "active") fail(`${row.label} ${interval} trial price is ${p.status}.`);
+    // An inactive trial price is not an error: checkout verifies the price is
+    // active before using it and falls back to the standard price, so the sale
+    // still completes. The remaining checks would only describe a price the
+    // app will never charge, so they are skipped.
+    if (p.status !== "active") {
+      warn(`${row.label} ${interval} trial price is ${p.status} — checkout will use the standard price instead.`);
+      if (standard?.price?.trial_period) {
+        warn(`${row.label} ${interval} standard price carries its own ${standard.price.trial_period.frequency} ${standard.price.trial_period.interval} trial, so the trial is still offered.`);
+      }
+      continue;
+    }
+
     if (!t) fail(`${row.label} ${interval} trial price has no trial_period — it would charge immediately.`);
     else if (t.interval !== "day" || Number(t.frequency) !== TRIAL_DAYS) {
       fail(`${row.label} ${interval} trial is ${t.frequency} ${t.interval}, expected ${TRIAL_DAYS} day.`);

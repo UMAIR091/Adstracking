@@ -139,8 +139,8 @@ const FAQS: { q: string; a: string }[] = [
     a: "Because every account starts with a free trial, we encourage you to test everything before paying. For billing mistakes or exceptional cases, see our Refund & Cancellation Policy — we handle requests case by case and aim to be fair.",
   },
   {
-    q: "How does annual billing work?",
-    a: "Pay for a year upfront at a discount — the exact annual price and saving are shown on each plan above. You can switch between monthly and annual billing from your billing settings at any time.",
+    q: "How does 3-month billing work?",
+    a: "Pay for 3 months upfront at a discount — the exact quarterly price and saving are shown on each plan above. You can switch between monthly and 3-month billing from your billing settings at any time.",
   },
   {
     q: "What payment methods do you accept?",
@@ -248,9 +248,9 @@ export default async function PricingPage() {
                 name: p.name,
                 maxClients: p.maxClients,
                 monthly: p.monthly?.formatted ?? null,
-                annual: p.annual?.formatted ?? null,
-                annualPerMonth: p.annualPerMonth?.formatted ?? null,
-                annualSavingPct: p.annualSavingPct,
+                quarterly: p.quarterly?.formatted ?? null,
+                quarterlyPerMonth: p.quarterlyPerMonth?.formatted ?? null,
+                quarterlySavingPct: p.quarterlySavingPct,
                 trialAvailable: p.trialAvailable,
               }))}
               headlineSavingPct={saving}
@@ -352,7 +352,7 @@ export default async function PricingPage() {
                   name: "Per-report platforms",
                   example: "Whatagraph",
                   price: "from ~$249/mo",
-                  detail: "with feature tiers and annual contracts to negotiate.",
+                  detail: "with feature tiers and long-term contracts to negotiate.",
                   highlight: false,
                 },
               ].map((c) => (

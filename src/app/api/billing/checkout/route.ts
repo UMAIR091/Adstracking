@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserAndAgency } from "@/lib/agency";
-import { billingConfigured, findPrice, findTrialPrice, trialPricingConfigured, PAID_TRIAL_DAYS, type BillingInterval, type PlanId } from "@/lib/billing/config";
+import { billingConfigured, findPrice, trialPricingConfigured, PAID_TRIAL_DAYS, BILLING_INTERVALS, normalizeInterval, type BillingInterval, type PlanId } from "@/lib/billing/config";
+import { usableTrialPriceId, standardPriceStartsTrial } from "@/lib/billing/prices";
 import { createCheckoutSession, PaddleError } from "@/lib/billing/paddle";
 import { checkTrialEligibility } from "@/lib/billing/trial";
 
 export const runtime = "nodejs";
 
-const INTERVALS: BillingInterval[] = ["monthly", "annual"];
+const INTERVALS: BillingInterval[] = BILLING_INTERVALS;
 
 // Side-effect-free probe used by the public pricing page to decide where a
 // plan button should lead: straight to the dashboard checkout for a signed-in
@@ -51,9 +52,11 @@ export async function POST(req: Request) {
 
   const body = (await req.json().catch(() => null)) as { plan?: string; interval?: string } | null;
   const plan = body?.plan as PlanId | undefined;
-  const interval = body?.interval as BillingInterval | undefined;
+  // Legacy "annual" callers (a bookmarked /signup?interval=annual link, a stale
+  // cached page) resolve to the quarterly plan rather than failing the request.
+  const interval = normalizeInterval(body?.interval);
   if (!plan || !interval || !INTERVALS.includes(interval)) {
-    return NextResponse.json({ error: "plan and interval (monthly/annual) are required." }, { status: 400 });
+    return NextResponse.json({ error: "plan and interval (monthly/quarterly) are required." }, { status: 400 });
   }
 
   const priceId = findPrice(plan, interval);
@@ -85,7 +88,10 @@ export async function POST(req: Request) {
   // price id. Eligibility is read with the admin client because the ledger is
   // keyed on email across agencies — an RLS-scoped read would make a fresh
   // agency reusing an old email look eligible.
-  const trialPriceId = findTrialPrice(plan, interval);
+  // The id is verified against the live Paddle catalog before use: an archived
+  // trial price is rejected at transaction time, so checking out on one would
+  // turn "start your trial" into a hard failure to buy.
+  const trialPriceId = await usableTrialPriceId(plan, interval);
   let usedTrial = false;
   let checkoutPriceId = priceId;
 
@@ -99,6 +105,11 @@ export async function POST(req: Request) {
       usedTrial = true;
     }
   }
+
+  // The plan's own price can carry a trial period, in which case Paddle starts
+  // the subscription in `trialing` whichever price was chosen. Report what the
+  // customer will actually experience rather than what we intended to offer.
+  if (!usedTrial && (await standardPriceStartsTrial(plan, interval))) usedTrial = true;
 
   try {
     const session = await createCheckoutSession({

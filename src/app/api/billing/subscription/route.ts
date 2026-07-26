@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAgency } from "@/lib/agency";
-import { findPrice, getPlan, planForPrice, planRank, type BillingInterval, type PlanId } from "@/lib/billing/config";
+import { findPrice, getPlan, planForPrice, planRank, BILLING_INTERVALS, normalizeInterval, type BillingInterval, type PlanId } from "@/lib/billing/config";
 import {
   cancelSubscription,
   changeSubscriptionPrice,
@@ -25,7 +25,7 @@ export const runtime = "nodejs";
 
 type Body = { action?: string; plan?: string; interval?: string; reason?: string; comment?: string };
 
-const INTERVALS: BillingInterval[] = ["monthly", "annual"];
+const INTERVALS: BillingInterval[] = BILLING_INTERVALS;
 
 // Upgrade vs downgrade is decided by catalog order (client capacity), not by
 // a price literal — prices live in Paddle and must not be duplicated here.
@@ -73,9 +73,9 @@ export async function POST(req: Request) {
 
     // action === "change"
     const plan = body?.plan as PlanId | undefined;
-    const interval = body?.interval as BillingInterval | undefined;
+    const interval = normalizeInterval(body?.interval);
     if (!plan || !getPlan(plan) || !interval || !INTERVALS.includes(interval)) {
-      return NextResponse.json({ error: "plan and interval (monthly/annual) are required." }, { status: 400 });
+      return NextResponse.json({ error: "plan and interval (monthly/quarterly) are required." }, { status: 400 });
     }
 
     const priceId = findPrice(plan, interval);

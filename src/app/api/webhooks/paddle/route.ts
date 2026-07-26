@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EventEntity } from "@paddle/paddle-node-sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { planForPrice, planName, getPlan, PAID_TRIAL_DAYS, type PlanId } from "@/lib/billing/config";
+import { planForPrice, planName, getPlan, normalizeInterval, PAID_TRIAL_DAYS, type PlanId } from "@/lib/billing/config";
 import { emailConfigured, sendEmailWithRetry, welcomeEmailHtml } from "@/lib/email";
 import {
   verifyWebhook,
@@ -230,7 +230,7 @@ async function sendWelcomeEmail(
     const html = welcomeEmailHtml({
       agencyName: name,
       planName: planNm,
-      interval: args.interval === "annual" || args.interval === "monthly" ? args.interval : null,
+      interval: normalizeInterval(args.interval),
       maxClients: args.plan ? getPlan(args.plan as PlanId)?.limits.maxClients ?? null : null,
       renewsAt: args.renewsAt,
       trial: args.trial,

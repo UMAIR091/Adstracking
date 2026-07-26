@@ -7,8 +7,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkTrialEligibility } from "@/lib/billing/trial";
 import { getSubscriptionState } from "@/lib/billing/subscription";
-import { billingConfigured, PAID_FEATURES, PAID_TRIAL_DAYS } from "@/lib/billing/config";
-import { getPlanPricing } from "@/lib/billing/prices";
+import { billingConfigured, intervalLabel, normalizeInterval, PAID_FEATURES, PAID_TRIAL_DAYS } from "@/lib/billing/config";
+import { getPlanPricing, headlineSavingPct } from "@/lib/billing/prices";
 import { listInvoices, type InvoiceView } from "@/lib/billing/paddle";
 import { BillingPlans, type PlanView } from "@/components/BillingPlans";
 import { SubscriptionActions } from "@/components/SubscriptionActions";
@@ -72,7 +72,7 @@ export default async function BillingPage({
     // Straight from Paddle, so this page and the checkout it opens can never
     // quote different numbers. Checkout stays authoritative for local currency
     // and tax.
-    prices: { monthly: p.monthly?.formatted ?? null, annual: p.annual?.formatted ?? null },
+    prices: { monthly: p.monthly?.formatted ?? null, quarterly: p.quarterly?.formatted ?? null },
     // Catalog order, not price — upgrade/downgrade direction must not depend
     // on an amount that lives in another system.
     rank: i,
@@ -86,7 +86,11 @@ export default async function BillingPage({
       : false;
 
   const badge = STATUS_BADGE[state.status] ?? { label: state.status, variant: "muted" as const };
-  const cycleLabel = state.interval === "annual" ? "Yearly" : state.interval === "monthly" ? "Monthly" : "—";
+  // Legacy rows still store "annual"; normalizeInterval maps them onto the
+  // quarterly cycle their Paddle price now carries, so an existing customer
+  // never sees a blank billing cycle.
+  const currentInterval = normalizeInterval(state.interval);
+  const cycleLabel = currentInterval ? intervalLabel(currentInterval) : "—";
 
   // What the customer should read as "what happens next".
   const renewalLabel = state.cancelAtPeriodEnd
@@ -190,10 +194,11 @@ export default async function BillingPage({
         <BillingPlans
           plans={planViews}
           currentPlan={state.plan}
-          currentInterval={state.interval}
+          currentInterval={currentInterval}
           trialDays={trialEligible ? PAID_TRIAL_DAYS : 0}
           hasSubscription={Boolean(state.subscriptionId)}
-          initialInterval={searchParams.interval === "annual" ? "annual" : "monthly"}
+          initialInterval={normalizeInterval(searchParams.interval) ?? "monthly"}
+          savingPct={headlineSavingPct(plans)}
           highlightPlan={plans.some((p) => p.id === searchParams.plan) ? searchParams.plan : undefined}
         />
       ) : (

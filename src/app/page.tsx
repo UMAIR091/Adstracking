@@ -49,7 +49,7 @@ function faqs(pricing: PlanPricing[], savingPct: number | null) {
   },
   {
     q: "How does pricing work?",
-    a: `Every plan includes every feature — unlimited reports, AI insights, full white-label. The only difference is how many active clients you can report on: ${tiers}.${savingPct ? ` Annual billing saves up to ${savingPct}%.` : ""} There are no per-client fees or feature gates.`,
+    a: `Every plan includes every feature — unlimited reports, AI insights, full white-label. The only difference is how many active clients you can report on: ${tiers}.${savingPct ? ` Paying every 3 months saves up to ${savingPct}%.` : ""} There are no per-client fees or feature gates.`,
   },
   {
     q: "Which data sources are live today?",
@@ -626,13 +626,13 @@ export default async function LandingPage() {
           <SectionHeading
             eyebrow="Pricing"
             title="Every plan includes every feature."
-            subtitle={`Upgrade only when you need more active clients.${savingPct ? ` Save up to ${savingPct}% with annual billing.` : ""} New accounts start with a free trial, no card required.`}
+            subtitle={`Upgrade only when you need more active clients.${savingPct ? ` Save up to ${savingPct}% by paying every 3 months.` : ""} New accounts start with a free trial, no card required.`}
           />
           <div className="mx-auto mt-14 grid max-w-5xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
             {pricing.map((plan) => ({
               name: plan.name,
               price: plan.monthly?.formatted ?? "—",
-              annualPerMonth: plan.annualPerMonth?.formatted ?? null,
+              quarterlyPerMonth: plan.quarterlyPerMonth?.formatted ?? null,
               clients: `Up to ${plan.maxClients} active client${plan.maxClients === 1 ? "" : "s"}`,
               featured: plan.id === "pro",
               trialAvailable: plan.trialAvailable,
@@ -652,8 +652,8 @@ export default async function LandingPage() {
                 <p className="mt-2 text-4xl font-semibold">
                   {p.price}<span className="text-base font-normal text-ink-500">/mo</span>
                 </p>
-                {p.annualPerMonth && (
-                  <p className="mt-1 text-xs text-ink-500">or {p.annualPerMonth}/mo billed annually</p>
+                {p.quarterlyPerMonth && (
+                  <p className="mt-1 text-xs text-ink-500">or {p.quarterlyPerMonth}/mo billed every 3 months</p>
                 )}
                 <p className="mt-4 flex items-center gap-2 text-sm font-semibold text-ink-800">
                   <Users size={15} className="shrink-0 text-brand-600" aria-hidden /> {p.clients}

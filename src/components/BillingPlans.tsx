@@ -17,9 +17,13 @@ export type PlanView = {
   name: string;
   blurb: string;
   features: string[];
-  prices: { monthly: string | null; annual: string | null }; // display strings, null = interval unavailable
+  prices: { monthly: string | null; quarterly: string | null }; // display strings, null = interval unavailable
   rank: number; // price order, so the UI can label upgrade vs downgrade
 };
+
+const INTERVAL_LABEL = { monthly: "Monthly", quarterly: "Every 3 months" } as const;
+/** The unit a price is quoted per, e.g. "$132.30/quarter". */
+const INTERVAL_UNIT = { monthly: "month", quarterly: "quarter" } as const;
 
 type CheckoutSession = {
   transactionId: string;
@@ -35,19 +39,22 @@ export function BillingPlans({
   trialDays = 0,
   initialInterval = "monthly",
   highlightPlan,
+  savingPct = null,
 }: {
   plans: PlanView[];
   currentPlan: string; // "trial" | "free" | plan id
-  currentInterval?: "monthly" | "annual" | null;
+  currentInterval?: "monthly" | "quarterly" | null;
   hasSubscription: boolean; // a manageable Paddle subscription exists
   /** Paid-plan trial length, already checked for eligibility; 0 = none. */
   trialDays?: number;
-  initialInterval?: "monthly" | "annual";
+  initialInterval?: "monthly" | "quarterly";
   highlightPlan?: string;
+  /** Saving of quarterly vs monthly, derived from Paddle — never a literal. */
+  savingPct?: number | null;
 }) {
   const router = useRouter();
   const confirm = useConfirm();
-  const [interval, setInterval] = useState<"monthly" | "annual">(initialInterval);
+  const [interval, setInterval] = useState<"monthly" | "quarterly">(initialInterval);
   const [busy, setBusy] = useState<string | null>(null);
   const paddleRef = useRef<Paddle | null>(null);
 
@@ -128,18 +135,22 @@ export function BillingPlans({
   return (
     <div>
       <div className="flex items-center justify-center gap-1 rounded-full border border-slate-200 bg-white p-1 text-sm" role="group" aria-label="Billing interval">
-        {(["monthly", "annual"] as const).map((iv) => (
+        {(["monthly", "quarterly"] as const).map((iv) => (
           <button
             key={iv}
             onClick={() => setInterval(iv)}
             aria-pressed={interval === iv}
             className={cn(
-              "rounded-full px-4 py-1.5 font-medium capitalize transition-colors",
+              "rounded-full px-4 py-1.5 font-medium transition-colors",
               interval === iv ? "bg-brand-500 text-white" : "text-ink-500 hover:text-ink-800"
             )}
           >
-            {iv}
-            {iv === "annual" && <span className={cn("ml-1.5 text-xs", interval === iv ? "text-white/80" : "text-emerald-600")}>save ~20%</span>}
+            {INTERVAL_LABEL[iv]}
+            {iv === "quarterly" && savingPct != null && savingPct > 0 && (
+              <span className={cn("ml-1.5 text-xs", interval === iv ? "text-white/80" : "text-emerald-600")}>
+                save {savingPct}%
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -148,7 +159,7 @@ export function BillingPlans({
         {plans.map((p) => {
           const price = p.prices[interval];
           // "Current" means same plan AND same billing cycle — switching
-          // monthly→annual on the same tier is still a change.
+          // monthly→quarterly on the same tier is still a change.
           const isCurrent = currentPlan === p.id && (!currentInterval || currentInterval === interval);
           const isSamePlanOtherInterval = currentPlan === p.id && !isCurrent;
           const isPicked = highlightPlan === p.id && !isCurrent;
@@ -170,7 +181,7 @@ export function BillingPlans({
                 </div>
                 <p className="mt-3">
                   <span className="text-3xl font-semibold text-ink-900">{price ?? "—"}</span>{" "}
-                  <span className="text-sm text-ink-500">/{interval === "monthly" ? "month" : "year"}</span>
+                  <span className="text-sm text-ink-500">/{INTERVAL_UNIT[interval]}</span>
                 </p>
                 <p className="mt-1 text-sm text-ink-500">{p.blurb}</p>
                 <ul className="mb-6 mt-5 flex-1 space-y-2.5 text-sm text-ink-700">
@@ -194,7 +205,7 @@ export function BillingPlans({
                     {busy === p.id
                       ? "Updating…"
                       : isSamePlanOtherInterval
-                        ? `Switch to ${interval}`
+                        ? `Switch to ${INTERVAL_LABEL[interval].toLowerCase()}`
                         : isUpgrade
                           ? `Upgrade to ${p.name}`
                           : `Downgrade to ${p.name}`}
@@ -214,8 +225,8 @@ export function BillingPlans({
                     </Button>
                     {trialDays > 0 && (
                       <p className="mt-2 text-center text-xs text-ink-500">
-                        Free for {trialDays} days, then {price}/{interval === "monthly" ? "month" : "year"}. Cancel
-                        before it ends and you won&apos;t be charged.
+                        Free for {trialDays} days, then {price}/{INTERVAL_UNIT[interval]}. Cancel before it ends and
+                        you won&apos;t be charged.
                       </p>
                     )}
                   </>

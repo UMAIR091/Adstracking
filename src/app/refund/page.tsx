@@ -28,8 +28,8 @@ export default function RefundPage() {
 
       <h2>2. Subscriptions & billing</h2>
       <p>
-        {COMPANY.product} is a subscription billed in advance on a recurring basis — monthly, or annually if you choose
-        annual billing. Prices are shown in US dollars (USD). Payments, invoicing, and any applicable sales tax or VAT
+        {COMPANY.product} is a subscription billed in advance on a recurring basis — monthly, or every 3 months if you
+        choose quarterly billing. Prices are shown in US dollars (USD). Payments, invoicing, and any applicable sales tax or VAT
         are processed by our third-party payment provider, which acts as the merchant of record. Your subscription
         renews automatically at the end of each billing period until you cancel.
       </p>
@@ -56,9 +56,9 @@ export default function RefundPage() {
           first payment and we will refund that payment in full.
         </li>
         <li>
-          <strong>Annual plans.</strong> Annual subscriptions are also covered by the 14-day money-back guarantee from
-          the date of the first annual charge. After 14 days, annual plans are non-refundable for the remainder of the
-          term, but you may cancel to prevent the next renewal.
+          <strong>Quarterly plans.</strong> Quarterly (3-month) subscriptions are also covered by the 14-day money-back
+          guarantee from the date of the first quarterly charge. After 14 days, quarterly plans are non-refundable for
+          the remainder of the 3-month term, but you may cancel to prevent the next renewal.
         </li>
         <li>
           <strong>Renewals.</strong> Recurring renewal charges are generally non-refundable. If you were charged for a
