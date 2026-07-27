@@ -43,6 +43,8 @@ export function paddle(): Paddle {
 // Error carrying an HTTP status so routes can pass it straight through.
 export class PaddleError extends Error {
   status: number;
+  /** The referenced object doesn't exist at the provider — the stored id is stale. */
+  notFound = false;
   constructor(message: string, status = 502) {
     super(message);
     this.name = "PaddleError";
@@ -79,14 +81,44 @@ export async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<
   throw lastErr;
 }
 
-// Normalises any SDK failure into a PaddleError with a safe message. Paddle's
-// detail strings are operator-facing, so we surface them without the payload.
+/** True when Paddle says the object simply doesn't exist on this account. */
+function isNotFound(err: unknown, status: number): boolean {
+  if (status === 404) return true;
+  const code = (err as { code?: unknown })?.code;
+  const detail = (err as { detail?: unknown })?.detail;
+  return code === "not_found" || (typeof detail === "string" && /not found/i.test(detail));
+}
+
+// Normalises any SDK failure into a PaddleError with a message safe to show a
+// customer.
+//
+// Paddle's `detail` strings are operator-facing and embed the object id — a
+// user clicking "Manage billing" was being shown
+// "customer ctm_01ky…zbar1 not found", which tells them nothing, looks broken,
+// and leaks an internal identifier. The raw detail is now logged for us and
+// replaced with an explanation for them.
 function wrap(err: unknown, fallback: string): PaddleError {
   if (err instanceof PaddleError) return err;
   const status = statusOf(err) ?? 502;
   const detail = (err as { detail?: unknown })?.detail;
-  const message = typeof detail === "string" && detail ? detail : (err as Error)?.message || fallback;
-  return new PaddleError(message, status >= 400 && status < 600 ? status : 502);
+  const raw = typeof detail === "string" && detail ? detail : (err as Error)?.message || fallback;
+
+  if (isNotFound(err, status)) {
+    // Operator-facing: the id matters here, and only here.
+    console.error(`Paddle object missing on this account: ${raw}`);
+    const e = new PaddleError(
+      "This subscription is no longer available in our payment provider. It may have been cancelled or created in a different environment. Choose a plan to start a new subscription.",
+      404
+    );
+    e.notFound = true;
+    return e;
+  }
+
+  // Any other provider message still gets logged in full, but the customer
+  // sees it without an embedded identifier.
+  console.error(`Paddle error (${status}): ${raw}`);
+  const safe = raw.replace(/\b(ctm|sub|pri|txn|pro)_[a-z0-9]+/gi, "").replace(/\s{2,}/g, " ").trim();
+  return new PaddleError(safe || fallback, status >= 400 && status < 600 ? status : 502);
 }
 
 // ── Status mapping ───────────────────────────────────────────
@@ -125,16 +157,33 @@ export async function createCheckoutSession(args: {
   const token = paddleClientToken();
   if (!token) throw new PaddleError("Billing is not configured (PADDLE_CLIENT_TOKEN).", 503);
 
-  try {
-    const tx = await withRetry(() =>
+  const create = (customerId?: string | null) =>
+    withRetry(() =>
       paddle().transactions.create({
         items: [{ priceId: args.priceId, quantity: 1 }],
         // Echoed back on every webhook for this transaction and the resulting
         // subscription, so we can always attribute it to an agency.
         customData: { agency_id: args.agencyId },
-        ...(args.customerId ? { customerId: args.customerId } : {}),
+        ...(customerId ? { customerId } : {}),
       })
     );
+
+  try {
+    let tx;
+    try {
+      tx = await create(args.customerId);
+    } catch (err) {
+      // A stored customer id that Paddle no longer recognises must not block a
+      // NEW purchase. Retry once without it so Paddle creates a fresh customer
+      // — otherwise a stale id leaves the agency unable to subscribe at all.
+      const status = statusOf(err) ?? 0;
+      if (args.customerId && isNotFound(err, status)) {
+        console.error(`Paddle customer ${args.customerId} not found — checking out without it.`);
+        tx = await create(null);
+      } else {
+        throw err;
+      }
+    }
     return {
       transactionId: tx.id,
       clientToken: token,

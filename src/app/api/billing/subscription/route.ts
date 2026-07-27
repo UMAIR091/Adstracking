@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { findPrice, getPlan, planForPrice, planRank, BILLING_INTERVALS, normalizeInterval, type BillingInterval, type PlanId } from "@/lib/billing/config";
+import { reconcileMissingSubscription } from "@/lib/billing/reconcile";
 import {
   cancelSubscription,
   changeSubscriptionPrice,
@@ -101,6 +102,25 @@ export async function POST(req: Request) {
   } catch (err) {
     const e = err as PaddleError;
     console.error(`Paddle subscription ${action} failed:`, e.message);
+
+    // The subscription doesn't exist at the provider, so there is nothing to
+    // cancel, resume or change. Clear the stale row rather than repeating the
+    // same 404 on every click, and tell the customer what actually happened.
+    if (e.notFound) {
+      await reconcileMissingSubscription(supabase, agency.id, `subscription ${action}: not found`);
+      return NextResponse.json(
+        {
+          ok: true,
+          reconciled: true,
+          message:
+            action === "cancel"
+              ? "That subscription no longer exists with our payment provider, so there was nothing to cancel. Your billing details have been reset and you won't be charged."
+              : "That subscription no longer exists with our payment provider, so we've reset your billing details. Choose a plan to subscribe again.",
+        },
+        { status: 200 }
+      );
+    }
+
     return NextResponse.json({ error: e.message }, { status: e.status ?? 502 });
   }
 }
