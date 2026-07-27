@@ -8,6 +8,7 @@ import { ReportActions } from "@/components/ReportActions";
 import { RegenerateInsights } from "@/components/RegenerateInsights";
 import { SendReport } from "@/components/SendReport";
 import { DownloadPdf } from "@/components/DownloadPdf";
+import { AiAnalysisPanel } from "@/components/insights/AiAnalysisPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,11 @@ export default async function ReportViewPage({ params }: { params: { id: string 
           <ReportActions shareUrl={shareUrl} />
         </div>
       </div>
+
+      {/* AI analysis sits ABOVE the report document and is marked no-print:
+          it's the agency's read of the data, not part of the client-facing
+          deliverable, and it answers "what changed?" before they scroll. */}
+      <AiAnalysisPanel data={report.data} />
 
       <ReportDocument
         branding={{ name: agency.name, logo_url: agency.logo_url, brand_color: agency.brand_color, website: agency.website, footer_text: agency.footer_text }}

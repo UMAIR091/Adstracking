@@ -18,7 +18,9 @@ import { WelcomeBack, type WelcomeBackData } from "@/components/WelcomeBack";
 import { StatRow, type StatTileData } from "@/components/dashboard/StatTile";
 import { ActivityTimeline } from "@/components/dashboard/ActivityTimeline";
 import { NextScheduled, type NextScheduledData } from "@/components/dashboard/NextScheduled";
-import { AiPanel, type Recommendation } from "@/components/dashboard/AiPanel";
+import { AiPanel } from "@/components/dashboard/AiPanel";
+import { detectSignals, withContext, type Signal } from "@/lib/insights/signals";
+import type { GscReportFull } from "@/lib/google";
 import { buildActivity } from "@/lib/dashboard/activity";
 import { getIntegrationName } from "@/lib/integrations/names";
 import { getIntegrationHealthCached, summarize } from "@/lib/integrationHealth";
@@ -66,7 +68,10 @@ export default async function DashboardPage() {
     supabase.from("clients").select("id, name, created_at, data_sources(type, created_at)").eq("archived", false).order("created_at", { ascending: false }).limit(8),
     // Only the two fields the dashboard actually aggregates — drops the large
     // topQueries/topPages/movers arrays from the payload (perf audit P1-4).
-    supabase.from("gsc_snapshots").select("data_source_id, totals:data->totals, series:data->byDate").eq("period_days", 28),
+    // `movers` is added for the AI insight cards. It's bounded (5 winners, 5
+    // decliners, 5 opportunities) unlike topQueries/topPages, so the payload
+    // stays close to what the perf audit trimmed it to.
+    supabase.from("gsc_snapshots").select("data_source_id, totals:data->totals, series:data->byDate, movers:data->movers").eq("period_days", 28),
     supabase.from("data_sources").select("id, client_id, config, clients(name)").eq("type", "gsc"),
     // Every source, for the integrations stat, the sync status and the timeline.
     supabase.from("data_sources").select("client_id, type, created_at, last_synced_at, last_sync_error"),
@@ -95,7 +100,12 @@ export default async function DashboardPage() {
   // Performance — aggregated strictly from real cached snapshots. When there
   // is nothing to aggregate the KPI block is not rendered at all: ReportFlow
   // never shows invented numbers, so an empty state takes its place.
-  const snapRows = (snaps ?? []) as { data_source_id: string; totals: Day | null; series: Day[] | null }[];
+  const snapRows = (snaps ?? []) as {
+    data_source_id: string;
+    totals: Day | null;
+    series: Day[] | null;
+    movers: GscReportFull["movers"] | null;
+  }[];
 
   const byDate = new Map<string, { clicks: number; impressions: number; posW: number }>();
   let tClicks = 0, tImpr = 0, tPosW = 0;
@@ -244,43 +254,34 @@ export default async function DashboardPage() {
     },
   ];
 
-  // ── AI recommendations ───────────────────────────────────────
-  // Derived strictly from the aggregated numbers above. Each one states the
-  // observation and the action, which is what makes it a recommendation rather
-  // than a restated metric.
-  const pctText = (t: { pct: number | null }) => (t.pct === null ? "steady" : `${t.pct < 0 ? "down" : "up"} ${Math.abs(t.pct).toFixed(0)}%`);
-  const recommendations: Recommendation[] = hasReal
-    ? [
-        {
-          kind: clicksT.good ? "win" : "risk",
-          headline: `Organic clicks are ${pctText(clicksT)}`,
-          body: clicksT.good
-            ? `Clicks rose against the previous ${halfDays} days on ${fmt(perf.impressions)} impressions. Lead your next report with this.`
-            : `Clicks fell against the previous ${halfDays} days. Check whether impressions held — if they did, the issue is CTR, not visibility.`,
-          href: "/dashboard/reports",
-          cta: "Review reports",
-        },
-        {
-          kind: "opportunity",
-          headline: `Average position is ${perf.position.toFixed(1)}`,
-          body:
-            perf.position > 10
-              ? "Most queries sit on page two. The fastest wins are pages ranking 11–20 — small on-page work often moves them up."
-              : "You are ranking on page one on average. Push CTR with stronger titles and descriptions to convert existing impressions.",
-          href: "/dashboard/clients",
-          cta: "Open clients",
-        },
-        {
-          kind: failingSyncs > 0 ? "risk" : "win",
-          headline: failingSyncs > 0 ? `${failingSyncs} source${failingSyncs === 1 ? "" : "s"} failing to sync` : "All data sources are healthy",
-          body:
-            failingSyncs > 0
-              ? "Reports built on a stale sync understate performance. Reconnect the affected sources before your next send."
-              : `Every connected source synced cleanly${lastSyncAt ? `, most recently ${format(new Date(lastSyncAt), "d MMM 'at' HH:mm")}` : ""}. Your reports are current.`,
-          href: "/dashboard/settings/health",
-          cta: "View health",
-        },
-      ]
+  // ── AI insight signals ───────────────────────────────────────
+  // Computed per client from that client's own snapshot, then merged and
+  // ranked across the workspace. Each card carries the client it belongs to,
+  // so the panel says "where should I look today?" rather than restating an
+  // aggregate the KPI row already shows. Nothing here is estimated: see
+  // lib/insights/signals.ts.
+  const signals: Signal[] = hasReal
+    ? snapRows
+        .flatMap((sn) => {
+          const src = srcById.get(sn.data_source_id);
+          const name = src ? nameOf(src.clients) : null;
+          if (!name) return [];
+          // Only the fields this snapshot actually selected are passed; the
+          // detector emits nothing for the parts it can't see (e.g. top pages).
+          const partial = {
+            totals: sn.totals ?? { clicks: 0, impressions: 0, ctr: 0, position: 0 },
+            byDate: sn.series ?? [],
+            movers: sn.movers ?? null,
+            topQueries: [],
+            topPages: [],
+            topCountries: [],
+            topDevices: [],
+            previousTotals: null,
+          } as unknown as GscReportFull;
+          return withContext(detectSignals(partial, null, 3), name);
+        })
+        .sort((a, b) => b.weight - a.weight)
+        .slice(0, 6)
     : [];
 
   const quickActions = [
@@ -491,7 +492,7 @@ export default async function DashboardPage() {
 
       {/* 2 — What the numbers mean, and what goes out next. */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2"><AiPanel recommendations={recommendations} connected={hasReal} /></div>
+        <div className="lg:col-span-2"><AiPanel signals={signals} connected={hasReal} /></div>
         <NextScheduled data={nextScheduled} />
       </div>
 

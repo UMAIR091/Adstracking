@@ -8,9 +8,10 @@ import { invitationEmailHtml } from "@/lib/email/template";
 
 describe("invite tokens", () => {
   it("generates unique, URL-safe tokens", () => {
-    const tokens = new Set(Array.from({ length: 200 }, () => generateInviteToken()));
-    expect(tokens.size).toBe(200);
-    for (const t of tokens) expect(t).toMatch(/^[A-Za-z0-9_-]+$/);
+    const generated = Array.from({ length: 200 }, () => generateInviteToken());
+    // tsconfig targets < es2015, so a Set isn't directly iterable here.
+    expect(new Set(generated).size).toBe(200);
+    for (const t of generated) expect(t).toMatch(/^[A-Za-z0-9_-]+$/);
   });
 
   it("produces enough entropy to resist guessing", () => {
