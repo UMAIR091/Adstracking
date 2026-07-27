@@ -21,9 +21,33 @@ const STATUS_STYLE: Record<string, string> = {
   bounced: "bg-red-50 text-red-700 border-red-100",
 };
 
-// Delivery history for a client's emailed reports — Sent / Pending / Failed.
-export function DeliveryHistory({ logs }: { logs: DeliveryLog[] }) {
-  if (logs.length === 0) return null;
+// Delivery history for emailed reports — Sent / Pending / Failed.
+//
+// `showEmpty` distinguishes the two callers. On a client page an empty history
+// is noise and the card is omitted entirely; on a report page its absence is
+// itself the answer ("this was never sent"), so it renders an explanatory
+// state rather than vanishing and leaving the question open.
+export function DeliveryHistory({ logs, showEmpty = true }: { logs: DeliveryLog[]; showEmpty?: boolean }) {
+  if (logs.length === 0) {
+    if (!showEmpty) return null;
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Delivery history</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-xl border border-dashed border-ink-200 px-4 py-6 text-center">
+            <p className="text-sm font-medium text-ink-800">Not emailed yet</p>
+            <p className="mx-auto mt-1 max-w-sm text-sm text-ink-500">
+              Use <span className="font-medium text-ink-700">Email report</span> above to send it now, or set a
+              schedule on the client so it goes out automatically. Every send — and any failure — is recorded here.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader className="pb-2">

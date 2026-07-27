@@ -209,7 +209,8 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
           schedule={(schedule as unknown as ScheduleData) ?? null}
           brandingReady={!!agency.logo_url}
         />
-        <DeliveryHistory logs={(deliveryLogs as unknown as DeliveryLog[]) ?? []} />
+        {/* On a client page an empty history is noise — the card is omitted. */}
+        <DeliveryHistory logs={(deliveryLogs as unknown as DeliveryLog[]) ?? []} showEmpty={false} />
       </div>
     </div>
   );
