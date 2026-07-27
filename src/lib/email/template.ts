@@ -112,6 +112,78 @@ export function welcomeEmailHtml(a: WelcomeEmailArgs): string {
 </html>`;
 }
 
+// ── Team invitation ──────────────────────────────────────────
+// A platform email, not a white-label one: it invites someone to join a
+// ReportFlow workspace, so it carries ReportFlow's identity and is sent from
+// the platform sender. That also means it does not depend on the agency having
+// verified a sending domain — an invite must work on day one.
+export type InvitationEmailArgs = {
+  agencyName: string;
+  /** Who sent it, for the "X invited you" line. Falls back gracefully. */
+  inviterEmail: string | null;
+  role: "admin" | "member";
+  inviteUrl: string;
+  expiryDays: number;
+};
+
+export function invitationEmailHtml(a: InvitationEmailArgs): string {
+  const color = "#4f46e5";
+  const agency = esc(a.agencyName);
+  const inviter = a.inviterEmail ? esc(a.inviterEmail) : null;
+  const url = safeUrl(a.inviteUrl);
+  const roleLabel = a.role === "admin" ? "an admin" : "a team member";
+
+  const canDo = [
+    "View and manage clients",
+    "Connect data sources and run syncs",
+    "Generate, schedule and send reports",
+    a.role === "admin" ? "Manage workspace settings and teammates" : null,
+  ].filter(Boolean) as string[];
+
+  return `<!doctype html>
+<html lang="en">
+  <body style="margin:0;padding:0;background:#f4f6f8;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:36px 12px;">
+      <tr><td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e9edf2;">
+          <tr><td style="background:${color};padding:22px 32px;"><span style="font-size:18px;font-weight:700;color:#ffffff;">ReportFlow</span></td></tr>
+          <tr><td style="padding:32px;">
+            <h1 style="margin:0 0 14px;font-size:20px;line-height:1.35;color:#0f172a;">You've been invited to join ${agency}</h1>
+            <p style="margin:0 0 18px;font-size:15px;line-height:1.65;color:#334155;">
+              ${inviter ? `${inviter} has invited you` : "You've been invited"} to join
+              <strong>${agency}</strong> on ReportFlow as ${roleLabel}. Once you accept you'll be able to:
+            </p>
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 22px;">
+              ${canDo.map((f) => `<tr><td style="padding:3px 0;font-size:14px;color:#334155;">✓&nbsp; ${esc(f)}</td></tr>`).join("")}
+            </table>
+            ${
+              url
+                ? `<table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:10px;background:${color};">
+              <a href="${esc(url)}" style="display:inline-block;padding:13px 26px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">Accept invitation</a>
+            </td></tr></table>
+            <p style="margin:18px 0 0;font-size:13px;line-height:1.6;color:#64748b;">
+              Or paste this link into your browser:<br/>
+              <span style="color:#334155;word-break:break-all;">${esc(url)}</span>
+            </p>`
+                : `<p style="margin:0;font-size:14px;color:#b91c1c;">The invitation link could not be generated. Please ask for a new invite.</p>`
+            }
+            <p style="margin:18px 0 0;font-size:13px;line-height:1.6;color:#64748b;">
+              This invitation expires in ${a.expiryDays} days. It only works for the address it was sent to.
+            </p>
+          </td></tr>
+          <tr><td style="padding:18px 32px;border-top:1px solid #eef1f5;">
+            <p style="margin:0;font-size:12px;line-height:1.7;color:#94a3b8;">
+              ReportFlow · white-label client reporting on autopilot<br/>
+              Weren't expecting this? You can safely ignore this email — nothing happens until you accept.
+            </p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+}
+
 export function reportEmailHtml(args: ReportEmailArgs): string {
   const color = safeColor(args.brandColor);
   const agency = esc(args.agencyName || "Your Agency");

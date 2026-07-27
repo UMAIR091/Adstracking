@@ -1,19 +1,63 @@
 import { redirect } from "next/navigation";
-import { Mail } from "lucide-react";
-import { getCurrentUserAndAgency } from "@/lib/agency";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { SoonButton } from "@/components/SoonButton";
+import { getCurrentUserAndAgency, isAdminRole } from "@/lib/agency";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { emailConfigured } from "@/lib/email";
+import { TeamManager, type MemberView, type InviteView } from "@/components/TeamManager";
 
 export const dynamic = "force-dynamic";
 
 export default async function TeamPage() {
-  const { user } = await getCurrentUserAndAgency();
-  if (!user) redirect("/login");
+  const { user, agency, role } = await getCurrentUserAndAgency();
+  if (!user || !agency) redirect("/login");
 
-  const email = user.email ?? "you@agency.com";
+  const supabase = createClient();
+
+  // Memberships are readable by the whole team (RLS); pending invitations only
+  // by admins, so a member simply sees an empty list rather than an error.
+  const [{ data: membershipRows }, { data: inviteRows }] = await Promise.all([
+    supabase.from("memberships").select("user_id, role, created_at").eq("agency_id", agency.id).order("created_at"),
+    isAdminRole(role)
+      ? supabase
+          .from("invitations")
+          .select("id, email, role, created_at, expires_at")
+          .eq("agency_id", agency.id)
+          .eq("status", "pending")
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] as unknown[] }),
+  ]);
+
+  // auth.users isn't exposed to the anon key, so member email addresses are
+  // resolved with the service role. Only ids already visible through this
+  // agency's memberships are looked up — no directory-wide read.
+  const admin = createAdminClient();
+  const ids = new Set((membershipRows ?? []).map((m) => m.user_id as string));
+  const emailById = new Map<string, string>();
+  if (ids.size) {
+    const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    for (const u of list?.users ?? []) {
+      if (ids.has(u.id)) emailById.set(u.id, u.email ?? "");
+    }
+  }
+
+  const members: MemberView[] = (membershipRows ?? []).map((m) => ({
+    userId: m.user_id as string,
+    email: emailById.get(m.user_id as string) || "Unknown user",
+    role: (m.role as MemberView["role"]) ?? "member",
+    isYou: m.user_id === user.id,
+  }));
+
+  // Owner first, then admins, then members — the list reads as a hierarchy.
+  const ORDER = { owner: 0, admin: 1, member: 2 };
+  members.sort((a, b) => ORDER[a.role] - ORDER[b.role] || a.email.localeCompare(b.email));
+
+  const invites: InviteView[] = ((inviteRows ?? []) as Record<string, unknown>[]).map((i) => ({
+    id: i.id as string,
+    email: i.email as string,
+    role: (i.role as InviteView["role"]) ?? "member",
+    createdAt: i.created_at as string,
+    expiresAt: i.expires_at as string,
+  }));
 
   return (
     <div className="space-y-8">
@@ -22,44 +66,12 @@ export default async function TeamPage() {
         <p className="text-sm text-ink-500">Invite teammates to collaborate on clients and reports.</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Members</CardTitle>
-          <CardDescription>People with access to this workspace.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-500 text-sm font-semibold text-white">
-                {(email[0] || "U").toUpperCase()}
-              </div>
-              <div>
-                <p className="text-sm font-medium text-ink-900">{email}</p>
-                <p className="text-xs text-ink-500">Workspace owner</p>
-              </div>
-            </div>
-            <Badge variant="default">Owner</Badge>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Invite a teammate</CardTitle>
-          <CardDescription>They&apos;ll get access to clients, integrations and reports.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="min-w-[240px] flex-1">
-              <Label>Email address</Label>
-              <Input type="email" placeholder="teammate@agency.com" />
-            </div>
-            <SoonButton message="Team invitations arrive with multi-user support." size="lg">
-              <Mail size={16} /> Send invite
-            </SoonButton>
-          </div>
-        </CardContent>
-      </Card>
+      <TeamManager
+        members={members}
+        invites={invites}
+        canManage={isAdminRole(role)}
+        emailReady={emailConfigured()}
+      />
     </div>
   );
 }

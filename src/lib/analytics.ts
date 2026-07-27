@@ -16,6 +16,8 @@ export const ANALYTICS = {
   syncCompleted: "first_sync_completed",
   reportGenerated: "report_generated",
   reportDelivered: "report_delivered",
+  teamInviteSent: "team_invite_sent",
+  teamInviteAccepted: "team_invite_accepted",
   scheduleCreated: "schedule_created",
   pdfDownloaded: "pdf_downloaded",
   reportShared: "report_shared",
