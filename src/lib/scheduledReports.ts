@@ -134,6 +134,9 @@ async function processJob(admin: SupabaseClient, job: DeliveryJob, allowed: bool
     recipients,
     subject: job.subject || `${clientName} — your latest performance report`,
     message: job.message,
+    // The scheduler sent this with no human in the loop — the only path that
+    // records "scheduled".
+    source: "scheduled",
     report: { id: gen.id, title: gen.title, shareToken: gen.shareToken, data: gen.data, period: gen.period },
   });
 

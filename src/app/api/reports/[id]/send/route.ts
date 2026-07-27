@@ -57,6 +57,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     recipients,
     subject,
     message,
+    // A person clicked "Email report" — the timeline shows this as
+    // "Report emailed", never "Scheduled report sent".
+    source: "manual",
+    actorId: user.id,
     report: { id: report.id, title: report.title, shareToken: report.share_token, data: report.data, period: { start: report.period_start as string, end: report.period_end as string } },
   });
 

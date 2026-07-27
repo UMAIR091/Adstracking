@@ -72,7 +72,7 @@ export default async function DashboardPage() {
     supabase.from("data_sources").select("client_id, type, created_at, last_synced_at, last_sync_error"),
     supabase.from("reports").select("id, title, status, period_start, period_end, data, created_at, client_id, clients(name)").order("created_at", { ascending: false }).limit(5),
     supabase.from("report_schedules").select("id, client_id, frequency, next_run_at, template_key, clients(name)").eq("enabled", true).order("next_run_at", { ascending: true }).limit(5),
-    supabase.from("email_logs").select("report_id, to_email, status, sent_at, error").order("sent_at", { ascending: false }).limit(10),
+    supabase.from("email_logs").select("report_id, to_email, status, sent_at, error, source").order("sent_at", { ascending: false }).limit(10),
   ]);
 
   const clients = (clientsRaw ?? []) as ClientWithSources[];
@@ -168,7 +168,7 @@ export default async function DashboardPage() {
   const reports = (reportsRaw ?? []) as { id: string; title: string; status: string; period_start: string | null; period_end: string | null; data: { totals?: Day } | null; created_at: string; client_id: string | null; clients: JoinedName }[];
   const latest = reports.find((r) => r.status === "ready") ?? reports[0];
   const schedules = (schedulesRaw ?? []) as { id: string; client_id: string | null; frequency: string; next_run_at: string; template_key: string; clients: JoinedName }[];
-  const emails = (emailsRaw ?? []) as { report_id: string | null; to_email: string; status: string; sent_at: string; error: string | null }[];
+  const emails = (emailsRaw ?? []) as { report_id: string | null; to_email: string; status: string; sent_at: string; error: string | null; source: string | null }[];
 
   // ── Latest sync status ───────────────────────────────────────
   // The most recent successful sync across every source, plus how many are
@@ -178,9 +178,9 @@ export default async function DashboardPage() {
   const failingSyncs = everySource.filter((s) => s.last_sync_error).length;
 
   // ── Activity timeline ────────────────────────────────────────
-  // Note: email_logs has no column marking a send as schedule-driven, so a
-  // delivery is reported as "Report emailed" rather than guessing. Adding a
-  // flag on the send path would let the timeline separate the two honestly.
+  // email_logs.source (migration 0031) carries how each send was triggered, so
+  // scheduled deliveries and manual sends are distinguished from the record
+  // rather than inferred. Pre-0031 rows have no source and read as manual.
   const activity = buildActivity({
     clients: clients.map((c) => ({ id: c.id, name: c.name, created_at: c.created_at })),
     sources: everySource,

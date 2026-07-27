@@ -58,6 +58,11 @@ export async function POST(req: Request) {
     recipients,
     subject: mode === "test" ? `[TEST] ${subjectBase}` : subjectBase,
     message: schedule?.message,
+    // "Send Now" and "Send Test" are user-initiated even though they run a
+    // schedule's settings — a person chose to send, so the timeline reports
+    // them as manual. Only the cron engine writes "scheduled".
+    source: "manual",
+    actorId: user.id,
     report: { id: gen.id, title: gen.title, shareToken: gen.shareToken, data: gen.data, period: gen.period },
   });
 

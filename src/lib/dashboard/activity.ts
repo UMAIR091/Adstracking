@@ -64,8 +64,13 @@ export type ActivityInput = {
     status: string;
     sent_at: string;
     error?: string | null;
-    /** True when the send came from a schedule rather than a manual click. */
-    scheduled?: boolean;
+    /**
+     * How the send was triggered (email_logs.source). Rows written before that
+     * column existed have no value; those are shown as a manual send, which is
+     * exactly what the timeline displayed for them before, so no historical
+     * event changes meaning.
+     */
+    source?: string | null;
   }[];
   /** Display names for integration types, e.g. { gsc: "Search Console" }. */
   integrationNames?: Record<string, string>;
@@ -121,7 +126,10 @@ export function buildActivity(input: ActivityInput, limit = 12): ActivityEvent[]
       continue;
     } else {
       events.push({
-        kind: e.scheduled ? "scheduled_report_sent" : "report_emailed",
+        // Only an explicit "scheduled" counts as automated. Unknown (NULL from
+        // before the column, or an unrecognised value) falls back to manual
+        // rather than guessing the workspace's automation was involved.
+        kind: e.source === "scheduled" ? "scheduled_report_sent" : "report_emailed",
         at: e.sent_at,
         subject,
         detail: e.to_email,

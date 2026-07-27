@@ -7,6 +7,8 @@ import { sendEmailWithRetry, reportEmailHtml, resolveSender, type ResolvedSender
 import { getOrRenderReportPdf } from "@/lib/pdf/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeReportData } from "@/lib/report";
+import { captureServer } from "@/lib/analyticsServer";
+import { ANALYTICS } from "@/lib/analytics";
 
 export type DeliveryBranding = {
   name: string;
@@ -19,6 +21,16 @@ export type DeliveryBranding = {
   email_footer?: string | null;
 };
 
+/**
+ * How a delivery was triggered.
+ *
+ * Required, not defaulted: every caller knows which it is, and a default would
+ * silently mislabel a new call site. "manual" covers anything a person clicked
+ * — the send button, Send Now, Send Test — because from the timeline's point of
+ * view a human chose to send it. "scheduled" is the cron engine only.
+ */
+export type DeliverySource = "manual" | "scheduled";
+
 export type DeliverInput = {
   agencyId: string;
   branding: DeliveryBranding;
@@ -26,7 +38,10 @@ export type DeliverInput = {
   recipients: string[];
   subject: string;
   message?: string | null;
+  source: DeliverySource;
   report: { id: string; title: string; shareToken: string; data: unknown; period: { start: string; end: string } };
+  /** Auth user id, for server-side analytics attribution. Optional. */
+  actorId?: string | null;
 };
 
 function slug(s: string): string {
@@ -50,7 +65,7 @@ function summaryOf(data: unknown): string | null {
 // and the sender actually used) or 'failed' (with the error). Never throws —
 // returns a result.
 export async function deliverReport(supabase: SupabaseClient, input: DeliverInput): Promise<{ ok: boolean; error?: string; sent: number }> {
-  const { agencyId, branding, clientName, recipients, subject, report } = input;
+  const { agencyId, branding, clientName, recipients, subject, report, source } = input;
   if (recipients.length === 0) return { ok: false, error: "No recipients", sent: 0 };
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
@@ -61,7 +76,7 @@ export async function deliverReport(supabase: SupabaseClient, input: DeliverInpu
   // Pre-log as pending so in-flight deliveries show in history.
   const { data: logs } = await supabase
     .from("email_logs")
-    .insert(recipients.map((to) => ({ agency_id: agencyId, report_id: report.id, to_email: to, subject, status: "pending", report_url: shareUrl })))
+    .insert(recipients.map((to) => ({ agency_id: agencyId, report_id: report.id, to_email: to, subject, status: "pending", report_url: shareUrl, source })))
     .select("id");
   const logIds = (logs ?? []).map((l) => l.id);
 
@@ -134,6 +149,19 @@ export async function deliverReport(supabase: SupabaseClient, input: DeliverInpu
         })
         .in("id", logIds);
     }
+    // Funnel event, carrying how the send was triggered so manual and
+    // scheduled delivery can be compared. Only fired when there's a real user
+    // to attribute it to — a cron delivery has no browser identity, and
+    // inventing one would fragment PostHog's person graph. Scheduled sends are
+    // still durably recorded in email_logs.source.
+    if (input.actorId) {
+      await captureServer(input.actorId, ANALYTICS.reportDelivered, {
+        source,
+        recipients: recipients.length,
+        white_label: used.whiteLabel,
+      });
+    }
+
     return { ok: true, sent: recipients.length };
   } catch (err) {
     const message = (err as Error).message;
