@@ -101,6 +101,20 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   });
 
   const anyReady = integrations.some((i) => i.ready);
+
+  // Report generation reads a CACHED SNAPSHOT — a connected source with an
+  // account selected but no completed sync still produces nothing. Gate the
+  // generate and delivery actions on the snapshot, and name whichever stage is
+  // actually missing so the message is actionable rather than generic.
+  const hasSyncedData = integrations.some((i) => i.snapshot);
+  const anyConnected = integrations.some((i) => i.source !== null);
+  const dataBlockedReason = hasSyncedData
+    ? undefined
+    : !anyConnected
+      ? "Connect a data source above before scheduling — there's nothing to report on yet."
+      : !anyReady
+        ? "Finish setting up the data source above (choose a property or account), then run a sync."
+        : "Waiting for the first sync. Use “Refresh now” on the data source above — reports are built from synced data.";
   // Sources the user has actually connected — drives the awaiting-sync state
   // that replaces the old sample analytics.
   const connectedSources = integrations.filter((i) => i.source !== null);
@@ -199,7 +213,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       <BrandingNotice hasLogo={!!agency.logo_url} />
 
       <div className="mt-8">
-        <GenerateReport clientId={client.id} ready={anyReady} />
+        <GenerateReport clientId={client.id} ready={hasSyncedData} blockedReason={dataBlockedReason} />
       </div>
 
       <div className="mt-4 space-y-4">
@@ -208,6 +222,8 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
           clientEmail={(client.email as string | null) ?? null}
           schedule={(schedule as unknown as ScheduleData) ?? null}
           brandingReady={!!agency.logo_url}
+          dataReady={hasSyncedData}
+          dataBlockedReason={dataBlockedReason}
         />
         {/* On a client page an empty history is noise — the card is omitted. */}
         <DeliveryHistory logs={(deliveryLogs as unknown as DeliveryLog[]) ?? []} showEmpty={false} />

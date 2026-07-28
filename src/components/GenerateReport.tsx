@@ -26,7 +26,17 @@ const STAGES = [
   { label: "Building your report", ms: 0 },
 ];
 
-export function GenerateReport({ clientId, ready }: { clientId: string; ready: boolean }) {
+export function GenerateReport({
+  clientId,
+  ready,
+  blockedReason,
+}: {
+  clientId: string;
+  /** A synced snapshot exists — generation reads cached data, not live APIs. */
+  ready: boolean;
+  /** Which setup step is missing, so the message names a next action. */
+  blockedReason?: string;
+}) {
   const router = useRouter();
   const [template, setTemplate] = useState("seo");
   const [period, setPeriod] = useState(28);
@@ -86,7 +96,9 @@ export function GenerateReport({ clientId, ready }: { clientId: string; ready: b
       </CardHeader>
       <CardContent>
         {!ready ? (
-          <p className="text-sm text-ink-500">Connect a data source above to generate reports.</p>
+          <p className="text-sm text-ink-500">
+            {blockedReason ?? "Connect a data source above to generate reports."}
+          </p>
         ) : busy ? (
           // Progress replaces the form rather than sitting beside it: the
           // controls are inert during generation, and leaving them visible but

@@ -31,6 +31,8 @@ export function ReportSchedule({
   clientEmail,
   schedule,
   brandingReady = true,
+  dataReady = true,
+  dataBlockedReason,
 }: {
   clientId: string;
   clientEmail: string | null;
@@ -38,6 +40,12 @@ export function ReportSchedule({
   /** Minimum branding (a logo) is set — scheduling is blocked until it is, so
    *  automated reports never go out unbranded (journey audit P0-2). */
   brandingReady?: boolean;
+  /** A synced snapshot exists, so a report can actually be built. Sending
+   *  without one fails server-side, so the buttons are gated rather than
+   *  letting the click produce an error the user has to interpret. */
+  dataReady?: boolean;
+  /** Which stage of setup is missing, for an actionable message. */
+  dataBlockedReason?: string;
 }) {
   const router = useRouter();
   const confirm = useConfirm();
@@ -175,6 +183,16 @@ export function ReportSchedule({
           </Field>
         </div>
 
+        {/* Nothing can be built or sent until a source has actually synced.
+            Shown first because it blocks more than branding does. */}
+        {!dataReady && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+            <p className="text-xs text-amber-800">
+              {dataBlockedReason ?? "Connect a data source and run a sync before scheduling — there's no data to report on yet."}
+            </p>
+          </div>
+        )}
+
         {!brandingReady && (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
             <p className="text-xs text-amber-800">Add your agency logo before scheduling — it keeps client reports on-brand.</p>
@@ -183,11 +201,30 @@ export function ReportSchedule({
         )}
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <Button onClick={() => save(true)} disabled={busy || !brandingReady}>{busy ? "Saving…" : active ? "Update schedule" : "Schedule"}</Button>
+          <Button onClick={() => save(true)} disabled={busy || !brandingReady || !dataReady}>
+            {busy ? "Saving…" : active ? "Update schedule" : "Schedule"}
+          </Button>
           {active && <Button variant="outline" onClick={() => save(false)} disabled={busy}>Pause</Button>}
           <div className="flex-1" />
-          <Button variant="outline" onClick={() => run("test")} disabled={busy}><FlaskConical size={15} /> Send test</Button>
-          <Button variant="outline" onClick={() => run("now")} disabled={busy}><Send size={15} /> Send now</Button>
+          {/* Both send paths generate a report first, so they need data just as
+              much as the schedule does. Leaving them enabled turned a missing
+              sync into an error toast after the click. */}
+          <Button
+            variant="outline"
+            onClick={() => run("test")}
+            disabled={busy || !dataReady}
+            title={!dataReady ? "Connect and sync a data source first" : undefined}
+          >
+            <FlaskConical size={15} aria-hidden /> Send test
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => run("now")}
+            disabled={busy || !dataReady}
+            title={!dataReady ? "Connect and sync a data source first" : undefined}
+          >
+            <Send size={15} aria-hidden /> Send now
+          </Button>
         </div>
         <p className="mt-3 text-xs text-ink-500">Reports are generated from the latest synced data and emailed as a branded PDF under your branding. Times are UTC.</p>
       </CardContent>
