@@ -1,98 +1,135 @@
 # OAuth App Verification Checklist
 
 Status of ReportFlow against Google and Meta app-review requirements.
-✅ = implemented in the app · 🔲 = action you must take in an external console.
+✅ = done · 🔲 = action required · ⛔ = only the account owner can do this
 
-> **Replace `<APP_URL>` everywhere with your production domain.**
-> Strongly recommended: put the app on a custom domain you own before submitting —
-> reviewers treat `*.vercel.app` as unverifiable, and Google requires an
-> authorized domain you can verify in Search Console.
-
-## Prerequisite (both reviews)
-
-- 🔲 Fill in the placeholders in `src/lib/company.ts` — legal name, address,
-  jurisdiction, and **real, monitored** support/privacy email addresses.
-  Reviewers email these addresses and click every footer link.
+**Google Cloud project:** `ads-tracking-499914` ("Ads Tracking")
+**OAuth client:** `reportflow Production` — `775664922002-jb7k1i2ho20neij58aekm16sgpkdkgeo`
+**Console account:** umairlodhi091@gmail.com
 
 ---
 
 ## Google OAuth verification
 
-App requirements — done:
+### App requirements — done
 
-- ✅ Public homepage describing the app (`/`), links to Privacy Policy in the footer
-- ✅ Privacy Policy at `/privacy` on the same domain, including the
-  **Google API Services User Data Policy — Limited Use disclosure** (section 3)
+- ✅ Public homepage (`/`) with Privacy Policy linked in the footer
+- ✅ Privacy Policy at `/privacy` including the **Google API Services User Data
+  Policy — Limited Use disclosure**
 - ✅ Terms of Service at `/terms`
-- ✅ In-app consent screen before OAuth (`/dashboard/connect/[type]`) explaining
-  what is accessed, why, storage, and revocation
+- ✅ Real business details on every legal page (`src/lib/company.ts`) — no
+  placeholders remain
+- ✅ In-app consent screen before OAuth (`/dashboard/connect/[type]`)
 - ✅ User-facing data controls: disconnect + delete per source
   (Settings → Data & privacy), public instructions at `/data-deletion`
-- ✅ Read-only scopes only: `webmasters.readonly`, `analytics.readonly`
+- ✅ Read-only scopes only
 
-Console steps (Google Cloud → APIs & Services → OAuth consent screen):
+### Console configuration — done (2026-07-28)
 
-- 🔲 App name must match the site ("ReportFlow"), logo uploaded
-- 🔲 Authorized domain = your production domain (verify ownership in Google Search Console)
-- 🔲 Homepage URL: `<APP_URL>` · Privacy Policy: `<APP_URL>/privacy` · ToS: `<APP_URL>/terms`
-- 🔲 Scopes requested: `.../auth/webmasters.readonly`, `.../auth/analytics.readonly`
-- 🔲 Scope justification (draft — adapt as needed):
-  > ReportFlow is a client-reporting tool for marketing agencies. It reads
-  > Search Console performance data (webmasters.readonly) and Google Analytics 4
-  > metrics (analytics.readonly) that the signed-in agency explicitly connects,
-  > solely to generate the white-label performance reports the user creates and
-  > schedules in the app. Access is read-only; data is cached per report period,
-  > shown to the user in-app, and deletable by the user at any time.
-- 🔲 Demo video (screen recording): sign-in → consent screen → Google OAuth →
-  pick property → data appears → generate report → Settings → Data & privacy →
-  disconnect. Show the full OAuth consent screen including the app name and scopes.
-- 🔲 Enabled APIs: Search Console API, Google Analytics Data API, Google Analytics Admin API
+- ✅ App name = **ReportFlow** (was "Report Flow" — must match the site)
+- ✅ Homepage `https://tryreportflow.com`, Privacy `…/privacy`, ToS `…/terms`
+- ✅ Authorized domain: `tryreportflow.com` (only — no stale vercel.app)
+- ✅ Redirect URI `https://tryreportflow.com/api/google/callback` registered
+- ✅ Developer contact + user support email set
+- ✅ **Scopes trimmed to exactly what the app uses:**
+
+  | Scope | Tier |
+  |---|---|
+  | `userinfo.email` | non-sensitive |
+  | `userinfo.profile` | non-sensitive |
+  | `webmasters.readonly` | non-sensitive |
+  | `analytics.readonly` | **sensitive** |
+
+  **Restricted scopes: none.** This is the single most important fact about
+  this submission — restricted scopes (`business.manage`, `bigquery.readonly`,
+  `spreadsheets.readonly`, `youtube.readonly`) require a third-party CASA
+  security assessment costing roughly $15k–$75k and taking months. Removed
+  `adwords`, `bigquery.readonly`, `youtube.readonly` and `yt-analytics.readonly`
+  from the consent screen; the app no longer requests them.
+
+- ✅ `LIVE_INTEGRATIONS=gsc,ga4,meta_ads,instagram` set in Vercel production.
+  Without it the registry treats **every** coded-live integration as
+  connectable (see `src/lib/integrations/registry.ts`), which would let the app
+  request the restricted scopes above and pull CASA back into scope. **Do not
+  add gbp / sheets / bigquery / youtube / google_ads to that list without
+  re-reading this section first.**
+
+### Remaining — blocked on the account owner
+
+- ⛔ **App logo.** Branding → App logo. 120×120 PNG/JPG/BMP, under 1 MB.
+  Currently empty. Uploading one triggers the verification requirement, which
+  is expected since we are submitting anyway.
+- ⛔ **Domain ownership.** `tryreportflow.com` must be verified in Google
+  Search Console **under umairlodhi091@gmail.com** (the console account).
+  Google rejects submissions whose authorized domain isn't verified by the
+  submitting account. DNS is at Hostinger, so use the DNS TXT method.
+- ⛔ **Demo video.** An unlisted YouTube video showing the full flow:
+  sign in → in-app consent screen → Google OAuth screen (app name + scopes
+  clearly visible) → pick a Search Console property → data appears →
+  generate a report → Settings → Data & privacy → disconnect.
+  This cannot be automated — it needs a real screen recording with real
+  credentials.
+- 🔲 **Publish the app.** Audience → Publish app. Verification cannot be
+  submitted while publishing status is "Testing" — the Verification Center
+  says so explicitly. Consequences: the consent screen shows an "unverified
+  app" warning until Google approves (users can still proceed), and the app is
+  capped at 100 users. In exchange, refresh tokens stop expiring after 7 days.
+- 🔲 **Submit** in Verification Center once the four items above are done.
+
+### Scope justification (paste into the submission)
+
+> ReportFlow is a white-label client-reporting tool for marketing agencies. It
+> reads Google Analytics 4 metrics (`analytics.readonly`) and Search Console
+> performance data (`webmasters.readonly`) for properties the signed-in agency
+> explicitly connects, solely to generate the performance reports the user
+> creates and schedules in the app. Access is read-only. Data is cached per
+> reporting period, shown only to the agency that connected it, and deleted by
+> the user at any time from Settings → Data & privacy. It is never sold,
+> transferred, or used for advertising.
+
+### Testing-mode caveat
+
+While publishing status is "Testing", only accounts on the test-user list can
+authorize, and **refresh tokens expire after 7 days** — connected clients stop
+syncing about a week later. That alone makes Testing unusable for real
+customers.
+
+Current test users: 3 (includes umairlodhi091@ and umairlodhi223@).
+
+---
 
 ## Meta app review
 
 App requirements — done:
 
-- ✅ Privacy Policy at `/privacy` (mentions Meta Platform data, section 4)
-- ✅ **Data Deletion Instructions URL**: `<APP_URL>/data-deletion`
-  (publicly accessible, no sign-in — paste this in App settings → Basic)
+- ✅ Privacy Policy at `/privacy` (mentions Meta Platform data)
+- ✅ **Data Deletion Instructions URL**: `https://tryreportflow.com/data-deletion`
 - ✅ In-app consent screen before Meta OAuth
 - ✅ Disconnect + delete stored Meta data (Settings → Data & privacy)
 
-Console steps (developers.facebook.com → your app):
+Console steps (developers.facebook.com):
 
 - 🔲 App Settings → Basic: Privacy Policy URL, Terms URL, Data Deletion
-  Instructions URL, app icon, category (Business)
-- 🔲 App Review → request `ads_read` and `business_management` with a
-  screencast showing: connect flow from ReportFlow → Meta login → ad account
-  selection → metrics appearing in a report
-- 🔲 **Instagram** — App Review → additionally request `instagram_basic`,
-  `instagram_manage_insights`, `pages_show_list`, `pages_read_engagement`
-  with a screencast showing: connect flow from ReportFlow → Meta login →
-  Instagram account selection → follower/reach/engagement metrics appearing.
-  The test account must be an **Instagram professional (Business/Creator)
-  account linked to a Facebook Page**.
-- 🔲 Business verification (Meta Business Manager) — required for Advanced
-  Access to ads_read; needs your business documents
-- 🔲 Until approved, the app works in Development Mode for users added as
-  Testers/Developers on the app (Instagram: the IG account's linked Page
-  must be accessible to that tester)
+  Instructions URL, app icon (1024px), category (Business)
+- 🔲 App Review → request `ads_read` and `business_management` with a screencast
+- 🔲 **Instagram** — additionally `instagram_basic`, `instagram_manage_insights`,
+  `pages_show_list`, `pages_read_engagement`. The test account must be an
+  Instagram professional account linked to a Facebook Page.
+- 🔲 Business verification (Meta Business Manager) — needs business documents
 
-## SEO / crawlability (production hygiene)
+---
 
-- ✅ `robots.txt` (`src/app/robots.ts`): allows public pages, disallows
-  `/dashboard/`, `/api/`, `/r/` (private share links)
-- ✅ `sitemap.xml` (`src/app/sitemap.ts`): all public pages
-- ✅ `metadataBase` + Open Graph defaults in the root layout; per-page titles
-  and descriptions on every legal page; `noindex` on `/r/[token]`
-- 🔲 Set `NEXT_PUBLIC_APP_URL` in Vercel to your production URL so sitemap,
-  robots, and OG URLs resolve to the right domain (falls back to
-  `COMPANY.website` in `src/lib/company.ts`)
+## SEO / crawlability
 
-## Future integrations (LinkedIn, TikTok, Microsoft, X, YouTube…)
+- ✅ `robots.txt`, `sitemap.xml`, `metadataBase` + OG defaults, `noindex` on
+  `/r/[token]`
+- ✅ `NEXT_PUBLIC_APP_URL` set to the production URL in Vercel
 
-The same assets are reused automatically:
-- Consent screen is registry-driven — add a `dataAccess` list to the new
-  integration's descriptor in `src/lib/integrations/providers.ts`
-- Disconnect/delete works for any `data_sources` row (snapshots cascade)
-- Privacy/security pages describe sources generically; add a row to the
-  data table in `/security` when a new source goes live
+---
+
+## Adding a new Google integration later
+
+Adding GBP, Sheets, BigQuery, YouTube or Google Ads re-introduces a
+**restricted or additional sensitive scope** and requires a new verification
+round (CASA for the restricted ones). Plan for that before flipping any of
+them into `LIVE_INTEGRATIONS`.
