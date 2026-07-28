@@ -196,6 +196,29 @@ export async function createCheckoutSession(args: {
 
 // ── Subscriptions ────────────────────────────────────────────
 
+// Reads a transaction so a completed checkout can be confirmed directly,
+// without waiting for (or depending on) a webhook. Returns the ids needed to
+// attach the resulting subscription to an agency.
+export async function getTransactionFacts(transactionId: string): Promise<{
+  subscriptionId: string | null;
+  customerId: string | null;
+  agencyId: string | null;
+  status: string | null;
+}> {
+  try {
+    const tx = await withRetry(() => paddle().transactions.get(transactionId));
+    const custom = tx.customData as { agency_id?: unknown } | null | undefined;
+    return {
+      subscriptionId: tx.subscriptionId ?? null,
+      customerId: tx.customerId ?? null,
+      agencyId: typeof custom?.agency_id === "string" ? custom.agency_id : null,
+      status: tx.status ?? null,
+    };
+  } catch (err) {
+    throw wrap(err, "Couldn't load the transaction.");
+  }
+}
+
 export async function getSubscription(subscriptionId: string): Promise<Subscription> {
   try {
     return await withRetry(() => paddle().subscriptions.get(subscriptionId));

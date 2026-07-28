@@ -61,24 +61,61 @@ export function BillingPlans({
   // Paddle.js is loaded on demand (first checkout click) so the billing page
   // itself stays free of third-party script cost. The token and environment
   // come from the server with the transaction, never from a NEXT_PUBLIC_ var.
+  // Confirms the purchase server-side, retrying briefly because Paddle can
+  // report checkout.completed a moment before it attaches the subscription to
+  // the transaction. Falls back to a plain refresh so a confirm failure never
+  // strands the customer on a stale page — the webhook may still land.
+  const confirmCheckout = useCallback(
+    async (transactionId: string | null) => {
+      if (!transactionId) {
+        setTimeout(() => router.refresh(), 2500);
+        return;
+      }
+      for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+          const res = await fetch("/api/billing/confirm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ transactionId }),
+          });
+          const body = await res.json().catch(() => null);
+          if (res.ok && body?.ok) {
+            router.refresh();
+            return;
+          }
+          if (!body?.pending) break; // a real error — stop retrying
+        } catch {
+          /* network hiccup — retry */
+        }
+        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+      }
+      router.refresh();
+    },
+    [router]
+  );
+
   const getPaddle = useCallback(async (session: CheckoutSession): Promise<Paddle> => {
     if (paddleRef.current) return paddleRef.current;
     const instance = await initializePaddle({
       environment: session.environment,
       token: session.clientToken,
       eventCallback: (ev) => {
-        // Paddle fires this once payment is captured. The webhook is the
-        // source of truth, so we just refresh to pick up the new state.
+        // Paddle fires this once payment is captured. Webhooks remain the
+        // authoritative path, but they are delivered by a third party to a
+        // destination the app can't verify at runtime — so we ALSO confirm the
+        // transaction directly. Without that, a webhook that never arrives
+        // leaves a paying customer looking inactive.
         if (ev.name === "checkout.completed") {
+          const txnId = (ev.data as { transaction_id?: string } | undefined)?.transaction_id ?? null;
           toast.success("Payment received — activating your plan…");
-          setTimeout(() => router.refresh(), 2500);
+          void confirmCheckout(txnId);
         }
       },
     });
     if (!instance) throw new Error("Couldn't load the payment form. Please disable any ad blocker and retry.");
     paddleRef.current = instance;
     return instance;
-  }, [router]);
+  }, [router, confirmCheckout]);
 
   async function startCheckout(planId: string) {
     setBusy(planId);
