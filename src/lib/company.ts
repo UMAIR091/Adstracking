@@ -5,10 +5,13 @@
 export const COMPANY = {
   product: "ReportFlow",
   tagline: "White-label client reporting for marketing agencies.",
-  // ── placeholders: update before launch ──
-  legalName: "[Your Company Legal Name]",
-  address: "[Registered business address]",
-  jurisdiction: "[Your governing-law jurisdiction, e.g. Pakistan]",
+  // ── business details ──
+  // Sole trader: the operator's own name is the legal name. Google and Paddle
+  // require these to identify a real, contactable operator, so they must stay
+  // accurate — they render in the Terms, Privacy Policy and site footer.
+  legalName: "Umair Ali",
+  address: "Dub No. 2, Mansehra 21300, Pakistan",
+  jurisdiction: "Pakistan",
   supportEmail: "admin@tryreportflow.com",
   privacyEmail: "admin@tryreportflow.com",
   // ── live values ──
@@ -16,7 +19,7 @@ export const COMPANY = {
 };
 
 // Bump when any legal document materially changes.
-export const LEGAL_LAST_UPDATED = "July 9, 2026";
+export const LEGAL_LAST_UPDATED = "July 28, 2026";
 
 // The one-line promise repeated across legal pages, the consent screen and the
 // footer. Keep the wording consistent everywhere.
