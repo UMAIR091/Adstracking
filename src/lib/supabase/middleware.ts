@@ -20,6 +20,11 @@ const PADDLE_CONNECT =
   "https://cdn.paddle.com https://sandbox-cdn.paddle.com";
 const PADDLE_FRAME = "https://buy.paddle.com https://sandbox-buy.paddle.com";
 
+// Google Analytics (gtag.js): script loads from googletagmanager.com; beacons
+// go to *.google-analytics.com / *.analytics.google.com.
+const GA_SCRIPT = "https://www.googletagmanager.com";
+const GA_CONNECT = "https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com";
+
 function buildCsp(nonce: string, strict: boolean): string {
   const supabaseOrigin = (() => {
     try {
@@ -32,7 +37,7 @@ function buildCsp(nonce: string, strict: boolean): string {
 
   const scriptSrc = strict
     ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline' https:`
-    : `script-src 'self' 'unsafe-inline' ${PADDLE_SCRIPT}`;
+    : `script-src 'self' 'unsafe-inline' ${PADDLE_SCRIPT} ${GA_SCRIPT}`;
 
   return [
     "default-src 'self'",
@@ -40,7 +45,7 @@ function buildCsp(nonce: string, strict: boolean): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self' data:",
-    `connect-src 'self' ${supabaseOrigin} ${supabaseWs} ${PADDLE_CONNECT}`.replace(/\s+/g, " ").trim(),
+    `connect-src 'self' ${supabaseOrigin} ${supabaseWs} ${PADDLE_CONNECT} ${GA_CONNECT}`.replace(/\s+/g, " ").trim(),
     `frame-src 'self' ${PADDLE_FRAME}`,
     "object-src 'none'",
     "base-uri 'self'",

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import { COMPANY } from "@/lib/company";
 import { AnalyticsProvider } from "@/components/AnalyticsProvider";
+import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import "./globals.css";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? COMPANY.website;
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="font-sans antialiased">
+        <GoogleAnalytics />
         <Suspense fallback={null}>
           <AnalyticsProvider>{children}</AnalyticsProvider>
         </Suspense>
