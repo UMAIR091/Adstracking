@@ -25,6 +25,23 @@ const PADDLE_FRAME = "https://buy.paddle.com https://sandbox-buy.paddle.com";
 const GA_SCRIPT = "https://www.googletagmanager.com";
 const GA_CONNECT = "https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com";
 
+// The one host this deployment should be reached on, taken from
+// NEXT_PUBLIC_APP_URL (e.g. "tryreportflow.com").
+function canonicalHost(): string | null {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_APP_URL ?? "").host || null;
+  } catch {
+    return null;
+  }
+}
+
+// Machine-to-machine endpoints are exempt from the canonical redirect below.
+// Vercel Cron invokes functions on the deployment's own *.vercel.app URL and
+// Paddle posts webhooks to a fixed URL — neither is guaranteed to follow a 308,
+// and a redirected POST can lose its signed body. Uptime checks stay on
+// whichever host they were configured with.
+const CANONICAL_EXEMPT = ["/api/cron", "/api/webhooks", "/api/health", "/monitoring"];
+
 function buildCsp(nonce: string, strict: boolean): string {
   const supabaseOrigin = (() => {
     try {
@@ -66,6 +83,33 @@ function buildCsp(nonce: string, strict: boolean): string {
 // per-request auth-server hop on the majority of traffic.
 export async function updateSession(request: NextRequest) {
   const path = request.nextUrl.pathname;
+
+  // Canonical host. Production is served from BOTH the custom domain and the
+  // project's *.vercel.app alias, and that broke OAuth: connect links are
+  // relative, so the CSRF nonce cookie is written on whichever host the user
+  // happens to be browsing, while the provider always returns to the single
+  // redirect URI registered in its console. Land on the other host and the
+  // cookie simply isn't sent — the callback rejects the flow with
+  // "Invalid state" before doing any work.
+  //
+  // Forcing one host makes that mismatch impossible, and repairs a callback
+  // already in flight: path and query (the provider's code + state) survive the
+  // redirect, so the flow completes on the canonical host instead of failing.
+  // Scoped to VERCEL_ENV=production so branch/preview deployments and local
+  // development keep serving themselves.
+  const canonical = canonicalHost();
+  if (
+    canonical &&
+    process.env.VERCEL_ENV === "production" &&
+    request.nextUrl.host !== canonical &&
+    !CANONICAL_EXEMPT.some((p) => path.startsWith(p))
+  ) {
+    const url = request.nextUrl.clone();
+    url.host = canonical;
+    url.protocol = "https:";
+    url.port = "";
+    return NextResponse.redirect(url, 308);
+  }
 
   // Maintenance mode (launch audit P1-8): flip MAINTENANCE_MODE=on in the env to
   // route all traffic to /maintenance, while keeping the health check and the

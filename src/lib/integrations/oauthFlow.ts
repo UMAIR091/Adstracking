@@ -64,7 +64,11 @@ export async function handleConnect(req: Request): Promise<Response> {
 
   const nonce = crypto.randomUUID();
   const state = Buffer.from(JSON.stringify({ clientId, nonce, type: def.id, provider })).toString("base64url");
-  cookies().set(NONCE_COOKIE, nonce, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 600, path: "/" });
+  // 30 minutes: long enough to survive a consent screen where the user has to
+  // stop and enable an API or pick an account, short enough to stay a
+  // meaningful CSRF window. The nonce is still single-use and httpOnly, and is
+  // cleared on both success and failure.
+  cookies().set(NONCE_COOKIE, nonce, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 1800, path: "/" });
 
   const authorizationUrl = oauth.authUrl(state);
   return NextResponse.redirect(authorizationUrl);
@@ -76,11 +80,14 @@ export async function handleCallback(req: Request): Promise<Response> {
   const { searchParams, origin } = new URL(req.url);
   const code = searchParams.get("code");
   const state = searchParams.get("state");
+  // Always return the user to the canonical host, so a callback that arrived on
+  // a secondary domain doesn't strand them there (signed out, on the wrong URL).
+  const appBase = process.env.NEXT_PUBLIC_APP_URL ?? origin;
   const fail = (msg: string) => {
     // Single-use nonce: clear on failure too, so a retried/replayed callback
     // can't reuse it, and the next connect attempt starts clean.
     cookies().set(NONCE_COOKIE, "", { maxAge: 0, path: "/" });
-    return NextResponse.redirect(`${origin}/dashboard/clients?connect_error=${encodeURIComponent(msg)}`);
+    return NextResponse.redirect(`${appBase}/dashboard/clients?connect_error=${encodeURIComponent(msg)}`);
   };
 
   // Providers signal denial via error/error_description instead of a code.
@@ -98,7 +105,23 @@ export async function handleCallback(req: Request): Promise<Response> {
     provider = parsed.provider;
     if (!clientId || !type) return fail("Invalid state");
     const cookieNonce = cookies().get(NONCE_COOKIE)?.value;
-    if (!cookieNonce || cookieNonce !== parsed.nonce) return fail("Invalid state");
+    if (!cookieNonce || cookieNonce !== parsed.nonce) {
+      // The CSRF check is doing its job, but it also trips on two ordinary,
+      // user-fixable situations: the flow was started on a different domain
+      // than the one the provider redirects back to (the cookie is scoped to
+      // the first host), or it sat unfinished past the cookie's lifetime.
+      // Log it — this used to fail silently, leaving nothing to diagnose — and
+      // say something the user can act on.
+      await logError({
+        context: "oauth_callback",
+        provider: type,
+        errorType: "config",
+        message: `OAuth state rejected on ${origin}: ${cookieNonce ? "nonce mismatch" : "no nonce cookie on this host"}`,
+      });
+      return fail(
+        "Your connection attempt expired or started on a different address. Please open the client page again and retry the connection."
+      );
+    }
   } catch {
     return fail("Invalid state");
   }
@@ -108,7 +131,7 @@ export async function handleCallback(req: Request): Promise<Response> {
   if (!def || !isLive(def.id) || !oauth) return fail("Unsupported integration");
 
   const { user, agency } = await getCurrentUserAndAgency();
-  if (!user || !agency) return NextResponse.redirect(`${origin}/login`);
+  if (!user || !agency) return NextResponse.redirect(`${appBase}/login`);
 
   const supabase = createClient();
   const { data: client } = await supabase.from("clients").select("id").eq("id", clientId).maybeSingle();
@@ -117,7 +140,7 @@ export async function handleCallback(req: Request): Promise<Response> {
   try {
     await completeOAuthConnect(supabase, agency.id, clientId, def, oauth, code, provider);
     cookies().set(NONCE_COOKIE, "", { maxAge: 0, path: "/" });
-    return NextResponse.redirect(`${origin}/dashboard/clients/${clientId}?connected=${def.id}`);
+    return NextResponse.redirect(`${appBase}/dashboard/clients/${clientId}?connected=${def.id}`);
   } catch (err) {
     // Token exchange / account-listing / storage failed — record it, then fail
     // with a user-safe message (raw provider/DB detail stays in the logs).
