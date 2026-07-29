@@ -9,7 +9,7 @@ import Script from "next/script";
 // NOTE: GA's hosts (googletagmanager.com + *.google-analytics.com) are
 // allowlisted in the CSP (src/lib/supabase/middleware.ts) — without that the
 // tag is silently blocked.
-const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || "G-QVT6M1WLJP";
+const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || "G-XLPL33M3GH";
 
 export function GoogleAnalytics() {
   if (process.env.NODE_ENV !== "production" || !GA_ID) return null;
