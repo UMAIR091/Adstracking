@@ -54,21 +54,47 @@ Status of ReportFlow against Google and Meta app-review requirements.
   add gbp / sheets / bigquery / youtube / google_ads to that list without
   re-reading this section first.**
 
+### Cleared 2026-07-30
+
+- ✅ **App logo** uploaded (Branding page).
+- ✅ **Domain ownership.** `tryreportflow.com` verified in Search Console as a
+  **Domain property** (`sc-domain:tryreportflow.com`), auto-verified via the
+  DNS provider. Confirmed end-to-end: the app's live `listGscSites` call
+  returns it, so the token, the verification and the account all line up.
+- ✅ **Authorized domains reduced to `tryreportflow.com` alone.** The
+  `adstracking-cyan.vercel.app` JavaScript origin and redirect URI were
+  deleted, which dropped the matching authorized domain. This mattered:
+  authorized domains must be ones you own and can verify, and nobody can
+  verify `vercel.app`. Removing them was only safe once
+  `GOOGLE_OAUTH_REDIRECT_URI` pointed at the custom domain — deleting the
+  redirect URI while the env var still named it would have broken OAuth
+  outright.
+- ✅ **`GOOGLE_OAUTH_REDIRECT_URI`** set to
+  `https://tryreportflow.com/api/google/callback` in Vercel production and
+  redeployed. Proven by a fresh GSC OAuth grant completing through it.
+- ✅ **Both Google sources connected and syncing** with real data (GA4
+  property `547548308`; GSC `sc-domain:tryreportflow.com`).
+
 ### Remaining — blocked on the account owner
 
-- ⛔ **App logo.** Branding → App logo. 120×120 PNG/JPG/BMP, under 1 MB.
-  Currently empty. Uploading one triggers the verification requirement, which
-  is expected since we are submitting anyway.
-- ⛔ **Domain ownership.** `tryreportflow.com` must be verified in Google
-  Search Console **under umairlodhi091@gmail.com** (the console account).
-  Google rejects submissions whose authorized domain isn't verified by the
-  submitting account. DNS is at Hostinger, so use the DNS TXT method.
 - ⛔ **Demo video.** An unlisted YouTube video showing the full flow:
   sign in → in-app consent screen → Google OAuth screen (app name + scopes
   clearly visible) → pick a Search Console property → data appears →
   generate a report → Settings → Data & privacy → disconnect.
   This cannot be automated — it needs a real screen recording with real
   credentials.
+
+  **Do not reuse the 2026-07-30 06:14 recording.** It was made before the GA4
+  property was selected, when `ga4_snapshots` was empty — so the client page
+  was rendering `SAMPLE_GA4` behind a "Sample data" badge. Placeholder numbers
+  shown as if they were live Google data is worse than showing none. Re-record
+  only after confirming a real snapshot exists, and make sure no "Sample data"
+  badge is visible in any frame.
+
+  Note both sources are newly tagged/verified, so trend charts show a single
+  point until roughly 2026-08-02 (GA4 has ~1 day of series; a freshly verified
+  Search Console property collects nothing for its first 2–3 days). Real but
+  sparse data passes — volume is not a review criterion — it just looks thin.
 - 🔲 **Publish the app.** Audience → Publish app. Verification cannot be
   submitted while publishing status is "Testing" — the Verification Center
   says so explicitly. Consequences: the consent screen shows an "unverified
