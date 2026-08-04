@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
-  Check, X, Sparkles, Palette, Zap, Clock, Users, FileBarChart2, Plug,
+  Check, Sparkles, Palette, Zap, Clock, Users, FileBarChart2, Plug,
   ArrowRight, ShieldCheck, Search, BarChart3, Facebook, Linkedin, Music,
   Megaphone, MapPin, Twitter, Youtube, CalendarClock, Send, Lock, EyeOff,
-  Star, MailCheck, LineChart,
+  Star, MailCheck, LineChart, Wrench,
 } from "lucide-react";
 import { Brand } from "@/components/Brand";
 import { getPlanPricing, headlineSavingPct, type PlanPricing } from "@/lib/billing/prices";
@@ -27,7 +27,6 @@ const navLinks = [
   { label: "How it works", href: "#how" },
   { label: "Features", href: "#features" },
   { label: "Integrations", href: "#integrations" },
-  { label: "Compare", href: "#compare" },
   { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
 ];
@@ -118,6 +117,18 @@ export default async function LandingPage() {
   return (
     <div className="min-h-screen bg-white text-ink-900">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(pricing, savingPct)) }} />
+
+      {/* ── Development notice ── */}
+      <div role="status" className="bg-brand-600 px-5 py-2.5 text-center text-sm text-white">
+        <p className="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-x-2.5 gap-y-1">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide">
+            <Wrench size={12} aria-hidden /> In development
+          </span>
+          <span className="text-white/90">
+            ReportFlow is still being built — the complete platform goes live within the next few days.
+          </span>
+        </p>
+      </div>
 
       {/* ── Nav ── */}
       <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/80 backdrop-blur">
@@ -498,61 +509,6 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ── 9. Comparison ── */}
-      <section id="compare" className="mx-auto max-w-5xl scroll-mt-20 px-5 py-24">
-        <SectionHeading
-          eyebrow="How we compare"
-          title="Agency-grade reports, without the price tag or the bloat"
-          subtitle="Why lean agencies move from AgencyAnalytics and Whatagraph."
-        />
-        <div className="mt-14 overflow-x-auto">
-          <table className="w-full min-w-[640px] border-separate border-spacing-0 text-sm">
-            <caption className="sr-only">Feature comparison between ReportFlow, AgencyAnalytics, and Whatagraph</caption>
-            <thead>
-              <tr>
-                <th scope="col" className="w-[34%] p-4 text-left font-medium text-ink-500"></th>
-                <th scope="col" className="rounded-t-xl bg-brand-500 p-4 text-center font-semibold text-white">ReportFlow</th>
-                <th scope="col" className="p-4 text-center font-medium text-ink-600">AgencyAnalytics</th>
-                <th scope="col" className="p-4 text-center font-medium text-ink-600">Whatagraph</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th scope="row" className="border-b border-slate-100 p-4 text-left font-medium text-ink-700">Pricing model</th>
-                <td className="border-x border-brand-100 bg-brand-50/40 p-4 text-center font-semibold text-brand-700">From $49/mo, every feature included</td>
-                <td className="border-b border-slate-100 p-4 text-center text-ink-500">Per client, per month</td>
-                <td className="border-b border-slate-100 p-4 text-center text-ink-500">From ~$249/mo</td>
-              </tr>
-              {[
-                { f: "AI-written insights & recommendations", a: true, b: false, c: false },
-                { f: "Setup in minutes, not days", a: true, b: false, c: false },
-                { f: "Fully white-label reports", a: true, b: true, c: true },
-                { f: "Scheduled email delivery with PDF", a: true, b: true, c: true },
-                { f: "No per-client fees", a: true, b: false, c: false },
-                { f: "No dashboard maze to configure", a: true, b: false, c: false },
-              ].map((r, i, arr) => (
-                <tr key={r.f}>
-                  <th scope="row" className="border-b border-slate-100 p-4 text-left font-medium text-ink-700">{r.f}</th>
-                  <td className={`border-x border-brand-100 bg-brand-50/40 p-4 text-center ${i === arr.length - 1 ? "rounded-b-xl border-b" : ""}`}>
-                    <Cell on={r.a} />
-                  </td>
-                  <td className="border-b border-slate-100 p-4 text-center"><Cell on={r.b} /></td>
-                  <td className="border-b border-slate-100 p-4 text-center"><Cell on={r.c} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-4 text-center text-xs text-ink-500">
-          Comparison reflects typical positioning and public pricing at time of writing; competitor plans change over time.
-        </p>
-        <div className="mt-8 text-center">
-          <Link href="/signup" className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-6 py-3 font-medium text-white transition hover:bg-brand-600">
-            Try the difference free <ArrowRight size={17} aria-hidden />
-          </Link>
-        </div>
-      </section>
-
       {/* ── 10. Testimonials ── */}
       <section className="bg-slate-50/60 py-24">
         <div className="mx-auto max-w-6xl px-5">
@@ -745,14 +701,6 @@ function Eyebrow({ icon: Icon, children }: { icon: typeof Sparkles; children: Re
     <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
       <Icon size={13} aria-hidden /> {children}
     </span>
-  );
-}
-
-function Cell({ on }: { on: boolean }) {
-  return on ? (
-    <Check size={18} className="mx-auto text-emerald-600" aria-label="Included" />
-  ) : (
-    <X size={18} className="mx-auto text-slate-300" aria-label="Not included" />
   );
 }
 
