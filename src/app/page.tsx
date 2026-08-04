@@ -118,18 +118,6 @@ export default async function LandingPage() {
     <div className="min-h-screen bg-white text-ink-900">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(pricing, savingPct)) }} />
 
-      {/* ── Development notice ── */}
-      <div role="status" className="bg-brand-600 px-5 py-2.5 text-center text-sm text-white">
-        <p className="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-x-2.5 gap-y-1">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide">
-            <Wrench size={12} aria-hidden /> In development
-          </span>
-          <span className="text-white/90">
-            ReportFlow is still being built — the complete platform goes live within the next few days.
-          </span>
-        </p>
-      </div>
-
       {/* ── Nav ── */}
       <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5">
@@ -156,6 +144,16 @@ export default async function LandingPage() {
           style={{ background: "radial-gradient(closest-side, #c7d2fe, transparent)" }}
         />
         <div className="relative mx-auto max-w-6xl px-5 pb-14 pt-16 text-center sm:pt-24">
+          {/* ── Development notice ── */}
+          <div role="status" className="mb-5 flex justify-center">
+            <span className="inline-flex max-w-2xl flex-wrap items-center justify-center gap-x-2 gap-y-0.5 rounded-full bg-brand-600 px-4 py-1.5 text-xs text-white shadow-xs sm:text-sm">
+              <span className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wide">
+                <Wrench size={12} aria-hidden /> In development
+              </span>
+              <span className="text-white/90">Going fully live in the next few days.</span>
+            </span>
+          </div>
+
           <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-100 bg-white px-3 py-1 text-xs font-medium text-brand-700 shadow-xs">
             <Sparkles size={13} aria-hidden /> The reporting tool for agencies that hate reporting
           </span>
