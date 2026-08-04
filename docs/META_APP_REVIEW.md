@@ -62,7 +62,7 @@ Requested in `src/lib/integrations/oauth/meta.ts` (Ads) and
 | Permission | Requested by | Endpoint actually called |
 |---|---|---|
 | `ads_read` | Meta Ads | `/{ad-account}/insights` — spend, impressions, clicks, CTR, CPC, reach, conversions; totals, previous period, daily series, per-campaign |
-| `business_management` | both | `/me/adaccounts` for accounts owned via Business Manager |
+| `business_management` | both | `/me/adaccounts` for accounts owned via Business Manager — ⚠ **not** a listed dependency of `ads_read`; see §2 before submitting |
 | `pages_show_list` | Instagram | `/me/accounts` — find Pages the user manages |
 | `pages_read_engagement` | Instagram | `/me/accounts?fields=instagram_business_account` — resolve Page → linked IG account |
 | `instagram_basic` | Instagram | `/{ig-user}?fields=username,followers_count,media_count,profile_picture_url` and `/{ig-user}/media` |
@@ -109,7 +109,23 @@ says that permission's submission must answer.
 
 ### business_management
 
-> Requested as a dependency of ads_read.
+> ⚠ **Verified 2026-08-04 against the live Permissions Reference: this
+> justification is wrong and must not be submitted as written.** Meta lists
+> `ads_read`'s dependencies as **"None"**, and `business_management` is not
+> named as a dependency of `ads_read` anywhere in the reference. Since Meta
+> states that *"selecting unneeded permissions is a common reason for
+> rejection"*, submitting a permission whose stated justification its own docs
+> contradict is an avoidable rejection risk.
+>
+> **Decide before submitting:** remove `business_management` from `SCOPES` in
+> `src/lib/integrations/oauth/meta.ts`, then confirm `/me/adaccounts` still
+> returns ad accounts shared via a Business Manager using `ads_read` alone. If
+> it does — expected — drop this permission from the submission entirely and
+> delete this section. Only keep it if testing proves Business-Manager-shared
+> accounts are genuinely invisible without it, in which case rewrite the text
+> below to say that, rather than calling it a dependency.
+>
+> ~~Requested as a dependency of ads_read.~~
 >
 > The agencies using ReportFlow do not own the ad accounts they report on —
 > those accounts belong to their clients and are shared with the agency through

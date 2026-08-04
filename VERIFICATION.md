@@ -47,12 +47,18 @@ Status of ReportFlow against Google and Meta app-review requirements.
   `adwords`, `bigquery.readonly`, `youtube.readonly` and `yt-analytics.readonly`
   from the consent screen; the app no longer requests them.
 
-- ✅ `LIVE_INTEGRATIONS=gsc,ga4,meta_ads,instagram` set in Vercel production.
-  Without it the registry treats **every** coded-live integration as
+- ✅ `LIVE_INTEGRATIONS=gsc,ga4,meta_ads,instagram,tiktok_ads` set in Vercel
+  production. Without it the registry treats **every** coded-live integration as
   connectable (see `src/lib/integrations/registry.ts`), which would let the app
   request the restricted scopes above and pull CASA back into scope. **Do not
   add gbp / sheets / bigquery / youtube / google_ads to that list without
   re-reading this section first.**
+
+  `tiktok_ads` added 2026-08-04 after TikTok approved the app. Note the id is
+  `tiktok_ads` (the `IntegrationDef.id` in `providers.ts`), **not** `tiktok` —
+  that is only the `oauthProviderId` key. An integration also needs its
+  credentials present (`gated(tiktokConfigured())`), so the allowlist entry
+  alone is not enough.
 
 ### Cleared 2026-07-30
 
