@@ -18,6 +18,7 @@ import { CoverPage, PageChrome, Section, KpiCard, DataTable, HighlightChips, Cha
 import { LineChart, BarList, ShareBar } from "./charts";
 import { Icon, TrendArrow } from "./icons";
 import { performanceScore, bestChannel, biggestOpportunity, biggestRisk, toInsightCard, actionMeta, buildForecast } from "./analysis";
+import type { BlockFormat, ReportBlock } from "@/lib/integrations/blocks";
 
 export type { Branding };
 
@@ -29,6 +30,110 @@ Font.registerHyphenationCallback((word) => [word]);
 const CONTENT_W = 503;
 const CARD_PAD = 22; // ChartCard horizontal padding (11 × 2)
 const HALF_W = Math.floor((CONTENT_W - 10) / 2);
+
+// ── Generic channel rendering ────────────────────────────────────────────────
+// Search Console and GA4 keep their bespoke, hand-tuned sections above. EVERY
+// other connected integration arrives as a ReportBlock and is rendered by the
+// code below, so a newly added integration appears in the PDF with no change
+// here. Blocks carry their own labels, formats and currency, so nothing in this
+// file needs to know which provider produced them.
+
+const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", GBP: "£", EUR: "€", JPY: "¥", AUD: "A$", CAD: "C$", INR: "₹" };
+
+function moneyPrefix(currency: string | null): string {
+  if (!currency) return "";
+  return CURRENCY_SYMBOLS[currency.toUpperCase()] ?? `${currency.toUpperCase()} `;
+}
+
+function fmtBlockValue(value: number, format: BlockFormat, currency: string | null): string {
+  switch (format) {
+    case "percent": return pct1(value);
+    case "currency": return `${moneyPrefix(currency)}${fmt(Math.round(value * 100) / 100)}`;
+    case "duration": return value >= 60 ? `${Math.floor(value / 60)}m ${Math.round(value % 60)}s` : `${Math.round(value)}s`;
+    case "position": return value.toFixed(1);
+    default: return fmt(value);
+  }
+}
+
+// One connected channel: its KPI cards, up to two trend charts, and its tables.
+function ChannelSection({ s, color, palette, block, sectionNum }: {
+  s: ReturnType<typeof makeStyles>;
+  color: string;
+  palette: string[];
+  block: ReportBlock;
+  sectionNum: string;
+}) {
+  // Cap KPIs so one data-rich channel can't push everything else off the page.
+  const kpis = block.kpis.slice(0, 8);
+  const charts = block.series.filter((ser) => ser.points.length > 1).slice(0, 2);
+
+  return (
+    <Section s={s} num={sectionNum} title={block.sourceName} subtitle={`Performance for the reporting period, compared with the previous period.`}>
+      {kpis.length > 0 ? (
+        <View style={s.kpiRow} wrap={false}>
+          {kpis.map((k) => (
+            <KpiCard
+              key={k.label}
+              s={s}
+              color={color}
+              label={k.label}
+              value={fmtBlockValue(k.value, k.format, block.currency)}
+              delta={deltaPct(k.value, k.previous)}
+              lowerBetter={k.lowerBetter}
+            />
+          ))}
+        </View>
+      ) : null}
+
+      {charts.length > 0 ? (
+        <View style={s.chartRow}>
+          {charts.map((ser, i) => (
+            <View key={ser.label} style={s.chartCol}>
+              <ChartCard
+                s={s}
+                title={ser.label}
+                value={fmtBlockValue(ser.points.reduce((a, p) => a + p.value, 0), ser.format, block.currency)}
+                hint={block.sourceName}
+              >
+                <LineChart
+                  id={`${block.sourceId}-${i}`}
+                  values={ser.points.map((p) => p.value)}
+                  dates={ser.points.map((p) => p.date)}
+                  color={i === 0 ? color : palette[(i + 1) % palette.length]}
+                  width={HALF_W - CARD_PAD}
+                />
+              </ChartCard>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {block.tables.map((table) => (
+        table.rows.length > 0 ? (
+          <View key={table.title} style={{ marginTop: 10 }}>
+            <Text style={s.h3}>{table.title}</Text>
+            <DataTable
+              s={s}
+              cols={table.columns.map((c, ci) => ({
+                header: c.label,
+                ...(ci === 0 ? { flex: 2 } : { width: 62, align: "right" as const, strong: ci === 1 }),
+                cell: (row: Record<string, string | number>) => {
+                  const v = row[c.key];
+                  return typeof v === "number" ? fmtBlockValue(v, c.format, block.currency) : String(v ?? "—");
+                },
+              })) satisfies Col<Record<string, string | number>>[]}
+              rows={table.rows.slice(0, 8)}
+            />
+          </View>
+        ) : null
+      ))}
+
+      {block.notes.map((note) => (
+        <Text key={note} style={s.chartHint}>{note}</Text>
+      ))}
+    </Section>
+  );
+}
 
 // ── Auto-computed "at a glance" movements for the executive summary ──────────
 function buildHighlights(gsc: GscReportFull | null, ga4: Ga4ReportFull | null): Highlight[] {
@@ -104,7 +209,11 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
 }) {
   const color = safeColor(branding.brand_color);
   const s = makeStyles(color);
-  const { gsc, ga4, insights } = normalizeReportData(data);
+  const { gsc, ga4, blocks, insights } = normalizeReportData(data);
+
+  // Every connected integration other than Search Console / GA4, already
+  // projected into the neutral block vocabulary by lib/integrations/blocks.ts.
+  const channelBlocks = (blocks ?? []).filter((b) => b.kpis.length > 0 || b.tables.length > 0);
 
   const ins = insights as {
     executiveSummary?: string; summary?: string;
@@ -267,7 +376,11 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
           </Section>
         ) : (
           <Section s={s} num={num()} title="Performance Overview">
-            <Text style={s.para}>No data sources were connected for this reporting period.</Text>
+            <Text style={s.para}>
+              {channelBlocks.length > 0
+                ? "Search and website analytics were not connected for this period. Connected channel performance follows."
+                : "No data sources were connected for this reporting period."}
+            </Text>
           </Section>
         )}
       </Page>
@@ -418,6 +531,16 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
           ) : null}
         </Page>
       ) : null}
+
+      {/* ── Connected channels (every non-Google integration) ──
+          Provider-agnostic: each block renders itself from its own labels,
+          formats and currency, so new integrations need no change here. */}
+      {channelBlocks.map((block) => (
+        <Page key={block.sourceId} size="A4" style={s.page}>
+          <PageChrome {...chrome} />
+          <ChannelSection s={s} color={color} palette={palette} block={block} sectionNum={num()} />
+        </Page>
+      ))}
 
       {/* ── Insights & recommendations ── */}
       {hasInsights ? (

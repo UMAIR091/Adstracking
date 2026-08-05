@@ -9,6 +9,7 @@ import {
   StickyNote, Trophy, AlertTriangle, Lightbulb, Search, BarChart3,
 } from "lucide-react";
 import { normalizeReportData } from "@/lib/report";
+import { formatBlockValue } from "@/lib/integrations/blocks";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 
 type Branding = { name: string; logo_url: string | null; brand_color: string; website: string | null; footer_text: string | null };
@@ -106,7 +107,11 @@ export function ReportDocument({
   data: unknown;
 }) {
   const color = branding.brand_color || "#4f46e5";
-  const { gsc, ga4, insights } = normalizeReportData(data);
+  const { gsc, ga4, blocks, insights } = normalizeReportData(data);
+  // Every connected integration other than Search Console / GA4, already
+  // projected into the neutral block vocabulary. Rendered generically below, so
+  // a new integration appears here without touching this component.
+  const channelBlocks = (blocks ?? []).filter((b) => b.kpis.length > 0 || b.tables.length > 0);
   const ins = normInsights(insights as RawInsights);
 
   const winners = gsc?.movers?.winners ?? [];
@@ -388,6 +393,73 @@ export function ReportDocument({
             </div>
           </Section>
         )}
+
+        {/* Connected channels — provider-agnostic, one section per integration */}
+        {channelBlocks.map((block) => (
+          <Section
+            key={block.sourceId}
+            n={next()}
+            title={block.sourceName}
+            subtitle="Performance for this period, compared with the previous one"
+            color={color}
+          >
+            {block.kpis.length > 0 && (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {block.kpis.slice(0, 8).map((k) => {
+                  const d = k.previous === null || k.previous === 0 ? null : (k.value - k.previous) / Math.abs(k.previous);
+                  const good = d === null ? null : k.lowerBetter ? d < 0 : d > 0;
+                  return (
+                    <div key={k.label} className="rounded-xl border border-slate-200 bg-white p-3">
+                      <p className="text-xs text-ink-500">{k.label}</p>
+                      <p className="mt-1 text-lg font-semibold text-ink-900">
+                        {formatBlockValue(k.value, k.format, block.currency)}
+                      </p>
+                      {d !== null && (
+                        <p className={`mt-0.5 text-xs font-medium ${good ? "text-emerald-600" : "text-rose-600"}`}>
+                          {d > 0 ? "▲" : "▼"} {Math.abs(d * 100).toFixed(1)}%
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {block.tables.map((table) => (
+              table.rows.length > 0 && (
+                <div key={table.title} className="mt-6 overflow-x-auto">
+                  <p className="mb-2 text-xs font-medium text-ink-600">{table.title}</p>
+                  <table className="w-full min-w-[420px] text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-left text-xs text-ink-500">
+                        {table.columns.map((c) => (
+                          <th key={c.key} className="py-2 pr-3 font-medium">{c.label}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {table.rows.slice(0, 8).map((row, ri) => (
+                        <tr key={ri} className="border-b border-slate-100 last:border-0">
+                          {table.columns.map((c) => (
+                            <td key={c.key} className="py-2 pr-3 text-ink-700">
+                              {typeof row[c.key] === "number"
+                                ? formatBlockValue(row[c.key] as number, c.format, block.currency)
+                                : String(row[c.key] ?? "—")}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            ))}
+
+            {block.notes.map((note) => (
+              <p key={note} className="mt-3 text-xs text-ink-500">{note}</p>
+            ))}
+          </Section>
+        ))}
 
         {/* Key Wins (AI) */}
         {ins && ins.keyWins.length > 0 && (

@@ -18,6 +18,7 @@ export type AdsTotals = {
   clicks: number;
   ctr: number; // 0..1
   cpc: number;
+  cpm: number; // cost per 1,000 impressions
   conversions: number;
   costPerConversion: number; // CPA
   revenue: number; // conversion value where the platform reports it
@@ -35,6 +36,16 @@ export type AdsCampaign = {
   conversions: number;
 };
 
+// Video engagement, where the platform reports it (TikTok, Meta, Snapchat…).
+// Optional on AdsReport so platforms without video data are unaffected.
+export type AdsVideoTotals = {
+  views: number; // video plays started
+  watched2s: number;
+  watched6s: number;
+  completions: number; // played to 100%
+  completionRate: number; // 0..1, completions / views
+};
+
 export type AdsReport = {
   platform: string; // integration id, e.g. "google_ads"
   currency: string;
@@ -42,6 +53,12 @@ export type AdsReport = {
   previousTotals: AdsTotals | null; // prior equal-length period, best effort
   byDate: AdsDay[];
   topCampaigns: AdsCampaign[];
+  // Deeper structure levels, where the platform exposes them. Optional so
+  // snapshots synced before these existed still render, and so providers that
+  // only report at campaign level need no change.
+  topAdGroups?: AdsCampaign[];
+  topAds?: AdsCampaign[];
+  video?: AdsVideoTotals;
 };
 
 export function adsTotals(rows: AdsDay[], revenue = 0): AdsTotals {
@@ -53,6 +70,8 @@ export function adsTotals(rows: AdsDay[], revenue = 0): AdsTotals {
     spend, impressions, clicks, conversions, revenue,
     ctr: ratio(clicks, impressions),
     cpc: ratio(spend, clicks),
+    // CPM is per *thousand* impressions, so the ratio is scaled up by 1000.
+    cpm: ratio(spend, impressions) * 1000,
     costPerConversion: ratio(spend, conversions),
     roas: ratio(revenue, spend),
   };

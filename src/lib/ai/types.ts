@@ -1,5 +1,6 @@
 // Shared types for the AI insights module. No provider SDK imported here, so
 // these are safe to reference from anywhere (including type-only imports).
+import type { ReportBlock } from "@/lib/integrations/blocks";
 
 export type Totals = { clicks: number; impressions: number; ctr: number; position: number };
 
@@ -48,6 +49,12 @@ export type InsightsInput = {
   periodLabel: string;
   gsc?: GscInsights | null;
   ga4?: Ga4InsightsData | null;
+  // Every OTHER connected source, projected into the neutral block vocabulary
+  // (see lib/integrations/blocks.ts). Provider-agnostic by construction: a new
+  // integration reaches the model through this field without touching the
+  // prompt, so paid media, commerce, CRM, email and social all get analyzed
+  // alongside search and analytics.
+  blocks?: ReportBlock[] | null;
 };
 
 // The structured, client-ready insight groups the report renders.
