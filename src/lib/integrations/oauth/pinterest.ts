@@ -11,6 +11,12 @@ const SCOPES = ["ads:read", "user_accounts:read"];
 // SPEND_IN_DOLLAR is reported in USD; _1 columns are first-order ad events
 // (CLICKTHROUGH_1 = ad Pin clicks). All read-only reporting columns.
 const COLUMNS = ["SPEND_IN_DOLLAR", "IMPRESSION_1", "CLICKTHROUGH_1", "TOTAL_CONVERSIONS"];
+// Conversion value, used for revenue and ROAS. Availability depends on the
+// advertiser having conversion tracking configured, and Pinterest rejects the
+// whole request when a column isn't valid for the account — so these are
+// requested optionally and dropped on failure rather than breaking the report.
+const REVENUE_COLUMNS = ["TOTAL_CONVERSIONS_VALUE_IN_MICRO_DOLLAR"];
+const MICRO = 1_000_000;
 
 function env(key: string): string {
   const v = process.env[key];
@@ -109,10 +115,47 @@ export const pinterestOAuth: OAuthProvider = {
 
 type Paginated<T> = { items?: T[]; bookmark?: string };
 
+// Hard stop so a pathological account can't spin the sync forever.
+const MAX_PAGES = 25;
+
+// Follows Pinterest's `bookmark` cursor to the end of a collection. Without
+// this, an advertiser with more than one page of ad accounts or campaigns
+// silently loses everything after the first page.
+async function paginate<T>(
+  accessToken: string, path: string, params: Record<string, string>
+): Promise<T[]> {
+  const out: T[] = [];
+  let bookmark: string | undefined;
+
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const data: Paginated<T> = await pinGet<Paginated<T>>(path, accessToken, {
+      ...params,
+      ...(bookmark ? { bookmark } : {}),
+    });
+    out.push(...(data.items ?? []));
+    if (!data.bookmark) break;
+    bookmark = data.bookmark;
+  }
+  return out;
+}
+
 // Lists the ad accounts the authenticated user can access.
 export async function listPinterestAdAccounts(accessToken: string): Promise<IntegrationAccount[]> {
-  const data = await pinGet<Paginated<{ id: string; name?: string }>>("/ad_accounts", accessToken, { page_size: "100" });
-  return (data.items ?? []).map((a) => ({ id: a.id, name: a.name ?? a.id }));
+  const items = await paginate<{ id: string; name?: string }>(accessToken, "/ad_accounts", { page_size: "100" });
+  return items.map((a) => ({ id: a.id, name: a.name ?? a.id }));
+}
+
+// The ad account's reporting currency. Despite the SPEND_IN_DOLLAR column name,
+// Pinterest reports spend in the ad account's own currency, so a EUR account
+// must not be rendered with "$" in a client-facing report. Best-effort: falls
+// back to USD.
+async function adAccountCurrency(accessToken: string, adAccountId: string): Promise<string> {
+  try {
+    const data = await pinGet<{ currency?: string }>(`/ad_accounts/${encodeURIComponent(adAccountId)}`, accessToken);
+    return data.currency || "USD";
+  } catch {
+    return "USD";
+  }
 }
 
 // One analytics row is keyed by column name plus a DATE (for DAY granularity).
@@ -131,14 +174,27 @@ function asRows(data: unknown): AnalyticsRow[] {
   return Array.isArray(wrapped) ? (wrapped as AnalyticsRow[]) : [];
 }
 
-async function accountAnalytics(accessToken: string, adAccountId: string, start: string, end: string): Promise<AnalyticsRow[]> {
-  const data = await pinGet<unknown>(`/ad_accounts/${encodeURIComponent(adAccountId)}/analytics`, accessToken, {
-    start_date: start,
-    end_date: end,
-    granularity: "DAY",
-    columns: COLUMNS.join(","),
-  });
-  return asRows(data);
+// Requests the core columns plus the optional revenue columns, falling back to
+// core-only if Pinterest rejects the extras. Reports whether revenue applied so
+// the caller knows if ROAS is real or simply unavailable.
+async function accountAnalytics(
+  accessToken: string, adAccountId: string, start: string, end: string
+): Promise<{ rows: AnalyticsRow[]; revenueApplied: boolean }> {
+  const path = `/ad_accounts/${encodeURIComponent(adAccountId)}/analytics`;
+  const base = { start_date: start, end_date: end, granularity: "DAY" };
+
+  try {
+    const data = await pinGet<unknown>(path, accessToken, { ...base, columns: [...COLUMNS, ...REVENUE_COLUMNS].join(",") });
+    return { rows: asRows(data), revenueApplied: true };
+  } catch {
+    const data = await pinGet<unknown>(path, accessToken, { ...base, columns: COLUMNS.join(",") });
+    return { rows: asRows(data), revenueApplied: false };
+  }
+}
+
+// Sums conversion value, converting Pinterest's micro-dollar units.
+function sumRevenue(rows: AnalyticsRow[]): number {
+  return rows.reduce((total, r) => total + num(r.TOTAL_CONVERSIONS_VALUE_IN_MICRO_DOLLAR) / MICRO, 0);
 }
 
 function toDay(r: AnalyticsRow): AdsDay {
@@ -153,10 +209,9 @@ function toDay(r: AnalyticsRow): AdsDay {
 
 // Best-effort top campaigns: list campaigns, then pull their aggregated metrics.
 async function topCampaigns(accessToken: string, adAccountId: string, start: string, end: string): Promise<AdsReport["topCampaigns"]> {
-  const campaigns = await pinGet<Paginated<{ id: string; name?: string }>>(
-    `/ad_accounts/${encodeURIComponent(adAccountId)}/campaigns`, accessToken, { page_size: "100" }
+  const items = await paginate<{ id: string; name?: string }>(
+    accessToken, `/ad_accounts/${encodeURIComponent(adAccountId)}/campaigns`, { page_size: "100" }
   );
-  const items = campaigns.items ?? [];
   if (!items.length) return [];
   const names = new Map(items.map((c) => [c.id, c.name ?? c.id]));
 
@@ -193,11 +248,16 @@ export async function fetchPinterestAdsReport(
   const since = isoDay(periodDays);
   const until = isoDay(1);
 
-  const [dailyRows, prevRows, campaigns] = await Promise.all([
+  const [currency, daily, prev, campaigns] = await Promise.all([
+    adAccountCurrency(accessToken, adAccountId),
     accountAnalytics(accessToken, adAccountId, since, until),
-    accountAnalytics(accessToken, adAccountId, isoDay(periodDays * 2), isoDay(periodDays + 1)).catch(() => [] as AnalyticsRow[]),
+    accountAnalytics(accessToken, adAccountId, isoDay(periodDays * 2), isoDay(periodDays + 1))
+      .catch(() => ({ rows: [] as AnalyticsRow[], revenueApplied: false })),
     topCampaigns(accessToken, adAccountId, since, until).catch(() => [] as AdsReport["topCampaigns"]),
   ]);
+
+  const dailyRows = daily.rows;
+  const prevRows = prev.rows;
 
   const byDay = new Map<string, AdsDay>();
   for (const d of dayRange(periodDays)) byDay.set(d, { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
@@ -210,12 +270,14 @@ export async function fetchPinterestAdsReport(
     day.conversions += num(r.TOTAL_CONVERSIONS);
   }
   const byDate = Array.from(byDay.values());
-  const previousTotals = prevRows.length ? adsTotals(prevRows.map(toDay)) : null;
+  const previousTotals = prevRows.length
+    ? adsTotals(prevRows.map(toDay), prev.revenueApplied ? sumRevenue(prevRows) : 0)
+    : null;
 
   return {
     platform: "pinterest_ads",
-    currency: "USD", // SPEND_IN_DOLLAR is reported in USD.
-    totals: adsTotals(byDate),
+    currency,
+    totals: adsTotals(byDate, daily.revenueApplied ? sumRevenue(dailyRows) : 0),
     previousTotals,
     byDate,
     topCampaigns: campaigns,
