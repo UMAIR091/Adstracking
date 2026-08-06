@@ -4,8 +4,9 @@ import {
   Check, Sparkles, Palette, Zap, Clock, Users, FileBarChart2, Plug,
   ArrowRight, ShieldCheck, Search, BarChart3, Facebook, Linkedin, Music,
   Megaphone, MapPin, Twitter, Youtube, CalendarClock, Send, Lock, EyeOff,
-  Star, MailCheck, LineChart, Wrench,
+  Star, MailCheck, LineChart, Wrench, Instagram, Image as ImageIcon,
 } from "lucide-react";
+import { isLive } from "@/lib/integrations/registry";
 import { Brand } from "@/components/Brand";
 import { getPlanPricing, headlineSavingPct, type PlanPricing } from "@/lib/billing/prices";
 import { PAID_TRIAL_DAYS } from "@/lib/billing/config";
@@ -22,6 +23,22 @@ export const metadata: Metadata = {
       "Connect a client's marketing data and send agency-grade, AI-written reports under your brand. Every feature on every plan, from $49/mo.",
   },
 };
+
+// Curated marketing shortlist. Which of these show "Live" is decided by the
+// registry at render time (credentials + LIVE_INTEGRATIONS), so the public page
+// can never drift out of step with what the app actually offers.
+const MARKETING_INTEGRATIONS = [
+  { id: "gsc", n: "Search Console", icon: Search },
+  { id: "ga4", n: "Google Analytics 4", icon: BarChart3 },
+  { id: "meta_ads", n: "Meta Ads", icon: Facebook },
+  { id: "instagram", n: "Instagram", icon: Instagram },
+  { id: "microsoft_ads", n: "Microsoft Ads", icon: LineChart },
+  { id: "tiktok_ads", n: "TikTok Ads", icon: Music },
+  { id: "pinterest_ads", n: "Pinterest Ads", icon: ImageIcon },
+  { id: "google_ads", n: "Google Ads", icon: Megaphone },
+  { id: "linkedin_ads", n: "LinkedIn Ads", icon: Linkedin },
+  { id: "gbp", n: "Business Profile", icon: MapPin },
+];
 
 const navLinks = [
   { label: "How it works", href: "#how" },
@@ -114,6 +131,7 @@ export const revalidate = 3600;
 export default async function LandingPage() {
   const pricing = await getPlanPricing();
   const savingPct = headlineSavingPct(pricing);
+  const liveMarketingCount = MARKETING_INTEGRATIONS.filter((i) => isLive(i.id)).length;
   return (
     <div className="min-h-screen bg-white text-ink-900">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(pricing, savingPct)) }} />
@@ -217,7 +235,7 @@ export default async function LandingPage() {
           {[
             { v: "5 min", l: "from signup to first report" },
             { v: "$49/mo", l: "to start — every feature included" },
-            { v: "3 live", l: "integrations, 7 more coming" },
+            { v: `${liveMarketingCount} live`, l: `integrations, ${MARKETING_INTEGRATIONS.length - liveMarketingCount} more coming` },
             { v: "100%", l: "your brand, not ours" },
           ].map((s) => (
             <div key={s.l}>
@@ -471,34 +489,27 @@ export default async function LandingPage() {
           <SectionHeading
             eyebrow="Integrations"
             title="Connect the platforms your clients live on"
-            subtitle="Search Console, GA4 and Meta Ads are live today. Every plan includes every integration as it ships."
+            subtitle="Every plan includes every integration as it ships — no feature gates, no upgrade prompts."
           />
           <div className="mx-auto mt-14 grid max-w-4xl grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            {[
-              { n: "Search Console", live: true, icon: Search },
-              { n: "Google Analytics 4", live: true, icon: BarChart3 },
-              { n: "Meta Ads", live: true, icon: Facebook },
-              { n: "Google Ads", live: false, icon: Megaphone },
-              { n: "Business Profile", live: false, icon: MapPin },
-              { n: "LinkedIn Ads", live: false, icon: Linkedin },
-              { n: "Microsoft Ads", live: false, icon: LineChart },
-              { n: "TikTok Ads", live: false, icon: Music },
-              { n: "X (Twitter)", live: false, icon: Twitter },
-              { n: "YouTube", live: false, icon: Youtube },
-            ].map((it) => {
+            {MARKETING_INTEGRATIONS.map((it) => {
               const Icon = it.icon;
+              // Live/soon comes from the registry (credentials + LIVE_INTEGRATIONS),
+              // never a hand-maintained flag — so this page can't tell prospects an
+              // integration is "coming soon" while the app is already offering it.
+              const live = isLive(it.id);
               return (
-                <div key={it.n} className="rounded-xl border border-slate-200 bg-white p-4 text-center">
+                <div key={it.id} className="rounded-xl border border-slate-200 bg-white p-4 text-center">
                   <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
                     <Icon size={18} aria-hidden />
                   </div>
                   <p className="mt-3 text-sm font-medium text-ink-800">{it.n}</p>
                   <span
                     className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                      it.live ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-ink-500"
+                      live ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-ink-500"
                     }`}
                   >
-                    {it.live ? "Live" : "Coming soon"}
+                    {live ? "Live" : "Coming soon"}
                   </span>
                 </div>
               );
