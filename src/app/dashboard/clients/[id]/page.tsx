@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Eye } from "lucide-react";
 import { ConnectStatusToast } from "@/components/ConnectStatusToast";
@@ -111,13 +111,18 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   const dataBlockedReason = hasSyncedData
     ? undefined
     : !anyConnected
-      ? "Connect a data source above before scheduling — there's nothing to report on yet."
+      ? "Connect a data source below before scheduling — there's nothing to report on yet."
       : !anyReady
-        ? "Finish setting up the data source above (choose a property or account), then run a sync."
-        : "Waiting for the first sync. Use “Refresh now” on the data source above — reports are built from synced data.";
+        ? "Finish setting up the data source below (choose a property or account), then run a sync."
+        : "Waiting for the first sync. Use “Refresh now” on the data source below — reports are built from synced data.";
   // Sources the user has actually connected — drives the awaiting-sync state
   // that replaces the old sample analytics.
   const connectedSources = integrations.filter((i) => i.source !== null);
+
+  // Performance leads the page, so resolve which sources can actually render a
+  // chart block before laying anything out. A source only qualifies once it has
+  // a real synced snapshot — nothing here is ever fabricated.
+  const vizSources = integrations.filter((i) => HAS_VIZ.has(i.def.id) && i.snapshot);
 
   const { data: schedule } = await supabase
     .from("report_schedules")
@@ -155,79 +160,131 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         </div>
       </div>
 
-      <h2 className="mb-3 text-sm font-medium text-ink-700">Data sources</h2>
-      <div className="space-y-3">
-        {integrations.map((i) =>
-          i.def.id === "bigquery" ? (
-            <BigQueryCard
-              key={i.def.id}
-              descriptor={descriptor(i.def)}
-              clientId={client.id}
-              source={i.source}
-              selectedDatasetId={i.selectedDatasetId}
-              selectedTableId={i.selectedTableId}
-              status={i.status}
-              lastSyncedAt={i.lastSyncedAt}
-              lastSyncError={i.lastSyncError}
-            />
-          ) : (
-            <IntegrationCard
-              key={i.def.id}
-              descriptor={descriptor(i.def)}
-              clientId={client.id}
-              source={i.source}
-              status={i.status}
-              lastSyncedAt={i.lastSyncedAt}
-              lastSyncError={i.lastSyncError}
-            />
-          )
-        )}
-        <Link
-          href="/dashboard/integrations"
-          className="block rounded-xl border border-dashed border-ink-300 bg-surface-subtle p-5 text-sm text-ink-500 transition-colors hover:border-ink-400 hover:text-ink-700"
-        >
-          Google Ads, Shopify, HubSpot, LinkedIn Ads, TikTok Ads and more — see all integrations →
-        </Link>
-      </div>
-
-      {/* Performance — only ever rendered from a real synced snapshot. A
-          connected source with no data yet shows the awaiting-sync state
-          instead, so nothing on this page is fabricated. */}
-      {integrations.filter((i) => HAS_VIZ.has(i.def.id) && i.snapshot).map((i) => (
-        <div key={i.def.id} className="mt-8">
-          <h2 className="mb-3 text-sm font-medium text-ink-700">{i.def.name}</h2>
-          <ClientAnalytics id={i.def.id} snapshot={i.snapshot} />
-        </div>
-      ))}
-
-      {connectedSources.length > 0 && !integrations.some((i) => HAS_VIZ.has(i.def.id) && i.snapshot) && (
-        <div className="mt-8">
+      <div>
+      {/* ── 1. Performance ──────────────────────────────────────────────
+          The reason an agency opens a client, so it leads the page. Rendered
+          only from a real synced snapshot; a connected source with no data yet
+          gets the awaiting-sync state, and a client with nothing connected gets
+          a first-run prompt. Nothing here is ever fabricated. */}
+      {vizSources.length > 0 ? (
+        <Section title="Performance" description="Live metrics from every connected source, for the last 28 days.">
+          <div className="space-y-10">
+            {vizSources.map((i) => (
+              <div key={i.def.id}>
+                <h3 className="mb-3 text-sm font-medium text-ink-700">{i.def.name}</h3>
+                <ClientAnalytics id={i.def.id} snapshot={i.snapshot} />
+              </div>
+            ))}
+          </div>
+        </Section>
+      ) : connectedSources.length > 0 ? (
+        <Section title="Performance" description="Your first sync is on its way — metrics appear here as soon as it lands.">
           <SyncStatusPoller
             clientId={client.id}
             sourceCount={connectedSources.length}
             initialFailing={connectedSources.filter((i) => i.lastSyncError).length}
           />
-        </div>
+        </Section>
+      ) : (
+        <Section title="Performance" description="Connect a source and this client's metrics appear here automatically.">
+          <div className="rounded-xl border border-dashed border-ink-300 bg-surface-subtle px-6 py-12 text-center">
+            <p className="text-sm font-medium text-ink-800">No performance data yet</p>
+            <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-ink-500">
+              Connect Search Console, GA4, Meta Ads or any other source below. ReportFlow syncs the data and
+              builds this client&apos;s dashboard for you.
+            </p>
+            <Button asChild className="mt-5">
+              <a href="#data-sources">Connect a data source</a>
+            </Button>
+          </div>
+        </Section>
       )}
 
-      <BrandingNotice hasLogo={!!agency.logo_url} />
+      {/* ── 2. Reporting ── */}
+      <Section title="Reporting" description="Generate a branded report, or put delivery on a schedule.">
+        <BrandingNotice hasLogo={!!agency.logo_url} />
+        <div className="space-y-4">
+          <GenerateReport clientId={client.id} ready={hasSyncedData} blockedReason={dataBlockedReason} />
+          <ReportSchedule
+            clientId={client.id}
+            clientEmail={(client.email as string | null) ?? null}
+            schedule={(schedule as unknown as ScheduleData) ?? null}
+            brandingReady={!!agency.logo_url}
+            dataReady={hasSyncedData}
+            dataBlockedReason={dataBlockedReason}
+          />
+          {/* On a client page an empty history is noise — the card is omitted. */}
+          <DeliveryHistory logs={(deliveryLogs as unknown as DeliveryLog[]) ?? []} showEmpty={false} />
+        </div>
+      </Section>
 
-      <div className="mt-8">
-        <GenerateReport clientId={client.id} ready={hasSyncedData} blockedReason={dataBlockedReason} />
-      </div>
-
-      <div className="mt-4 space-y-4">
-        <ReportSchedule
-          clientId={client.id}
-          clientEmail={(client.email as string | null) ?? null}
-          schedule={(schedule as unknown as ScheduleData) ?? null}
-          brandingReady={!!agency.logo_url}
-          dataReady={hasSyncedData}
-          dataBlockedReason={dataBlockedReason}
-        />
-        {/* On a client page an empty history is noise — the card is omitted. */}
-        <DeliveryHistory logs={(deliveryLogs as unknown as DeliveryLog[]) ?? []} showEmpty={false} />
+      {/* ── 3. Data sources ──────────────────────────────────────────────
+          Setup, not the daily view — so it sits below the numbers it feeds. */}
+      <Section
+        id="data-sources"
+        title="Data sources"
+        description="Everything connected for this client. Add or reconnect a source here."
+      >
+        <div className="space-y-3">
+          {integrations.map((i) =>
+            i.def.id === "bigquery" ? (
+              <BigQueryCard
+                key={i.def.id}
+                descriptor={descriptor(i.def)}
+                clientId={client.id}
+                source={i.source}
+                selectedDatasetId={i.selectedDatasetId}
+                selectedTableId={i.selectedTableId}
+                status={i.status}
+                lastSyncedAt={i.lastSyncedAt}
+                lastSyncError={i.lastSyncError}
+              />
+            ) : (
+              <IntegrationCard
+                key={i.def.id}
+                descriptor={descriptor(i.def)}
+                clientId={client.id}
+                source={i.source}
+                status={i.status}
+                lastSyncedAt={i.lastSyncedAt}
+                lastSyncError={i.lastSyncError}
+              />
+            )
+          )}
+          <Link
+            href="/dashboard/integrations"
+            className="block rounded-xl border border-dashed border-ink-300 bg-surface-subtle p-5 text-sm text-ink-500 transition-colors hover:border-ink-400 hover:text-ink-700"
+          >
+            Google Ads, Shopify, HubSpot, LinkedIn Ads, TikTok Ads and more — see all integrations →
+          </Link>
+        </div>
+      </Section>
       </div>
     </div>
+  );
+}
+
+// Consistent section framing for the client page: a titled band with an
+// optional one-line description, so Performance, Reporting and Data sources
+// read as three deliberate parts rather than a stack of headings.
+function Section({
+  id,
+  title,
+  description,
+  children,
+}: {
+  id?: string;
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section id={id} className="mt-10 scroll-mt-6 first:mt-0">
+      <div className="mb-4 border-b border-slate-100 pb-3">
+        <h2 className="text-base font-semibold tracking-tight text-ink-900">{title}</h2>
+        {description ? <p className="mt-0.5 text-sm text-ink-500">{description}</p> : null}
+      </div>
+      {children}
+    </section>
   );
 }
