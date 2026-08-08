@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { snapshotToBlock, snapshotsToBlocks, formatBlockValue, blocksToPromptText } from "./blocks";
+import { snapshotToBlock, snapshotsToBlocks, formatBlockValue, blocksToPromptText, aggregatePaidSnapshots } from "./blocks";
 
 // The projection layer is what carries every integration into the PDF, the AI
 // prompt and the client report. Its contract is shape-based, so these tests
@@ -74,6 +74,85 @@ describe("snapshotsToBlocks", () => {
       { type: "broken", snapshot: undefined },
     ]);
     expect(blocks.map((b) => b.sourceId)).toEqual(["tiktok_ads", "shopify"]);
+  });
+});
+
+describe("aggregatePaidSnapshots", () => {
+  const paid = (currency: string, spend: number, impressions: number, clicks: number, conversions: number, revenue = 0) => ({
+    currency,
+    totals: { spend, impressions, clicks, conversions, revenue, ctr: 0, cpc: 0, cpm: 0, costPerConversion: 0, roas: 0 },
+    previousTotals: null, byDate: [], topCampaigns: [],
+  });
+
+  it("returns null for fewer than two paid sources", () => {
+    expect(aggregatePaidSnapshots([{ type: "tiktok_ads", snapshot: adsSnapshot }])).toBeNull();
+    expect(aggregatePaidSnapshots([])).toBeNull();
+  });
+
+  it("never merges non-paid sources — GA4 sessions and Search Console clicks stay out", () => {
+    const result = aggregatePaidSnapshots([
+      { type: "tiktok_ads", snapshot: paid("USD", 100, 1000, 100, 10) },
+      { type: "meta_ads", snapshot: paid("USD", 100, 1000, 100, 10) },
+      // Neither of these is category "paid", so neither may contribute.
+      { type: "ga4", snapshot: { totals: { sessions: 9999, users: 9999 } } },
+      { type: "shopify", snapshot: { currency: "USD", totals: { orders: 50, revenue: 5000, avgOrderValue: 100, customers: 40 } } },
+    ]);
+    expect(result).not.toBeNull();
+    expect(result!.sourceNames).toEqual(["TikTok Ads", "Meta Ads"]);
+    expect(result!.clicks).toBe(200); // 100 + 100, not polluted by sessions or orders
+    expect(result!.spend).toBe(200);
+  });
+
+  it("sums additive metrics across ad platforms", () => {
+    const r = aggregatePaidSnapshots([
+      { type: "tiktok_ads", snapshot: paid("USD", 100, 4000, 200, 10, 500) },
+      { type: "meta_ads", snapshot: paid("USD", 300, 6000, 300, 20, 1500) },
+    ])!;
+    expect(r.spend).toBe(400);
+    expect(r.impressions).toBe(10000);
+    expect(r.clicks).toBe(500);
+    expect(r.conversions).toBe(30);
+    expect(r.revenue).toBe(2000);
+  });
+
+  it("recomputes ratios from the summed components rather than averaging them", () => {
+    const r = aggregatePaidSnapshots([
+      { type: "tiktok_ads", snapshot: paid("USD", 100, 4000, 200, 10, 500) },
+      { type: "meta_ads", snapshot: paid("USD", 300, 6000, 300, 20, 1500) },
+    ])!;
+    expect(r.ctr).toBeCloseTo(500 / 10000);        // not (0.05 + 0.05) / 2
+    expect(r.cpc).toBeCloseTo(400 / 500);
+    expect(r.cpm).toBeCloseTo((400 / 10000) * 1000);
+    expect(r.costPerConversion).toBeCloseTo(400 / 30);
+    expect(r.roas).toBeCloseTo(2000 / 400);
+  });
+
+  it("refuses a shared currency when accounts disagree, so spend is not summed misleadingly", () => {
+    const r = aggregatePaidSnapshots([
+      { type: "tiktok_ads", snapshot: paid("USD", 100, 1000, 100, 10) },
+      { type: "meta_ads", snapshot: paid("PKR", 100, 1000, 100, 10) },
+    ])!;
+    expect(r.currency).toBeNull();
+    // Non-monetary counts remain valid and are still combined.
+    expect(r.clicks).toBe(200);
+  });
+
+  it("keeps the currency when every account agrees", () => {
+    const r = aggregatePaidSnapshots([
+      { type: "tiktok_ads", snapshot: paid("GBP", 100, 1000, 100, 10) },
+      { type: "meta_ads", snapshot: paid("GBP", 100, 1000, 100, 10) },
+    ])!;
+    expect(r.currency).toBe("GBP");
+  });
+
+  it("guards against divide-by-zero on an empty period", () => {
+    const r = aggregatePaidSnapshots([
+      { type: "tiktok_ads", snapshot: paid("USD", 0, 0, 0, 0) },
+      { type: "meta_ads", snapshot: paid("USD", 0, 0, 0, 0) },
+    ])!;
+    expect(r.ctr).toBe(0);
+    expect(r.cpc).toBe(0);
+    expect(r.roas).toBe(0);
   });
 });
 

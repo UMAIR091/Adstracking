@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { IntegrationCard, type IntegrationSource } from "@/components/IntegrationCard";
 import { BigQueryCard } from "@/components/BigQueryCard";
-import { ClientAnalytics } from "@/components/ClientAnalytics";
+import { ClientPerformance, type PerformanceSource } from "@/components/ClientPerformance";
 import { GenerateReport } from "@/components/GenerateReport";
 import { BrandingNotice } from "@/components/BrandingNotice";
 import { ReportSchedule, type ScheduleData } from "@/components/ReportSchedule";
@@ -124,6 +124,16 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   // a real synced snapshot — nothing here is ever fabricated.
   const vizSources = integrations.filter((i) => HAS_VIZ.has(i.def.id) && i.snapshot);
 
+  // Shape the visualizable sources for the account switcher, resolving each
+  // source's selected account to its display name from the config already
+  // loaded above — no extra query, no second data model.
+  const performanceSources: PerformanceSource[] = vizSources.map((i) => ({
+    id: i.def.id,
+    name: i.def.name,
+    accountLabel: i.source?.accounts.find((a) => a.id === i.source?.selectedAccountId)?.name ?? null,
+    snapshot: i.snapshot,
+  }));
+
   const { data: schedule } = await supabase
     .from("report_schedules")
     .select("frequency, recipients, enabled, next_run_at, send_day, send_hour, subject, message")
@@ -168,14 +178,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
           a first-run prompt. Nothing here is ever fabricated. */}
       {vizSources.length > 0 ? (
         <Section title="Performance" description="Live metrics from every connected source, for the last 28 days.">
-          <div className="space-y-10">
-            {vizSources.map((i) => (
-              <div key={i.def.id}>
-                <h3 className="mb-3 text-sm font-medium text-ink-700">{i.def.name}</h3>
-                <ClientAnalytics id={i.def.id} snapshot={i.snapshot} />
-              </div>
-            ))}
-          </div>
+          <ClientPerformance sources={performanceSources} />
         </Section>
       ) : connectedSources.length > 0 ? (
         <Section title="Performance" description="Your first sync is on its way — metrics appear here as soon as it lands.">

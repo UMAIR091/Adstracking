@@ -515,6 +515,75 @@ export function snapshotsToBlocks(
     .sort((a, b) => order.indexOf(a.category) - order.indexOf(b.category));
 }
 
+// ── Cross-source aggregation ─────────────────────────────────
+
+export type PaidAggregate = {
+  currency: string | null; // null when sources disagree — monetary values are then omitted
+  sourceNames: string[];
+  spend: number;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  revenue: number;
+  ctr: number;
+  cpc: number;
+  cpm: number;
+  costPerConversion: number;
+  roas: number;
+};
+
+/**
+ * Combines paid-media sources into one set of totals.
+ *
+ * Only paid blocks participate: spend, impressions, clicks, conversions and
+ * revenue are the same unit on every ad platform, so they add up. Everything
+ * else does NOT — GA4 sessions and Search Console clicks measure different
+ * things and are never combined, which is why this keys off the "paid"
+ * category rather than summing whatever happens to share a field name.
+ *
+ * Ratio metrics (CTR, CPC, CPM, CPA, ROAS) are RECOMPUTED from the summed
+ * components. Averaging per-platform ratios would silently weight a £5 campaign
+ * the same as a £5,000 one.
+ *
+ * Currency: if connected ad accounts report in different currencies, summing
+ * spend would be meaningless, so `currency` comes back null and callers must
+ * omit the monetary figures. Returns null unless at least two paid sources
+ * exist — a single source is already shown on its own.
+ */
+export function aggregatePaidSnapshots(
+  entries: { type: string | null | undefined; snapshot: unknown }[]
+): PaidAggregate | null {
+  const paid = entries
+    .map((e) => ({ block: snapshotToBlock(e.type, e.snapshot), snapshot: e.snapshot }))
+    .filter((x): x is { block: ReportBlock; snapshot: unknown } => x.block !== null && x.block.category === "paid");
+
+  if (paid.length < 2) return null;
+
+  const sum = (key: string) => paid.reduce((acc, p) => acc + n(at(p.snapshot, "totals", key)), 0);
+
+  const spend = sum("spend");
+  const impressions = sum("impressions");
+  const clicks = sum("clicks");
+  const conversions = sum("conversions");
+  const revenue = sum("revenue");
+
+  const currencies = Array.from(new Set(paid.map((p) => (p.block.currency ?? "").toUpperCase()).filter(Boolean)));
+  const currency = currencies.length === 1 ? currencies[0] : null;
+
+  const ratio = (num: number, den: number) => (den > 0 ? num / den : 0);
+
+  return {
+    currency,
+    sourceNames: paid.map((p) => p.block.sourceName),
+    spend, impressions, clicks, conversions, revenue,
+    ctr: ratio(clicks, impressions),
+    cpc: ratio(spend, clicks),
+    cpm: ratio(spend, impressions) * 1000,
+    costPerConversion: ratio(spend, conversions),
+    roas: ratio(revenue, spend),
+  };
+}
+
 const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", GBP: "£", EUR: "€", JPY: "¥", AUD: "A$", CAD: "C$", INR: "₹" };
 
 /**
