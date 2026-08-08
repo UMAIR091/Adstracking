@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Users } from "lucide-react";
+import { Users, Plug } from "lucide-react";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/EmptyState";
-import { DataSourceCard } from "@/components/DataSourceCard";
-import { listIntegrations, liveIntegrations, effectiveStatus } from "@/lib/integrations/registry";
+import { IntegrationSearch } from "@/components/IntegrationSearch";
+import { ConnectedAccountsTable, type ConnectedAccountRow } from "@/components/ConnectedAccountsTable";
+import type { DataSourceCardData } from "@/components/DataSourceCard";
+import { listIntegrations, effectiveStatus } from "@/lib/integrations/registry";
 
 export const dynamic = "force-dynamic";
 
@@ -17,93 +18,157 @@ export default async function IntegrationsPage() {
   if (!user) redirect("/login");
 
   const supabase = createClient();
-  const { data: clients } = await supabase
+
+  const { data: clientRows } = await supabase
     .from("clients")
-    .select("id, name, data_sources(type)")
+    .select("id, name")
     .eq("archived", false)
     .order("name");
+  const clients = clientRows ?? [];
 
-  const list = clients ?? [];
+  // Every connection across the agency's active clients, with the fields the
+  // Connected Accounts table needs. One query — no per-client fan-out.
+  type DsRow = {
+    id: string; type: string; display_name: string | null;
+    config: Record<string, unknown> | null; status: string | null;
+    last_synced_at: string | null; last_sync_error: string | null; client_id: string;
+  };
+  const clientNameById = new Map(clients.map((c) => [c.id as string, c.name as string]));
+  const { data: dsRows } = clients.length
+    ? await supabase
+        .from("data_sources")
+        .select("id, type, display_name, config, status, last_synced_at, last_sync_error, client_id")
+        .in("client_id", clients.map((c) => c.id))
+    : { data: [] as DsRow[] };
+  const sources = (dsRows ?? []) as DsRow[];
+
   const integrations = listIntegrations();
-  const live = liveIntegrations();
-  const connectedCount = (typeId: string) =>
-    list.filter((c) => ((c.data_sources as { type: string }[] | null) ?? []).some((d) => d.type === typeId)).length;
+  const defById = new Map(integrations.map((d) => [d.id, d]));
 
-  // Connecting a source happens on a client's page. Send single-client agencies
-  // straight there; otherwise to the client picker (or to create the first one).
+  // Connecting happens on a client's page. Single-client agencies go straight
+  // there; everyone else to the picker (or to create their first client).
   const connectHref =
-    list.length === 0 ? "/dashboard/clients/new" : list.length === 1 ? `/dashboard/clients/${list[0].id}` : "/dashboard/clients";
+    clients.length === 0 ? "/dashboard/clients/new" : clients.length === 1 ? `/dashboard/clients/${clients[0].id}` : "/dashboard/clients";
 
-  const liveCount = integrations.filter((d) => effectiveStatus(d) === "live").length;
+  const connectedCount = (typeId: string) => sources.filter((s) => s.type === typeId).length;
+
+  // ── Available: only what a user can genuinely start connecting today. ──
+  const available: DataSourceCardData[] = integrations
+    .filter((def) => effectiveStatus(def) === "live")
+    .map((def) => ({
+      id: def.id,
+      name: def.name,
+      description: def.description,
+      icon: def.icon,
+      accent: def.accent,
+      status: "live" as const,
+      connectedCount: connectedCount(def.id),
+      connectHref,
+    }));
+
+  // Genuinely not connectable yet — kept visible as a roadmap, clearly apart
+  // from the connectable set above.
+  const upcoming = integrations.filter((def) => effectiveStatus(def) !== "live");
+
+  // ── Connected accounts, newest-looking issues first. ──
+  const accountRows: ConnectedAccountRow[] = sources
+    .map((s) => {
+      const def = defById.get(s.type);
+      const config = (s.config ?? {}) as Record<string, unknown>;
+      const accounts = def?.readAccounts?.(config) ?? [];
+      const selectedId = def?.readSelected?.(config) ?? null;
+      return {
+        dataSourceId: s.id,
+        integrationId: s.type,
+        platform: def?.name ?? s.type,
+        icon: def?.icon ?? "Plug",
+        accent: def?.accent ?? "ink",
+        accountLabel: accounts.find((a) => a.id === selectedId)?.name ?? s.display_name ?? null,
+        // "Choose an account" only applies where the provider actually offers a list.
+        needsAccount: accounts.length > 0 && !selectedId,
+        clientId: s.client_id,
+        clientName: clientNameById.get(s.client_id) ?? "Unknown client",
+        status: s.status,
+        lastSyncedAt: s.last_synced_at,
+        lastSyncError: s.last_sync_error,
+      };
+    })
+    // Surface anything needing attention at the top of the table.
+    .sort((a, b) => {
+      const weight = (r: ConnectedAccountRow) =>
+        r.status === "revoked" ? 0 : r.status === "error" || r.lastSyncError ? 1 : r.needsAccount ? 2 : 3;
+      return weight(a) - weight(b) || a.clientName.localeCompare(b.clientName) || a.platform.localeCompare(b.platform);
+    });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-12">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Integrations</h1>
         <p className="text-sm text-ink-500">Connect the data sources that power your client reports.</p>
       </div>
 
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-medium text-ink-700">Data sources</h2>
-          <span className="text-xs text-ink-500">{liveCount} available · {integrations.length - liveCount} coming soon</span>
+      {/* ── Available integrations ── */}
+      <section>
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-2 border-b border-slate-100 pb-3">
+          <div>
+            <h2 className="text-base font-semibold tracking-tight text-ink-900">Available integrations</h2>
+            <p className="mt-0.5 text-sm text-ink-500">Ready to connect to any of your clients.</p>
+          </div>
+          <span className="text-xs text-ink-500">{available.length} available</span>
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {integrations.map((def) => (
-            <DataSourceCard
-              key={def.id}
-              data={{
-                id: def.id,
-                name: def.name,
-                description: def.description,
-                icon: def.icon,
-                accent: def.accent,
-                status: effectiveStatus(def),
-                connectedCount: effectiveStatus(def) === "live" ? connectedCount(def.id) : 0,
-                connectHref,
-              }}
-            />
-          ))}
-        </div>
-      </div>
+        <IntegrationSearch integrations={available} />
+      </section>
 
-      <div>
-        <h2 className="mb-3 text-sm font-medium text-ink-700">Connection status by client</h2>
-        {list.length === 0 ? (
+      {/* ── Connected accounts ── */}
+      <section>
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-2 border-b border-slate-100 pb-3">
+          <div>
+            <h2 className="text-base font-semibold tracking-tight text-ink-900">Connected accounts</h2>
+            <p className="mt-0.5 text-sm text-ink-500">Every account connected across your clients.</p>
+          </div>
+          {accountRows.length > 0 && (
+            <span className="text-xs text-ink-500">
+              {accountRows.length} connection{accountRows.length === 1 ? "" : "s"} · {clients.length} client{clients.length === 1 ? "" : "s"}
+            </span>
+          )}
+        </div>
+
+        {clients.length === 0 ? (
           <EmptyState
             icon={Users}
             title="Add a client first"
             description="Integrations are connected per client. Add a client, then connect a data source."
             action={<Button asChild><Link href="/dashboard/clients/new">Add a client</Link></Button>}
           />
+        ) : accountRows.length === 0 ? (
+          <EmptyState
+            icon={Plug}
+            title="No accounts connected yet"
+            description="Pick an integration above and connect it to one of your clients — its data appears here once linked."
+            action={<Button asChild><Link href={connectHref}>Connect a data source</Link></Button>}
+          />
         ) : (
-          <div className="space-y-3">
-            {list.map((c) => {
-              const types = new Set(((c.data_sources as { type: string }[] | null) ?? []).map((d) => d.type));
-              const connected = live.filter((d) => types.has(d.id));
-              return (
-                <Card key={c.id}>
-                  <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-                    <div className="min-w-0">
-                      <p className="font-medium text-ink-900">{c.name}</p>
-                      <div className="mt-1 flex flex-wrap gap-1.5">
-                        {connected.length ? (
-                          connected.map((d) => <Badge key={d.id} variant="success" dot>{d.name}</Badge>)
-                        ) : (
-                          <Badge variant="muted">Not connected</Badge>
-                        )}
-                      </div>
-                    </div>
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={`/dashboard/clients/${c.id}`}>{connected.length ? "Manage" : "Connect"}</Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+          <ConnectedAccountsTable rows={accountRows} />
         )}
-      </div>
+      </section>
+
+      {/* ── Roadmap: genuinely not connectable yet ── */}
+      {upcoming.length > 0 && (
+        <section>
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-2 border-b border-slate-100 pb-3">
+            <div>
+              <h2 className="text-base font-semibold tracking-tight text-ink-900">Coming soon</h2>
+              <p className="mt-0.5 text-sm text-ink-500">Built and on the way — not yet available to connect.</p>
+            </div>
+            <span className="text-xs text-ink-500">{upcoming.length} in progress</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {upcoming.map((def) => (
+              <Badge key={def.id} variant="muted">{def.name}</Badge>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
