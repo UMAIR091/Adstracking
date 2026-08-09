@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { IntegrationCard, type IntegrationSource } from "@/components/IntegrationCard";
 import { BigQueryCard } from "@/components/BigQueryCard";
 import { ClientPerformance, type PerformanceSource } from "@/components/ClientPerformance";
+import { ConnectAccountButton, type ConnectableIntegration } from "@/components/ConnectAccountModal";
 import { GenerateReport } from "@/components/GenerateReport";
 import { BrandingNotice } from "@/components/BrandingNotice";
 import { ReportSchedule, type ScheduleData } from "@/components/ReportSchedule";
@@ -127,6 +128,18 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   // Shape the visualizable sources for the account switcher, resolving each
   // source's selected account to its display name from the config already
   // loaded above — no extra query, no second data model.
+  // Everything connectable for this client, for the "+ Connect account" modal.
+  // Reuses the registry's live set — the modal only links to the existing
+  // consent screen, so no connection logic lives in the UI.
+  const connectableIntegrations: ConnectableIntegration[] = liveIntegrations().map((def) => ({
+    id: def.id,
+    name: def.name,
+    description: def.description,
+    icon: def.icon,
+    accent: def.accent,
+    connected: dsByType.has(def.id),
+  }));
+
   const performanceSources: PerformanceSource[] = vizSources.map((i) => ({
     id: i.def.id,
     name: i.def.name,
@@ -177,11 +190,19 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
           gets the awaiting-sync state, and a client with nothing connected gets
           a first-run prompt. Nothing here is ever fabricated. */}
       {vizSources.length > 0 ? (
-        <Section title="Performance" description="Live metrics from every connected source, for the last 28 days.">
+        <Section
+          title="Performance"
+          description="Live metrics from every connected source, for the last 28 days."
+          action={<ConnectAccountButton clientId={client.id} integrations={connectableIntegrations} />}
+        >
           <ClientPerformance sources={performanceSources} />
         </Section>
       ) : connectedSources.length > 0 ? (
-        <Section title="Performance" description="Your first sync is on its way — metrics appear here as soon as it lands.">
+        <Section
+          title="Performance"
+          description="Your first sync is on its way — metrics appear here as soon as it lands."
+          action={<ConnectAccountButton clientId={client.id} integrations={connectableIntegrations} />}
+        >
           <SyncStatusPoller
             clientId={client.id}
             sourceCount={connectedSources.length}
@@ -189,7 +210,11 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
           />
         </Section>
       ) : (
-        <Section title="Performance" description="Connect a source and this client's metrics appear here automatically.">
+        <Section
+          title="Performance"
+          description="Connect a source and this client's metrics appear here automatically."
+          action={<ConnectAccountButton clientId={client.id} integrations={connectableIntegrations} />}
+        >
           <div className="rounded-xl border border-dashed border-ink-300 bg-surface-subtle px-6 py-12 text-center">
             <p className="text-sm font-medium text-ink-800">No performance data yet</p>
             <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-ink-500">
@@ -274,18 +299,24 @@ function Section({
   id,
   title,
   description,
+  action,
   children,
 }: {
   id?: string;
   title: string;
   description?: string;
+  /** Optional control rendered on the header's trailing edge. */
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <section id={id} className="mt-10 scroll-mt-6 first:mt-0">
-      <div className="mb-4 border-b border-slate-100 pb-3">
-        <h2 className="text-base font-semibold tracking-tight text-ink-900">{title}</h2>
-        {description ? <p className="mt-0.5 text-sm text-ink-500">{description}</p> : null}
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-slate-100 pb-3">
+        <div>
+          <h2 className="text-base font-semibold tracking-tight text-ink-900">{title}</h2>
+          {description ? <p className="mt-0.5 text-sm text-ink-500">{description}</p> : null}
+        </div>
+        {action}
       </div>
       {children}
     </section>
