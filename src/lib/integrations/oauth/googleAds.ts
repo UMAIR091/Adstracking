@@ -150,7 +150,7 @@ export async function fetchGoogleAdsReport(
 
   return {
     platform: "google_ads",
-    currency: meta[0]?.customer?.currencyCode ?? "USD",
+    currency: meta[0]?.customer?.currencyCode ?? "",
     totals: adsTotals(byDate, revenue),
     previousTotals,
     byDate,

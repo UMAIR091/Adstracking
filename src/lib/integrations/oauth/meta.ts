@@ -128,11 +128,32 @@ export type MetaAdsTotals = {
 export type MetaAdsDay = { date: string; spend: number; impressions: number; clicks: number };
 export type MetaAdsCampaign = { name: string; spend: number; impressions: number; clicks: number; ctr: number };
 export type MetaAdsReport = {
+  /** The ad account's own reporting currency — Meta reports spend in it, and a
+   *  PKR or EUR account must never be rendered with "$". Optional so snapshots
+   *  synced before this field existed still deserialize; consumers fall back. */
+  currency?: string;
   totals: MetaAdsTotals;
   previousTotals: MetaAdsTotals | null;
   byDate: MetaAdsDay[];
   topCampaigns: MetaAdsCampaign[];
 };
+
+// The ad account's reporting currency. Meta already returns this on the account
+// node; it was previously fetched in listMetaAdAccounts and discarded, leaving
+// every Meta report to be rendered as USD downstream. Best-effort: an error here
+// must not fail the whole sync, so it degrades to undefined and the UI omits the
+// symbol rather than inventing one.
+async function metaAccountCurrency(accessToken: string, accountId: string): Promise<string | undefined> {
+  try {
+    const data = await graphGet<{ currency?: string }>(`/${accountId}`, {
+      fields: "currency",
+      access_token: accessToken,
+    });
+    return data.currency || undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 function isoDaysAgo(n: number): string {
   const d = new Date();
@@ -186,7 +207,8 @@ export async function fetchMetaAdsReport(accessToken: string, accountId: string,
   const range = (s: string, u: string) => JSON.stringify({ since: s, until: u });
   const totalsFields = "spend,impressions,clicks,ctr,cpc,reach,actions";
 
-  const [totalsRows, prevRows, dailyRows, campaignRows] = await Promise.all([
+  const [currency, totalsRows, prevRows, dailyRows, campaignRows] = await Promise.all([
+    metaAccountCurrency(accessToken, accountId),
     insights(accessToken, accountId, { time_range: range(since, until), fields: totalsFields }),
     insights(accessToken, accountId, { time_range: range(prevSince, prevUntil), fields: totalsFields }).catch(() => []),
     insights(accessToken, accountId, { time_range: range(since, until), time_increment: "1", fields: "spend,impressions,clicks" }),
@@ -194,6 +216,7 @@ export async function fetchMetaAdsReport(accessToken: string, accountId: string,
   ]);
 
   return {
+    currency,
     totals: totalsFrom(totalsRows[0]),
     previousTotals: prevRows.length ? totalsFrom(prevRows[0]) : null,
     byDate: dailyRows.map((r) => ({ date: r.date_start ?? "", spend: num(r.spend), impressions: num(r.impressions), clicks: num(r.clicks) })),

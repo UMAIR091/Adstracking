@@ -198,7 +198,7 @@ export async function fetchLinkedinAdsReport(
 
   return {
     platform: "linkedin_ads",
-    currency: account.currency ?? "USD",
+    currency: account.currency ?? "",
     totals: adsTotals(byDate),
     previousTotals,
     byDate,

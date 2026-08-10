@@ -16,13 +16,15 @@ import { ReportSchedule, type ScheduleData } from "@/components/ReportSchedule";
 import { DeliveryHistory, type DeliveryLog } from "@/components/DeliveryHistory";
 import { SyncStatusPoller } from "@/components/SyncStatusPoller";
 import { liveIntegrations, descriptor } from "@/lib/integrations/registry";
+import { hasAnalyticsView } from "@/lib/integrations/analyticsViews";
 
 export const dynamic = "force-dynamic";
 
-// Sources with a dashboard block. Every one renders only once a real synced
-// snapshot exists — no source ever displays placeholder analytics. (The chart
-// rendering itself lives in the lazy-loaded ClientAnalytics client component.)
-const HAS_VIZ = new Set(["gsc", "ga4", "instagram", "google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "pinterest_ads", "snapchat_ads", "reddit_ads", "amazon_ads", "x_ads", "adobe_analytics", "gbp", "shopify", "sheets", "hubspot", "salesforce", "bigquery", "youtube_analytics", "moz", "activecampaign", "constantcontact", "campaignmonitor"]);
+// Which sources render a chart block comes from lib/integrations/analyticsViews
+// — the same module ClientAnalytics uses. This page used to keep its own list,
+// which fell eight integrations behind the renderer and silently hid them.
+// Every block still renders only once a real synced snapshot exists, so no
+// source ever displays placeholder analytics.
 
 export default async function ClientDetailPage({ params }: { params: { id: string } }) {
   const { user, agency } = await getCurrentUserAndAgency();
@@ -123,7 +125,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   // Performance leads the page, so resolve which sources can actually render a
   // chart block before laying anything out. A source only qualifies once it has
   // a real synced snapshot — nothing here is ever fabricated.
-  const vizSources = integrations.filter((i) => HAS_VIZ.has(i.def.id) && i.snapshot);
+  const vizSources = integrations.filter((i) => hasAnalyticsView(i.def.id) && i.snapshot);
 
   // Shape the visualizable sources for the account switcher, resolving each
   // source's selected account to its display name from the config already

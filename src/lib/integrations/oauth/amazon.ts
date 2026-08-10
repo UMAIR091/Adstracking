@@ -125,7 +125,7 @@ async function listProfiles(accessToken: string): Promise<{ id: string; name: st
   return (data ?? []).map((p) => ({
     id: String(p.profileId),
     name: p.accountInfo?.name ? `${p.accountInfo.name}${p.countryCode ? ` (${p.countryCode})` : ""}` : `Profile ${p.profileId}`,
-    currency: p.currencyCode ?? "USD",
+    currency: p.currencyCode ?? "",
   }));
 }
 
@@ -195,7 +195,7 @@ export async function fetchAmazonAdsReport(
   const endDate = isoDay(1);
 
   const profiles = await listProfiles(accessToken).catch(() => []);
-  const currency = profiles.find((p) => p.id === profileId)?.currency ?? "USD";
+  const currency = profiles.find((p) => p.id === profileId)?.currency ?? "";
 
   const reportId = await createReport(accessToken, profileId, startDate, endDate);
   const rows = await awaitReport(accessToken, profileId, reportId);

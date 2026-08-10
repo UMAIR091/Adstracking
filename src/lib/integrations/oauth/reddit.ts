@@ -122,6 +122,21 @@ type AdAccountItem = { id: string; name?: string; legacy_id?: string };
 // ad_accounts listing; parses defensively (see file header).
 type AdAccountsResponse = Wrapped<AdAccountItem[]> & { ad_accounts?: AdAccountItem[] };
 
+// The ad account's own reporting currency. Spend was previously hardcoded to
+// USD, which mislabels every non-USD advertiser. Best-effort: an unknown
+// currency returns "" so the UI omits the symbol rather than inventing one.
+async function redditAccountCurrency(accessToken: string, adAccountId: string): Promise<string> {
+  try {
+    const data = await redditFetch<Wrapped<{ currency?: string }>>(
+      `${ADS_API}/ad_accounts/${encodeURIComponent(adAccountId)}`,
+      accessToken
+    );
+    return data.data?.currency ?? "";
+  } catch {
+    return "";
+  }
+}
+
 export async function listRedditAdAccounts(accessToken: string): Promise<IntegrationAccount[]> {
   const data = await redditFetch<AdAccountsResponse>(`${ADS_API}/me/ad_accounts`, accessToken)
     .catch(() => ({}) as AdAccountsResponse);
@@ -173,7 +188,8 @@ function toDay(r: ReportRow): AdsDay {
 export async function fetchRedditAdsReport(
   accessToken: string, adAccountId: string, periodDays: number
 ): Promise<AdsReport> {
-  const [dailyRows, prevRows, campaignRows] = await Promise.all([
+  const [currency, dailyRows, prevRows, campaignRows] = await Promise.all([
+    redditAccountCurrency(accessToken, adAccountId),
     runReport(accessToken, adAccountId, hourAligned(periodDays), hourAligned(0), ["DATE"]),
     runReport(accessToken, adAccountId, hourAligned(periodDays * 2), hourAligned(periodDays), ["DATE"]).catch(() => [] as ReportRow[]),
     runReport(accessToken, adAccountId, hourAligned(periodDays), hourAligned(0), ["CAMPAIGN_ID"]).catch(() => [] as ReportRow[]),
@@ -209,7 +225,7 @@ export async function fetchRedditAdsReport(
 
   return {
     platform: "reddit_ads",
-    currency: "USD",
+    currency,
     totals: adsTotals(byDate),
     previousTotals: prevRows.length ? adsTotals(prevRows.map(toDay)) : null,
     byDate,

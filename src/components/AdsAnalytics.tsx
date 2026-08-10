@@ -22,10 +22,16 @@ const fmtNum = (n: number) => n.toLocaleString(undefined, { maximumFractionDigit
 const fmtPct = (n: number) => `${(n * 100).toFixed(2)}%`;
 const shortDate = (d: string) => d.slice(5);
 
-function money(n: number, currency: string): string {
+// Formats an amount in the ad account's OWN currency. When the platform didn't
+// report one, the number is shown bare rather than being labelled with a symbol
+// we'd only be guessing at — "$1,200" over a PKR account is worse than "1,200".
+function money(n: number, currency: string | null): string {
+  const digits = n >= 100 ? 0 : 2;
+  if (!currency) return n.toLocaleString(undefined, { maximumFractionDigits: digits });
   try {
-    return n.toLocaleString(undefined, { style: "currency", currency, maximumFractionDigits: n >= 100 ? 0 : 2 });
+    return n.toLocaleString(undefined, { style: "currency", currency, maximumFractionDigits: digits });
   } catch {
+    // Non-ISO code the Intl API rejects — still better than dropping it.
     return `${currency} ${n.toFixed(2)}`;
   }
 }
@@ -85,7 +91,8 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 export function AdsAnalytics({ report }: { report: AdsReportData }) {
-  const currency = report.currency ?? "USD";
+  // No USD fallback — an unknown currency renders unlabelled (see money()).
+  const currency = report.currency || null;
   const t = report.totals;
   const revenue = t.revenue ?? 0;
   const roas = t.roas ?? 0;

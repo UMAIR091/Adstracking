@@ -415,7 +415,9 @@ export async function fetchMicrosoftAdsReport(accessToken: string, packedId: str
   const byDay = new Map<string, AdsDay>();
   for (const d of dayRange(periodDays)) byDay.set(d, { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
   let revenue = 0;
-  let currency = "USD";
+  // Filled from the report's CurrencyCode column; stays unknown if absent
+  // rather than defaulting to dollars.
+  let currency = "";
   for (const r of rows) {
     const day = byDay.get((r.TimePeriod || "").slice(0, 10));
     if (r.CurrencyCode) currency = r.CurrencyCode;

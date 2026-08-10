@@ -1,0 +1,53 @@
+// Which integrations have a dashboard chart view, and which view they use.
+//
+// This was previously duplicated: ClientAnalytics knew how to render 32 sources
+// while the client page carried its own hardcoded HAS_VIZ gate listing only 24.
+// The two drifted, so eight integrations with working renderers — including
+// Microsoft Ads, WooCommerce, Stripe, Mailchimp, Klaviyo, CallRail, Ahrefs and
+// Semrush — were silently dropped from the Performance section even after
+// syncing real data.
+//
+// Both the renderer and the page now read this module, so a new integration
+// becomes visible in Performance the moment it gains a view here. No id list
+// lives anywhere else.
+
+/** Paid media — all render through AdsAnalytics on the shared AdsReport shape. */
+export const ADS_VIZ = new Set([
+  "google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "microsoft_ads",
+  "pinterest_ads", "snapchat_ads", "reddit_ads", "amazon_ads", "x_ads",
+]);
+
+/** Storefront / payments — CommerceAnalytics. */
+export const COMMERCE_VIZ = new Set(["shopify", "woocommerce", "stripe"]);
+
+/** Email marketing — EmailAnalytics. */
+export const EMAIL_VIZ = new Set(["mailchimp", "klaviyo", "activecampaign", "constantcontact", "campaignmonitor"]);
+
+/** SEO tools — SeoAnalytics. */
+export const SEO_VIZ = new Set(["ahrefs", "semrush", "moz"]);
+
+/** CRMs — CrmAnalytics. */
+export const CRM_VIZ = new Set(["hubspot", "salesforce"]);
+
+/** Sources with their own bespoke view. */
+const SINGLE_VIZ = new Set([
+  "gsc", "ga4", "adobe_analytics", "instagram", "gbp",
+  "sheets", "bigquery", "callrail", "youtube_analytics",
+]);
+
+/**
+ * True when this integration renders a chart block. The Performance section
+ * gates on this AND on a real synced snapshot existing — a source with a view
+ * but no data still shows nothing rather than placeholder analytics.
+ */
+export function hasAnalyticsView(id: string | null | undefined): boolean {
+  if (!id) return false;
+  return (
+    SINGLE_VIZ.has(id) ||
+    ADS_VIZ.has(id) ||
+    COMMERCE_VIZ.has(id) ||
+    EMAIL_VIZ.has(id) ||
+    SEO_VIZ.has(id) ||
+    CRM_VIZ.has(id)
+  );
+}

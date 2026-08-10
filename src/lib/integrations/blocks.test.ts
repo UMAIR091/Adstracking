@@ -59,6 +59,13 @@ describe("snapshotToBlock — shape detection", () => {
     expect(snapshotToBlock("mailchimp", { totals: { subscribers: 100, openRate: 0.4, clickRate: 0.1 } })!.category).toBe("email");
   });
 
+  it("never assumes USD when the platform did not report a currency", () => {
+    const noCurrency = { ...adsSnapshot, currency: "" };
+    expect(snapshotToBlock("meta_ads", noCurrency)!.currency).toBeNull();
+    const missingField = { totals: adsSnapshot.totals, previousTotals: null, byDate: [], topCampaigns: [] };
+    expect(snapshotToBlock("meta_ads", missingField)!.currency).toBeNull();
+  });
+
   it("returns null for an unrecognized shape rather than rendering something wrong", () => {
     expect(snapshotToBlock("mystery", { totals: { somethingElse: 1 } })).toBeNull();
     expect(snapshotToBlock("mystery", null)).toBeNull();
@@ -134,6 +141,16 @@ describe("aggregatePaidSnapshots", () => {
     ])!;
     expect(r.currency).toBeNull();
     // Non-monetary counts remain valid and are still combined.
+    expect(r.clicks).toBe(200);
+  });
+
+  it("refuses a shared currency when any account's currency is unknown", () => {
+    const r = aggregatePaidSnapshots([
+      { type: "tiktok_ads", snapshot: paid("USD", 100, 1000, 100, 10) },
+      // Unknown must not be assumed to match the others.
+      { type: "meta_ads", snapshot: paid("", 100, 1000, 100, 10) },
+    ])!;
+    expect(r.currency).toBeNull();
     expect(r.clicks).toBe(200);
   });
 

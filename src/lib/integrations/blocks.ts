@@ -177,7 +177,9 @@ function projectAds(sourceId: string, snap: unknown): ReportBlock {
     sourceId,
     sourceName: nameOf(sourceId),
     category: "paid",
-    currency: s(at(snap, "currency")) || "USD",
+    // Never assume USD. An unknown currency stays null and the formatter omits
+    // the symbol — showing "$" over PKR spend is worse than showing no symbol.
+    currency: s(at(snap, "currency")) || null,
     kpis,
     series,
     tables,
@@ -193,7 +195,7 @@ function projectCommerce(sourceId: string, snap: unknown): ReportBlock {
     sourceId,
     sourceName: nameOf(sourceId),
     category: "commerce",
-    currency: s(at(snap, "currency")) || "USD",
+    currency: s(at(snap, "currency")) || null,
     kpis: meaningful([
       kpi("Revenue", at(t, "revenue"), at(p, "revenue"), "currency"),
       kpi("Orders", at(t, "orders"), at(p, "orders"), "number"),
@@ -227,7 +229,7 @@ function projectCrm(sourceId: string, snap: unknown): ReportBlock {
     sourceId,
     sourceName: nameOf(sourceId),
     category: "crm",
-    currency: s(at(snap, "currency")) || "USD",
+    currency: s(at(snap, "currency")) || null,
     kpis: meaningful([
       kpi("New contacts", at(t, "newContacts"), at(p, "newContacts"), "number"),
       kpi("New deals", at(t, "newDeals"), at(p, "newDeals"), "number"),
@@ -567,8 +569,11 @@ export function aggregatePaidSnapshots(
   const conversions = sum("conversions");
   const revenue = sum("revenue");
 
-  const currencies = Array.from(new Set(paid.map((p) => (p.block.currency ?? "").toUpperCase()).filter(Boolean)));
-  const currency = currencies.length === 1 ? currencies[0] : null;
+  // Every source must report a KNOWN currency and they must all agree. An
+  // unknown code is not treated as "probably the same as the others" — that
+  // would silently sum a PKR account into a USD total.
+  const codes = paid.map((p) => (p.block.currency ?? "").toUpperCase());
+  const currency = codes.every(Boolean) && new Set(codes).size === 1 ? codes[0] : null;
 
   const ratio = (num: number, den: number) => (den > 0 ? num / den : 0);
 

@@ -161,9 +161,9 @@ async function accountDetail(accessToken: string, adAccountId: string): Promise<
   try {
     const data = await snapGet<{ adaccounts?: AdAccountWrap[] }>(`/adaccounts/${encodeURIComponent(adAccountId)}`, accessToken);
     const acc = data.adaccounts?.[0]?.adaccount;
-    return { timezone: acc?.timezone ?? "UTC", currency: acc?.currency ?? "USD" };
+    return { timezone: acc?.timezone ?? "UTC", currency: acc?.currency ?? "" };
   } catch {
-    return { timezone: "UTC", currency: "USD" };
+    return { timezone: "UTC", currency: "" };
   }
 }
 

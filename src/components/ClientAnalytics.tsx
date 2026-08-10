@@ -38,10 +38,10 @@ const CallAnalytics = dynamic(() => import("@/components/CallAnalytics").then((m
 const SeoAnalytics = dynamic(() => import("@/components/SeoAnalytics").then((m) => m.SeoAnalytics), { ssr: false, loading: ChartSkeleton });
 const VideoAnalytics = dynamic(() => import("@/components/VideoAnalytics").then((m) => m.VideoAnalytics), { ssr: false, loading: ChartSkeleton });
 
-const ADS_VIZ = new Set(["google_ads", "meta_ads", "linkedin_ads", "tiktok_ads", "microsoft_ads", "pinterest_ads", "snapchat_ads", "reddit_ads", "amazon_ads", "x_ads"]);
-const COMMERCE_VIZ = new Set(["shopify", "woocommerce", "stripe"]);
-const EMAIL_VIZ = new Set(["mailchimp", "klaviyo", "activecampaign", "constantcontact", "campaignmonitor"]);
-const SEO_VIZ = new Set(["ahrefs", "semrush", "moz"]);
+// Coverage lives in lib/integrations/analyticsViews.ts so the client page gates
+// Performance on exactly the set this component can render — the two used to be
+// separate lists and drifted, silently hiding eight integrations.
+import { ADS_VIZ, COMMERCE_VIZ, EMAIL_VIZ, SEO_VIZ, CRM_VIZ } from "@/lib/integrations/analyticsViews";
 
 // Provider-specific analytics view (each source visualizes different metrics).
 export function ClientAnalytics({ id, snapshot }: { id: string; snapshot: unknown }) {
@@ -55,7 +55,7 @@ export function ClientAnalytics({ id, snapshot }: { id: string; snapshot: unknow
   if (COMMERCE_VIZ.has(id)) return <CommerceAnalytics report={snapshot as CommerceReport} />;
   if (id === "sheets") return <SheetsAnalytics report={snapshot as SheetTable} />;
   if (id === "bigquery") return <BigQueryAnalytics report={snapshot as BigQueryReport} />;
-  if (id === "hubspot" || id === "salesforce") return <CrmAnalytics report={snapshot as CrmReport} />;
+  if (CRM_VIZ.has(id)) return <CrmAnalytics report={snapshot as CrmReport} />;
   if (EMAIL_VIZ.has(id)) return <EmailAnalytics report={snapshot as EmailReport} />;
   if (id === "callrail") return <CallAnalytics report={snapshot as CallReport} />;
   if (SEO_VIZ.has(id)) return <SeoAnalytics report={snapshot as SeoReport} />;

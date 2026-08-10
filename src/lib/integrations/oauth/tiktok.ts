@@ -158,9 +158,10 @@ async function advertiserCurrency(accessToken: string, advertiserId: string): Pr
       advertiser_ids: JSON.stringify([advertiserId]),
       fields: JSON.stringify(["currency", "advertiser_id", "advertiser_name"]),
     });
-    return data.list?.[0]?.currency || "USD";
+    return data.list?.[0]?.currency || "";
   } catch {
-    return "USD";
+    // Unknown, not "probably dollars" — the UI omits the symbol instead.
+    return "";
   }
 }
 

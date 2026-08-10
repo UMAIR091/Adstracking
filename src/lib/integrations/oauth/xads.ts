@@ -152,6 +152,22 @@ async function xGet<T>(stored: string, path: string, query: Record<string, strin
 type Listing<T> = { data?: T[] };
 
 // Lists the ad accounts the authenticated user can access.
+// X reports spend as billed_charge_local_micro — in the ACCOUNT'S local
+// currency, not USD. The account node doesn't carry the code, so it comes from
+// the account's funding instrument. Best-effort: unknown returns "" so the UI
+// omits the symbol rather than mislabelling the amount as dollars.
+async function xAccountCurrency(stored: string, accountId: string): Promise<string> {
+  try {
+    const data = await xGet<Listing<{ currency?: string }>>(
+      stored,
+      `/accounts/${encodeURIComponent(accountId)}/funding_instruments`
+    );
+    return data.data?.find((f) => f.currency)?.currency ?? "";
+  } catch {
+    return "";
+  }
+}
+
 export async function listXAdsAccounts(stored: string): Promise<IntegrationAccount[]> {
   const data = await xGet<Listing<{ id: string; name?: string }>>(stored, "/accounts");
   return (data.data ?? []).map((a) => ({ id: a.id, name: a.name ?? a.id }));
@@ -201,6 +217,8 @@ export async function fetchXAdsReport(stored: string, accountId: string, periodD
   const start = `${isoDay(periodDays)}T00:00:00Z`;
   const end = `${isoDay(0)}T00:00:00Z`;
 
+  const currency = await xAccountCurrency(stored, accountId);
+
   const campaigns = await xGet<Listing<{ id: string; name?: string }>>(stored, `/accounts/${encodeURIComponent(accountId)}/campaigns`, { count: "200" })
     .catch(() => ({ data: [] as { id: string; name?: string }[] }));
   const items = campaigns.data ?? [];
@@ -236,7 +254,9 @@ export async function fetchXAdsReport(stored: string, accountId: string, periodD
   const byDate = Array.from(byDay.values());
   return {
     platform: "x_ads",
-    currency: "USD", // billed_charge_local_micro is in the account's local currency
+    // billed_charge_local_micro is in the account's LOCAL currency, so the code
+    // comes from the funding instrument rather than being assumed.
+    currency,
     totals: adsTotals(byDate),
     previousTotals: null,
     byDate,
