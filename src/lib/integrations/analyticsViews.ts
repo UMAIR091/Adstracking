@@ -40,6 +40,45 @@ const SINGLE_VIZ = new Set([
  * gates on this AND on a real synced snapshot existing — a source with a view
  * but no data still shows nothing rather than placeholder analytics.
  */
+// ── Metric groups ────────────────────────────────────────────
+//
+// Performance groups sources by the KIND of metric they carry, because metrics
+// from different groups must never be combined: Search Console clicks and GA4
+// sessions count different events, and neither can be added to ad spend. Only
+// sources inside the same group are ever aggregated, and even then only where
+// the maths is genuinely valid (see aggregatePaidSnapshots).
+export type MetricGroup = "paid" | "seo" | "analytics" | "social" | "commerce" | "crm" | "email" | "calls" | "other";
+
+export const GROUP_LABELS: Record<MetricGroup, string> = {
+  paid: "Paid ads",
+  seo: "SEO",
+  analytics: "Website analytics",
+  social: "Social",
+  commerce: "E-commerce",
+  crm: "CRM",
+  email: "Email",
+  calls: "Calls",
+  other: "Other",
+};
+
+/** Search Console sits with the SEO tools; they all describe organic search. */
+const SEO_GROUP = new Set(["gsc", "ahrefs", "semrush", "moz"]);
+const ANALYTICS_GROUP = new Set(["ga4", "adobe_analytics", "gbp", "sheets", "bigquery", "youtube_analytics"]);
+const SOCIAL_GROUP = new Set(["instagram"]);
+
+export function groupForIntegration(id: string | null | undefined): MetricGroup {
+  if (!id) return "other";
+  if (ADS_VIZ.has(id)) return "paid";
+  if (SEO_GROUP.has(id)) return "seo";
+  if (ANALYTICS_GROUP.has(id)) return "analytics";
+  if (SOCIAL_GROUP.has(id)) return "social";
+  if (COMMERCE_VIZ.has(id)) return "commerce";
+  if (CRM_VIZ.has(id)) return "crm";
+  if (EMAIL_VIZ.has(id)) return "email";
+  if (id === "callrail") return "calls";
+  return "other";
+}
+
 export function hasAnalyticsView(id: string | null | undefined): boolean {
   if (!id) return false;
   return (

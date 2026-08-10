@@ -16,7 +16,7 @@ import { ReportSchedule, type ScheduleData } from "@/components/ReportSchedule";
 import { DeliveryHistory, type DeliveryLog } from "@/components/DeliveryHistory";
 import { SyncStatusPoller } from "@/components/SyncStatusPoller";
 import { liveIntegrations, descriptor } from "@/lib/integrations/registry";
-import { hasAnalyticsView } from "@/lib/integrations/analyticsViews";
+import { hasAnalyticsView, groupForIntegration } from "@/lib/integrations/analyticsViews";
 
 export const dynamic = "force-dynamic";
 
@@ -146,6 +146,8 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     id: i.def.id,
     name: i.def.name,
     accountLabel: i.source?.accounts.find((a) => a.id === i.source?.selectedAccountId)?.name ?? null,
+    // Metric family, so Performance only ever combines like with like.
+    group: groupForIntegration(i.def.id),
     snapshot: i.snapshot,
   }));
 
