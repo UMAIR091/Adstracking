@@ -3,8 +3,7 @@ import { redirect } from "next/navigation";
 import { format } from "date-fns";
 import {
   FileBarChart2, Plus, Cable, Eye, Palette,
-  HeartPulse, CheckCircle2, AlertCircle, PlugZap,
-  Trophy, ArrowRight, Users,
+  CheckCircle2, AlertCircle, Trophy, ArrowRight, Users,
 } from "lucide-react";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
@@ -176,7 +175,6 @@ export default async function DashboardPage() {
   const topClients = Array.from(perClient.entries()).map(([id, v]) => ({ id, ...v })).sort((a, b) => b.clicks - a.clicks).slice(0, 5);
 
   const reports = (reportsRaw ?? []) as { id: string; title: string; status: string; period_start: string | null; period_end: string | null; data: { totals?: Day } | null; created_at: string; client_id: string | null; clients: JoinedName }[];
-  const latest = reports.find((r) => r.status === "ready") ?? reports[0];
   const schedules = (schedulesRaw ?? []) as { id: string; client_id: string | null; frequency: string; next_run_at: string; template_key: string; clients: JoinedName }[];
   const emails = (emailsRaw ?? []) as { report_id: string | null; to_email: string; status: string; sent_at: string; error: string | null; source: string | null }[];
 
@@ -321,11 +319,13 @@ export default async function DashboardPage() {
   // un-awaited promise in a Server Component can be dropped before it settles).
   await supabase.from("agencies").update({ last_seen_at: new Date().toISOString() }).eq("id", agency.id);
 
-  const healthStats = [
-    { l: "Connected", v: connectedCount, icon: CheckCircle2, tint: "text-emerald-600" },
-    { l: "Pending setup", v: pendingCount, icon: AlertCircle, tint: "text-amber-600" },
-    { l: "Ready to report", v: readyCount, icon: FileBarChart2, tint: "text-brand-600" },
-  ];
+  // "Which client needs attention?" is one of the questions this page exists to
+  // answer, so clients without a data source sort above connected ones instead
+  // of the list being purely newest-first.
+  const clientsByAttention = [...clients].sort((a, b) => {
+    const needs = (c: ClientWithSources) => ((c.data_sources ?? []).length > 0 ? 1 : 0);
+    return needs(a) - needs(b);
+  });
 
   // Performance section — rendered only when real synced metrics exist.
   // Otherwise the appropriate empty state explains which stage setup is at:
@@ -413,26 +413,18 @@ export default async function DashboardPage() {
         <div className="flex items-center justify-between gap-2">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Users size={16} className="text-brand-500" aria-hidden /> Recent client activity
+              <Users size={16} className="text-brand-500" aria-hidden /> Clients
             </CardTitle>
-            <CardDescription>Who you added most recently, and whether they are reporting yet.</CardDescription>
+            <CardDescription>
+              {pendingCount > 0
+                ? `${pendingCount} of ${clientCount ?? 0} still need a data source — those are listed first.`
+                : "Every client has a source connected."}
+            </CardDescription>
           </div>
           <Link href="/dashboard/clients" className="shrink-0 text-xs font-medium text-brand-600 hover:underline">View all</Link>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="mb-4 grid grid-cols-3 gap-2">
-          {healthStats.map((s) => {
-            const Icon = s.icon;
-            return (
-              <div key={s.l} className="rounded-xl border border-ink-100 bg-surface-muted/50 p-3">
-                <Icon size={15} className={s.tint} aria-hidden />
-                <p className="mt-1.5 text-xl font-semibold leading-none tabular-nums text-ink-900">{s.v}</p>
-                <p className="mt-1 text-[11px] leading-tight text-ink-500">{s.l}</p>
-              </div>
-            );
-          })}
-        </div>
         {clients.length === 0 ? (
           <div className="rounded-xl border border-dashed border-ink-200 p-5">
             <p className="text-sm font-medium text-ink-800">No clients yet</p>
@@ -446,7 +438,7 @@ export default async function DashboardPage() {
           </div>
         ) : (
           <ul className="space-y-1">
-            {clients.slice(0, 5).map((c) => {
+            {clientsByAttention.slice(0, 5).map((c) => {
               const connected = (c.data_sources ?? []).length > 0;
               return (
                 <li key={c.id}>
@@ -558,88 +550,22 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      {/* 7 — Latest report + integration health, side by side. */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="h-full lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><HeartPulse size={16} className="text-brand-500" aria-hidden /> Integration health</CardTitle>
-            <CardDescription>Every connected source, and whether it is still delivering data.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {health.total === 0 ? (
-              <div className="rounded-xl border border-dashed border-ink-200 p-5">
-                <p className="text-sm font-medium text-ink-800">Nothing connected yet</p>
-                <p className="mt-1 text-sm leading-relaxed text-ink-500">
-                  Connect Search Console, Analytics or an ad platform and ReportFlow keeps the data fresh in the
-                  background — so a report is always one click away.
-                </p>
-                <Button asChild size="sm" variant="outline" className="mt-4">
-                  <Link href="/dashboard/integrations"><Cable size={14} aria-hidden /> Browse integrations</Link>
-                </Button>
-              </div>
-            ) : (
-              <Link href="/dashboard/settings/health" className="-mx-2 flex flex-wrap items-center justify-between gap-4 rounded-lg px-2 py-2 transition-colors hover:bg-surface-muted">
-                <p className="text-sm text-ink-600">{health.total} connected data source{health.total === 1 ? "" : "s"}</p>
-                <div className="flex flex-wrap items-center gap-4 text-sm">
-                  <span className="inline-flex items-center gap-1.5 text-ink-600"><CheckCircle2 size={15} className="text-emerald-500" aria-hidden /> {health.connected} healthy</span>
-                  {health.errored > 0 && <span className="inline-flex items-center gap-1.5 text-rose-600"><AlertCircle size={15} aria-hidden /> {health.errored} error{health.errored === 1 ? "" : "s"}</span>}
-                  {health.needsReconnect > 0 && <span className="inline-flex items-center gap-1.5 text-amber-600"><PlugZap size={15} aria-hidden /> {health.needsReconnect} need reconnect</span>}
-                  <ArrowRight size={16} className="text-ink-400" aria-hidden />
-                </div>
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="h-full overflow-hidden">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm"><Eye size={15} className="text-brand-500" aria-hidden /> Latest report</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {latest ? (
-              <Link href={`/dashboard/reports/${latest.id}`} className="group block overflow-hidden rounded-xl border border-ink-200">
-                <div className="bg-gradient-to-br from-brand-500 to-brand-700 px-4 py-4 text-white">
-                  <p className="text-[10px] uppercase tracking-wide opacity-80">{agency.name}</p>
-                  <p className="mt-1 line-clamp-2 text-sm font-semibold">{latest.title}</p>
-                  <p className="mt-0.5 text-[11px] opacity-80">{nameOf(latest.clients)}{latest.period_end ? ` · ${format(new Date(latest.period_end), "d MMM")}` : ""}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-2 bg-white p-3">
-                  <div className="rounded-lg bg-surface-muted p-2">
-                    <p className="text-[10px] text-ink-500">Clicks</p>
-                    <p className="text-sm font-semibold tabular-nums text-ink-900">{fmt(latest.data?.totals?.clicks ?? 0)}</p>
-                  </div>
-                  <div className="rounded-lg bg-surface-muted p-2">
-                    <p className="text-[10px] text-ink-500">Impressions</p>
-                    <p className="text-sm font-semibold tabular-nums text-ink-900">{fmt(latest.data?.totals?.impressions ?? 0)}</p>
-                  </div>
-                </div>
-                <p className="flex items-center gap-1 bg-white px-3 pb-3 text-xs font-medium text-brand-600 group-hover:gap-2">Open report <ArrowRight size={13} aria-hidden /></p>
-              </Link>
-            ) : (
-              <div className="rounded-xl border border-dashed border-ink-200 p-4">
-                <p className="text-sm font-medium text-ink-800">No report yet</p>
-                <p className="mt-1 text-xs leading-relaxed text-ink-500">Your most recent report previews here once you generate one.</p>
-                <Button asChild size="sm" variant="outline" className="mt-3 w-full"><Link href="/dashboard/clients">Generate a report</Link></Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 8 — Shortcuts, last: useful, never the headline. */}
-      <section aria-labelledby="qa-heading">
-        <h2 id="qa-heading" className="mb-3 text-sm font-semibold text-ink-700">Quick actions</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* 7 — Shortcuts, last: useful, never the headline. A plain link row
+             rather than four cards — the sidebar already carries navigation, so
+             these don't need card weight. */}
+      <section aria-labelledby="qa-heading" className="border-t border-ink-100 pt-5">
+        <h2 id="qa-heading" className="sr-only">Quick actions</h2>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
           {quickActions.map((a) => {
             const Icon = a.icon;
             return (
-              <Link key={a.label} href={a.href}>
-                <Card className="transition-all hover:-translate-y-0.5 hover:shadow-md">
-                  <CardContent className="flex items-center gap-3 p-4">
-                    <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${a.tint}`}><Icon size={17} aria-hidden /></div>
-                    <span className="text-sm font-medium text-ink-800">{a.label}</span>
-                  </CardContent>
-                </Card>
+              <Link
+                key={a.label}
+                href={a.href}
+                className="inline-flex items-center gap-2 text-sm text-ink-600 transition-colors hover:text-ink-900"
+              >
+                <Icon size={15} className="text-ink-400" aria-hidden />
+                {a.label}
               </Link>
             );
           })}
