@@ -54,25 +54,31 @@ export function OnboardingChecklist({ steps }: { steps: OnboardingStep[] }) {
               ) : (
                 <Circle className={`h-5 w-5 flex-shrink-0 ${isNext ? "mt-0.5 text-brand-500" : "text-slate-300"}`} />
               )}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className={`text-sm ${s.done ? "text-ink-500 line-through" : isNext ? "font-medium text-ink-900" : "text-ink-800"}`}>{s.label}</span>
-                  {isNext && <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">Next</span>}
+              {/* The action sits inside the text column rather than beside it:
+                  as a third flex child it held its width on a narrow screen and
+                  crushed the label to a few characters per line. Here it drops
+                  below the description on mobile and returns to the trailing
+                  edge from `sm` up. */}
+              <div className="min-w-0 flex-1 sm:flex sm:items-start sm:justify-between sm:gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`text-sm ${s.done ? "text-ink-500 line-through" : isNext ? "font-medium text-ink-900" : "text-ink-800"}`}>{s.label}</span>
+                    {isNext && <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">Next</span>}
+                  </div>
+                  {/* The description earns its space only on the step being asked
+                      for right now — on the others it would be a wall of text
+                      about work that's already done or not yet relevant. */}
+                  {isNext && s.description && (
+                    <p className="mt-0.5 text-xs leading-relaxed text-ink-600">{s.description}</p>
+                  )}
                 </div>
-                {/* The description earns its space only on the step being asked
-                    for right now — on the others it would be a wall of text
-                    about work that's already done or not yet relevant. */}
-                {isNext && s.description && (
-                  <p className="mt-0.5 text-xs leading-relaxed text-ink-600">{s.description}</p>
+                {isNext && (
+                  <span className="mt-2 inline-flex flex-shrink-0 items-center gap-1 whitespace-nowrap rounded-lg bg-brand-500 px-2.5 py-1.5 text-xs font-medium text-white transition-colors group-hover:bg-brand-600 sm:mt-0">
+                    {s.cta ?? s.label} <ArrowRight className="h-3.5 w-3.5" />
+                  </span>
                 )}
               </div>
-              {isNext ? (
-                <span className="mt-0.5 inline-flex flex-shrink-0 items-center gap-1 rounded-lg bg-brand-500 px-2.5 py-1.5 text-xs font-medium text-white transition-colors group-hover:bg-brand-600">
-                  {s.cta ?? s.label} <ArrowRight className="h-3.5 w-3.5" />
-                </span>
-              ) : (
-                !s.done && <ArrowRight className="h-4 w-4 flex-shrink-0 text-slate-300 group-hover:text-brand-500" />
-              )}
+              {!isNext && !s.done && <ArrowRight className="h-4 w-4 flex-shrink-0 text-slate-300 group-hover:text-brand-500" />}
             </Link>
           );
         })}
