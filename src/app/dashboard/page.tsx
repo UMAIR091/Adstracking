@@ -150,13 +150,64 @@ export default async function DashboardPage() {
       why: "Average ranking. Lower is better." },
   ];
 
+  // The setup journey, in the order an agency actually lives it: a client to
+  // report on, a source to pull from, data that has landed, branding on the
+  // deliverable, a report, and then delivery. Every "done" is read from state
+  // already fetched above — no extra queries, and nothing is tracked or
+  // remembered that the workspace doesn't already record.
+  //
+  // "Connect a data source" counts every integration type, not just Search
+  // Console: `connectedCount` above is GSC-only because the performance
+  // aggregate is, but setup is complete as soon as any source is connected.
   const steps: OnboardingStep[] = [
-    { label: "Add your first client", done: (clientCount ?? 0) > 0, href: "/dashboard/clients/new" },
-    { label: "Connect Google Search Console", done: connectedCount > 0, href: "/dashboard/clients" },
-    { label: "Add your logo & branding", done: !!agency.logo_url, href: "/dashboard/settings" },
-    { label: "Generate your first report", done: (reportCount ?? 0) > 0, href: "/dashboard/reports/preview" },
+    {
+      label: "Add your first client",
+      done: (clientCount ?? 0) > 0,
+      href: "/dashboard/clients/new",
+      cta: "Add client",
+      description: "Every report, data source and schedule hangs off a client.",
+    },
+    {
+      label: "Connect a data source",
+      done: everySource.length > 0,
+      href: "/dashboard/clients",
+      cta: "Connect a source",
+      description: "Search Console, GA4, Meta Ads, Shopify and more — open a client and connect one.",
+    },
+    {
+      label: "See your first synced data",
+      done: hasReal,
+      href: "/dashboard/clients",
+      cta: "View performance",
+      description: "The first sync usually lands within a few minutes. Metrics then appear on the client page.",
+    },
+    {
+      label: "Add your logo & branding",
+      done: !!agency.logo_url,
+      href: "/dashboard/settings",
+      cta: "Add branding",
+      description: "Clients see your agency on every report and email — not ReportFlow.",
+    },
+    {
+      label: "Generate your first report",
+      done: (reportCount ?? 0) > 0,
+      href: "/dashboard/clients",
+      cta: "Pick a client",
+      description: "Open a client, choose a template and date range, and generate.",
+    },
+    {
+      label: "Send or schedule it",
+      // A bounced or failed attempt doesn't count as delivered, so it doesn't
+      // tick the step — the agency still has something to fix.
+      done:
+        (emailsRaw ?? []).some((e) => e.status !== "failed" && e.status !== "bounced" && e.status !== "pending") ||
+        (scheduleCount ?? 0) > 0,
+      href: "/dashboard/reports",
+      cta: "Go to reports",
+      description: "Email the report to your client, or put delivery on a recurring schedule.",
+    },
   ];
-  const nextStep = steps.find((s) => !s.done);
+  const setupComplete = steps.every((s) => s.done);
 
   // Mode: active once there's a client AND a connected Search Console property.
   const activeMode = (clientCount ?? 0) > 0 && readyCount > 0;
@@ -285,7 +336,7 @@ export default async function DashboardPage() {
   const quickActions = [
     { label: "Add client", href: "/dashboard/clients/new", icon: Plus, tint: "bg-brand-50 text-brand-600" },
     { label: "Integrations", href: "/dashboard/integrations", icon: Cable, tint: "bg-emerald-50 text-emerald-600" },
-    { label: "Preview report", href: "/dashboard/reports/preview", icon: Eye, tint: "bg-amber-50 text-amber-600" },
+    { label: "Sample report", href: "/dashboard/reports/preview", icon: Eye, tint: "bg-amber-50 text-amber-600" },
     { label: "Branding", href: "/dashboard/settings", icon: Palette, tint: "bg-sky-50 text-sky-600" },
   ];
 
@@ -463,11 +514,29 @@ export default async function DashboardPage() {
     <div className="space-y-8">
       {welcomeBack && <WelcomeBack data={welcomeBack} />}
 
-      {/* Header */}
+      {/* Header — the agency's own mark sits beside its name, so the workspace
+          reads as theirs from the first screen. Falls back to a monogram in the
+          brand colour when no logo is set, and links to where both are edited. */}
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm text-ink-500">Welcome back 👋</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink-900 sm:text-3xl">{agency.name}</h1>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/settings"
+            aria-label="Agency branding settings"
+            className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-ink-200/70 bg-white shadow-sm transition-shadow hover:shadow-md"
+          >
+            {agency.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={agency.logo_url} alt="" decoding="async" className="max-h-full max-w-full object-contain p-1" />
+            ) : (
+              <span className="text-lg font-semibold" style={{ color: agency.brand_color || "#4f46e5" }}>
+                {(agency.name || "A").charAt(0).toUpperCase()}
+              </span>
+            )}
+          </Link>
+          <div>
+            <p className="text-sm text-ink-500">Welcome back 👋</p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink-900 sm:text-3xl">{agency.name}</h1>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Button asChild variant="outline" className="hidden sm:inline-flex">
@@ -491,23 +560,30 @@ export default async function DashboardPage() {
       {/* 3 — The metrics themselves. */}
       {performanceSection}
 
-      {/* 4 — Onboarding stays first-class until the workspace is actually live. */}
-      {!activeMode && (
+      {/* 4 — Onboarding stays first-class until setup is actually finished.
+          It used to disappear at `activeMode` (a client + a ready Search
+          Console property), which hid the branding, first-report and delivery
+          steps exactly when they became the next thing to do. The sample card
+          keeps its old, narrower condition: it's a pitch for people who
+          haven't connected anything yet. */}
+      {!setupComplete && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2"><OnboardingChecklist steps={steps} /></div>
-          <Card className="h-full">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Eye size={16} className="text-brand-500" aria-hidden /> See a sample</CardTitle>
-              <CardDescription>Preview a branded client report with your own logo and colours.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm leading-relaxed text-ink-600">
-                Not sure what your clients will receive? Open a fully rendered sample — cover page, charts, AI summary
-                and all — before you connect anything.
-              </p>
-              <Button asChild variant="outline" className="mt-4"><Link href="/dashboard/reports/preview">Open preview</Link></Button>
-            </CardContent>
-          </Card>
+          <div className={activeMode ? "lg:col-span-3" : "lg:col-span-2"}><OnboardingChecklist steps={steps} /></div>
+          {!activeMode && (
+            <Card className="h-full">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Eye size={16} className="text-brand-500" aria-hidden /> See a sample</CardTitle>
+                <CardDescription>Preview a branded client report with your own logo and colours.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm leading-relaxed text-ink-600">
+                  Not sure what your clients will receive? Open a fully rendered sample — cover page, charts, AI summary
+                  and all — before you connect anything.
+                </p>
+                <Button asChild variant="outline" className="mt-4"><Link href="/dashboard/reports/preview">Open sample report</Link></Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 

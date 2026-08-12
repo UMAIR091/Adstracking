@@ -34,9 +34,11 @@ export default async function PublicReportPage({ params }: { params: { token: st
   return (
     <div className="min-h-screen bg-[#f6f7f9] py-8">
       <div className="mx-auto max-w-3xl px-4">
+        {/* A client opening this link has one thing to do with it, so the
+            download is the filled button and print/copy stay secondary. */}
         <div className="no-print mb-4 flex justify-end gap-2">
-          <DownloadPdf href={`/r/${params.token}/pdf`} filename="report.pdf" />
           <ReportActions shareUrl="" />
+          <DownloadPdf href={`/r/${params.token}/pdf`} filename="report.pdf" variant="default" />
         </div>
         <ReportDocument
           branding={{

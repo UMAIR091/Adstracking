@@ -14,9 +14,13 @@ export default async function SettingsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Settings</h1>
+      {/* Title matches this page's entry in SettingsNav — the nav calls it
+          "General & branding", so the page shouldn't call itself something
+          else once you land on it. */}
+      <h1 className="text-2xl font-semibold tracking-tight text-ink-900">General &amp; branding</h1>
       <p className="mb-6 text-sm text-ink-500">
-        This branding appears automatically on every report you send.
+        Your logo, colour and contact details go out automatically on every report and email — this is what your
+        clients see instead of ReportFlow.
       </p>
       <AgencySettingsForm
         agencyId={agency.id}

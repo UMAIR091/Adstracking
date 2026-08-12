@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { format } from "date-fns";
-import { Eye, CalendarClock, ArrowRight, Send } from "lucide-react";
+import { Eye, CalendarClock, ArrowRight, Send, Plus } from "lucide-react";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
@@ -84,9 +84,17 @@ export default async function ReportsPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Reports</h1>
           <p className="text-sm text-ink-500">Every report you&apos;ve generated, ready to view, download or share.</p>
         </div>
-        <Button asChild variant="outline">
-          <Link href="/dashboard/reports/preview"><Eye size={16} aria-hidden /> See a sample report</Link>
-        </Button>
+        {/* Reports are generated from a client page — this index had no way in
+            at all, so the first step of the flow (choose who it's for) is the
+            primary action here. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="outline">
+            <Link href="/dashboard/reports/preview"><Eye size={16} aria-hidden /> See a sample report</Link>
+          </Button>
+          <Button asChild>
+            <Link href="/dashboard/clients"><Plus size={16} aria-hidden /> New report</Link>
+          </Button>
+        </div>
       </div>
 
       {/* Scheduled deliveries — the automation is invisible if it only lives on

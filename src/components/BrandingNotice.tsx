@@ -7,7 +7,7 @@ import { Palette } from "lucide-react";
 export function BrandingNotice({ hasLogo }: { hasLogo: boolean }) {
   if (hasLogo) return null;
   return (
-    <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
       <div className="flex items-start gap-2.5">
         <Palette size={18} className="mt-0.5 shrink-0 text-amber-600" />
         <div>

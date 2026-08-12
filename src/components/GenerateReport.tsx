@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileBarChart2, Check, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
@@ -8,10 +9,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { track, ANALYTICS } from "@/lib/analytics";
 
+// `name` mirrors report_templates.name for the system templates seeded in
+// migration 0001 — generation titles the report "{client} — {template name}",
+// so these are the strings the review line can honestly promise. The menu
+// label is kept shorter than the full report name for the dropdown.
 const TEMPLATES = [
-  { key: "seo", name: "SEO Report" },
-  { key: "marketing", name: "Marketing Performance" },
-  { key: "executive", name: "Executive Summary" },
+  { key: "seo", label: "SEO Report", name: "SEO Report" },
+  { key: "marketing", label: "Marketing Performance", name: "Marketing Performance Report" },
+  { key: "executive", label: "Executive Summary", name: "Executive Summary Report" },
 ];
 
 // Generation is a single server call, so there is no real progress to stream.
@@ -28,10 +33,13 @@ const STAGES = [
 
 export function GenerateReport({
   clientId,
+  clientName,
   ready,
   blockedReason,
 }: {
   clientId: string;
+  /** Named in the review line, so it's clear who the report is for. */
+  clientName?: string;
   /** A synced snapshot exists — generation reads cached data, not live APIs. */
   ready: boolean;
   /** Which setup step is missing, so the message names a next action. */
@@ -43,6 +51,7 @@ export function GenerateReport({
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const selected = TEMPLATES.find((t) => t.key === template) ?? TEMPLATES[0];
 
   // Clear pending stage timers on unmount so a navigation mid-generation can't
   // set state on a component that no longer exists.
@@ -130,34 +139,82 @@ export function GenerateReport({
             </p>
           </div>
         ) : (
-          <div className="flex flex-wrap items-end gap-3">
+          // Configure, then review, then generate. The two steps were already
+          // here as a bare row of controls; labelling them — and stating what
+          // the run will actually produce before you commit to it — is what
+          // makes the sequence readable.
+          <div className="space-y-4">
             <div>
-              <label htmlFor="gen-template" className="mb-1 block text-xs font-medium text-ink-700">Template</label>
-              <select
-                id="gen-template"
-                value={template}
-                onChange={(e) => setTemplate(e.target.value)}
-                className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-              >
-                {TEMPLATES.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
-              </select>
+              <StepLabel n={1}>Configure</StepLabel>
+              <div className="mt-2 flex flex-wrap items-end gap-3">
+                <div>
+                  <label htmlFor="gen-template" className="mb-1 block text-xs font-medium text-ink-700">Template</label>
+                  <select
+                    id="gen-template"
+                    value={template}
+                    onChange={(e) => setTemplate(e.target.value)}
+                    className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  >
+                    {TEMPLATES.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="gen-period" className="mb-1 block text-xs font-medium text-ink-700">Date range</label>
+                  <select
+                    id="gen-period"
+                    value={period}
+                    onChange={(e) => setPeriod(Number(e.target.value))}
+                    className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  >
+                    <option value={28}>Last 28 days</option>
+                    <option value={90}>Last 90 days</option>
+                  </select>
+                </div>
+              </div>
             </div>
+
             <div>
-              <label htmlFor="gen-period" className="mb-1 block text-xs font-medium text-ink-700">Date range</label>
-              <select
-                id="gen-period"
-                value={period}
-                onChange={(e) => setPeriod(Number(e.target.value))}
-                className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-              >
-                <option value={28}>Last 28 days</option>
-                <option value={90}>Last 90 days</option>
-              </select>
+              <StepLabel n={2}>Review &amp; generate</StepLabel>
+              <div className="mt-2 rounded-xl border border-ink-100 bg-surface-muted/40 p-4">
+                <dl className="space-y-1.5 text-sm">
+                  <Row label="Report">
+                    {clientName ? `${clientName} — ${selected.name}` : selected.name}
+                  </Row>
+                  <Row label="Period">Last {period} days of synced data</Row>
+                  <Row label="Branding">Your saved logo, colour and footer</Row>
+                </dl>
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <Button onClick={generate}>Generate report</Button>
+                  <Link href="/dashboard/reports/preview" className="text-sm font-medium text-brand-600 hover:underline">
+                    See a sample first
+                  </Link>
+                </div>
+                <p className="mt-3 text-xs text-ink-500">
+                  Saved to Reports — you can email it to the client or put it on a schedule afterwards.
+                </p>
+              </div>
             </div>
-            <Button onClick={generate}>Generate report</Button>
           </div>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function StepLabel({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-ink-500">
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-surface-muted text-[10px] font-bold text-ink-600">{n}</span>
+      {children}
+    </p>
+  );
+}
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap gap-x-2">
+      <dt className="w-20 shrink-0 text-ink-500">{label}</dt>
+      <dd className="min-w-0 flex-1 font-medium text-ink-800">{children}</dd>
+    </div>
   );
 }

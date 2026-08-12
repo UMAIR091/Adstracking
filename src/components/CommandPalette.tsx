@@ -9,7 +9,7 @@ const ITEMS = [
   { label: "Clients", href: "/dashboard/clients", icon: Users },
   { label: "Add client", href: "/dashboard/clients/new", icon: UserPlus },
   { label: "Reports", href: "/dashboard/reports", icon: FileBarChart2 },
-  { label: "Preview report", href: "/dashboard/reports/preview", icon: Eye },
+  { label: "Sample report", href: "/dashboard/reports/preview", icon: Eye },
   { label: "Integrations", href: "/dashboard/integrations", icon: Cable },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
   { label: "Billing", href: "/dashboard/billing", icon: CreditCard },

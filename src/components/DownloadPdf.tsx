@@ -7,7 +7,19 @@ import { Button } from "@/components/ui/button";
 
 // "Download PDF" — asynchronously generates the branded PDF server-side, then
 // streams it to a browser download. Shows generating/error states.
-export function DownloadPdf({ href, filename, label = "Download PDF" }: { href: string; filename: string; label?: string }) {
+export function DownloadPdf({
+  href,
+  filename,
+  label = "Download PDF",
+  variant = "outline",
+}: {
+  href: string;
+  filename: string;
+  label?: string;
+  /** "default" where downloading is the main thing to do — e.g. the public
+      share page a client opens, which has no send/regenerate actions. */
+  variant?: "default" | "outline";
+}) {
   const [busy, setBusy] = useState(false);
 
   async function download() {
@@ -37,7 +49,7 @@ export function DownloadPdf({ href, filename, label = "Download PDF" }: { href: 
   }
 
   return (
-    <Button variant="outline" onClick={download} disabled={busy}>
+    <Button variant={variant} onClick={download} disabled={busy}>
       <FileDown size={16} className={busy ? "animate-pulse" : ""} />
       {busy ? "Generating…" : label}
     </Button>

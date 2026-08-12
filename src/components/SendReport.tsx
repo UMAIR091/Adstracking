@@ -33,8 +33,10 @@ export function SendReport({ reportId, clientEmail }: { reportId: string; client
     }
   }
 
+  // The primary action on a finished report: everything else in the toolbar
+  // (regenerate, download, copy link, print) supports getting to this point.
   return (
-    <Button variant="outline" onClick={send} disabled={busy}>
+    <Button onClick={send} disabled={busy}>
       <Mail size={16} className={busy ? "animate-pulse" : ""} />
       {busy ? "Sending…" : "Email report"}
     </Button>

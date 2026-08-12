@@ -19,13 +19,18 @@ export function ReportActions({ shareUrl }: { shareUrl: string }) {
     }
   }
 
+  // This sits next to <DownloadPdf/>, which generates the real branded PDF
+  // server-side. Both buttons used to read "Download PDF", and the print one
+  // was the only filled button on the page — so the browser print dialog was
+  // presented as the primary action and as a duplicate of its neighbour. It's
+  // labelled for what it does, and is secondary like the rest of the toolbar.
   return (
     <div className="no-print flex items-center gap-2">
       <Button variant="outline" onClick={copy}>
         {copied ? <Check size={16} /> : <Link2 size={16} />} {copied ? "Copied" : "Copy share link"}
       </Button>
-      <Button onClick={() => window.print()}>
-        <Printer size={16} /> Download PDF
+      <Button variant="outline" onClick={() => window.print()}>
+        <Printer size={16} /> Print
       </Button>
     </div>
   );

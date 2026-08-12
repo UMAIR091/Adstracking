@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -25,6 +27,9 @@ export function AgencySettingsForm({ agencyId, initial }: { agencyId: string; in
   const supabase = createClient();
   const [v, setV] = useState<Values>(initial);
   const [saving, setSaving] = useState(false);
+  // Unsaved edits show in the thumbnail immediately, but the full-report
+  // preview reads from the database — so it's worth saying which is which.
+  const dirty = (Object.keys(initial) as (keyof Values)[]).some((k) => v[k] !== initial[k]);
 
   function set<K extends keyof Values>(k: K, val: Values[K]) {
     setV((prev) => ({ ...prev, [k]: val }));
@@ -117,11 +122,21 @@ export function AgencySettingsForm({ agencyId, initial }: { agencyId: string; in
         </div>
       </div>
 
-      {/* Right: live preview */}
+      {/* Right: live preview. The thumbnail updates as you type but only shows
+          the cover; the link opens the same branding on a full report, which is
+          the thing clients actually receive. Saved values only — hence the note
+          when there are unsaved edits in the form. */}
       <div className="lg:col-span-1">
         <div className="lg:sticky lg:top-8">
           <p className="mb-2 text-sm font-medium text-ink-500">Live preview</p>
           <BrandingPreview values={v} />
+          <Link
+            href="/dashboard/reports/preview"
+            className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:gap-1.5"
+          >
+            See it on a full report <ArrowRight size={14} aria-hidden />
+          </Link>
+          {dirty && <p className="mt-1 text-xs text-ink-500">Save first — the full report uses your saved branding.</p>}
         </div>
       </div>
     </div>

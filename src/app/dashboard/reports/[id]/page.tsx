@@ -49,8 +49,10 @@ export default async function ReportViewPage({ params }: { params: { id: string 
   const deliveryLogs = (logs ?? []) as DeliveryLog[];
   const sentCount = deliveryLogs.filter((l) => l.status !== "failed" && l.status !== "bounced" && l.status !== "pending").length;
 
+  // space-y-6 matches the reports index and the sample-report page — the three
+  // screens of the reporting flow were on three different vertical rhythms.
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="no-print space-y-3">
         <Link href="/dashboard/reports" className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-700">
           <ArrowLeft size={15} aria-hidden /> Back to reports
@@ -60,7 +62,7 @@ export default async function ReportViewPage({ params }: { params: { id: string 
             state — so the toolbar isn't floating above an unlabelled page. */}
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-semibold tracking-tight text-ink-900">{report.title}</h1>
+            <h1 className="truncate text-2xl font-semibold tracking-tight text-ink-900">{report.title}</h1>
             <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-500">
               <span className="font-medium text-ink-700">{clientName}</span>
               {report.period_start && report.period_end && (
@@ -70,11 +72,14 @@ export default async function ReportViewPage({ params }: { params: { id: string 
               {sentCount > 0 && <>· <span>emailed {sentCount}×</span></>}
             </p>
           </div>
+          {/* Ordered by how final the action is, primary last: rework the
+              insights, take a copy, share the link, then send it to the
+              client — which is the one filled button in the row. */}
           <div className="flex flex-wrap items-center gap-2">
             <RegenerateInsights reportId={report.id as string} />
             <DownloadPdf href={`/api/reports/${report.id}/pdf`} filename={`${pdfSlug(report.title)}.pdf`} />
-            <SendReport reportId={report.id as string} clientEmail={clientEmail} />
             <ReportActions shareUrl={shareUrl} />
+            <SendReport reportId={report.id as string} clientEmail={clientEmail} />
           </div>
         </div>
       </div>

@@ -179,7 +179,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         </div>
         <div className="flex items-center gap-2">
           <Button asChild variant="outline">
-            <Link href="/dashboard/reports/preview"><Eye size={16} /> Preview report</Link>
+            <Link href="/dashboard/reports/preview"><Eye size={16} /> Sample report</Link>
           </Button>
           <Button asChild variant="outline">
             <Link href={`/dashboard/clients/${client.id}/edit`}>Edit client</Link>
@@ -236,7 +236,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       <Section title="Reporting" description="Generate a branded report, or put delivery on a schedule.">
         <BrandingNotice hasLogo={!!agency.logo_url} />
         <div className="space-y-4">
-          <GenerateReport clientId={client.id} ready={hasSyncedData} blockedReason={dataBlockedReason} />
+          <GenerateReport clientId={client.id} clientName={client.name as string} ready={hasSyncedData} blockedReason={dataBlockedReason} />
           <ReportSchedule
             clientId={client.id}
             clientEmail={(client.email as string | null) ?? null}

@@ -49,6 +49,28 @@ function shade(hex: string) {
   }
 }
 
+// The cover of a client-facing deliverable shouldn't read "2026-07-15 →
+// 2026-08-11". Parsed from the parts rather than `new Date(iso)` so a browser
+// west of UTC doesn't render the previous day. Anything that isn't a plain
+// YYYY-MM-DD is passed through untouched.
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function parseIsoDay(s: string | null | undefined): { d: number; m: number; y: number } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((s ?? "").slice(0, 10));
+  if (!m) return null;
+  const month = Number(m[2]) - 1;
+  if (month < 0 || month > 11) return null;
+  return { y: Number(m[1]), m: month, d: Number(m[3]) };
+}
+
+function formatPeriod(start: string | null | undefined, end: string | null | undefined): string {
+  const a = parseIsoDay(start);
+  const b = parseIsoDay(end);
+  if (!a || !b) return [start, end].filter(Boolean).join(" → ");
+  const left = a.y === b.y ? `${a.d} ${MONTHS[a.m]}` : `${a.d} ${MONTHS[a.m]} ${a.y}`;
+  return `${left} – ${b.d} ${MONTHS[b.m]} ${b.y}`;
+}
+
 function pagePathOf(url: string): string {
   try {
     const u = new URL(url);
@@ -165,7 +187,7 @@ export function ReportDocument({
           </span>
         </div>
         <h1 className="mt-8 text-2xl font-semibold sm:mt-10 sm:text-3xl">{title}</h1>
-        <p className="mt-2 text-sm text-white/80">Prepared for {clientName} · {period.start} → {period.end}</p>
+        <p className="mt-2 text-sm text-white/80">Prepared for {clientName} · {formatPeriod(period.start, period.end)}</p>
       </div>
 
       <div className="space-y-10 p-6 sm:p-10">
