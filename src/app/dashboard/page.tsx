@@ -576,7 +576,10 @@ export default async function DashboardPage() {
               // eslint-disable-next-line @next/next/no-img-element
               <img src={agency.logo_url} alt="" decoding="async" className="max-h-full max-w-full object-contain p-1" />
             ) : (
-              <span className="text-lg font-semibold" style={{ color: agency.brand_color || "#4f46e5" }}>
+              // Falls back to the product's own indigo (--brand-500) rather than
+              // the retired violet, so an agency that hasn't picked a colour
+              // still sees the new palette in its own chrome.
+              <span className="text-lg font-semibold" style={{ color: agency.brand_color || "#4e56b0" }}>
                 {(agency.name || "A").charAt(0).toUpperCase()}
               </span>
             )}

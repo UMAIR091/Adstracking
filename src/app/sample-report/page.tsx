@@ -45,7 +45,11 @@ export default function SampleReportPage() {
             branding={{
               name: "Northbeam Digital",
               logo_url: null,
-              brand_color: "#4f46e5",
+              // The fictional agency on this marketing page now carries the
+              // product's own indigo (--brand-500) so the sample matches the
+              // site around it. Real reports are unaffected — they render the
+              // agency's own saved colour.
+              brand_color: "#4e56b0",
               website: "northbeamdigital.example",
               footer_text: "Prepared for you by Northbeam Digital — questions? hello@northbeamdigital.example",
             }}
