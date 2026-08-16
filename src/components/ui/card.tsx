@@ -5,7 +5,9 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn("rounded-2xl border border-ink-200/70 bg-white shadow-sm", className)}
+      // Elevation comes from the border and surface contrast first, shadow
+      // second — a heavy drop shadow is what makes a dashboard look cheap.
+      className={cn("rounded-xl border border-ink-200 bg-surface shadow-xs", className)}
       {...props}
     />
   )

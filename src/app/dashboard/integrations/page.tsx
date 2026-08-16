@@ -9,7 +9,9 @@ import { EmptyState } from "@/components/EmptyState";
 import { IntegrationSearch } from "@/components/IntegrationSearch";
 import { ConnectedAccountsTable, type ConnectedAccountRow } from "@/components/ConnectedAccountsTable";
 import type { DataSourceCardData } from "@/components/DataSourceCard";
-import { listIntegrations, effectiveStatus } from "@/lib/integrations/registry";
+import { listIntegrations, isConnectable } from "@/lib/integrations/registry";
+import { getIntegrationName } from "@/lib/integrations/names";
+import { sourceHealth } from "@/lib/integrations/status";
 
 export const dynamic = "force-dynamic";
 
@@ -53,8 +55,10 @@ export default async function IntegrationsPage() {
   const connectedCount = (typeId: string) => sources.filter((s) => s.type === typeId).length;
 
   // ── Available: only what a user can genuinely start connecting today. ──
+  // isConnectable, not effectiveStatus, so this list can never offer a Connect
+  // button for something the client page treats as unconnectable.
   const available: DataSourceCardData[] = integrations
-    .filter((def) => effectiveStatus(def) === "live")
+    .filter(isConnectable)
     .map((def) => ({
       id: def.id,
       name: def.name,
@@ -68,7 +72,7 @@ export default async function IntegrationsPage() {
 
   // Genuinely not connectable yet — kept visible as a roadmap, clearly apart
   // from the connectable set above.
-  const upcoming = integrations.filter((def) => effectiveStatus(def) !== "live");
+  const upcoming = integrations.filter((def) => !isConnectable(def));
 
   // ── Connected accounts, newest-looking issues first. ──
   const accountRows: ConnectedAccountRow[] = sources
@@ -80,12 +84,14 @@ export default async function IntegrationsPage() {
       return {
         dataSourceId: s.id,
         integrationId: s.type,
-        platform: def?.name ?? s.type,
+        platform: def?.name ?? getIntegrationName(s.type),
         icon: def?.icon ?? "Plug",
         accent: def?.accent ?? "ink",
         accountLabel: accounts.find((a) => a.id === selectedId)?.name ?? s.display_name ?? null,
-        // "Choose an account" only applies where the provider actually offers a list.
-        needsAccount: accounts.length > 0 && !selectedId,
+        // Shared classifier (P0-1) rather than this page's own rule, which
+        // only flagged a missing account when the provider had already fetched
+        // its account list — so Instagram and Pinterest read as plain "Connected".
+        health: sourceHealth({ status: s.status, lastSyncError: s.last_sync_error, selectedAccountId: selectedId }),
         clientId: s.client_id,
         clientName: clientNameById.get(s.client_id) ?? "Unknown client",
         status: s.status,
@@ -96,7 +102,7 @@ export default async function IntegrationsPage() {
     // Surface anything needing attention at the top of the table.
     .sort((a, b) => {
       const weight = (r: ConnectedAccountRow) =>
-        r.status === "revoked" ? 0 : r.status === "error" || r.lastSyncError ? 1 : r.needsAccount ? 2 : 3;
+        r.health === "needs_reconnect" ? 0 : r.health === "sync_error" ? 1 : r.health === "needs_account" ? 2 : 3;
       return weight(a) - weight(b) || a.clientName.localeCompare(b.clientName) || a.platform.localeCompare(b.platform);
     });
 

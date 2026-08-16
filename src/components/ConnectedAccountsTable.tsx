@@ -10,6 +10,7 @@ import { formatDistanceToNow } from "date-fns";
 import { RefreshCw, Search, BarChart3, Megaphone, MapPin, Facebook, Instagram, Linkedin, Music, Twitter, Youtube, Ghost, Plug, ShoppingBag, FileSpreadsheet, Magnet } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { SOURCE_HEALTH, type SourceHealth } from "@/lib/integrations/status";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
@@ -36,8 +37,8 @@ export type ConnectedAccountRow = {
   accent: string;
   /** Selected account/property name, falling back to the authenticated identity. */
   accountLabel: string | null;
-  /** True when the source is connected but no account has been chosen yet. */
-  needsAccount: boolean;
+  /** Shared classification (P0-1) — replaces this table's own status ladder. */
+  health: SourceHealth;
   clientId: string;
   clientName: string;
   status: string | null;
@@ -45,12 +46,13 @@ export type ConnectedAccountRow = {
   lastSyncError: string | null;
 };
 
+// One classifier, one vocabulary. This used to rank status/lastSyncError/
+// needsAccount itself and call the result "Sync issue" for a source that was
+// only missing an account selection.
 function StatusBadge({ row }: { row: ConnectedAccountRow }) {
-  if (row.status === "revoked") return <Badge variant="danger" dot>Reconnect needed</Badge>;
-  if (row.status === "error" || row.lastSyncError) return <Badge variant="warning" dot>Sync issue</Badge>;
-  if (row.needsAccount) return <Badge variant="info" dot>Setup incomplete</Badge>;
-  if (row.lastSyncedAt) return <Badge variant="success" dot>Connected</Badge>;
-  return <Badge variant="info" dot>Awaiting first sync</Badge>;
+  const p = SOURCE_HEALTH[row.health];
+  if (row.health === "healthy" && !row.lastSyncedAt) return <Badge variant="info" dot>Awaiting first sync</Badge>;
+  return <Badge variant={p.variant} dot>{p.short}</Badge>;
 }
 
 export function ConnectedAccountsTable({ rows }: { rows: ConnectedAccountRow[] }) {
@@ -92,10 +94,12 @@ export function ConnectedAccountsTable({ rows }: { rows: ConnectedAccountRow[] }
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <div className="overflow-x-auto rounded-xl border border-ink-200 bg-surface shadow-xs">
       <table className="w-full min-w-[760px] text-sm">
         <thead>
-          <tr className="border-b border-slate-100 text-left text-xs font-medium text-ink-500">
+          {/* Header row sits on the muted tone so the table reads as a
+              structured surface rather than a floating list of rows. */}
+          <tr className="border-b border-ink-200 bg-surface-muted/60 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-500">
             <th scope="col" className="px-4 py-3">Platform</th>
             <th scope="col" className="px-4 py-3">Account</th>
             <th scope="col" className="px-4 py-3">Client</th>
@@ -111,7 +115,7 @@ export function ConnectedAccountsTable({ rows }: { rows: ConnectedAccountRow[] }
             const busy = busyId === row.dataSourceId;
 
             return (
-              <tr key={row.dataSourceId} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60">
+              <tr key={row.dataSourceId} className="border-b border-ink-100 transition-colors last:border-0 hover:bg-ink-50/70">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2.5">
                     <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tint}`}>

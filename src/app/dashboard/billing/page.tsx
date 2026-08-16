@@ -131,13 +131,24 @@ export default async function BillingPage({
           </span>
         </div>
       )}
-      {state.paymentFailed && state.hasAccess && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <AlertTriangle size={17} className="mt-0.5 shrink-0" />
-          <span>
-            Your last payment failed — we&apos;ll retry automatically.{" "}
-            <a href="/api/billing/portal" className="font-medium underline">Update your payment method</a> to avoid interruption.
-          </span>
+      {(state.status === "past_due" || state.paymentFailed) && state.hasAccess && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle size={17} className="mt-0.5 shrink-0 text-amber-600" />
+            <div className="flex-1">
+              <p className="font-semibold text-amber-900">Payment issue — action required</p>
+              <p className="mt-1 text-sm text-amber-800">
+                Your last payment didn&apos;t go through. Paddle will retry automatically, but you may
+                need to update your card to avoid losing access. Your data and reports are untouched.
+              </p>
+              <a
+                href="/api/billing/portal"
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-amber-700"
+              >
+                <CreditCard size={14} /> Update payment method
+              </a>
+            </div>
+          </div>
         </div>
       )}
       {!state.hasAccess && (

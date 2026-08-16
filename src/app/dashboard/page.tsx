@@ -15,6 +15,7 @@ import { PerfKpiCard } from "@/components/PerfKpiCard";
 import { NoIntegrationsState, AwaitingSyncState, NoDataYet } from "@/components/AnalyticsEmptyState";
 import { WelcomeBack, type WelcomeBackData } from "@/components/WelcomeBack";
 import { StatRow, type StatTileData } from "@/components/dashboard/StatTile";
+import { NeedsAttention, type AttentionItem } from "@/components/dashboard/NeedsAttention";
 import { ActivityTimeline } from "@/components/dashboard/ActivityTimeline";
 import { NextScheduled, type NextScheduledData } from "@/components/dashboard/NextScheduled";
 import { AiPanel } from "@/components/dashboard/AiPanel";
@@ -23,6 +24,7 @@ import type { GscReportFull } from "@/lib/google";
 import { buildActivity } from "@/lib/dashboard/activity";
 import { getIntegrationName } from "@/lib/integrations/names";
 import { getIntegrationHealthCached, summarize } from "@/lib/integrationHealth";
+import { CHART } from "@/lib/chartColors";
 
 export const dynamic = "force-dynamic";
 
@@ -140,13 +142,13 @@ export default async function DashboardPage() {
   const comparison = halfDays > 0 ? `vs previous ${halfDays} day${halfDays === 1 ? "" : "s"}` : "";
 
   const perfCards = [
-    { l: "Clicks", v: fmt(perf.clicks), icon: "clicks", color: "#4f46e5", arr: clicksArr, t: clicksT,
+    { l: "Clicks", v: fmt(perf.clicks), icon: "clicks", color: CHART.indigo, arr: clicksArr, t: clicksT,
       why: "Visits earned from Google search results." },
-    { l: "Impressions", v: fmt(perf.impressions), icon: "impressions", color: "#0ea5e9", arr: imprArr, t: imprT,
+    { l: "Impressions", v: fmt(perf.impressions), icon: "impressions", color: CHART.sky, arr: imprArr, t: imprT,
       why: "How often your pages appeared in results." },
-    { l: "Avg CTR", v: `${(perf.ctr * 100).toFixed(1)}%`, icon: "ctr", color: "#10b981", arr: ctrArr, t: ctrT,
+    { l: "Avg CTR", v: `${(perf.ctr * 100).toFixed(1)}%`, icon: "ctr", color: CHART.emerald, arr: ctrArr, t: ctrT,
       why: "Share of impressions that became clicks." },
-    { l: "Avg position", v: perf.position.toFixed(1), icon: "position", color: "#f59e0b", arr: posArr, t: posT,
+    { l: "Avg position", v: perf.position.toFixed(1), icon: "position", color: CHART.amber, arr: posArr, t: posT,
       why: "Average ranking. Lower is better." },
   ];
 
@@ -231,10 +233,14 @@ export default async function DashboardPage() {
 
   // ── Latest sync status ───────────────────────────────────────
   // The most recent successful sync across every source, plus how many are
-  // currently failing. Both are facts already stored on data_sources.
+  // genuinely failing (sync_error + needs_reconnect). Sources that are simply
+  // waiting for an account selection (needs_account) are NOT counted here —
+  // they produce a "No ad account selected" last_sync_error but that's a
+  // setup-incomplete state, not a broken connection.
   const syncedTimes = everySource.map((s) => s.last_synced_at).filter((t): t is string => Boolean(t));
   const lastSyncAt = syncedTimes.length ? syncedTimes.sort((a, b) => b.localeCompare(a))[0] : null;
-  const failingSyncs = everySource.filter((s) => s.last_sync_error).length;
+  // Use the health rollup already computed above (same data, single source of truth).
+  const failingSyncs = health.errored + health.needsReconnect;
 
   // ── Activity timeline ────────────────────────────────────────
   // email_logs.source (migration 0031) carries how each send was triggered, so
@@ -296,12 +302,52 @@ export default async function DashboardPage() {
     {
       label: "Integrations",
       value: String(health.total),
-      hint: health.errored + health.needsReconnect > 0 ? `${health.errored + health.needsReconnect} need attention` : "Connected and reporting",
+      // needsAttention = syncError + needsReconnect + needsAccount — every source
+      // the user still has an action to take on, consistently with the health page.
+      hint: health.needsAttention > 0 ? `${health.needsAttention} need attention` : "Connected and reporting",
       icon: "cable",
-      tone: health.errored + health.needsReconnect > 0 ? "warning" : health.total > 0 ? "positive" : "neutral",
+      tone: health.needsAttention > 0 ? "warning" : health.total > 0 ? "positive" : "neutral",
       href: "/dashboard/integrations",
     },
   ];
+
+  // ── Needs attention ──────────────────────────────────────────
+  // Every item below restates a fact already computed on this page, so the band
+  // can never disagree with the tiles above it. Each becomes a link to wherever
+  // the problem is actually fixed. Nothing is added when nothing is wrong.
+  const failedEmails = emails.filter((e) => e.status === "failed" || e.status === "bounced").length;
+  const attention: AttentionItem[] = [
+    health.needsReconnect > 0 && {
+      icon: "reconnect" as const,
+      label: `${health.needsReconnect} source${health.needsReconnect === 1 ? "" : "s"} need reconnecting`,
+      href: "/dashboard/settings/health",
+      weight: 40,
+    },
+    health.errored > 0 && {
+      icon: "error" as const,
+      label: `${health.errored} source${health.errored === 1 ? "" : "s"} failing to sync`,
+      href: "/dashboard/settings/health",
+      weight: 30,
+    },
+    health.needsAccount > 0 && {
+      icon: "account" as const,
+      label: `${health.needsAccount} source${health.needsAccount === 1 ? "" : "s"} need an account selected`,
+      href: "/dashboard/integrations",
+      weight: 20,
+    },
+    pendingCount > 0 && {
+      icon: "client" as const,
+      label: `${pendingCount} client${pendingCount === 1 ? "" : "s"} without a data source`,
+      href: "/dashboard/clients",
+      weight: 15,
+    },
+    failedEmails > 0 && {
+      icon: "email" as const,
+      label: `${failedEmails} report deliver${failedEmails === 1 ? "y" : "ies"} failed`,
+      href: "/dashboard/reports",
+      weight: 10,
+    },
+  ].filter(Boolean) as AttentionItem[];
 
   // ── AI insight signals ───────────────────────────────────────
   // Computed per client from that client's own snapshot, then merged and
@@ -350,17 +396,19 @@ export default async function DashboardPage() {
   if (isReturn && lastSeen) {
     const todayStart = new Date(); todayStart.setUTCHours(0, 0, 0, 0);
     const todayEnd = new Date(); todayEnd.setUTCHours(23, 59, 59, 999);
-    const [rep, syncedSrc, failedSrc, schedToday] = await Promise.all([
+    const [rep, syncedSrc, schedToday] = await Promise.all([
       supabase.from("reports").select("id", { count: "exact", head: true }).gt("created_at", lastSeen),
       supabase.from("data_sources").select("id", { count: "exact", head: true }).gt("last_synced_at", lastSeen),
-      supabase.from("data_sources").select("id", { count: "exact", head: true }).in("status", ["error", "revoked"]),
       supabase.from("report_schedules").select("id", { count: "exact", head: true }).eq("enabled", true).gte("next_run_at", todayStart.toISOString()).lte("next_run_at", todayEnd.toISOString()),
     ]);
     const d: WelcomeBackData = {
       lastSeen,
       reportsSent: rep.count ?? 0,
       syncedSources: syncedSrc.count ?? 0,
-      failedSyncs: failedSrc.count ?? 0,
+      // Reuses the health rollup already computed above instead of its own
+      // `status in (error, revoked)` count — that third definition is why the
+      // banner said "1 source needs attention" beside a tile saying "3 failing".
+      failedSyncs: health.needsAttention,
       schedulesToday: schedToday.count ?? 0,
     };
     // Only show if there's something worth saying.
@@ -522,7 +570,7 @@ export default async function DashboardPage() {
           <Link
             href="/dashboard/settings"
             aria-label="Agency branding settings"
-            className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-ink-200/70 bg-white shadow-sm transition-shadow hover:shadow-md"
+            className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-ink-200/70 bg-surface shadow-sm transition-shadow hover:shadow-md"
           >
             {agency.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -551,21 +599,18 @@ export default async function DashboardPage() {
       {/* 1 — The whole workspace in one row. */}
       <StatRow stats={stats} />
 
-      {/* 2 — What the numbers mean, and what goes out next. */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2"><AiPanel signals={signals} connected={hasReal} /></div>
-        <NextScheduled data={nextScheduled} />
-      </div>
+      {/* 2 — Anything the user has to act on, gathered in one place rather
+             than scattered across five tile hints. Renders nothing when the
+             workspace is healthy. */}
+      <NeedsAttention items={attention} />
 
-      {/* 3 — The metrics themselves. */}
-      {performanceSection}
-
-      {/* 4 — Onboarding stays first-class until setup is actually finished.
-          It used to disappear at `activeMode` (a client + a ready Search
-          Console property), which hid the branding, first-report and delivery
-          steps exactly when they became the next thing to do. The sample card
-          keeps its old, narrower condition: it's a pitch for people who
-          haven't connected anything yet. */}
+      {/* 3 — Onboarding stays first-class until setup is actually finished, and
+             sits high because for a new workspace it IS the action list. It
+             used to disappear at `activeMode` (a client + a ready Search
+             Console property), which hid the branding, first-report and
+             delivery steps exactly when they became the next thing to do. The
+             sample card keeps its old, narrower condition: it's a pitch for
+             people who haven't connected anything yet. */}
       {!setupComplete && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className={activeMode ? "lg:col-span-3" : "lg:col-span-2"}><OnboardingChecklist steps={steps} /></div>
@@ -587,13 +632,17 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* 5 — What happened, and what came out of it. */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <ActivityTimeline events={activity} />
-        {recentReportsCard}
+      {/* 4 — The metrics themselves, with the AI reading of them and what goes
+             out next alongside. These three answer one question together
+             ("how are things, and what happens now?"), so they're grouped. */}
+      {performanceSection}
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2"><AiPanel signals={signals} connected={hasReal} /></div>
+        <NextScheduled data={nextScheduled} />
       </div>
 
-      {/* 6 — Client-level detail. */}
+      {/* 5 — Client-level detail. */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {clientActivityCard}
 
@@ -624,6 +673,14 @@ export default async function DashboardPage() {
             )}
           </CardContent>
         </Card>
+      </div>
+
+      {/* 6 — The record: what happened, and what came out of it. Reference
+             material rather than a daily read, so it sits below the numbers
+             and the client list. */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <ActivityTimeline events={activity} />
+        {recentReportsCard}
       </div>
 
       {/* 7 — Shortcuts, last: useful, never the headline. A plain link row

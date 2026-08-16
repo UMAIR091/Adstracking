@@ -100,7 +100,7 @@ export function PricingPlans({
                 aria-pressed={active}
                 onClick={() => setInterval(opt.key)}
                 className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 ${
-                  active ? "bg-white text-ink-900 shadow-sm" : "text-ink-500 hover:text-ink-800"
+                  active ? "bg-surface text-ink-900 shadow-sm" : "text-ink-500 hover:text-ink-800"
                 }`}
               >
                 {opt.label}
@@ -130,7 +130,7 @@ export function PricingPlans({
           plans' short trial advertised on each card below. */}
       <div className="mt-10 flex flex-col items-center justify-between gap-4 rounded-2xl border border-brand-100 bg-brand-50/50 px-6 py-5 sm:flex-row">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-brand-600 ring-1 ring-inset ring-brand-100">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface text-brand-600 ring-1 ring-inset ring-brand-100">
             <Sparkles size={18} aria-hidden />
           </div>
           <div>
@@ -156,7 +156,7 @@ export function PricingPlans({
           return (
             <div
               key={plan.id}
-              className={`relative flex flex-col rounded-2xl bg-white p-6 ${
+              className={`relative flex flex-col rounded-2xl bg-surface p-6 ${
                 featured
                   ? "border-2 border-brand-500 shadow-lg shadow-brand-500/10"
                   : "border border-ink-200 shadow-sm"

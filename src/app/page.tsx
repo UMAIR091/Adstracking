@@ -133,11 +133,11 @@ export default async function LandingPage() {
   const savingPct = headlineSavingPct(pricing);
   const liveMarketingCount = MARKETING_INTEGRATIONS.filter((i) => isLive(i.id)).length;
   return (
-    <div className="min-h-screen bg-white text-ink-900">
+    <div className="min-h-screen bg-surface text-ink-900">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(pricing, savingPct)) }} />
 
       {/* ── Nav ── */}
-      <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/80 backdrop-blur">
+      <header className="sticky top-0 z-30 border-b border-slate-100 bg-surface/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5">
           <Brand className="text-lg" />
           <nav aria-label="Main" className="hidden items-center gap-7 text-sm text-ink-600 md:flex">
@@ -145,9 +145,9 @@ export default async function LandingPage() {
               <a key={l.href} href={l.href} className="hover:text-ink-900">{l.label}</a>
             ))}
           </nav>
-          <div className="flex items-center gap-3 text-sm">
-            <Link href="/login" className="hidden text-ink-700 hover:text-ink-900 sm:inline">Sign in</Link>
-            <Link href="/signup" className="rounded-lg bg-brand-500 px-4 py-2 font-medium text-white transition hover:bg-brand-600">
+          <div className="flex items-center gap-2 text-sm sm:gap-3">
+            <Link href="/login" className="hidden text-ink-700 transition-colors hover:text-ink-900 sm:inline">Sign in</Link>
+            <Link href="/signup" className="rounded-lg bg-brand-500 px-4 py-2 font-medium text-white transition-colors hover:bg-brand-600">
               Start free
             </Link>
           </div>
@@ -156,15 +156,15 @@ export default async function LandingPage() {
 
       {/* ── 1. Hero ── */}
       <section className="relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-[560px] bg-gradient-to-b from-brand-50 via-brand-50/40 to-white" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[560px] bg-gradient-to-b from-brand-50 via-brand-50/40 to-surface" />
         <div
           className="pointer-events-none absolute left-1/2 top-24 h-[420px] w-[720px] -translate-x-1/2 rounded-full opacity-30 blur-3xl"
-          style={{ background: "radial-gradient(closest-side, #c7d2fe, transparent)" }}
+          style={{ background: "radial-gradient(closest-side, rgb(var(--brand-300)), transparent)" }}
         />
         <div className="relative mx-auto max-w-6xl px-5 pb-14 pt-16 text-center sm:pt-24">
           {/* ── Development notice ── */}
           <div role="status" className="mb-5 flex justify-center">
-            <span className="inline-flex max-w-2xl flex-wrap items-center justify-center gap-x-2 gap-y-0.5 rounded-full bg-brand-600 px-4 py-1.5 text-xs text-white shadow-xs sm:text-sm">
+            <span className="inline-flex max-w-2xl flex-wrap items-center justify-center gap-x-2 gap-y-0.5 rounded-full bg-brand-500 px-4 py-1.5 text-xs text-white shadow-xs sm:text-sm">
               <span className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wide">
                 <Wrench size={12} aria-hidden /> In development
               </span>
@@ -172,7 +172,7 @@ export default async function LandingPage() {
             </span>
           </div>
 
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-100 bg-white px-3 py-1 text-xs font-medium text-brand-700 shadow-xs">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-100 bg-surface px-3 py-1 text-xs font-medium text-brand-700 shadow-xs">
             <Sparkles size={13} aria-hidden /> The reporting tool for agencies that hate reporting
           </span>
           <h1 className="mx-auto mt-6 max-w-3xl text-4xl font-semibold leading-[1.08] tracking-tight sm:text-6xl">
@@ -193,7 +193,7 @@ export default async function LandingPage() {
             </Link>
             <Link
               href="/sample-report"
-              className="rounded-lg border border-slate-200 bg-white/70 px-7 py-3.5 font-medium text-ink-700 transition hover:bg-slate-50"
+              className="rounded-lg border border-slate-200 bg-surface/70 px-7 py-3.5 font-medium text-ink-700 transition hover:bg-slate-50"
             >
               View a sample report
             </Link>
@@ -204,12 +204,12 @@ export default async function LandingPage() {
 
           {/* Hero product mock: report in a browser frame + floating proof chips */}
           <div className="relative mx-auto mt-14 max-w-4xl">
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-brand-500/10">
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-surface shadow-xl shadow-brand-500/10">
               <BrowserBar url="reports.youragency.com/acme-co" />
               <ReportMock />
             </div>
 
-            <div className="absolute -left-6 top-24 hidden w-52 rotate-[-2deg] rounded-xl border border-slate-200 bg-white p-3 text-left shadow-lg lg:block">
+            <div className="absolute -left-6 top-24 hidden w-52 rotate-[-2deg] rounded-xl border border-slate-200 bg-surface p-3 text-left shadow-lg lg:block">
               <p className="flex items-center gap-1.5 text-xs font-semibold text-brand-600">
                 <Sparkles size={12} aria-hidden /> AI insight
               </p>
@@ -217,7 +217,7 @@ export default async function LandingPage() {
                 &ldquo;Carbon plate shoes&rdquo; is one spot off page one — a beginner&apos;s guide should tip it over.
               </p>
             </div>
-            <div className="absolute -right-6 bottom-20 hidden w-56 rotate-[2deg] rounded-xl border border-slate-200 bg-white p-3 text-left shadow-lg lg:block">
+            <div className="absolute -right-6 bottom-20 hidden w-56 rotate-[2deg] rounded-xl border border-slate-200 bg-surface p-3 text-left shadow-lg lg:block">
               <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
                 <MailCheck size={13} aria-hidden /> Report delivered
               </p>
@@ -273,7 +273,7 @@ export default async function LandingPage() {
           ].map((s) => {
             const Icon = s.icon;
             return (
-              <div key={s.title} className="group relative rounded-2xl border border-slate-200 bg-white p-6 transition-shadow hover:shadow-md">
+              <div key={s.title} className="group relative rounded-2xl border border-slate-200 bg-surface p-6 transition-shadow hover:shadow-md">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
                   <Icon size={20} aria-hidden />
                 </div>
@@ -309,7 +309,7 @@ export default async function LandingPage() {
             ].map((b) => {
               const Icon = b.icon;
               return (
-                <div key={b.title} className="rounded-2xl border border-slate-200 bg-white p-6 transition-shadow hover:shadow-md">
+                <div key={b.title} className="rounded-2xl border border-slate-200 bg-surface p-6 transition-shadow hover:shadow-md">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
                     <Icon size={18} aria-hidden />
                   </div>
@@ -345,7 +345,7 @@ export default async function LandingPage() {
             ))}
           </ul>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-slate-200 bg-surface p-6 shadow-sm">
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-brand-600">
             <Sparkles size={15} aria-hidden /> AI summary
           </div>
@@ -374,7 +374,7 @@ export default async function LandingPage() {
       <section className="bg-slate-50/60 py-24">
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 lg:grid-cols-2">
           <div className="order-2 lg:order-1">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="rounded-2xl border border-slate-200 bg-surface p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-ink-900">Acme Co — delivery schedule</p>
                 <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-600">Active</span>
@@ -433,12 +433,12 @@ export default async function LandingPage() {
       <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-24 lg:grid-cols-2">
         <div className="order-2 lg:order-1">
           <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-3 px-6 py-6 text-white" style={{ background: "linear-gradient(135deg,#4f46e5,#3730a3)" }}>
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/95 text-sm font-bold text-brand-600">N</div>
+            <div className="flex items-center gap-3 px-6 py-6 text-white" style={{ background: "linear-gradient(135deg, rgb(var(--brand-500)), rgb(var(--brand-700)))" }}>
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface/95 text-sm font-bold text-brand-600">N</div>
               <span className="font-semibold">Northbeam Digital</span>
-              <span className="ml-auto rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-medium">Performance Report</span>
+              <span className="ml-auto rounded-full bg-surface/15 px-2.5 py-1 text-[11px] font-medium">Performance Report</span>
             </div>
-            <div className="space-y-3 bg-white p-6">
+            <div className="space-y-3 bg-surface p-6">
               <div className="grid grid-cols-3 gap-2">
                 {["Clicks", "Sessions", "Conversions"].map((k) => (
                   <div key={k} className="rounded-lg bg-slate-50 p-3">
@@ -499,14 +499,16 @@ export default async function LandingPage() {
               // integration is "coming soon" while the app is already offering it.
               const live = isLive(it.id);
               return (
-                <div key={it.id} className="rounded-xl border border-slate-200 bg-white p-4 text-center">
+                <div key={it.id} className="rounded-xl border border-slate-200 bg-surface p-4 text-center">
                   <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
                     <Icon size={18} aria-hidden />
                   </div>
                   <p className="mt-3 text-sm font-medium text-ink-800">{it.n}</p>
                   <span
+                    // ink-600, not ink-500: at 10px this label needs the full
+                    // 4.5:1, and ink-500 on the ink-100 chip measured 4.39.
                     className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                      live ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-ink-500"
+                      live ? "bg-success-50 text-success-700" : "bg-ink-100 text-ink-600"
                     }`}
                   >
                     {live ? "Live" : "Coming soon"}
@@ -528,7 +530,7 @@ export default async function LandingPage() {
               { q: "Switching off per-client pricing saved us hundreds a month. Adding a client now costs us nothing.", n: "Owner", a: "PPC agency" },
               { q: "Clients think we built a custom reporting platform. It's just ReportFlow under our brand.", n: "Director", a: "Growth agency" },
             ].map((t) => (
-              <figure key={t.q} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6">
+              <figure key={t.q} className="flex flex-col rounded-2xl border border-slate-200 bg-surface p-6">
                 <div className="flex gap-0.5 text-amber-400" aria-hidden>
                   {Array.from({ length: 5 }).map((_, j) => <Star key={j} size={14} fill="currentColor" />)}
                 </div>
@@ -551,7 +553,7 @@ export default async function LandingPage() {
 
       {/* ── 11. Trust / security band ── */}
       <section aria-label="Security and data practices" className="mx-auto max-w-6xl px-5 py-24">
-        <div className="rounded-3xl border border-slate-200 bg-white p-8 sm:p-12">
+        <div className="rounded-3xl border border-slate-200 bg-surface p-8 sm:p-12">
           <div className="mx-auto max-w-2xl text-center">
             <Eyebrow icon={ShieldCheck}>Trust &amp; security</Eyebrow>
             <h2 className="mt-4 text-3xl font-semibold tracking-tight">Your clients&apos; data, handled like it&apos;s ours</h2>
@@ -604,7 +606,7 @@ export default async function LandingPage() {
             })).map((p) => (
               <div
                 key={p.name}
-                className={`relative flex flex-col rounded-2xl bg-white p-6 ${
+                className={`relative flex flex-col rounded-2xl bg-surface p-6 ${
                   p.featured ? "border-2 border-brand-500 shadow-lg shadow-brand-500/10" : "border border-slate-200"
                 }`}
               >
@@ -651,7 +653,7 @@ export default async function LandingPage() {
       {/* ── 13. FAQ ── */}
       <section id="faq" className="mx-auto max-w-3xl scroll-mt-20 px-5 py-24">
         <SectionHeading eyebrow="FAQ" title="Questions, answered" />
-        <div className="mt-10 divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white">
+        <div className="mt-10 divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-surface">
           {faqs(pricing, savingPct).map((f) => (
             <details key={f.q} className="group p-5">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium text-ink-800 marker:hidden">
@@ -669,7 +671,7 @@ export default async function LandingPage() {
 
       {/* ── 14. Final CTA ── */}
       <section className="mx-auto max-w-6xl px-5 pb-24">
-        <div className="overflow-hidden rounded-3xl px-8 py-16 text-center text-white sm:px-16" style={{ background: "linear-gradient(135deg,#4f46e5,#3730a3)" }}>
+        <div className="overflow-hidden rounded-3xl px-8 py-16 text-center text-white sm:px-16" style={{ background: "linear-gradient(135deg, rgb(var(--brand-500)), rgb(var(--brand-700)))" }}>
           <h2 className="mx-auto max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">
             Your next client report could send itself
           </h2>
@@ -678,10 +680,10 @@ export default async function LandingPage() {
             hands before your coffee goes cold.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href="/signup" className="inline-flex items-center gap-2 rounded-lg bg-white px-7 py-3.5 font-medium text-brand-700 transition hover:bg-white/90">
+            <Link href="/signup" className="inline-flex items-center gap-2 rounded-lg bg-surface px-7 py-3.5 font-medium text-brand-700 transition hover:bg-surface/90">
               Start free <ArrowRight size={18} aria-hidden />
             </Link>
-            <Link href="/sample-report" className="rounded-lg border border-white/30 px-7 py-3.5 font-medium text-white transition hover:bg-white/10">
+            <Link href="/sample-report" className="rounded-lg border border-white/30 px-7 py-3.5 font-medium text-white transition hover:bg-surface/10">
               View a sample report
             </Link>
           </div>
@@ -721,7 +723,7 @@ function BrowserBar({ url }: { url: string }) {
         <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
         <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
       </span>
-      <span className="mx-auto flex items-center gap-1.5 rounded-md bg-white px-3 py-1 text-[11px] text-ink-500 ring-1 ring-slate-200">
+      <span className="mx-auto flex items-center gap-1.5 rounded-md bg-surface px-3 py-1 text-[11px] text-ink-500 ring-1 ring-slate-200">
         <Lock size={10} /> {url}
       </span>
     </div>
@@ -732,13 +734,13 @@ function BrowserBar({ url }: { url: string }) {
 function ReportMock() {
   return (
     <div>
-      <div className="flex items-center gap-3 px-6 py-5 text-white" style={{ background: "linear-gradient(135deg,#4f46e5,#3730a3)" }}>
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-sm font-bold text-brand-600">A</div>
+      <div className="flex items-center gap-3 px-6 py-5 text-white" style={{ background: "linear-gradient(135deg, rgb(var(--brand-500)), rgb(var(--brand-700)))" }}>
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface/95 text-sm font-bold text-brand-600">A</div>
         <div className="text-left">
           <p className="text-sm font-semibold leading-tight">Acme Co — Performance Report</p>
           <p className="text-[11px] text-white/70">Prepared by Your Agency · Last 28 days</p>
         </div>
-        <span className="ml-auto rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-medium">Live</span>
+        <span className="ml-auto rounded-full bg-surface/15 px-2.5 py-1 text-[11px] font-medium">Live</span>
       </div>
       <div className="grid grid-cols-2 gap-3 p-5 text-left sm:grid-cols-4">
         {[

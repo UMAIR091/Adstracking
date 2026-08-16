@@ -19,7 +19,7 @@ const NAV = [
 
 function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
   return (
-    <nav className="flex flex-1 flex-col gap-1 px-3">
+    <nav className="flex flex-1 flex-col gap-0.5 px-3">
       {NAV.map((item) => {
         const active = item.href === "/dashboard" ? pathname === item.href : pathname.startsWith(item.href);
         const Icon = item.icon;
@@ -29,13 +29,21 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
             href={item.href}
             onClick={onNavigate}
             aria-current={active ? "page" : undefined}
+            // The selected row is a white "card" lifted off the muted rail —
+            // the same figure/ground relationship the content area uses, so
+            // selection reads structurally rather than as a colour wash.
             className={cn(
-              "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-              active ? "bg-brand-50 text-brand-700" : "text-ink-600 hover:bg-ink-100 hover:text-ink-900"
+              "group relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-all duration-150",
+              active
+                ? "bg-surface font-semibold text-ink-900 shadow-xs ring-1 ring-ink-200/70"
+                : "font-medium text-ink-600 hover:bg-ink-100/70 hover:text-ink-900"
             )}
           >
-            {active && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-brand-500" />}
-            <Icon size={18} strokeWidth={active ? 2.4 : 2} className={cn("transition-colors", !active && "text-ink-500 group-hover:text-ink-600")} />
+            <Icon
+              size={17}
+              strokeWidth={active ? 2.2 : 1.9}
+              className={cn("shrink-0 transition-colors", active ? "text-brand-500" : "text-ink-400 group-hover:text-ink-600")}
+            />
             {item.label}
           </Link>
         );
@@ -49,20 +57,20 @@ function AccountMenu({ email, agencyName }: { email: string; agencyName: string 
   const ref = useDismissable<HTMLDivElement>(open, () => setOpen(false));
   const initials = (email[0] || "U").toUpperCase();
   return (
-    <div ref={ref} className="relative border-t border-slate-100 p-3">
+    <div ref={ref} className="relative border-t border-ink-200 p-3">
       {open && (
-        <div role="menu" className="absolute bottom-full left-3 right-3 mb-1 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-          <Link href="/dashboard/settings" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm text-ink-700 hover:bg-slate-50">Settings</Link>
-          <Link href="/dashboard/billing" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm text-ink-700 hover:bg-slate-50">Billing</Link>
-          <Link href="/dashboard/team" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm text-ink-700 hover:bg-slate-50">Team</Link>
-          <Link href="/help" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm text-ink-700 hover:bg-slate-50">Help Center</Link>
-          <form action="/auth/signout" method="post" className="border-t border-slate-100">
-            <button className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink-600 hover:bg-slate-50"><LogOut size={15} /> Sign out</button>
+        <div role="menu" className="animate-fade-in absolute bottom-full left-3 right-3 mb-1.5 overflow-hidden rounded-xl border border-ink-200 bg-surface py-1 shadow-lg">
+          <Link href="/dashboard/settings" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm text-ink-700 transition-colors hover:bg-ink-50 hover:text-ink-900">Settings</Link>
+          <Link href="/dashboard/billing" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm text-ink-700 transition-colors hover:bg-ink-50 hover:text-ink-900">Billing</Link>
+          <Link href="/dashboard/team" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm text-ink-700 transition-colors hover:bg-ink-50 hover:text-ink-900">Team</Link>
+          <Link href="/help" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm text-ink-700 transition-colors hover:bg-ink-50 hover:text-ink-900">Help Center</Link>
+          <form action="/auth/signout" method="post" className="mt-1 border-t border-ink-200">
+            <button className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink-600 transition-colors hover:bg-ink-50 hover:text-ink-900"><LogOut size={15} /> Sign out</button>
           </form>
         </div>
       )}
-      <button onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
-        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-brand-500 text-sm font-semibold text-white">{initials}</div>
+      <button onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} className="flex w-full items-center gap-2.5 rounded-lg p-2 text-left transition-colors hover:bg-ink-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400">
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-brand-500 text-xs font-semibold text-white">{initials}</div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-ink-800">{agencyName}</p>
           <p className="truncate text-xs text-ink-500">{email}</p>
@@ -79,8 +87,10 @@ export function Sidebar({ agencyName, userEmail }: { agencyName: string; userEma
 
   return (
     <>
-      <aside className="no-print fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-slate-200 bg-white lg:flex">
-        <div className="flex h-16 items-center px-5">
+      {/* The sidebar sits on the muted page tone rather than card white, so
+          cards read as raised against it. */}
+      <aside className="no-print fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-ink-200 bg-surface-muted lg:flex">
+        <div className="flex h-16 items-center justify-between gap-2 px-5">
           <Link href="/dashboard"><Brand /></Link>
         </div>
         <div className="px-3 pb-2">
@@ -91,13 +101,13 @@ export function Sidebar({ agencyName, userEmail }: { agencyName: string; userEma
       </aside>
 
       {/* Mobile top bar */}
-      <header className="no-print sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 lg:hidden">
+      <header className="no-print sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-surface px-4 lg:hidden">
         <Link href="/dashboard"><Brand /></Link>
         <div className="flex items-center gap-1">
-          <button onClick={() => window.dispatchEvent(new Event("open-command"))} aria-label="Search" className="rounded-lg p-2 text-ink-600 hover:bg-slate-100">
+          <button onClick={() => window.dispatchEvent(new Event("open-command"))} aria-label="Search" className="rounded-lg p-2 text-ink-600 transition-colors hover:bg-ink-100 hover:text-ink-900">
             <Search size={18} />
           </button>
-          <button onClick={() => setOpen(true)} aria-label="Open menu" className="rounded-lg p-2 text-ink-600 hover:bg-slate-100">
+          <button onClick={() => setOpen(true)} aria-label="Open menu" className="rounded-lg p-2 text-ink-600 transition-colors hover:bg-ink-100 hover:text-ink-900">
             <Menu size={20} />
           </button>
         </div>
@@ -107,7 +117,7 @@ export function Sidebar({ agencyName, userEmail }: { agencyName: string; userEma
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-ink-900/40" onClick={() => setOpen(false)} />
-          <div className="absolute inset-y-0 left-0 flex w-64 flex-col bg-white shadow-xl">
+          <div className="absolute inset-y-0 left-0 flex w-64 flex-col bg-surface shadow-xl">
             <div className="flex h-14 items-center justify-between px-5">
               <Brand />
               <button onClick={() => setOpen(false)} aria-label="Close menu" className="rounded-lg p-2 text-ink-600 hover:bg-slate-100"><X size={20} /></button>

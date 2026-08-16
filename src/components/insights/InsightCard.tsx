@@ -63,7 +63,7 @@ export function InsightCard({ signal }: { signal: Signal }) {
   const Icon = ICONS[meta.icon] ?? Sparkles;
 
   return (
-    <article className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-ink-100 bg-white p-4 shadow-xs transition-shadow hover:shadow-md">
+    <article className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-ink-100 bg-surface p-4 shadow-xs transition-shadow hover:shadow-md">
       {/* Tone accent — a quiet left edge rather than a coloured card. */}
       <span className={`absolute inset-y-0 left-0 w-0.5 ${tone.bar}`} aria-hidden />
 

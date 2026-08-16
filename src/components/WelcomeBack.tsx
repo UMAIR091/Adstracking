@@ -37,7 +37,7 @@ export function WelcomeBack({ data }: { data: WelcomeBackData }) {
             While you were away
             <span className="font-normal text-ink-500">· since {formatDistanceToNow(new Date(data.lastSeen), { addSuffix: true })}</span>
           </div>
-          <button onClick={() => setOpen(false)} aria-label="Dismiss" className="rounded-md p-1 text-ink-400 hover:bg-white hover:text-ink-600">
+          <button onClick={() => setOpen(false)} aria-label="Dismiss" className="rounded-md p-1 text-ink-400 hover:bg-surface hover:text-ink-600">
             <X size={16} />
           </button>
         </div>

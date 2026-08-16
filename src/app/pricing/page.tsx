@@ -208,7 +208,7 @@ export default async function PricingPage() {
   const priceById = new Map<string, PlanPricing>(pricing.map((p) => [p.id as string, p]));
   const trialOffered = pricing.some((p) => p.trialAvailable);
   return (
-    <div className="flex min-h-screen flex-col bg-white">
+    <div className="flex min-h-screen flex-col bg-surface">
       <script
         type="application/ld+json"
         // Structured data is static, server-rendered content — safe to inline.
@@ -289,7 +289,11 @@ export default async function PricingPage() {
                       }`}
                     >
                       <span className="block font-semibold">{p.name}</span>
-                      <span className={`mt-0.5 block text-xs font-normal ${p.featured ? "text-brand-100" : "text-ink-500"}`}>
+                      {/* On the featured card this sits on a brand-500 fill,
+                          which stays deep in both themes — so a white tint is
+                          correct. `text-brand-100` inverted to near-black in
+                          dark mode and dropped this to 2.67:1. */}
+                      <span className={`mt-0.5 block text-xs font-normal ${p.featured ? "text-white/80" : "text-ink-500"}`}>
                         {priceById.get(p.id)?.monthly?.formatted ?? "—"}/mo
                       </span>
                     </th>
@@ -360,8 +364,8 @@ export default async function PricingPage() {
                   key={c.name}
                   className={`flex flex-col rounded-2xl p-6 text-center ${
                     c.highlight
-                      ? "border-2 border-brand-500 bg-white shadow-lg shadow-brand-500/10"
-                      : "border border-slate-200 bg-white"
+                      ? "border-2 border-brand-500 bg-surface shadow-lg shadow-brand-500/10"
+                      : "border border-slate-200 bg-surface"
                   }`}
                 >
                   <p className={`text-sm font-semibold ${c.highlight ? "text-brand-600" : "text-ink-500"}`}>{c.name}</p>
@@ -401,7 +405,7 @@ export default async function PricingPage() {
               Billing questions, answered
             </h2>
           </div>
-          <div className="mt-8 divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white px-6">
+          <div className="mt-8 divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-surface px-6">
             {FAQS.map((item) => (
               <details key={item.q} className="group py-4">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-medium text-ink-800 [&::-webkit-details-marker]:hidden">
@@ -440,7 +444,7 @@ export default async function PricingPage() {
 
         {/* ── Trust, security & payments ── */}
         <section aria-label="Trust, security and accepted payment methods" className="mx-auto max-w-6xl px-5 pb-16 sm:pb-20">
-          <div className="rounded-3xl border border-slate-200 bg-white p-8 sm:p-12">
+          <div className="rounded-3xl border border-slate-200 bg-surface p-8 sm:p-12">
             <div className="mx-auto max-w-2xl text-center">
               <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600">
                 <ShieldCheck size={16} aria-hidden /> Trust &amp; security

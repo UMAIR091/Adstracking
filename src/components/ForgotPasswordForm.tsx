@@ -35,7 +35,7 @@ export function ForgotPasswordForm() {
       <Link href="/" className="mb-8 flex justify-center">
         <Brand className="text-lg" />
       </Link>
-      <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
+      <div className="rounded-2xl border border-slate-200 bg-surface p-7 shadow-sm">
         {sent ? (
           <div className="text-center">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">

@@ -15,8 +15,8 @@ export const metadata: Metadata = {
 // land here from the marketing page CTA (the in-app preview is login-walled).
 export default function SampleReportPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-[#f6f7f9]">
-      <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/80 backdrop-blur">
+    <div className="flex min-h-screen flex-col bg-surface-muted">
+      <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-surface/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5">
           <Link href="/" aria-label="ReportFlow home"><Brand className="text-lg" /></Link>
           <div className="flex items-center gap-3 text-sm">
@@ -52,7 +52,7 @@ export default function SampleReportPage() {
           />
         </div>
 
-        <div className="mt-10 rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-slate-200">
+        <div className="mt-10 rounded-2xl bg-surface p-8 text-center shadow-sm ring-1 ring-slate-200">
           <h2 className="text-xl font-semibold tracking-tight text-ink-900">Send one like this to your client today</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-ink-500">
             Connect a client&apos;s Search Console, GA4 or Meta Ads and generate your first branded report in about five minutes.

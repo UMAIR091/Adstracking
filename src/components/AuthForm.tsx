@@ -79,7 +79,7 @@ export function AuthForm({ mode, next = "/dashboard" }: { mode: "login" | "signu
       <Link href="/" className="mb-8 flex justify-center">
         <Brand className="text-lg" />
       </Link>
-      <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
+      <div className="rounded-2xl border border-slate-200 bg-surface p-7 shadow-sm">
         <h1 className="text-xl font-semibold text-ink-900">{isSignup ? "Create your account" : "Welcome back"}</h1>
         <p className="mb-5 mt-1 text-sm text-ink-500">
           {isSignup ? "Start sending beautiful client reports." : "Sign in to your workspace."}

@@ -3,6 +3,7 @@
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { MousePointerClick, Eye, Percent, TrendingUp, Sparkles, FileText, Globe, Monitor } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CHART, chartTooltipStyle, chartTooltipLabelStyle } from "@/lib/chartColors";
 
 type DimRow = { key: string; clicks: number; impressions: number; ctr?: number; position?: number };
 
@@ -69,7 +70,7 @@ function MetricChart({
               </defs>
               <XAxis dataKey="date" hide />
               <Tooltip
-                contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }}
+                contentStyle={chartTooltipStyle} labelStyle={chartTooltipLabelStyle}
                 labelFormatter={(l) => shortDate(String(l))}
                 formatter={(v) => {
                   const n = Number(v);
@@ -153,10 +154,10 @@ export function GscAnalytics({ report, sample = false }: { report: GscReportData
         </div>
       )}
       <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 ${sample ? "opacity-70" : ""}`}>
-        <MetricChart title="Total clicks" icon={MousePointerClick} value={fmtNum(totals.clicks)} color="#4f46e5" data={byDate} dataKey="clicks" />
-        <MetricChart title="Total impressions" icon={Eye} value={fmtNum(totals.impressions)} color="#0ea5e9" data={byDate} dataKey="impressions" />
-        <MetricChart title="Average CTR" icon={Percent} value={fmtPct(totals.ctr)} color="#10b981" data={byDate} dataKey="ctr" />
-        <MetricChart title="Average position" icon={TrendingUp} value={fmtPos(totals.position)} color="#f59e0b" data={byDate} dataKey="position" />
+        <MetricChart title="Total clicks" icon={MousePointerClick} value={fmtNum(totals.clicks)} color={CHART.indigo} data={byDate} dataKey="clicks" />
+        <MetricChart title="Total impressions" icon={Eye} value={fmtNum(totals.impressions)} color={CHART.sky} data={byDate} dataKey="impressions" />
+        <MetricChart title="Average CTR" icon={Percent} value={fmtPct(totals.ctr)} color={CHART.emerald} data={byDate} dataKey="ctr" />
+        <MetricChart title="Average position" icon={TrendingUp} value={fmtPos(totals.position)} color={CHART.amber} data={byDate} dataKey="position" />
       </div>
 
       <DimensionTable title="Top queries" icon={Percent} label="Query" rows={topQueries} />

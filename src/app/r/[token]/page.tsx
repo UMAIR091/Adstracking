@@ -32,7 +32,7 @@ export default async function PublicReportPage({ params }: { params: { token: st
   const clientName = (Array.isArray(c) ? c[0]?.name : c?.name) ?? "Client";
 
   return (
-    <div className="min-h-screen bg-[#f6f7f9] py-8">
+    <div className="min-h-screen bg-surface-muted py-8">
       <div className="mx-auto max-w-3xl px-4">
         {/* A client opening this link has one thing to do with it, so the
             download is the filled button and print/copy stay secondary. */}

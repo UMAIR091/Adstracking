@@ -51,7 +51,7 @@ export function CommandPalette() {
   return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center px-4 pt-[12vh]" onClick={() => setOpen(false)}>
       <div className="absolute inset-0 bg-ink-900/40 backdrop-blur-sm" />
-      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-surface shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 border-b border-slate-100 px-4">
           <Search size={18} className="text-ink-500" />
           <input
@@ -90,7 +90,7 @@ export function CommandTrigger({ className = "" }: { className?: string }) {
     >
       <Search size={15} />
       <span className="flex-1 text-left">Search…</span>
-      <kbd className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-ink-500">⌘K</kbd>
+      <kbd className="rounded border border-slate-200 bg-surface px-1.5 py-0.5 text-[10px] font-medium text-ink-500">⌘K</kbd>
     </button>
   );
 }

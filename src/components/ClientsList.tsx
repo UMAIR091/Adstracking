@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/EmptyState";
+import { getIntegrationName } from "@/lib/integrations/names";
 
 export type ClientRow = {
   id: string;
@@ -25,7 +26,9 @@ export type ClientRow = {
   data_sources: { type: string; updated_at: string }[] | null;
 };
 
-const INTEGRATION_LABEL: Record<string, string> = { gsc: "Search Console", ga4: "Analytics 4", sheets: "Sheets" };
+// Display names come from the shared map (P0-3) — this file used to keep its
+// own three-entry table and fall back to the raw type, which is how
+// "instagram" / "pinterest_ads" / "meta_ads" reached the UI.
 
 export function ClientsList({ clients }: { clients: ClientRow[] }) {
   const router = useRouter();
@@ -103,7 +106,7 @@ export function ClientsList({ clients }: { clients: ClientRow[] }) {
 
       {visible.length === 0 ? (
         showArchived || search ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-ink-500">
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-surface p-10 text-center text-sm text-ink-500">
             {showArchived ? "No archived clients." : "No clients match your search."}
           </div>
         ) : (
@@ -129,7 +132,7 @@ export function ClientsList({ clients }: { clients: ClientRow[] }) {
                     <MoreHorizontal size={16} />
                   </button>
                   {menuId === c.id && (
-                    <div role="menu" className="absolute right-0 z-10 mt-1 w-36 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                    <div role="menu" className="absolute right-0 z-10 mt-1 w-36 overflow-hidden rounded-lg border border-slate-200 bg-surface py-1 shadow-lg">
                       <Link href={`/dashboard/clients/${c.id}/edit`} className="block px-3 py-1.5 text-sm text-ink-700 hover:bg-slate-50">Edit</Link>
                       <button onClick={() => setArchived(c.id, !c.archived)} className="block w-full px-3 py-1.5 text-left text-sm text-ink-700 hover:bg-slate-50">
                         {c.archived ? "Unarchive" : "Archive"}
@@ -158,7 +161,7 @@ export function ClientsList({ clients }: { clients: ClientRow[] }) {
 
                 <div className="mt-4 flex flex-wrap items-center gap-1.5">
                   {sources.length ? (
-                    sources.map((s) => <Badge key={s.type} variant="default">{INTEGRATION_LABEL[s.type] ?? s.type}</Badge>)
+                    sources.map((s) => <Badge key={s.type} variant="default">{getIntegrationName(s.type)}</Badge>)
                   ) : (
                     <span className="flex items-center gap-1 text-xs text-ink-500"><Plug size={12} /> No integrations</span>
                   )}

@@ -41,7 +41,7 @@ export function LogoUpload({
   if (value) {
     return (
       <div className="flex items-center gap-4">
-        <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-surface">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={value} alt="Logo" loading="lazy" decoding="async" className="max-h-full max-w-full object-contain" />
         </div>

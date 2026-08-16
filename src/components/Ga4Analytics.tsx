@@ -3,6 +3,7 @@
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { Users, MousePointer2, Eye, Sparkles, FileText, Share2, Monitor, Globe } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CHART, chartTooltipStyle, chartTooltipLabelStyle } from "@/lib/chartColors";
 
 type Ga4Dim = { key: string; sessions: number; users: number };
 
@@ -68,7 +69,7 @@ function MetricChart({
               </defs>
               <XAxis dataKey="date" hide />
               <Tooltip
-                contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }}
+                contentStyle={chartTooltipStyle} labelStyle={chartTooltipLabelStyle}
                 labelFormatter={(l) => shortDate(String(l))}
                 formatter={(v) => [fmtNum(Number(v)), title]}
               />
@@ -148,9 +149,9 @@ export function Ga4Analytics({ report, sample = false }: { report: Ga4ReportData
       )}
 
       <div className={`grid grid-cols-1 gap-4 sm:grid-cols-3 ${sample ? "opacity-70" : ""}`}>
-        <MetricChart title="Users" icon={Users} value={fmtNum(totals.users)} color="#f59e0b" data={byDate} dataKey="users" />
-        <MetricChart title="Sessions" icon={MousePointer2} value={fmtNum(totals.sessions)} color="#4f46e5" data={byDate} dataKey="sessions" />
-        <MetricChart title="Views" icon={Eye} value={fmtNum(totals.views)} color="#0ea5e9" data={byDate} dataKey="views" />
+        <MetricChart title="Users" icon={Users} value={fmtNum(totals.users)} color={CHART.amber} data={byDate} dataKey="users" />
+        <MetricChart title="Sessions" icon={MousePointer2} value={fmtNum(totals.sessions)} color={CHART.indigo} data={byDate} dataKey="sessions" />
+        <MetricChart title="Views" icon={Eye} value={fmtNum(totals.views)} color={CHART.sky} data={byDate} dataKey="views" />
       </div>
 
       <div className={`grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 ${sample ? "opacity-70" : ""}`}>

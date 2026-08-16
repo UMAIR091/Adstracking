@@ -70,7 +70,7 @@ export function IntegrationSearch({ integrations }: { integrations: DataSourceCa
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search integrations — Google, Meta, TikTok, LinkedIn…"
           aria-label="Search integrations"
-          className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-9 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
+          className="w-full rounded-lg border border-slate-200 bg-surface py-2.5 pl-9 pr-9 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
         />
         {query && (
           <button

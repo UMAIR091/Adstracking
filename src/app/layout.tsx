@@ -22,6 +22,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // Matches --surface-muted, so browser chrome blends with the page.
+  themeColor: "#f5f6f9",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

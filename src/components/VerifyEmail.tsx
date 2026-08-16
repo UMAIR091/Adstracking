@@ -159,7 +159,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto w-full max-w-sm">
       <Link href="/" className="mb-8 flex justify-center"><Brand className="text-lg" /></Link>
-      <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">{children}</div>
+      <div className="rounded-2xl border border-slate-200 bg-surface p-7 shadow-sm">{children}</div>
     </div>
   );
 }

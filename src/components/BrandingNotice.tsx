@@ -19,7 +19,7 @@ export function BrandingNotice({ hasLogo }: { hasLogo: boolean }) {
       </div>
       <Link
         href="/dashboard/settings"
-        className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+        className="shrink-0 rounded-lg border border-amber-300 bg-surface px-3 py-1.5 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
       >
         Set up branding
       </Link>

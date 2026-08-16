@@ -110,14 +110,14 @@ function ConfirmModal({ pending, onClose }: { pending: Pending; onClose: (ok: bo
         if (e.target === e.currentTarget) onClose(false);
       }}
     >
-      <div className="absolute inset-0 bg-ink-900/40 animate-fade-in" aria-hidden="true" />
+      <div className="absolute inset-0 bg-ink-900/50 backdrop-blur-[2px] animate-fade-in" aria-hidden="true" />
       <div
         ref={dialogRef}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-title"
         aria-describedby={pending.description ? "confirm-desc" : undefined}
-        className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl"
+        className="animate-fade-in relative w-full max-w-md rounded-xl border border-ink-200 bg-surface p-6 shadow-xl"
       >
         <h2 id="confirm-title" className="text-lg font-semibold text-ink-900">
           {pending.title}

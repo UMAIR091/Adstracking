@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ShieldCheck, Eye, Trash2, ArrowRight } from "lucide-react";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
-import { getIntegration, isLive } from "@/lib/integrations/registry";
+import { getIntegration, isConnectable } from "@/lib/integrations/registry";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { COMPANY, DATA_PROMISE } from "@/lib/company";
@@ -26,9 +26,9 @@ export default async function ConnectConsentPage({
 
   const def = getIntegration(params.type);
   const clientId = searchParams.clientId;
-  // OAuth providers need a connectPath; api-key providers POST to a generic route.
-  const connectable = def && isLive(def.id) && (def.authKind === "apikey" || def.connectPath);
-  if (!def || !connectable || !clientId) notFound();
+  // This page's inline rule (live + apikey-or-connectPath) is now the registry's
+  // isConnectable, shared with the integrations page and IntegrationCard.
+  if (!def || !isConnectable(def) || !clientId) notFound();
 
   const supabase = createClient();
   const { data: client } = await supabase.from("clients").select("id, name").eq("id", clientId).single();

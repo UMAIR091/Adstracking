@@ -22,6 +22,22 @@ export default function SettingsLoading() {
           </CardContent>
         </Card>
       ))}
+
+      {/* "Elsewhere in settings" hand-off strip — compact rows, not cards. */}
+      <div className="border-t border-ink-100 pt-5">
+        <Skeleton className="mb-2 h-3 w-36" />
+        <div className="space-y-1">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="flex items-center gap-3 py-2.5">
+              <Skeleton className="h-8 w-8 shrink-0 rounded-lg" />
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-64" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

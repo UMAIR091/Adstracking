@@ -6,6 +6,7 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { PhoneCall, PhoneIncoming, UserPlus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CallReport } from "@/lib/integrations/metrics";
+import { CHART, chartTooltipStyle, chartTooltipLabelStyle } from "@/lib/chartColors";
 
 const fmtNum = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 const shortDate = (d: string) => d.slice(5);
@@ -47,7 +48,7 @@ function MetricChart({
               </defs>
               <XAxis dataKey="date" hide />
               <Tooltip
-                contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }}
+                contentStyle={chartTooltipStyle} labelStyle={chartTooltipLabelStyle}
                 labelFormatter={(l) => shortDate(String(l))}
                 formatter={(v) => [fmtNum(Number(v)), title]}
               />
@@ -75,8 +76,8 @@ export function CallAnalytics({ report }: { report: CallReport }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <MetricChart title="Calls" icon={PhoneCall} value={fmtNum(totals.calls)} color="#0ea5e9" data={report.byDate} dataKey="calls" />
-        <MetricChart title="New leads (first-time)" icon={UserPlus} value={fmtNum(totals.leads)} color="#10b981" data={report.byDate} dataKey="leads" />
+        <MetricChart title="Calls" icon={PhoneCall} value={fmtNum(totals.calls)} color={CHART.sky} data={report.byDate} dataKey="calls" />
+        <MetricChart title="New leads (first-time)" icon={UserPlus} value={fmtNum(totals.leads)} color={CHART.emerald} data={report.byDate} dataKey="leads" />
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Answered" value={fmtNum(totals.answered)} />

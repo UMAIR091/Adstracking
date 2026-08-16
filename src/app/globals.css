@@ -2,6 +2,104 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─────────────────────────────────────────────────────────────
+   ReportFlow design tokens — one theme, defined once.
+
+   Every colour in the app resolves to a variable here. The Tailwind
+   config maps its scales onto these — including the built-in `slate`,
+   `emerald`, `amber`, `red`, `sky` and `indigo` names components
+   already use — so the palette is changed in this file alone and the
+   whole interface follows. No component carries a literal hex.
+
+   Channels are space-separated RGB so Tailwind's `<alpha-value>`
+   works: `border-ink-200/70` and `bg-ink-900/40` behave as expected.
+
+   Direction: charcoal + cool grey + white, with a deep, desaturated
+   indigo carrying primary actions. The old palette led with a bright
+   #4f46e5 violet; this one is markedly deeper and blue-leaning, so the
+   accent reads as considered rather than default-framework purple.
+   ───────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Accent: deep refined indigo ──
+     500 carries primary buttons and active states (white label at
+     6.6:1). 600/700 are hover and accent text. Deliberately
+     desaturated and pulled toward blue — no neon, no magenta. */
+  --brand-50: 240 241 250;
+  --brand-100: 225 227 245;
+  --brand-200: 198 202 235;
+  --brand-300: 162 168 220;
+  --brand-400: 123 131 201;
+  --brand-500: 78 86 176;
+  --brand-600: 65 72 148;
+  --brand-700: 53 59 121;
+  --brand-800: 42 47 96;
+
+  /* Restrained blue-violet, for secondary accents and the chart ramp.
+     Present, never the loudest thing on screen. */
+  --accent-400: 141 128 214;
+  --accent-500: 109 95 199;
+  --accent-600: 92 79 172;
+
+  /* ── Neutrals: charcoal → cool grey ──
+     900 primary text, 500 secondary text, 200 borders, 100/50 fills.
+     900 is a deep charcoal, never pure black. */
+  --ink-50: 248 249 251;
+  --ink-100: 241 243 246;
+  --ink-200: 227 230 235;
+  --ink-300: 205 210 218;
+  --ink-400: 150 157 168;
+  --ink-500: 105 114 128;
+  --ink-600: 77 85 97;
+  --ink-700: 61 66 75;
+  --ink-800: 38 42 49;
+  --ink-900: 22 24 29;
+
+  /* ── Surfaces ── white cards on a very light cool-grey page. */
+  --surface: 255 255 255;
+  --surface-muted: 245 246 249;
+  --surface-subtle: 250 251 252;
+
+  /* ── Status: muted and professional ──
+     `-50` soft fill, `-500` dot/marker, `-700` text. */
+  --success-50: 236 246 241;
+  --success-100: 213 238 224;
+  --success-500: 23 132 90;
+  --success-600: 19 112 76;
+  --success-700: 16 92 63;
+
+  --warning-50: 251 243 230;
+  --warning-100: 247 232 204;
+  --warning-500: 176 118 26;
+  --warning-600: 152 101 20;
+  --warning-700: 122 82 18;
+
+  --danger-50: 251 238 236;
+  --danger-100: 248 220 216;
+  --danger-500: 192 57 47;
+  --danger-600: 169 47 39;
+  --danger-700: 139 40 33;
+
+  --info-50: 237 244 251;
+  --info-100: 217 232 247;
+  --info-500: 44 110 168;
+  --info-600: 36 93 143;
+  --info-700: 30 76 117;
+
+  /* ── Charts ──
+     Accent-led, then cool neutrals. Ordered so adjacent series are
+     never neighbouring hues. */
+  --chart-1: 78 86 176;
+  --chart-2: 44 110 168;
+  --chart-3: 23 132 90;
+  --chart-4: 176 118 26;
+  --chart-5: 109 95 199;
+  --chart-6: 105 114 128;
+
+  --ring: 123 131 201;
+  color-scheme: light;
+}
+
 html,
 body {
   padding: 0;
@@ -9,8 +107,8 @@ body {
 }
 
 body {
-  background: #f6f7f9;
-  color: #0f172a;
+  background: rgb(var(--surface-muted));
+  color: rgb(var(--ink-900));
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -21,11 +119,16 @@ body {
   box-sizing: border-box;
 }
 
-/* Tighter tracking on headings for a more refined, Linear-like hierarchy. */
+/* Tighter tracking on headings — the single cheapest thing that makes a
+   dashboard read as designed rather than default. */
 h1,
 h2,
 h3 {
-  letter-spacing: -0.02em;
+  letter-spacing: -0.021em;
+}
+
+h1 {
+  letter-spacing: -0.029em;
 }
 
 /* Align numbers in analytics tables (tabular figures read as a clean grid). */
@@ -33,10 +136,9 @@ table {
   font-variant-numeric: tabular-nums;
 }
 
-/* Branded text selection. */
 ::selection {
-  background: #e0e7ff;
-  color: #1e1b4b;
+  background: rgb(var(--brand-200));
+  color: rgb(var(--ink-900));
 }
 
 /* Accessible keyboard focus for interactive elements that don't define their
@@ -46,12 +148,11 @@ button:focus-visible,
 select:focus-visible,
 summary:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid #6366f1;
+  outline: 2px solid rgb(var(--ring));
   outline-offset: 2px;
   border-radius: 6px;
 }
 
-/* Respect users who prefer reduced motion. */
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,
@@ -63,21 +164,26 @@ summary:focus-visible,
   }
 }
 
-/* Subtle, premium scrollbars */
+/* Subtle scrollbars — present, but never part of the composition. */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
+::-webkit-scrollbar-track {
+  background: transparent;
+}
 ::-webkit-scrollbar-thumb {
-  background: #d8dee6;
+  background: rgb(var(--ink-300) / 0.6);
   border-radius: 8px;
-  border: 2px solid #f6f7f9;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #c3ccd6;
+  background: rgb(var(--ink-400) / 0.8);
+  background-clip: content-box;
 }
 
-/* Print: clean PDF — hide app chrome, drop the page background */
+/* Print: clean PDF — hide app chrome, drop the page background. */
 @media print {
   .no-print {
     display: none !important;

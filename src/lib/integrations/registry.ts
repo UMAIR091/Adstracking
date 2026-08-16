@@ -89,6 +89,25 @@ export function liveIntegrations(): IntegrationDef[] {
   return DEFS.filter((d) => effectiveStatus(d) === "live");
 }
 
+// Can a user actually start connecting this today? Live is necessary but not
+// sufficient: OAuth providers need a `connectPath`, while api-key providers
+// (Klaviyo, CallRail, Ahrefs, Semrush, Moz, ActiveCampaign) have none and
+// collect their key on the consent screen instead.
+//
+// This rule already existed, inlined in the connect consent page, while
+// IntegrationCard tested `status === "live" && connectPath` and the
+// integrations page tested only `status === "live"`. That split is why the same
+// six api-key integrations offered a "Connect" button on Integrations and read
+// "Coming soon" on the client page. All three now call this.
+export function isConnectable(def: IntegrationDef | undefined | null): boolean {
+  if (!def || effectiveStatus(def) !== "live") return false;
+  return def.authKind === "apikey" || !!def.connectPath;
+}
+
+export function connectableIntegrations(): IntegrationDef[] {
+  return DEFS.filter(isConnectable);
+}
+
 // Types the background sync can process (live + fetchable + has a snapshot
 // table). The cron uses this so new integrations are synced automatically —
 // hard-coding type lists in routes is how Meta Ads got silently skipped.
@@ -117,8 +136,10 @@ export function descriptor(d: IntegrationDef): IntegrationDescriptor {
   return {
     id: d.id, name: d.name, description: d.description, icon: d.icon,
     // Surface the EFFECTIVE status so the UI shows "coming soon" for anything
-    // not on the production allowlist.
+    // not on the production allowlist, plus the connectable verdict so client
+    // components don't have to re-derive it from status + connectPath.
     accent: d.accent, status: effectiveStatus(d), connectPath: d.connectPath, accountNoun: d.accountNoun,
+    connectable: isConnectable(d),
   };
 }
 

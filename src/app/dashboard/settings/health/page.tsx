@@ -1,26 +1,34 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, HeartPulse, CheckCircle2, AlertCircle, PlugZap, KeyRound, Plug } from "lucide-react";
+import { ArrowLeft, HeartPulse, CheckCircle2, AlertCircle, PlugZap, KeyRound, Plug, Settings } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
 import { getIntegrationHealth, summarize, type IntegrationHealth } from "@/lib/integrationHealth";
+import { SOURCE_HEALTH } from "@/lib/integrations/status";
 import { Card, CardContent } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
 
 const rel = (t: string | null) => (t ? formatDistanceToNow(new Date(t), { addSuffix: true }) : "—");
 
-function StatusBadge({ status }: { status: IntegrationHealth["status"] }) {
-  const map = {
-    connected: { label: "Connected", cls: "bg-emerald-50 text-emerald-700 border-emerald-200", Icon: CheckCircle2 },
-    error: { label: "Sync error", cls: "bg-red-50 text-red-700 border-red-200", Icon: AlertCircle },
-    revoked: { label: "Reconnect", cls: "bg-amber-50 text-amber-700 border-amber-200", Icon: PlugZap },
-  }[status];
-  const { Icon } = map;
+// Uses the shared SOURCE_HEALTH classifier so this table and the dashboard
+// stat tiles always agree — four states, one definition.
+function StatusBadge({ row }: { row: IntegrationHealth }) {
+  const p = SOURCE_HEALTH[row.health];
+  const Icon =
+    row.health === "healthy" ? CheckCircle2 :
+    row.health === "needs_reconnect" ? PlugZap :
+    row.health === "needs_account" ? Settings :
+    AlertCircle;
+  const cls =
+    p.variant === "success" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+    p.variant === "danger"  ? "bg-amber-50 text-amber-700 border-amber-200" :
+    p.variant === "info"    ? "bg-sky-50 text-sky-700 border-sky-200" :
+    "bg-red-50 text-red-700 border-red-200";
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${map.cls}`}>
-      <Icon size={11} /> {map.label}
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${cls}`}>
+      <Icon size={11} /> {p.short}
     </span>
   );
 }
@@ -75,8 +83,9 @@ export default async function IntegrationHealthPage() {
         </div>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
         <Summary label="Connected" value={s.connected} cls="bg-emerald-50 text-emerald-600" icon={CheckCircle2} />
+        <Summary label="Account needed" value={s.needsAccount} cls="bg-sky-50 text-sky-600" icon={Settings} />
         <Summary label="Sync errors" value={s.errored} cls="bg-red-50 text-red-600" icon={AlertCircle} />
         <Summary label="Need reconnect" value={s.needsReconnect} cls="bg-amber-50 text-amber-600" icon={PlugZap} />
         <Summary label="Total sources" value={s.total} cls="bg-slate-100 text-ink-600" icon={Plug} />
@@ -89,7 +98,16 @@ export default async function IntegrationHealthPage() {
               <Plug size={20} />
             </div>
             <p className="font-medium text-ink-900">No connected data sources yet</p>
-            <p className="mt-1 text-sm text-ink-500">Connect an integration on a client to see its health here.</p>
+            <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-ink-500">
+              This page tracks each connection&apos;s last sync, last failure and token status. It fills in
+              as soon as a client has a data source connected.
+            </p>
+            <Link
+              href="/dashboard/clients"
+              className="mt-5 inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+            >
+              Go to clients
+            </Link>
           </CardContent>
         </Card>
       ) : (
@@ -113,7 +131,7 @@ export default async function IntegrationHealthPage() {
                     <tr key={r.id} className="border-b border-slate-50 align-top last:border-0">
                       <td className="whitespace-nowrap px-4 py-3 font-medium text-ink-800">{r.providerName}</td>
                       <td className="whitespace-nowrap px-4 py-3 text-ink-700">{r.clientName}</td>
-                      <td className="whitespace-nowrap px-4 py-3"><StatusBadge status={r.status} /></td>
+                      <td className="whitespace-nowrap px-4 py-3"><StatusBadge row={r} /></td>
                       <td className="whitespace-nowrap px-4 py-3 text-ink-600" title={r.lastSyncedAt ?? ""}>{rel(r.lastSyncedAt)}</td>
                       <td className="whitespace-nowrap px-4 py-3 text-ink-600" title={r.lastSyncFailedAt ?? ""}>{rel(r.lastSyncFailedAt)}</td>
                       <td className="whitespace-nowrap px-4 py-3" title={r.tokenExpiresAt ?? ""}><TokenBadge token={r.token} /></td>

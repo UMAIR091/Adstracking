@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/EmptyState";
 import { DisconnectSource } from "@/components/DisconnectSource";
 import { COMPANY, DATA_PROMISE } from "@/lib/company";
+import { getIntegrationName } from "@/lib/integrations/names";
 
 export const dynamic = "force-dynamic";
 
@@ -71,7 +72,7 @@ export default async function DataPrivacyPage() {
                   <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium text-ink-900">{def?.name ?? s.type}</p>
+                        <p className="font-medium text-ink-900">{def?.name ?? getIntegrationName(s.type)}</p>
                         <Badge variant="muted">{clientName}</Badge>
                       </div>
                       <p className="mt-1 text-xs text-ink-500">
@@ -81,7 +82,7 @@ export default async function DataPrivacyPage() {
                           : "Not synced yet"}
                       </p>
                     </div>
-                    <DisconnectSource dataSourceId={s.id} label={`${def?.name ?? s.type} for ${clientName}`} />
+                    <DisconnectSource dataSourceId={s.id} label={`${def?.name ?? getIntegrationName(s.type)} for ${clientName}`} />
                   </CardContent>
                 </Card>
               );

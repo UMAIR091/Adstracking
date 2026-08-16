@@ -18,7 +18,7 @@ export default function HelpArticlePage({ params }: { params: { slug: string } }
   if (!article) notFound();
 
   return (
-    <div className="min-h-screen bg-[#f6f7f9]">
+    <div className="min-h-screen bg-surface-muted">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-5 py-4">
           <Link href="/"><Brand /></Link>

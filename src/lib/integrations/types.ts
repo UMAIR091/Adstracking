@@ -99,4 +99,7 @@ export type IntegrationDescriptor = {
   status: IntegrationStatus;
   connectPath: string | null;
   accountNoun: string;
+  /** Registry verdict from isConnectable() — true for api-key providers too,
+      which are live but carry no connectPath. Never re-derive this in the UI. */
+  connectable: boolean;
 };

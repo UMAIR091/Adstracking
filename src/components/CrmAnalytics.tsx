@@ -6,6 +6,7 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { Users, Handshake, Trophy } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CrmReport } from "@/lib/integrations/metrics";
+import { CHART, chartTooltipStyle, chartTooltipLabelStyle } from "@/lib/chartColors";
 
 const fmtNum = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 const shortDate = (d: string) => d.slice(5);
@@ -49,7 +50,7 @@ function MetricChart({
               </defs>
               <XAxis dataKey="date" hide />
               <Tooltip
-                contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }}
+                contentStyle={chartTooltipStyle} labelStyle={chartTooltipLabelStyle}
                 labelFormatter={(l) => shortDate(String(l))}
                 formatter={(v) => [fmtNum(Number(v)), title]}
               />
@@ -76,8 +77,8 @@ export function CrmAnalytics({ report }: { report: CrmReport }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <MetricChart title="New contacts (leads)" icon={Users} value={fmtNum(totals.newContacts)} color="#f59e0b" data={report.byDate} dataKey="contacts" />
-        <MetricChart title="New deals" icon={Handshake} value={fmtNum(totals.newDeals)} color="#4f46e5" data={report.byDate} dataKey="deals" />
+        <MetricChart title="New contacts (leads)" icon={Users} value={fmtNum(totals.newContacts)} color={CHART.amber} data={report.byDate} dataKey="contacts" />
+        <MetricChart title="New deals" icon={Handshake} value={fmtNum(totals.newDeals)} color={CHART.indigo} data={report.byDate} dataKey="deals" />
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Deals won" value={fmtNum(totals.wonDeals)} />

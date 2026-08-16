@@ -226,7 +226,7 @@ export function ReportsBrowser({
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
             aria-label="Filter by client"
-            className="h-10 rounded-xl border border-ink-200 bg-white px-3 text-sm text-ink-700 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            className="h-10 rounded-xl border border-ink-200 bg-surface px-3 text-sm text-ink-700 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
           >
             <option value="">All clients</option>
             {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -236,7 +236,7 @@ export function ReportsBrowser({
             value={status}
             onChange={(e) => setStatus(e.target.value)}
             aria-label="Filter by status"
-            className="h-10 rounded-xl border border-ink-200 bg-white px-3 text-sm text-ink-700 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            className="h-10 rounded-xl border border-ink-200 bg-surface px-3 text-sm text-ink-700 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
           >
             <option value="">All statuses</option>
             <option value="ready">Ready</option>
@@ -251,7 +251,7 @@ export function ReportsBrowser({
               value={sort}
               onChange={(e) => setSort(e.target.value)}
               aria-label="Sort reports"
-              className="h-10 rounded-xl border border-ink-200 bg-white pl-8 pr-3 text-sm text-ink-700 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              className="h-10 rounded-xl border border-ink-200 bg-surface pl-8 pr-3 text-sm text-ink-700 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
             >
               {SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
             </select>
@@ -440,7 +440,7 @@ function ReportItem({ r, onDelete }: { r: ReportRow; onDelete: () => void }) {
               <MoreHorizontal size={18} aria-hidden />
             </button>
             {menu && (
-              <div role="menu" className="absolute right-0 top-full z-20 mt-1 w-52 overflow-hidden rounded-xl border border-ink-200 bg-white py-1 shadow-lg">
+              <div role="menu" className="absolute right-0 top-full z-20 mt-1 w-52 overflow-hidden rounded-xl border border-ink-200 bg-surface py-1 shadow-lg">
                 <MenuLink href={`/dashboard/reports/${r.id}`} onClick={() => setMenu(false)} icon={<Eye size={15} aria-hidden />}>
                   View report
                 </MenuLink>

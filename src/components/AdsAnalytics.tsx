@@ -6,6 +6,7 @@
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { MousePointerClick, Eye, Wallet, Target, Megaphone } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CHART, chartTooltipStyle, chartTooltipLabelStyle } from "@/lib/chartColors";
 
 export type AdsReportData = {
   currency?: string;
@@ -68,7 +69,7 @@ function MetricChart({
               </defs>
               <XAxis dataKey="date" hide />
               <Tooltip
-                contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }}
+                contentStyle={chartTooltipStyle} labelStyle={chartTooltipLabelStyle}
                 labelFormatter={(l) => shortDate(String(l))}
                 formatter={(v) => [format(Number(v)), title]}
               />
@@ -100,9 +101,9 @@ export function AdsAnalytics({ report }: { report: AdsReportData }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <MetricChart title="Ad spend" icon={Wallet} value={money(t.spend, currency)} color="#4f46e5" data={report.byDate} dataKey="spend" format={(v) => money(v, currency)} />
-        <MetricChart title="Impressions" icon={Eye} value={fmtNum(t.impressions)} color="#0ea5e9" data={report.byDate} dataKey="impressions" format={fmtNum} />
-        <MetricChart title="Clicks" icon={MousePointerClick} value={fmtNum(t.clicks)} color="#10b981" data={report.byDate} dataKey="clicks" format={fmtNum} />
+        <MetricChart title="Ad spend" icon={Wallet} value={money(t.spend, currency)} color={CHART.indigo} data={report.byDate} dataKey="spend" format={(v) => money(v, currency)} />
+        <MetricChart title="Impressions" icon={Eye} value={fmtNum(t.impressions)} color={CHART.sky} data={report.byDate} dataKey="impressions" format={fmtNum} />
+        <MetricChart title="Clicks" icon={MousePointerClick} value={fmtNum(t.clicks)} color={CHART.emerald} data={report.byDate} dataKey="clicks" format={fmtNum} />
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">

@@ -7,6 +7,7 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { Users, Eye, Sparkles, Film, Heart, Info } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { SocialReport } from "@/lib/integrations/social";
+import { CHART, chartTooltipStyle, chartTooltipLabelStyle } from "@/lib/chartColors";
 
 const fmtNum = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 const fmtPct = (n: number) => `${(n * 100).toFixed(1)}%`;
@@ -44,7 +45,7 @@ function MetricChart({
               </defs>
               <XAxis dataKey="date" hide />
               <Tooltip
-                contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }}
+                contentStyle={chartTooltipStyle} labelStyle={chartTooltipLabelStyle}
                 labelFormatter={(l) => shortDate(String(l))}
                 formatter={(v) => [fmtNum(Number(v)), title]}
               />
@@ -110,8 +111,8 @@ export function SocialAnalytics({ report, sample = false }: { report: SocialRepo
       </Card>
 
       <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${sample ? "opacity-70" : ""}`}>
-        <MetricChart title="Reach" icon={Eye} value={fmtNum(totals.reach)} color="#d946ef" data={byDate} dataKey="reach" />
-        <MetricChart title="Follower growth" icon={Users} value={fmtSigned(totals.followerGrowth)} color="#4f46e5" data={byDate} dataKey="followerChange" />
+        <MetricChart title="Reach" icon={Eye} value={fmtNum(totals.reach)} color={CHART.violet} data={byDate} dataKey="reach" />
+        <MetricChart title="Follower growth" icon={Users} value={fmtSigned(totals.followerGrowth)} color={CHART.indigo} data={byDate} dataKey="followerChange" />
       </div>
 
       <div className={`grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 ${sample ? "opacity-70" : ""}`}>

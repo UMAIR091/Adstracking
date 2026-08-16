@@ -22,7 +22,7 @@ export function BillingBanner({
           <AlertTriangle size={16} className="mt-0.5 shrink-0" />
           {blockedReason ?? "Subscription required to keep generating reports."}
         </span>
-        <Link href="/dashboard/billing" className="shrink-0 rounded-lg bg-red-600 px-3.5 py-1.5 font-medium text-white hover:bg-red-700">
+        <Link href="/dashboard/billing" className="shrink-0 rounded-lg bg-danger-600 px-3.5 py-1.5 font-medium text-white transition-colors hover:bg-danger-700">
           Choose a plan
         </Link>
       </div>
@@ -39,7 +39,9 @@ export function BillingBanner({
             : `${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left in your free trial.`}{" "}
           Upgrade to keep reports flowing without interruption.
         </span>
-        <Link href="/dashboard/billing" className="shrink-0 rounded-lg bg-amber-600 px-3.5 py-1.5 font-medium text-white hover:bg-amber-700">
+        {/* Accent rather than amber: this is the primary upgrade action, so it
+            gets the one filled-accent treatment on the page. */}
+        <Link href="/dashboard/billing" className="shrink-0 rounded-lg bg-brand-500 px-3.5 py-1.5 font-medium text-white transition-colors hover:bg-brand-600">
           Upgrade
         </Link>
       </div>

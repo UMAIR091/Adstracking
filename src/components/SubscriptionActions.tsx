@@ -9,6 +9,11 @@ import { CancelSubscriptionDialog } from "@/components/CancelSubscriptionDialog"
 
 // Manage-billing / cancel / resume controls for an active Paddle subscription.
 // Cancellation is always end-of-period, so the copy promises exactly that.
+//
+// Cancel stays available during a payment issue — someone whose card is failing
+// may well want to cancel, and hiding it would trap them. Hierarchy is handled
+// on the page instead: the recovery banner owns the only filled button, while
+// this stays a ghost control.
 export function SubscriptionActions({ cancelAtPeriodEnd, endsAtLabel }: {
   cancelAtPeriodEnd: boolean;
   endsAtLabel: string | null;

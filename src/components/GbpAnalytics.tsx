@@ -6,6 +6,7 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { Eye, MousePointerClick, Phone, Navigation, MessageSquare, CalendarCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { GbpReport } from "@/lib/integrations/metrics";
+import { CHART, chartTooltipStyle, chartTooltipLabelStyle } from "@/lib/chartColors";
 
 const fmtNum = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 const shortDate = (d: string) => d.slice(5);
@@ -41,7 +42,7 @@ function MetricChart({
               </defs>
               <XAxis dataKey="date" hide />
               <Tooltip
-                contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }}
+                contentStyle={chartTooltipStyle} labelStyle={chartTooltipLabelStyle}
                 labelFormatter={(l) => shortDate(String(l))}
                 formatter={(v) => [fmtNum(Number(v)), title]}
               />
@@ -68,8 +69,8 @@ export function GbpAnalytics({ report }: { report: GbpReport }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <MetricChart title="Profile impressions" icon={Eye} value={fmtNum(t.impressions)} color="#f43f5e" data={report.byDate} dataKey="impressions" />
-        <MetricChart title="Website clicks" icon={MousePointerClick} value={fmtNum(t.websiteClicks)} color="#4f46e5" data={report.byDate} dataKey="websiteClicks" />
+        <MetricChart title="Profile impressions" icon={Eye} value={fmtNum(t.impressions)} color={CHART.red} data={report.byDate} dataKey="impressions" />
+        <MetricChart title="Website clicks" icon={MousePointerClick} value={fmtNum(t.websiteClicks)} color={CHART.indigo} data={report.byDate} dataKey="websiteClicks" />
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat icon={Phone} label="Calls" value={fmtNum(t.calls)} />

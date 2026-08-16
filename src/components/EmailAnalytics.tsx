@@ -6,6 +6,7 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { Users, MailOpen, MousePointerClick, Send } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { EmailReport } from "@/lib/integrations/metrics";
+import { CHART, chartTooltipStyle, chartTooltipLabelStyle } from "@/lib/chartColors";
 
 const fmtNum = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
@@ -42,7 +43,7 @@ function MetricChart({
               </defs>
               <XAxis dataKey="date" hide />
               <Tooltip
-                contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }}
+                contentStyle={chartTooltipStyle} labelStyle={chartTooltipLabelStyle}
                 labelFormatter={(l) => shortDate(String(l))}
                 formatter={(v) => [fmtNum(Number(v)), title]}
               />
@@ -69,9 +70,9 @@ export function EmailAnalytics({ report }: { report: EmailReport }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <MetricChart title="Emails sent" icon={Send} value={fmtNum(totals.emailsSent)} color="#4f46e5" data={report.byDate} dataKey="sent" />
-        <MetricChart title="Opens" icon={MailOpen} value={fmtNum(totals.opens)} color="#0ea5e9" data={report.byDate} dataKey="opens" />
-        <MetricChart title="Clicks" icon={MousePointerClick} value={fmtNum(totals.clicks)} color="#f59e0b" data={report.byDate} dataKey="clicks" />
+        <MetricChart title="Emails sent" icon={Send} value={fmtNum(totals.emailsSent)} color={CHART.indigo} data={report.byDate} dataKey="sent" />
+        <MetricChart title="Opens" icon={MailOpen} value={fmtNum(totals.opens)} color={CHART.sky} data={report.byDate} dataKey="opens" />
+        <MetricChart title="Clicks" icon={MousePointerClick} value={fmtNum(totals.clicks)} color={CHART.amber} data={report.byDate} dataKey="clicks" />
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <Stat label="Subscribers" value={fmtNum(totals.subscribers)} />

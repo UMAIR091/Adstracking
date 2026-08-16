@@ -49,7 +49,7 @@ export function CancelSubscriptionDialog({
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onKeep(); }}>
       <div className="absolute inset-0 bg-ink-900/40 animate-fade-in" aria-hidden="true" />
-      <div role="dialog" aria-modal="true" aria-labelledby="cancel-title" className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+      <div role="dialog" aria-modal="true" aria-labelledby="cancel-title" className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-surface p-6 shadow-xl">
         <h2 id="cancel-title" className="text-lg font-semibold text-ink-900">Before you go</h2>
 
         <div className="mt-3 flex items-start gap-2.5 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5 text-sm text-ink-600">

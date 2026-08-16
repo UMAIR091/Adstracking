@@ -15,8 +15,9 @@ import { BrandingNotice } from "@/components/BrandingNotice";
 import { ReportSchedule, type ScheduleData } from "@/components/ReportSchedule";
 import { DeliveryHistory, type DeliveryLog } from "@/components/DeliveryHistory";
 import { SyncStatusPoller } from "@/components/SyncStatusPoller";
-import { liveIntegrations, descriptor } from "@/lib/integrations/registry";
+import { liveIntegrations, listIntegrations, isConnectable, descriptor } from "@/lib/integrations/registry";
 import { hasAnalyticsView, groupForIntegration } from "@/lib/integrations/analyticsViews";
+import { sourceHealth, SOURCE_HEALTH } from "@/lib/integrations/status";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +97,15 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       lastSyncedAt: ds?.last_synced_at ?? null,
       lastSyncError: ds?.last_sync_error ?? null,
       ready: Boolean(source?.selectedAccountId),
+      // Same classifier the dashboard, health page and integrations page read,
+      // so this section's "needs attention" can't disagree with their counts.
+      health: ds
+        ? sourceHealth({
+            status: ds.status,
+            lastSyncError: ds.last_sync_error,
+            selectedAccountId: source?.selectedAccountId ?? null,
+          })
+        : null,
       // BigQuery drills deeper than a single account — surface its dataset/table
       // selection so its dedicated card can restore the picker state.
       selectedDatasetId: (config.dataset_id as string | null) ?? null,
@@ -104,6 +114,20 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   });
 
   const anyReady = integrations.some((i) => i.ready);
+
+  // ── Data sources: only what's actually connected ──────────────
+  // This section used to render a card for every live integration (~19),
+  // burying the handful the client actually uses and pushing Reporting far
+  // down the page. Discovery moved into the existing "+ Add data source"
+  // modal; nothing was removed, only relocated.
+  const connectedIntegrations = integrations.filter((i) => i.source !== null);
+  // Anything not healthy leads the list — needs_account / sync_error /
+  // needs_reconnect, in that order of how blocking they are.
+  const attentionRank: Record<string, number> = { needs_reconnect: 0, sync_error: 1, needs_account: 2, healthy: 3 };
+  const sortedConnected = [...connectedIntegrations].sort(
+    (a, b) => (attentionRank[a.health ?? "healthy"] ?? 3) - (attentionRank[b.health ?? "healthy"] ?? 3)
+  );
+  const needingAttention = connectedIntegrations.filter((i) => i.health && i.health !== "healthy");
 
   // Report generation reads a CACHED SNAPSHOT — a connected source with an
   // account selected but no completed sync still produces nothing. Gate the
@@ -133,13 +157,17 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   // Everything connectable for this client, for the "+ Connect account" modal.
   // Reuses the registry's live set — the modal only links to the existing
   // consent screen, so no connection logic lives in the UI.
-  const connectableIntegrations: ConnectableIntegration[] = liveIntegrations().map((def) => ({
+  // Everything in the registry, so discovery is complete: connectable providers
+  // link into the existing consent screen, and the rest are listed as "Coming
+  // soon" (disabled) instead of taking up a card on the main page.
+  const connectableIntegrations: ConnectableIntegration[] = listIntegrations().map((def) => ({
     id: def.id,
     name: def.name,
     description: def.description,
     icon: def.icon,
     accent: def.accent,
     connected: dsByType.has(def.id),
+    comingSoon: !isConnectable(def),
   }));
 
   const performanceSources: PerformanceSource[] = vizSources.map((i) => ({
@@ -232,7 +260,96 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         </Section>
       )}
 
-      {/* ── 2. Reporting ── */}
+      {/* ── 2. Data sources ──────────────────────────────────────────────
+          What Performance is built from, so it answers the "why is this empty?"
+          question immediately after the numbers — and before Reporting, which
+          depends on both. Only CONNECTED sources render here; discovery lives
+          in the "Add data source" modal. */}
+      <Section
+        id="data-sources"
+        title="Data sources"
+        description={
+          connectedIntegrations.length === 0
+            ? "Connect a platform to start pulling this client's data."
+            : `${connectedIntegrations.length} connected${needingAttention.length > 0 ? ` · ${needingAttention.length} need attention` : ""}.`
+        }
+        action={
+          <ConnectAccountButton
+            clientId={client.id}
+            integrations={connectableIntegrations}
+            label="Add data source"
+          />
+        }
+      >
+        {connectedIntegrations.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-ink-300 bg-surface-subtle px-6 py-12 text-center">
+            <p className="text-sm font-medium text-ink-800">No data sources connected yet</p>
+            <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-ink-500">
+              Connect this client&apos;s Search Console, GA4, Meta Ads or any of the other platforms.
+              ReportFlow syncs the data automatically and builds their reports from it.
+            </p>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+              <ConnectAccountButton
+                clientId={client.id}
+                integrations={connectableIntegrations}
+                label="Add data source"
+                variant="default"
+              />
+              <Button asChild variant="outline" size="sm">
+                <Link href="/dashboard/integrations">Browse all integrations</Link>
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {/* Anything needing action is named up front, then the cards
+                themselves lead with those same sources. */}
+            {needingAttention.length > 0 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+                <span className="font-semibold">
+                  {needingAttention.length} source{needingAttention.length === 1 ? "" : "s"} need attention:
+                </span>{" "}
+                {needingAttention.map((i, n) => (
+                  <span key={i.def.id}>
+                    {n > 0 && ", "}
+                    {i.def.name} ({SOURCE_HEALTH[i.health!].short.toLowerCase()})
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {sortedConnected.map((i) =>
+              i.def.id === "bigquery" ? (
+                <BigQueryCard
+                  key={i.def.id}
+                  descriptor={descriptor(i.def)}
+                  clientId={client.id}
+                  source={i.source}
+                  selectedDatasetId={i.selectedDatasetId}
+                  selectedTableId={i.selectedTableId}
+                  status={i.status}
+                  lastSyncedAt={i.lastSyncedAt}
+                  lastSyncError={i.lastSyncError}
+                />
+              ) : (
+                <IntegrationCard
+                  key={i.def.id}
+                  descriptor={descriptor(i.def)}
+                  clientId={client.id}
+                  source={i.source}
+                  status={i.status}
+                  lastSyncedAt={i.lastSyncedAt}
+                  lastSyncError={i.lastSyncError}
+                />
+              )
+            )}
+          </div>
+        )}
+      </Section>
+
+      {/* ── 3. Reporting ─────────────────────────────────────────────────
+          The output stage: it depends on both the numbers above and the
+          sources feeding them, so it reads last. */}
       <Section title="Reporting" description="Generate a branded report, or put delivery on a schedule.">
         <BrandingNotice hasLogo={!!agency.logo_url} />
         <div className="space-y-4">
@@ -247,48 +364,6 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
           />
           {/* On a client page an empty history is noise — the card is omitted. */}
           <DeliveryHistory logs={(deliveryLogs as unknown as DeliveryLog[]) ?? []} showEmpty={false} />
-        </div>
-      </Section>
-
-      {/* ── 3. Data sources ──────────────────────────────────────────────
-          Setup, not the daily view — so it sits below the numbers it feeds. */}
-      <Section
-        id="data-sources"
-        title="Data sources"
-        description="Everything connected for this client. Add or reconnect a source here."
-      >
-        <div className="space-y-3">
-          {integrations.map((i) =>
-            i.def.id === "bigquery" ? (
-              <BigQueryCard
-                key={i.def.id}
-                descriptor={descriptor(i.def)}
-                clientId={client.id}
-                source={i.source}
-                selectedDatasetId={i.selectedDatasetId}
-                selectedTableId={i.selectedTableId}
-                status={i.status}
-                lastSyncedAt={i.lastSyncedAt}
-                lastSyncError={i.lastSyncError}
-              />
-            ) : (
-              <IntegrationCard
-                key={i.def.id}
-                descriptor={descriptor(i.def)}
-                clientId={client.id}
-                source={i.source}
-                status={i.status}
-                lastSyncedAt={i.lastSyncedAt}
-                lastSyncError={i.lastSyncError}
-              />
-            )
-          )}
-          <Link
-            href="/dashboard/integrations"
-            className="block rounded-xl border border-dashed border-ink-300 bg-surface-subtle p-5 text-sm text-ink-500 transition-colors hover:border-ink-400 hover:text-ink-700"
-          >
-            Google Ads, Shopify, HubSpot, LinkedIn Ads, TikTok Ads and more — see all integrations →
-          </Link>
         </div>
       </Section>
       </div>

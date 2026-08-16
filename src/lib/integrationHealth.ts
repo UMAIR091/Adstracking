@@ -4,6 +4,8 @@
 import { unstable_cache, revalidateTag } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getIntegration } from "@/lib/integrations/registry";
+import { getIntegrationName } from "@/lib/integrations/names";
+import { sourceHealth, countHealth, type SourceHealth } from "@/lib/integrations/status";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const healthTag = (agencyId: string) => `integration-health-${agencyId}`;
@@ -34,6 +36,10 @@ export type IntegrationHealth = {
   lastSyncError: string | null;
   tokenExpiresAt: string | null;
   token: { state: TokenState; label: string };
+  /** The selected account/property id stored in config, null if none chosen. */
+  selectedAccountId: string | null;
+  /** Canonical one-of-four health classification — the single truth every screen reads. */
+  health: SourceHealth;
 };
 
 // API-key connections store a ~100-year expiry sentinel; anything beyond ~10
@@ -59,6 +65,9 @@ type Row = {
   last_sync_failed_at: string | null;
   last_sync_error: string | null;
   token_expires_at: string | null;
+  // Carries the selected account/property, which decides needs_account. Config
+  // holds no secrets — tokens live in their own encrypted columns.
+  config: Record<string, unknown> | null;
   clients: { name: string | null } | { name: string | null }[] | null;
 };
 
@@ -86,16 +95,18 @@ export function getIntegrationHealthCached(agencyId: string): Promise<Integratio
 export async function getIntegrationHealth(supabase: SupabaseClient, agencyId: string): Promise<IntegrationHealth[]> {
   const { data } = await supabase
     .from("data_sources")
-    .select("id, type, display_name, status, last_synced_at, last_sync_failed_at, last_sync_error, token_expires_at, clients(name)")
+    .select("id, type, display_name, status, last_synced_at, last_sync_failed_at, last_sync_error, token_expires_at, config, clients(name)")
     .eq("agency_id", agencyId)
     .order("last_sync_attempt_at", { ascending: false, nullsFirst: false });
 
   return ((data ?? []) as Row[]).map((r) => {
     const status = (r.status ?? "connected") as ConnectionStatus;
+    const def = getIntegration(r.type);
+    const selectedAccountId = def?.readSelected?.((r.config ?? {}) as never) ?? null;
     return {
       id: r.id,
       type: r.type,
-      providerName: getIntegration(r.type)?.name ?? r.type,
+      providerName: def?.name ?? getIntegrationName(r.type),
       clientName: clientName(r),
       displayName: r.display_name,
       status,
@@ -104,16 +115,27 @@ export async function getIntegrationHealth(supabase: SupabaseClient, agencyId: s
       lastSyncError: r.last_sync_error,
       tokenExpiresAt: r.token_expires_at,
       token: tokenState(status, r.token_expires_at),
+      selectedAccountId,
+      // The one classification every screen reads (P0-1).
+      health: sourceHealth({ status, lastSyncError: r.last_sync_error, selectedAccountId }),
     };
   });
 }
 
-// Small roll-up for the dashboard summary card.
+// Small roll-up for the dashboard summary card and the health page.
+//
+// Derived from the shared classifier, so "connected" now means genuinely
+// healthy — a source still waiting for an account selection is reported under
+// needsAccount instead of silently inflating the connected count.
 export function summarize(rows: IntegrationHealth[]) {
+  const counts = countHealth(rows.map((r) => r.health));
   return {
-    total: rows.length,
-    connected: rows.filter((r) => r.status === "connected").length,
-    errored: rows.filter((r) => r.status === "error").length,
-    needsReconnect: rows.filter((r) => r.status === "revoked").length,
+    total: counts.total,
+    connected: counts.healthy,
+    errored: counts.syncError,
+    needsReconnect: counts.needsReconnect,
+    needsAccount: counts.needsAccount,
+    /** Every source that isn't healthy — the number screens should headline. */
+    needsAttention: counts.needsAttention,
   };
 }

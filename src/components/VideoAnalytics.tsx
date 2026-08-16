@@ -6,6 +6,7 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { Play, Clock, UserPlus, Video, Compass, Globe, MonitorSmartphone } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { VideoBreakdown, VideoReport } from "@/lib/integrations/metrics";
+import { CHART, chartTooltipStyle, chartTooltipLabelStyle } from "@/lib/chartColors";
 
 const fmtNum = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 const shortDate = (d: string) => d.slice(5);
@@ -46,7 +47,7 @@ function MetricChart({
               </defs>
               <XAxis dataKey="date" hide />
               <Tooltip
-                contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }}
+                contentStyle={chartTooltipStyle} labelStyle={chartTooltipLabelStyle}
                 labelFormatter={(l) => shortDate(String(l))}
                 formatter={(v) => [fmtNum(Number(v)), title]}
               />
@@ -103,9 +104,9 @@ export function VideoAnalytics({ report }: { report: VideoReport }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <MetricChart title="Views" icon={Play} value={fmtNum(totals.views)} color="#ef4444" data={report.byDate} dataKey="views" />
-        <MetricChart title="Watch time (min)" icon={Clock} value={watchTime(totals.watchTimeMinutes)} color="#6366f1" data={report.byDate} dataKey="watchTimeMinutes" />
-        <MetricChart title="Subscribers gained" icon={UserPlus} value={fmtNum(totals.subscribersGained)} color="#10b981" data={report.byDate} dataKey="subscribersGained" />
+        <MetricChart title="Views" icon={Play} value={fmtNum(totals.views)} color={CHART.red} data={report.byDate} dataKey="views" />
+        <MetricChart title="Watch time (min)" icon={Clock} value={watchTime(totals.watchTimeMinutes)} color={CHART.indigo} data={report.byDate} dataKey="watchTimeMinutes" />
+        <MetricChart title="Subscribers gained" icon={UserPlus} value={fmtNum(totals.subscribersGained)} color={CHART.emerald} data={report.byDate} dataKey="subscribersGained" />
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <Stat label="Subscribers" value={fmtNum(totals.subscribers)} />

@@ -29,6 +29,44 @@ export default function DashboardLoading() {
         ))}
       </div>
 
+      {/* Needs attention — one compact band, two columns of short rows.
+          Omitted entirely when the workspace is healthy, so this is a
+          best-effort shape rather than a guaranteed block. */}
+      <Card>
+        <CardContent className="p-5">
+          <Skeleton className="h-4 w-32" />
+          <div className="mt-3 grid grid-cols-1 gap-1 sm:grid-cols-2">
+            {[0, 1].map((i) => (
+              <div key={i} className="flex items-center gap-2.5 px-2 py-2">
+                <Skeleton className="h-7 w-7 shrink-0 rounded-lg" />
+                <Skeleton className="h-4 flex-1" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Performance KPIs */}
+      <div>
+        <Skeleton className="h-5 w-48" />
+        <Skeleton className="mt-2 h-4 w-72" />
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-7 w-24" />
+                  <Skeleton className="h-5 w-12 rounded-full" />
+                </div>
+                <Skeleton className="mt-3 h-8 w-20" />
+                <Skeleton className="mt-2 h-3 w-28" />
+                <Skeleton className="mt-3 h-10 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
       {/* AI panel + next scheduled */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
@@ -55,27 +93,6 @@ export default function DashboardLoading() {
             <Skeleton className="mt-6 h-3 w-24" />
           </CardContent>
         </Card>
-      </div>
-
-      {/* Performance KPIs */}
-      <div>
-        <Skeleton className="h-5 w-48" />
-        <Skeleton className="mt-2 h-4 w-72" />
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[0, 1, 2, 3].map((i) => (
-            <Card key={i}>
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between">
-                  <Skeleton className="h-7 w-24" />
-                  <Skeleton className="h-5 w-12 rounded-full" />
-                </div>
-                <Skeleton className="mt-3 h-8 w-20" />
-                <Skeleton className="mt-2 h-3 w-28" />
-                <Skeleton className="mt-3 h-10 w-full" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
       </div>
 
       {/* Timeline + recent reports */}

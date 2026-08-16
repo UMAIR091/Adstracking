@@ -6,7 +6,7 @@ import { COMPANY, DATA_PROMISE, FOOTER_LINKS } from "@/lib/company";
 // Used on the marketing page and every legal page (via LegalShell).
 export function SiteFooter() {
   return (
-    <footer className="border-t border-slate-100 bg-white">
+    <footer className="border-t border-slate-100 bg-surface">
       <div className="mx-auto max-w-6xl px-5 py-12">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-5">
           <div className="lg:col-span-2">

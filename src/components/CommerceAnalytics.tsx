@@ -6,6 +6,7 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { ShoppingBag, Wallet, Package } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CommerceReport } from "@/lib/integrations/metrics";
+import { CHART, chartTooltipStyle, chartTooltipLabelStyle } from "@/lib/chartColors";
 
 const fmtNum = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 const shortDate = (d: string) => d.slice(5);
@@ -50,7 +51,7 @@ function MetricChart({
               </defs>
               <XAxis dataKey="date" hide />
               <Tooltip
-                contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }}
+                contentStyle={chartTooltipStyle} labelStyle={chartTooltipLabelStyle}
                 labelFormatter={(l) => shortDate(String(l))}
                 formatter={(v) => [format(Number(v)), title]}
               />
@@ -77,8 +78,8 @@ export function CommerceAnalytics({ report }: { report: CommerceReport }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <MetricChart title="Revenue" icon={Wallet} value={money(totals.revenue, currency)} color="#10b981" data={report.byDate} dataKey="revenue" format={(v) => money(v, currency)} />
-        <MetricChart title="Orders" icon={ShoppingBag} value={fmtNum(totals.orders)} color="#4f46e5" data={report.byDate} dataKey="orders" format={fmtNum} />
+        <MetricChart title="Revenue" icon={Wallet} value={money(totals.revenue, currency)} color={CHART.emerald} data={report.byDate} dataKey="revenue" format={(v) => money(v, currency)} />
+        <MetricChart title="Orders" icon={ShoppingBag} value={fmtNum(totals.orders)} color={CHART.indigo} data={report.byDate} dataKey="orders" format={fmtNum} />
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Avg order value" value={money(totals.avgOrderValue, currency)} />

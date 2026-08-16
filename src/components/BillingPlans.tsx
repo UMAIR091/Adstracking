@@ -171,7 +171,7 @@ export function BillingPlans({
 
   return (
     <div>
-      <div className="flex items-center justify-center gap-1 rounded-full border border-slate-200 bg-white p-1 text-sm" role="group" aria-label="Billing interval">
+      <div className="flex items-center justify-center gap-1 rounded-full border border-slate-200 bg-surface p-1 text-sm" role="group" aria-label="Billing interval">
         {(["monthly", "quarterly"] as const).map((iv) => (
           <button
             key={iv}

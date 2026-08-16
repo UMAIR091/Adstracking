@@ -60,7 +60,7 @@ export function FeedbackWidget() {
       </button>
 
       {open && typeof document !== "undefined" && createPortal(
-        <div className="no-print fixed bottom-20 right-5 z-50 w-[min(360px,calc(100vw-2.5rem))] rounded-2xl border border-slate-200 bg-white shadow-xl">
+        <div className="no-print fixed bottom-20 right-5 z-50 w-[min(360px,calc(100vw-2.5rem))] rounded-2xl border border-slate-200 bg-surface shadow-xl">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <p className="text-sm font-semibold text-ink-900">How can we help?</p>
             <button onClick={() => setOpen(false)} aria-label="Close" className="rounded-md p-1 text-ink-400 hover:bg-slate-100 hover:text-ink-600"><X size={16} /></button>

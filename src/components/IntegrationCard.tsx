@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
-import { RefreshCw, AlertTriangle, Search, BarChart3, Megaphone, MapPin, Facebook, Instagram, Linkedin, Music, Ghost, Twitter, Plug, ShoppingBag, FileSpreadsheet, Magnet } from "lucide-react";
+import { RefreshCw, AlertTriangle, Info, Search, BarChart3, Megaphone, MapPin, Facebook, Instagram, Linkedin, Music, Ghost, Twitter, Plug, ShoppingBag, FileSpreadsheet, Magnet } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -62,6 +62,10 @@ export function IntegrationCard({
   // A revoked/expired grant needs the user to re-authorize — reuse the existing
   // consent → OAuth connect flow. connectHref is the same route as first connect.
   const needsReconnect = status === "revoked";
+  // Connected but no account/property chosen yet — the sync cannot run.
+  // Must be checked after needsReconnect so a revoked source doesn't also show
+  // the account-selection banner (user needs to reconnect first).
+  const needsAccount = !needsReconnect && source !== null && !source.selectedAccountId;
   const connectHref = `/dashboard/connect/${descriptor.id}?clientId=${clientId}`;
 
   if (!source) {
@@ -77,14 +81,18 @@ export function IntegrationCard({
               <p className="text-sm text-ink-500">{descriptor.description}.</p>
             </div>
           </div>
-          {descriptor.status === "live" && descriptor.connectPath ? (
+          {descriptor.connectable ? (
             /* Route through the consent screen so the user sees what data is
-               accessed and why before the provider's OAuth page. */
+               accessed and why before the provider's OAuth page — or, for
+               api-key providers, before entering their key.
+               This used to test `status === "live" && connectPath`, which hid
+               the Connect button for every api-key integration and labelled it
+               "Coming soon" even though the Integrations page offered it. */
             <Button asChild>
               <a href={`/dashboard/connect/${descriptor.id}?clientId=${clientId}`}>Connect</a>
             </Button>
           ) : (
-            <span className="rounded-full bg-ink-100 px-2.5 py-1 text-xs font-medium text-ink-500">Coming soon</span>
+            <span className="rounded-full bg-ink-100 px-2.5 py-1 text-xs font-medium text-ink-600">Coming soon</span>
           )}
         </CardContent>
       </Card>
@@ -140,7 +148,12 @@ export function IntegrationCard({
             </div>
             <div>
               <p className="font-medium text-ink-900">{descriptor.name}</p>
-              <p className="text-sm text-ink-500">Connected as {source.display_name}</p>
+              {/* The header line must not read as a working connection while
+                  the source cannot sync (P0-4). */}
+              <p className="text-sm text-ink-500">
+                Connected as {source.display_name}
+                {needsAccount && <span className="text-sky-700"> — {noun} selection required</span>}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -162,6 +175,30 @@ export function IntegrationCard({
               <span className="font-semibold">Reconnection required.</span>{" "}
               {lastSyncError ?? `${descriptor.name} access has expired or was revoked.`} Syncing is paused until you{" "}
               <a href={connectHref} className="font-semibold underline">reconnect {descriptor.name}</a>.
+            </span>
+          </div>
+        )}
+
+        {needsAccount && (
+          <div className="mt-4 flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs text-sky-800">
+            <Info size={14} className="mt-0.5 shrink-0" />
+            <span>
+              <span className="font-semibold">{noun.charAt(0).toUpperCase() + noun.slice(1)} selection required.</span>{" "}
+              {source.accounts.length > 0 ? (
+                <>
+                  The connection succeeded, but no {noun} has been chosen yet — syncing is paused until you select one
+                  below and click <span className="font-semibold">Save</span>.
+                </>
+              ) : (
+                // Instagram and Pinterest land here: connected, but the provider
+                // returned no selectable accounts, so "choose one below" would
+                // point at an empty dropdown.
+                <>
+                  The connection succeeded, but no {noun} is available to choose yet. Click{" "}
+                  <span className="font-semibold">Refresh now</span> to fetch the list — if it stays empty, the
+                  connected profile has no {noun} that {descriptor.name} can report on.
+                </>
+              )}
             </span>
           </div>
         )}

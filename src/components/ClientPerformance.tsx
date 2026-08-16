@@ -116,7 +116,7 @@ export function ClientPerformance({ sources }: { sources: PerformanceSource[] })
 
               {/* Real cross-platform total — paid media only. */}
               {g === "paid" && paidAggregate && (
-                <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
+                <div className="mb-6 rounded-xl border border-slate-200 bg-surface p-5">
                   <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
                     <h4 className="text-sm font-semibold text-ink-900">Combined paid media</h4>
                     <p className="text-xs text-ink-500">{paidAggregate.sourceNames.join(" · ")}</p>
@@ -191,7 +191,7 @@ function Pill({
       className={`rounded-full border transition-colors ${small ? "px-3 py-1 text-xs" : "px-3.5 py-1.5 text-sm"} ${
         active
           ? "border-brand-500 bg-brand-500 text-white"
-          : "border-slate-200 bg-white text-ink-600 hover:border-slate-300 hover:text-ink-900"
+          : "border-slate-200 bg-surface text-ink-600 hover:border-slate-300 hover:text-ink-900"
       }`}
     >
       {children}

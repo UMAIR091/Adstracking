@@ -149,7 +149,7 @@ function BrandingPreview({ values }: { values: Values }) {
       <div className="h-2 w-full" style={{ background: values.brand_color }} />
       <CardContent className="p-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white">
+          <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-surface">
             {values.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={values.logo_url} alt="" loading="lazy" decoding="async" className="max-h-full max-w-full object-contain" />

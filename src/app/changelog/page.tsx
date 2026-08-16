@@ -17,8 +17,8 @@ const BADGE: Record<ChangeType, { label: string; cls: string; Icon: typeof Spark
 
 export default function ChangelogPage() {
   return (
-    <div className="min-h-screen bg-[#f6f7f9]">
-      <header className="border-b border-slate-200 bg-white">
+    <div className="min-h-screen bg-surface-muted">
+      <header className="border-b border-slate-200 bg-surface">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-5 py-4">
           <Link href="/"><Brand /></Link>
           <Link href="/dashboard" className="text-sm font-medium text-brand-600 hover:underline">Go to dashboard</Link>
@@ -29,13 +29,13 @@ export default function ChangelogPage() {
         <p className="mt-1 text-ink-500">What&apos;s new in ReportFlow.</p>
 
         {CHANGELOG.length === 0 ? (
-          <p className="mt-8 rounded-xl border border-dashed border-slate-200 bg-white px-4 py-10 text-center text-sm text-ink-500">
+          <p className="mt-8 rounded-xl border border-dashed border-slate-200 bg-surface px-4 py-10 text-center text-sm text-ink-500">
             Updates will appear here soon.
           </p>
         ) : (
           <div className="mt-8 space-y-8">
             {CHANGELOG.map((entry) => (
-              <div key={entry.date} className="rounded-2xl border border-slate-200 bg-white p-6">
+              <div key={entry.date} className="rounded-2xl border border-slate-200 bg-surface p-6">
                 <div className="flex items-center gap-3">
                   <time className="text-xs font-medium text-ink-400">{format(new Date(entry.date), "MMMM d, yyyy")}</time>
                   {entry.version && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-ink-500">{entry.version}</span>}

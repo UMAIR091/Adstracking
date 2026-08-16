@@ -117,7 +117,7 @@ export function OnboardingWizard({ agency }: { agency: Agency }) {
         ))}
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <div className="rounded-2xl border border-slate-200 bg-surface p-6 shadow-sm sm:p-8">
         {step === 0 && (
           <div className="space-y-5">
             <Header icon={Building2} title="Make it yours" subtitle="Your logo and colour appear on every report, email and PDF — clients see your agency, never ReportFlow." />
@@ -163,14 +163,14 @@ export function OnboardingWizard({ agency }: { agency: Agency }) {
               </div>
               <div>
                 <Label htmlFor="ob-tz">Timezone</Label>
-                <select id="ob-tz" value={timezone} onChange={(e) => setTimezone(e.target.value)} className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-ink-700 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100">
+                <select id="ob-tz" value={timezone} onChange={(e) => setTimezone(e.target.value)} className="h-10 w-full rounded-lg border border-slate-300 bg-surface px-3 text-sm text-ink-700 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100">
                   {zones.map((z) => <option key={z} value={z}>{z}</option>)}
                 </select>
                 <p className="mt-1 text-xs text-ink-500">Used for scheduled delivery.</p>
               </div>
               <div>
                 <Label htmlFor="ob-lang">Report language</Label>
-                <select id="ob-lang" value={language} onChange={(e) => setLanguage(e.target.value)} className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-ink-700 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100">
+                <select id="ob-lang" value={language} onChange={(e) => setLanguage(e.target.value)} className="h-10 w-full rounded-lg border border-slate-300 bg-surface px-3 text-sm text-ink-700 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100">
                   {LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
                 </select>
                 <p className="mt-1 text-xs text-ink-500">Language for AI-written insights.</p>

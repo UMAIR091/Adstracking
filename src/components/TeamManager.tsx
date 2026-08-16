@@ -228,7 +228,7 @@ export function TeamManager({
                   value={role}
                   onChange={(e) => setRole(e.target.value === "admin" ? "admin" : "member")}
                   disabled={busy || !emailReady}
-                  className="h-10 rounded-xl border border-ink-200 bg-white px-3 text-sm text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 disabled:opacity-50"
+                  className="h-10 rounded-xl border border-ink-200 bg-surface px-3 text-sm text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 disabled:opacity-50"
                 >
                   <option value="member">Member</option>
                   <option value="admin">Admin</option>

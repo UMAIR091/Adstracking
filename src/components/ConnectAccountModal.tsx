@@ -13,6 +13,13 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { Plus, Search as SearchIcon, X, Check, BarChart3, Megaphone, MapPin, Facebook, Instagram, Linkedin, Music, Twitter, Youtube, Ghost, Plug, ShoppingBag, FileSpreadsheet, Magnet } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { groupForIntegration, GROUP_LABELS, type MetricGroup } from "@/lib/integrations/analyticsViews";
+
+// Discovery is grouped by the SAME metric vocabulary Performance uses
+// (lib/integrations/analyticsViews) rather than a second category table — a new
+// integration lands in the right section here the moment it's grouped there.
+// Paid ads lead: that's what agencies connect first.
+const GROUP_ORDER: MetricGroup[] = ["paid", "seo", "analytics", "social", "commerce", "crm", "email", "calls", "other"];
 
 const ICONS: Record<string, typeof SearchIcon> = {
   Search: SearchIcon, BarChart3, Megaphone, MapPin, Facebook, Instagram, Linkedin, Music, Twitter, Youtube, Ghost, ShoppingBag, FileSpreadsheet, Magnet,
@@ -74,22 +81,29 @@ export type ConnectableIntegration = {
   accent: string;
   /** Already connected for this client — offered as a reconnect. */
   connected: boolean;
+  /** Built but not yet connectable here. Listed, visibly disabled, never linked. */
+  comingSoon?: boolean;
 };
 
 export function ConnectAccountButton({
   clientId,
   integrations,
+  label = "Connect account",
+  variant = "outline",
 }: {
   clientId: string;
   integrations: ConnectableIntegration[];
+  /** Trigger copy — "Add data source" on the Data sources section. */
+  label?: string;
+  variant?: "outline" | "default";
 }) {
   const [open, setOpen] = React.useState(false);
   if (integrations.length === 0) return null;
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-        <Plus size={15} /> Connect account
+      <Button variant={variant} size="sm" onClick={() => setOpen(true)}>
+        <Plus size={15} /> {label}
       </Button>
       {open && <ConnectModal clientId={clientId} integrations={integrations} onClose={() => setOpen(false)} />}
     </>
@@ -155,6 +169,20 @@ function ConnectModal({
     });
   }, [query, integrations]);
 
+  // Grouped for browsing; a search collapses back to one flat relevance list,
+  // since category headers only get in the way once the user has typed.
+  const sections = React.useMemo(() => {
+    if (query.trim()) return [{ group: null as MetricGroup | null, items: filtered }];
+    const byGroup = new Map<MetricGroup, ConnectableIntegration[]>();
+    for (const i of filtered) {
+      const g = groupForIntegration(i.id);
+      const arr = byGroup.get(g) ?? [];
+      arr.push(i);
+      byGroup.set(g, arr);
+    }
+    return GROUP_ORDER.filter((g) => byGroup.has(g)).map((g) => ({ group: g, items: byGroup.get(g)! }));
+  }, [filtered, query]);
+
   if (!mounted) return null;
 
   return createPortal(
@@ -170,7 +198,7 @@ function ConnectModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="connect-title"
-        className="relative flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
+        className="relative flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-surface shadow-xl"
       >
         <div className="border-b border-slate-100 p-5">
           <div className="flex items-start justify-between gap-3">
@@ -197,48 +225,73 @@ function ConnectModal({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search — Google, Meta, TikTok, LinkedIn…"
               aria-label="Search integrations"
-              className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
+              className="w-full rounded-lg border border-slate-200 bg-surface py-2.5 pl-9 pr-3 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
             />
           </div>
         </div>
 
         <div className="max-h-[45vh] overflow-y-auto p-2">
           {filtered.length === 0 ? (
-            <p className="px-3 py-10 text-center text-sm text-ink-500">
-              No integrations match “{query}”.
-            </p>
+            <div className="px-3 py-10 text-center">
+              <p className="text-sm font-medium text-ink-800">No integrations match “{query}”</p>
+              <p className="mt-1 text-sm text-ink-500">Try a platform name like Google, Meta, TikTok or Shopify.</p>
+            </div>
           ) : (
-            <ul className="space-y-0.5">
-              {filtered.map((i) => {
-                const Icon = ICONS[i.icon] ?? Plug;
-                const tint = TINTS[i.accent] ?? "bg-ink-100 text-ink-600";
-                return (
-                  <li key={i.id}>
-                    {/* A real navigation into the existing consent screen — the
-                        same href the data-source cards use. */}
-                    <a
-                      href={`/dashboard/connect/${i.id}?clientId=${clientId}`}
-                      className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-slate-50"
-                    >
-                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tint}`}>
-                        <Icon size={17} />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium text-ink-900">{i.name}</span>
-                        <span className="block truncate text-xs text-ink-500">{i.description}</span>
-                      </span>
-                      {i.connected ? (
-                        <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-emerald-600">
-                          <Check size={13} /> Connected
+            sections.map(({ group, items }) => (
+              <div key={group ?? "results"} className="mb-1 last:mb-0">
+                {group && (
+                  <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                    {GROUP_LABELS[group]}
+                  </p>
+                )}
+                <ul className="space-y-0.5">
+                  {items.map((i) => {
+                    const Icon = ICONS[i.icon] ?? Plug;
+                    const tint = TINTS[i.accent] ?? "bg-ink-100 text-ink-600";
+                    const body = (
+                      <>
+                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tint}`}>
+                          <Icon size={17} />
                         </span>
-                      ) : (
-                        <span className="shrink-0 text-xs font-medium text-brand-600">Connect</span>
-                      )}
-                    </a>
-                  </li>
-                );
-              })}
-            </ul>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-ink-900">{i.name}</span>
+                          <span className="block truncate text-xs text-ink-500">{i.description}</span>
+                        </span>
+                        {i.comingSoon ? (
+                          <span className="shrink-0 rounded-full bg-ink-100 px-2 py-0.5 text-[11px] font-medium text-ink-600">
+                            Coming soon
+                          </span>
+                        ) : i.connected ? (
+                          <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-emerald-600">
+                            <Check size={13} /> Connected
+                          </span>
+                        ) : (
+                          <span className="shrink-0 text-xs font-medium text-brand-600">Connect</span>
+                        )}
+                      </>
+                    );
+
+                    return (
+                      <li key={i.id}>
+                        {i.comingSoon ? (
+                          // Not connectable here — listed for discoverability, never linked.
+                          <div className="flex cursor-default items-center gap-3 rounded-lg px-3 py-2.5 opacity-60">{body}</div>
+                        ) : (
+                          /* A real navigation into the existing consent screen — the
+                             same href the data-source cards use. */
+                          <a
+                            href={`/dashboard/connect/${i.id}?clientId=${clientId}`}
+                            className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-slate-50"
+                          >
+                            {body}
+                          </a>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))
           )}
         </div>
       </div>

@@ -21,9 +21,9 @@ export type StatTone = "neutral" | "positive" | "warning" | "danger";
 
 const TONES: Record<StatTone, string> = {
   neutral: "bg-brand-50 text-brand-600",
-  positive: "bg-emerald-50 text-emerald-600",
-  warning: "bg-amber-50 text-amber-600",
-  danger: "bg-rose-50 text-rose-600",
+  positive: "bg-success-50 text-success-600",
+  warning: "bg-warning-50 text-warning-600",
+  danger: "bg-danger-50 text-danger-600",
 };
 
 export type StatTileData = {
@@ -48,23 +48,33 @@ export function StatTile({ label, value, hint, icon, tone = "neutral", href }: S
   const Icon = ICONS[icon] ?? Users;
 
   const inner = (
-    <Card className={`h-full ${href ? "transition-all hover:-translate-y-0.5 hover:shadow-md" : ""}`}>
+    // Hover lifts the border and shadow rather than translating the card —
+    // a whole row of tiles jumping on hover reads as a toy.
+    <Card className={`h-full ${href ? "transition-all duration-150 group-hover:border-ink-300 group-hover:shadow-md" : ""}`}>
       <CardContent className="flex h-full flex-col p-5">
         <div className="flex items-start justify-between gap-3">
-          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${TONES[tone]}`}>
-            <Icon size={17} aria-hidden />
+          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${TONES[tone]}`}>
+            <Icon size={16} aria-hidden />
           </span>
-          {href && <ArrowRight size={15} className="mt-1 text-ink-300" aria-hidden />}
+          {href && (
+            <ArrowRight
+              size={15}
+              className="mt-0.5 text-ink-300 transition-all duration-150 group-hover:translate-x-0.5 group-hover:text-ink-500"
+              aria-hidden
+            />
+          )}
         </div>
-        <p className="mt-3 text-2xl font-semibold leading-none tracking-tight text-ink-900">{value}</p>
-        <p className="mt-1.5 text-sm font-medium text-ink-700">{label}</p>
+        {/* The number is the point of the tile, so it gets the most size and
+            the tightest tracking; label and hint step down deliberately. */}
+        <p className="mt-4 text-[27px] font-semibold leading-none tracking-tightest text-ink-900">{value}</p>
+        <p className="mt-2 text-[13px] font-medium text-ink-700">{label}</p>
         <p className="mt-1 text-xs leading-relaxed text-ink-500">{hint}</p>
       </CardContent>
     </Card>
   );
 
   return href ? (
-    <Link href={href} className="block h-full">
+    <Link href={href} className="group block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2">
       {inner}
     </Link>
   ) : (
