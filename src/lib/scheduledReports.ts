@@ -86,7 +86,18 @@ async function processJob(admin: SupabaseClient, job: DeliveryJob, allowed: bool
 
   let gen;
   try {
-    gen = await createClientReport(admin, job.agency_id, job.client_id, { templateKey: job.template_key ?? undefined });
+    // Match the reporting window to the delivery cadence. This used to pass no
+    // period at all, so a QUARTERLY schedule delivered a 28-day report — the
+    // default — three months apart, leaving two thirds of the quarter unreported.
+    //
+    // Only 28 and 90-day snapshots are synced (lib/sync.ts PERIODS), so weekly
+    // and monthly still resolve to 28 days. True calendar months need windows
+    // that aren't cached yet; that is tracked separately.
+    const periodDays = (isFrequency(job.frequency) ? job.frequency : "monthly") === "quarterly" ? 90 : 28;
+    gen = await createClientReport(admin, job.agency_id, job.client_id, {
+      templateKey: job.template_key ?? undefined,
+      periodDays,
+    });
   } catch (err) {
     await finalize(admin, job.delivery_id, { status: "failed", error: (err as Error).message.slice(0, 500) });
     await logError({ context: "report", agencyId: job.agency_id, message: (err as Error).message, retryStatus: "will_retry" });
