@@ -22,6 +22,21 @@ export type ReportData = {
   blocks: ReportBlock[];
   insights: ReportInsights | null;
   insightsHash?: string;
+  /**
+   * The reporting window as requested, plus how much of it the data actually
+   * covers. Additive and optional — reports stored before this existed simply
+   * have no `meta`, and every reader treats that as "unknown coverage".
+   */
+  meta?: ReportMeta;
+};
+
+export type ReportMeta = {
+  /** The "last N days" the user selected. */
+  periodDays: number;
+  /** The canonical window those N days resolve to. */
+  requested: { start: string; end: string };
+  /** Extent of real data inside it, or null when the sources returned none. */
+  coverage: { start: string; end: string } | null;
 };
 
 // Stable, dependency-free hash (FNV-1a) of exactly the metrics the AI analyzes.
@@ -92,9 +107,14 @@ export function assembleReport(
   gsc: GscReportFull | null,
   ga4: Ga4ReportFull | null,
   insights: ReportInsights | null,
-  blocks: ReportBlock[] = []
+  blocks: ReportBlock[] = [],
+  meta?: ReportMeta
 ): ReportData {
-  return { gsc, ga4, blocks, insights, insightsHash: reportDataHash({ gsc, ga4, blocks }) };
+  return {
+    gsc, ga4, blocks, insights,
+    insightsHash: reportDataHash({ gsc, ga4, blocks }),
+    ...(meta ? { meta } : {}),
+  };
 }
 
 // Normalizes any stored reports.data — the unified {gsc,ga4} shape OR the legacy
@@ -112,6 +132,7 @@ export function normalizeReportData(raw: unknown): ReportData {
       blocks,
       insights: (data.insights as ReportInsights) ?? null,
       insightsHash: data.insightsHash as string | undefined,
+      meta: (data.meta as ReportMeta | undefined) ?? undefined,
     };
   }
   // Legacy: Search Console fields stored at the top level.
@@ -160,6 +181,82 @@ export function toInsightsInput(data: ReportData, clientName: string, periodLabe
 
 // Derives the report's covered period from whichever source has daily data, so
 // the printed dates match the cached numbers. Falls back to the default window.
+// ── The canonical reporting window ──────────────────────────────────────────
+//
+// One definition, used by generation, storage, the PDF and every UI surface.
+//
+// Previously the stored period came from `reportPeriod` — the min/max dates
+// that happened to appear in the data. A client whose Search Console had only
+// two days of history produced a report labelled "27 Jul – 28 Jul" after the
+// user asked for "Last 28 days". The window the user chose is the report's
+// period; how much data landed inside it is a separate fact (see `coverage`).
+//
+// The 2-day lag matches the providers: Search Console finalises ~2 days back
+// and most ad platforms settle within the same window, so a period ending
+// today would always look artificially empty at the end.
+export const REPORT_LAG_DAYS = 2;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const isoDayUTC = (offsetDays: number, from: number) =>
+  new Date(from - offsetDays * DAY_MS).toISOString().slice(0, 10);
+
+/** The window a "last N days" selection actually means — N inclusive days. */
+export function canonicalPeriod(periodDays: number, now: number = Date.now()): { start: string; end: string } {
+  return {
+    start: isoDayUTC(periodDays + REPORT_LAG_DAYS - 1, now),
+    end: isoDayUTC(REPORT_LAG_DAYS, now),
+  };
+}
+
+/** Inclusive whole days between two YYYY-MM-DD dates. */
+export function periodDayCount(start: string, end: string): number {
+  const a = Date.parse(`${start}T00:00:00Z`);
+  const b = Date.parse(`${end}T00:00:00Z`);
+  if (!isFinite(a) || !isFinite(b) || b < a) return 0;
+  return Math.round((b - a) / DAY_MS) + 1;
+}
+
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * Compact label for report titles and lists: "Aug 2026" when the window sits in
+ * one month, "Jul–Aug 2026" within a year, "Dec 2025–Jan 2026" across one.
+ * Parsed from the date parts so no timezone can shift the month.
+ */
+export function periodLabel(start: string | null | undefined, end: string | null | undefined): string | null {
+  const p = (s: string | null | undefined) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((s ?? "").slice(0, 10));
+    if (!m) return null;
+    const mi = Number(m[2]) - 1;
+    return mi >= 0 && mi <= 11 ? { y: Number(m[1]), m: mi } : null;
+  };
+  const a = p(start);
+  const b = p(end);
+  if (!a || !b) return null;
+  if (a.y === b.y && a.m === b.m) return `${MONTHS_SHORT[a.m]} ${a.y}`;
+  if (a.y === b.y) return `${MONTHS_SHORT[a.m]}–${MONTHS_SHORT[b.m]} ${a.y}`;
+  return `${MONTHS_SHORT[a.m]} ${a.y}–${MONTHS_SHORT[b.m]} ${b.y}`;
+}
+
+/**
+ * The extent of the data that actually landed, or null when there is none.
+ * Reported alongside the canonical window so a partially-covered report can say
+ * so honestly instead of quietly shrinking its own period.
+ */
+export function dataCoverage(
+  data: { gsc: GscReportFull | null; ga4: Ga4ReportFull | null; blocks?: ReportBlock[] }
+): { start: string; end: string } | null {
+  const blockDates = (data.blocks ?? []).flatMap((b) => b.series.flatMap((s) => s.points.map((p) => p.date)));
+  const dates = [...(data.gsc?.byDate ?? []), ...(data.ga4?.byDate ?? [])]
+    .map((d) => d.date)
+    .concat(blockDates)
+    .filter(Boolean)
+    .sort();
+  return dates.length ? { start: dates[0], end: dates[dates.length - 1] } : null;
+}
+
+// Kept for callers that still want the data-derived window (and for the
+// coverage calculation above). New reports store `canonicalPeriod`.
 export function reportPeriod(
   data: { gsc: GscReportFull | null; ga4: Ga4ReportFull | null; blocks?: ReportBlock[] },
   fallback: { start: string; end: string }

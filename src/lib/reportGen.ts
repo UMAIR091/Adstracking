@@ -8,13 +8,7 @@ import { trackUsage } from "@/lib/usage";
 import { checkReportLimit } from "@/lib/billing/limits";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import { snapshotsToBlocks, type ReportBlock } from "@/lib/integrations/blocks";
-import { assembleReport, isGscEmpty, isGa4Empty, isReportEmpty, reportPeriod, toInsightsInput, type ReportData } from "@/lib/report";
-
-function isoDaysAgo(n: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
-}
+import { assembleReport, isGscEmpty, isGa4Empty, isReportEmpty, canonicalPeriod, dataCoverage, periodLabel, toInsightsInput, type ReportData } from "@/lib/report";
 
 export type CreateReportResult =
   | { ok: true; id: string; shareToken: string; title: string; data: ReportData; period: { start: string; end: string } }
@@ -91,13 +85,30 @@ export async function createClientReport(
   const { data: template } = await supabase
     .from("report_templates").select("name, sections").eq("key", templateKey).is("agency_id", null).maybeSingle();
 
-  const unified = assembleReport(gscData, ga4Data, null, blocks);
-  const { insights, cached } = await generateReportInsightsCached(toInsightsInput(unified, client.name, `the last ${periodDays} days`));
+  // ── One canonical window, from here to the stored row, the PDF and the UI ──
+  // The period is what the user asked for. `coverage` records how much real
+  // data landed inside it, so a partially-covered report can say so instead of
+  // silently relabelling itself as a shorter period.
+  const period = canonicalPeriod(periodDays);
+  const coverage = dataCoverage({ gsc: gscData, ga4: ga4Data, blocks });
+  const meta = { periodDays, requested: period, coverage };
+
+  const unified = assembleReport(gscData, ga4Data, null, blocks, meta);
+  // The AI is told the real window, not a generic "last N days" phrase, so its
+  // prose can't describe a period the report doesn't cover.
+  const { insights, cached } = await generateReportInsightsCached(
+    toInsightsInput(unified, client.name, `${period.start} to ${period.end} (${periodDays} days)`)
+  );
   // Meter AI usage only when the model actually ran (a cache hit costs nothing).
   if (insights && !cached) await trackUsage(agencyId, "ai_summaries");
-  const data = assembleReport(gscData, ga4Data, insights, blocks);
-  const period = reportPeriod({ gsc: gscData, ga4: ga4Data, blocks }, { start: isoDaysAgo(periodDays + 2), end: isoDaysAgo(2) });
-  const title = `${client.name} — ${template?.name ?? "Performance Report"}`;
+  const data = assembleReport(gscData, ga4Data, insights, blocks, meta);
+
+  // Titles carry the client, the template and the window. Four reports for one
+  // client used to share a single identical title, distinguishable only by the
+  // date line beneath them.
+  const label = periodLabel(period.start, period.end);
+  const baseTitle = `${client.name} — ${template?.name ?? "Performance Report"}`;
+  const title = label ? `${baseTitle} · ${label}` : baseTitle;
   const shareToken = crypto.randomBytes(16).toString("hex");
 
   const { data: report, error } = await supabase

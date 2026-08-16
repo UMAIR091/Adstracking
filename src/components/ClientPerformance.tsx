@@ -17,6 +17,7 @@ import { useMemo, useState } from "react";
 import { ClientAnalytics } from "@/components/ClientAnalytics";
 import { aggregatePaidSnapshots, formatBlockValue } from "@/lib/integrations/blocks";
 import { GROUP_LABELS, type MetricGroup } from "@/lib/integrations/analyticsViews";
+import { buildOverview } from "@/lib/integrations/overview";
 
 export type PerformanceSource = {
   /** Integration id, e.g. "meta_ads" — selects the right chart view. */
@@ -59,6 +60,9 @@ export function ClientPerformance({ sources }: { sources: PerformanceSource[] })
     [visibleSources]
   );
 
+  // Headline figure per channel family, for the "All" view only.
+  const overview = useMemo(() => buildOverview(sources), [sources]);
+
   if (sources.length === 0) return null;
 
   const selectGroup = (g: MetricGroup | typeof ALL) => {
@@ -100,6 +104,31 @@ export function ClientPerformance({ sources }: { sources: PerformanceSource[] })
         </div>
       )}
 
+      {/* Cross-channel overview — only on "All", and only when more than one
+          channel family is connected. Each figure keeps its own provenance;
+          nothing is summed across families, because no valid total exists. */}
+      {group === ALL && source === ALL && groups.length > 1 && overview.length > 0 && (
+        <div className="mb-8 rounded-xl border border-ink-200 bg-surface p-5">
+          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="text-sm font-semibold text-ink-900">Overview</h3>
+            <p className="text-xs text-ink-500">Headline figures per channel · last 28 days</p>
+          </div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 lg:grid-cols-4">
+            {overview.map((m) => (
+              <div key={`${m.group}-${m.label}`}>
+                <p className="text-xs text-ink-500">{m.label}</p>
+                <p className="mt-0.5 text-lg font-semibold tracking-tight text-ink-900">{m.value ?? "—"}</p>
+                <p className="mt-0.5 truncate text-[11px] text-ink-400" title={m.source}>{m.source}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 border-t border-ink-100 pt-3 text-xs text-ink-500">
+            Each figure comes from the channel named beneath it. Metrics from different channels measure different
+            things, so they are shown side by side rather than added together.
+          </p>
+        </div>
+      )}
+
       <div className="space-y-12">
         {renderGroups.map((g) => {
           const groupSources = visibleSources.filter((s) => s.group === g);
@@ -136,8 +165,8 @@ export function ClientPerformance({ sources }: { sources: PerformanceSource[] })
                     {paidAggregate.currency && paidAggregate.revenue > 0 && (
                       <Metric label="Revenue" value={formatBlockValue(paidAggregate.revenue, "currency", paidAggregate.currency)} />
                     )}
-                    {paidAggregate.roas > 0 && (
-                      <Metric label="ROAS" value={`${paidAggregate.roas.toFixed(2)}×`} />
+                    {paidAggregate.revenue > 0 && (
+                      <Metric label="ROAS" value={paidAggregate.roas === null ? "—" : `${paidAggregate.roas.toFixed(2)}×`} />
                     )}
                   </div>
 

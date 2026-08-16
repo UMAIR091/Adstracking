@@ -111,7 +111,7 @@ export function VideoAnalytics({ report }: { report: VideoReport }) {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <Stat label="Subscribers" value={fmtNum(totals.subscribers)} />
         <Stat label="Net new subs" value={`${netSubs >= 0 ? "+" : ""}${fmtNum(netSubs)}`} />
-        <Stat label="Avg. view time" value={`${totals.avgViewDurationSec}s`} />
+        <Stat label="Avg. view time" value={totals.views > 0 ? `${totals.avgViewDurationSec}s` : "—"} />
         <Stat label="Likes" value={fmtNum(totals.likes)} />
         <Stat label="Comments" value={fmtNum(totals.comments)} />
       </div>

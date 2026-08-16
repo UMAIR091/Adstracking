@@ -45,7 +45,10 @@ function moneyPrefix(currency: string | null): string {
   return CURRENCY_SYMBOLS[currency.toUpperCase()] ?? `${currency.toUpperCase()} `;
 }
 
-function fmtBlockValue(value: number, format: BlockFormat, currency: string | null): string {
+function fmtBlockValue(value: number | null, format: BlockFormat, currency: string | null): string {
+  // Matches the on-screen report: not calculable renders as an em dash, so the
+  // PDF a client receives never states a rate that has no denominator.
+  if (value === null || !Number.isFinite(value)) return "—";
   switch (format) {
     case "percent": return pct1(value);
     case "currency": return `${moneyPrefix(currency)}${fmt(Math.round(value * 100) / 100)}`;

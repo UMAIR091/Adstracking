@@ -23,7 +23,12 @@ export type BlockCategory = "paid" | "organic" | "analytics" | "commerce" | "crm
 
 export type BlockKpi = {
   label: string;
-  value: number;
+  /**
+   * null when the metric cannot legitimately be calculated — CPC with no
+   * clicks, ROAS with no spend, CTR with no impressions. Renders as "—".
+   * A real measured zero (0 conversions) stays 0, which is a fact.
+   */
+  value: number | null;
   previous: number | null;
   format: BlockFormat;
   /** True where a fall is an improvement (cost per acquisition, search position). */
@@ -85,9 +90,41 @@ function kpi(label: string, value: unknown, previous: unknown, format: BlockForm
   };
 }
 
-/** Drops KPIs that are zero with no prior value — a metric the account doesn't use. */
+/**
+ * A ratio KPI, nulled when its denominator is zero.
+ *
+ * The stored snapshots floor a divide-by-zero at 0 (see metrics.ratio), so a
+ * paid account with impressions but no clicks stored `cpc: 0`. Rendering that
+ * as "0" states a cost per click for traffic that never happened. The guard
+ * lives here, at projection time, rather than rewriting historical snapshots.
+ */
+function ratioKpi(
+  label: string,
+  value: unknown,
+  previous: unknown,
+  format: BlockFormat,
+  denominator: unknown,
+  previousDenominator: unknown,
+  lowerBetter = false
+): BlockKpi {
+  return {
+    label,
+    value: n(denominator) > 0 ? n(value) : null,
+    previous:
+      previous === undefined || previous === null || n(previousDenominator) <= 0 ? null : n(previous),
+    format,
+    ...(lowerBetter ? { lowerBetter: true } : {}),
+  };
+}
+
+/**
+ * Drops KPIs that are zero with no prior value — a metric the account doesn't
+ * use. A null value (not calculable) is KEPT so it can render as "—": the
+ * reader learns the metric exists but has no denominator, which is a different
+ * statement from the metric being absent.
+ */
 function meaningful(kpis: BlockKpi[]): BlockKpi[] {
-  return kpis.filter((k) => k.value !== 0 || (k.previous !== null && k.previous !== 0));
+  return kpis.filter((k) => k.value === null || k.value !== 0 || (k.previous !== null && k.previous !== 0));
 }
 
 function seriesFrom(rows: unknown, key: string, label: string, format: BlockFormat): BlockSeries | null {
@@ -139,13 +176,13 @@ function projectAds(sourceId: string, snap: unknown): ReportBlock {
     kpi("Spend", totals?.spend, prev?.spend, "currency"),
     kpi("Impressions", totals?.impressions, prev?.impressions, "number"),
     kpi("Clicks", totals?.clicks, prev?.clicks, "number"),
-    kpi("CTR", totals?.ctr, prev?.ctr, "percent"),
-    kpi("CPC", totals?.cpc, prev?.cpc, "currency", true),
-    kpi("CPM", totals?.cpm, prev?.cpm, "currency", true),
+    ratioKpi("CTR", totals?.ctr, prev?.ctr, "percent", totals?.impressions, prev?.impressions),
+    ratioKpi("CPC", totals?.cpc, prev?.cpc, "currency", totals?.clicks, prev?.clicks, true),
+    ratioKpi("CPM", totals?.cpm, prev?.cpm, "currency", totals?.impressions, prev?.impressions, true),
     kpi("Conversions", totals?.conversions, prev?.conversions, "number"),
-    kpi("Cost per conversion", totals?.costPerConversion, prev?.costPerConversion, "currency", true),
+    ratioKpi("Cost per conversion", totals?.costPerConversion, prev?.costPerConversion, "currency", totals?.conversions, prev?.conversions, true),
     kpi("Revenue", totals?.revenue, prev?.revenue, "currency"),
-    kpi("ROAS", totals?.roas, prev?.roas, "number"),
+    ratioKpi("ROAS", totals?.roas, prev?.roas, "number", totals?.spend, prev?.spend),
     // Meta reports reach; other platforms don't. Harmless when absent.
     kpi("Reach", at(snap, "totals", "reach"), at(snap, "previousTotals", "reach"), "number"),
   ]);
@@ -527,11 +564,12 @@ export type PaidAggregate = {
   clicks: number;
   conversions: number;
   revenue: number;
-  ctr: number;
-  cpc: number;
-  cpm: number;
-  costPerConversion: number;
-  roas: number;
+  // Derived metrics are null when their denominator is zero (see `ratio` below).
+  ctr: number | null;
+  cpc: number | null;
+  cpm: number | null;
+  costPerConversion: number | null;
+  roas: number | null;
 };
 
 /**
@@ -575,7 +613,8 @@ export function aggregatePaidSnapshots(
   const codes = paid.map((p) => (p.block.currency ?? "").toUpperCase());
   const currency = codes.every(Boolean) && new Set(codes).size === 1 ? codes[0] : null;
 
-  const ratio = (num: number, den: number) => (den > 0 ? num / den : 0);
+  // null, not 0, when the denominator is missing — "no clicks" is not "free".
+  const ratio = (num: number, den: number) => (den > 0 ? num / den : null);
 
   return {
     currency,
@@ -583,7 +622,7 @@ export function aggregatePaidSnapshots(
     spend, impressions, clicks, conversions, revenue,
     ctr: ratio(clicks, impressions),
     cpc: ratio(spend, clicks),
-    cpm: ratio(spend, impressions) * 1000,
+    cpm: impressions > 0 ? (spend / impressions) * 1000 : null,
     costPerConversion: ratio(spend, conversions),
     roas: ratio(revenue, spend),
   };
@@ -596,7 +635,10 @@ const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", GBP: "£", EUR: "�
  * other consumer, so a currency or percentage is formatted identically
  * everywhere. The PDF has its own variant using its typographic number helpers.
  */
-export function formatBlockValue(value: number, format: BlockFormat, currency: string | null = null): string {
+export function formatBlockValue(value: number | null, format: BlockFormat, currency: string | null = null): string {
+  // A metric with no valid denominator renders as an em dash everywhere —
+  // on-screen, in the report and in the PDF.
+  if (value === null || !Number.isFinite(value)) return "—";
   const num = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: 2 });
   switch (format) {
     case "percent": return `${(value * 100).toFixed(1)}%`;
@@ -625,7 +667,11 @@ export function blocksToPromptText(blocks: ReportBlock[]): string {
     const lines: string[] = [`## ${b.sourceName}${b.currency ? ` (amounts in ${b.currency})` : ""}`];
 
     for (const k of b.kpis) {
-      if (k.previous === null || k.previous === 0) {
+      // A KPI with no valid denominator is stated as such. Passing "0" would
+      // invite the model to write about a cost per click that never existed.
+      if (k.value === null) {
+        lines.push(`- ${k.label}: not calculable this period (no denominator — e.g. no clicks, spend or impressions)`);
+      } else if (k.previous === null || k.previous === 0) {
         lines.push(`- ${k.label}: ${fmt(k.value, k.format)} (no prior-period baseline)`);
       } else {
         const delta = ((k.value - k.previous) / Math.abs(k.previous)) * 100;

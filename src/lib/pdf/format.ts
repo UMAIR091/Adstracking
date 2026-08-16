@@ -28,8 +28,9 @@ export function fmtDateShort(iso: string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
-export function deltaPct(cur: number, prev: number | null | undefined): number | null {
-  if (prev == null || prev === 0) return null;
+export function deltaPct(cur: number | null, prev: number | null | undefined): number | null {
+  // A metric with no valid value has no delta either.
+  if (cur == null || prev == null || prev === 0) return null;
   const p = ((cur - prev) / prev) * 100;
   return isFinite(p) ? p : null;
 }

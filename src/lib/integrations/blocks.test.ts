@@ -162,14 +162,30 @@ describe("aggregatePaidSnapshots", () => {
     expect(r.currency).toBe("GBP");
   });
 
-  it("guards against divide-by-zero on an empty period", () => {
+  // Previously these asserted 0, which is what the UI then displayed: "CPC $0"
+  // for an account that had no clicks at all. A rate with no denominator is not
+  // zero, it is unknown, and null is what renders as "—".
+  it("reports derived metrics as null when the denominator is zero", () => {
     const r = aggregatePaidSnapshots([
       { type: "tiktok_ads", snapshot: paid("USD", 0, 0, 0, 0) },
       { type: "meta_ads", snapshot: paid("USD", 0, 0, 0, 0) },
     ])!;
+    expect(r.ctr).toBeNull();
+    expect(r.cpc).toBeNull();
+    expect(r.cpm).toBeNull();
+    expect(r.costPerConversion).toBeNull();
+    expect(r.roas).toBeNull();
+  });
+
+  it("still reports a real measured zero as zero", () => {
+    // Spend and impressions happened; clicks did not. CTR is a genuine 0%,
+    // while CPC has no denominator and stays unknown.
+    const r = aggregatePaidSnapshots([
+      { type: "tiktok_ads", snapshot: paid("USD", 50, 1000, 0, 0) },
+      { type: "meta_ads", snapshot: paid("USD", 50, 1000, 0, 0) },
+    ])!;
     expect(r.ctr).toBe(0);
-    expect(r.cpc).toBe(0);
-    expect(r.roas).toBe(0);
+    expect(r.cpc).toBeNull();
   });
 });
 

@@ -106,13 +106,18 @@ export function AdsAnalytics({ report }: { report: AdsReportData }) {
         <MetricChart title="Clicks" icon={MousePointerClick} value={fmtNum(t.clicks)} color={CHART.emerald} data={report.byDate} dataKey="clicks" format={fmtNum} />
       </div>
 
+      {/* Every derived metric is guarded by its own denominator. The stored
+          totals floor a divide-by-zero at 0, so an account with impressions but
+          no clicks reported "CPC 0" — a rate that reads as free traffic rather
+          than "not calculable". A measured zero (0 conversions) still shows 0;
+          only the ratios that have no denominator show "—". */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Stat label="CTR" value={fmtPct(t.ctr)} />
-        <Stat label="CPC" value={money(t.cpc, currency)} />
+        <Stat label="CTR" value={t.impressions > 0 ? fmtPct(t.ctr) : "—"} />
+        <Stat label="CPC" value={t.clicks > 0 ? money(t.cpc, currency) : "—"} />
         <Stat label="Conversions" value={fmtNum(t.conversions)} />
         <Stat label="Cost / conversion" value={t.conversions > 0 ? money(t.costPerConversion, currency) : "—"} />
         <Stat label="Conv. value" value={revenue > 0 ? money(revenue, currency) : "—"} />
-        <Stat label="ROAS" value={roas > 0 ? `${roas.toFixed(2)}×` : "—"} />
+        <Stat label="ROAS" value={t.spend > 0 && revenue > 0 ? `${roas.toFixed(2)}×` : "—"} />
       </div>
 
       {report.topCampaigns.length > 0 && (

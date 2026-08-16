@@ -8,7 +8,7 @@ import {
   TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Target,
   StickyNote, Trophy, AlertTriangle, Lightbulb, Search, BarChart3,
 } from "lucide-react";
-import { normalizeReportData } from "@/lib/report";
+import { normalizeReportData, periodDayCount } from "@/lib/report";
 import { formatBlockValue } from "@/lib/integrations/blocks";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 
@@ -129,7 +129,7 @@ export function ReportDocument({
   data: unknown;
 }) {
   const color = branding.brand_color || "#4f46e5";
-  const { gsc, ga4, blocks, insights } = normalizeReportData(data);
+  const { gsc, ga4, blocks, insights, meta } = normalizeReportData(data);
   // Every connected integration other than Search Console / GA4, already
   // projected into the neutral block vocabulary. Rendered generically below, so
   // a new integration appears here without touching this component.
@@ -163,6 +163,53 @@ export function ReportDocument({
   const organicShare = ga4 && ga4.totals.sessions > 0 && organic ? organic.sessions / ga4.totals.sessions : null;
   const convRate = ga4 && ga4.totals.sessions > 0 ? ga4.totals.conversions / ga4.totals.sessions : null;
 
+  // ── Executive-summary callouts, each requiring a measured fact ──────────
+  // Built as a list rather than three fixed slots so a slot with nothing real
+  // behind it simply doesn't appear. Nothing here is generated language: every
+  // string interpolates a number that came from the client's own data.
+  type CalloutSpec = { tone: "emerald" | "rose" | "amber"; icon: typeof TrendingUp; title: string; text: string };
+  const callouts: CalloutSpec[] = [];
+
+  if (winners[0]) {
+    callouts.push({ tone: "emerald", icon: TrendingUp, title: "Key win", text: `“${winners[0].key}” up ${Math.round(winners[0].changePct)}%.` });
+  } else if (gscClicksD?.good) {
+    callouts.push({ tone: "emerald", icon: TrendingUp, title: "Key win", text: `Search clicks up ${Math.abs(gscClicksD.pct).toFixed(0)}%.` });
+  } else if (ga4 && ga4.totals.sessions > 0) {
+    callouts.push({ tone: "emerald", icon: TrendingUp, title: "Key win", text: `${fmt(ga4.totals.sessions)} sessions, ${pct1(ga4.totals.engagementRate)} engaged.` });
+  }
+
+  if (decliners[0]) {
+    callouts.push({ tone: "rose", icon: TrendingDown, title: "Watch", text: `“${decliners[0].key}” down ${Math.abs(Math.round(decliners[0].changePct))}%.` });
+  } else if (ga4 && convRate != null && ga4.totals.sessions > 0) {
+    callouts.push({ tone: "rose", icon: TrendingDown, title: "Watch", text: `Conversion rate ${pct1(convRate)} of sessions.` });
+  }
+
+  if (gscPosD && gsc) {
+    callouts.push({ tone: "amber", icon: Target, title: "Trend", text: `Average position ${gscPosD.good ? "improved" : "slipped"} to ${gsc.totals.position.toFixed(1)}.` });
+  } else if (organicShare != null) {
+    callouts.push({ tone: "amber", icon: Target, title: "Trend", text: `Organic search is ${pct1(organicShare)} of sessions.` });
+  } else if (opportunities.length > 0) {
+    // Only when there ARE opportunities — "0 keywords near page one" was
+    // presented to clients as a trend.
+    callouts.push({ tone: "amber", icon: Target, title: "Trend", text: `${opportunities.length} keyword${opportunities.length === 1 ? "" : "s"} near page one.` });
+  }
+
+  // States plainly when the period is only partly covered, rather than letting
+  // the cover imply a full window of measurement.
+  const coverageNote = (() => {
+    const m = meta;
+    if (!m) return null;
+    const requested = periodDayCount(m.requested.start, m.requested.end);
+    if (!m.coverage) {
+      return `This report covers ${m.requested.start} to ${m.requested.end}. No daily data was returned for the period — the totals above come from the sources' own period figures.`;
+    }
+    const covered = periodDayCount(m.coverage.start, m.coverage.end);
+    if (requested > 0 && covered > 0 && covered < requested) {
+      return `Data is available for ${covered} of the ${requested} days in this period (${m.coverage.start} to ${m.coverage.end}). Figures reflect the days measured; the connected sources had no data for the rest.`;
+    }
+    return null;
+  })();
+
   let n = 0;
   const next = () => (n += 1);
 
@@ -191,20 +238,37 @@ export function ReportDocument({
       </div>
 
       <div className="space-y-10 p-6 sm:p-10">
-        {/* Executive Summary */}
-        {(ins?.executiveSummary || gsc?.previousTotals || ga4?.previousTotals) && (
-          <Section n={next()} title="Executive Summary" subtitle="Performance at a glance" color={color}>
-            {ins?.executiveSummary && <p className="text-sm leading-relaxed text-ink-700">{ins.executiveSummary}</p>}
+        {/* Executive Summary.
+            Every callout must be backed by a measured fact. The slots used to
+            be filled unconditionally, so a report with almost no data told the
+            client "Performance held steady", "No major declines to flag" and
+            "0 keywords near page one" — reassurance the numbers never
+            supported. A slot with no fact behind it is now omitted, and when
+            nothing at all qualifies the section says so plainly. */}
+        <Section n={next()} title="Executive Summary" subtitle="Performance at a glance" color={color}>
+          {ins?.executiveSummary ? (
+            <p className="text-sm leading-relaxed text-ink-700">{ins.executiveSummary}</p>
+          ) : (
+            <p className="text-sm leading-relaxed text-ink-600">
+              A written summary needs a full period of data to compare against. The measured figures for this period
+              are below.
+            </p>
+          )}
+
+          {callouts.length > 0 && (
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <Callout tone="emerald" icon={TrendingUp} title="Key win"
-                text={winners[0] ? `“${winners[0].key}” up ${Math.round(winners[0].changePct)}%.` : gscClicksD?.good ? `Search clicks up ${Math.abs(gscClicksD.pct).toFixed(0)}%.` : ga4 ? `${fmt(ga4.totals.sessions)} sessions, ${pct1(ga4.totals.engagementRate)} engaged.` : "Performance held steady."} />
-              <Callout tone="rose" icon={TrendingDown} title="Watch"
-                text={decliners[0] ? `“${decliners[0].key}” down ${Math.abs(Math.round(decliners[0].changePct))}%.` : ga4 && convRate != null ? `Conversion rate ${pct1(convRate)} — room to grow.` : "No major declines to flag."} />
-              <Callout tone="amber" icon={Target} title="Trend"
-                text={gscPosD ? `Average position ${gscPosD.good ? "improved" : "slipped"} to ${gsc!.totals.position.toFixed(1)}.` : organicShare != null ? `Organic search is ${pct1(organicShare)} of sessions.` : `${opportunities.length} keywords near page one.`} />
+              {callouts.map((c) => (
+                <Callout key={c.title} tone={c.tone} icon={c.icon} title={c.title} text={c.text} />
+              ))}
             </div>
-          </Section>
-        )}
+          )}
+
+          {coverageNote && (
+            <p className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs leading-relaxed text-ink-600">
+              {coverageNote}
+            </p>
+          )}
+        </Section>
 
         {/* SEO vs Website Performance — combined KPIs */}
         {(gsc || ga4) && (
@@ -428,7 +492,7 @@ export function ReportDocument({
             {block.kpis.length > 0 && (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {block.kpis.slice(0, 8).map((k) => {
-                  const d = k.previous === null || k.previous === 0 ? null : (k.value - k.previous) / Math.abs(k.previous);
+                  const d = k.value === null || k.previous === null || k.previous === 0 ? null : (k.value - k.previous) / Math.abs(k.previous);
                   const good = d === null ? null : k.lowerBetter ? d < 0 : d > 0;
                   return (
                     <div key={k.label} className="rounded-xl border border-slate-200 bg-white p-3">

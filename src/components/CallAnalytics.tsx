@@ -83,7 +83,7 @@ export function CallAnalytics({ report }: { report: CallReport }) {
         <Stat label="Answered" value={fmtNum(totals.answered)} />
         <Stat label="Missed" value={fmtNum(totals.missed)} />
         <Stat label="Answer rate" value={answerRate} />
-        <Stat label="Avg. duration" value={duration(totals.avgDurationSec)} />
+        <Stat label="Avg. duration" value={totals.calls > 0 ? duration(totals.avgDurationSec) : "—"} />
       </div>
 
       {report.topSources.length > 0 && (

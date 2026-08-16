@@ -82,7 +82,8 @@ export function CommerceAnalytics({ report }: { report: CommerceReport }) {
         <MetricChart title="Orders" icon={ShoppingBag} value={fmtNum(totals.orders)} color={CHART.indigo} data={report.byDate} dataKey="orders" format={fmtNum} />
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Avg order value" value={money(totals.avgOrderValue, currency)} />
+        {/* No orders means there is no average to state — not an order worth 0. */}
+        <Stat label="Avg order value" value={totals.orders > 0 ? money(totals.avgOrderValue, currency) : "—"} />
         <Stat label="Customers" value={fmtNum(totals.customers)} />
         <Stat label="Orders / day" value={(totals.orders / Math.max(report.byDate.length, 1)).toFixed(1)} />
         <Stat label="Revenue / day" value={money(totals.revenue / Math.max(report.byDate.length, 1), currency)} />

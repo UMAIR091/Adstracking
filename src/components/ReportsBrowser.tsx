@@ -19,6 +19,7 @@ import {
   X, ArrowUpDown, Sparkles, Send, CheckCircle2, AlertCircle, Clock, Inbox,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { periodLabel } from "@/lib/report";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -359,6 +360,13 @@ function ReportItem({ r, onDelete }: { r: ReportRow; onDelete: () => void }) {
       ? `${format(new Date(r.period_start), "d MMM")} – ${format(new Date(r.period_end), "d MMM yyyy")}`
       : null;
 
+  // Strip the coarse period suffix the generator appends, since the exact
+  // dates render immediately below it. Only removed when it genuinely matches
+  // this row's own period, so a hand-edited title is never truncated.
+  const coarse = periodLabel(r.period_start, r.period_end);
+  const suffix = coarse ? ` · ${coarse}` : null;
+  const displayTitle = suffix && r.title.endsWith(suffix) ? r.title.slice(0, -suffix.length) : r.title;
+
   function share() {
     const url = `${window.location.origin}/r/${r.share_token}`;
     navigator.clipboard.writeText(url).then(
@@ -401,7 +409,12 @@ function ReportItem({ r, onDelete }: { r: ReportRow; onDelete: () => void }) {
             {regenerating ? <Loader2 size={17} className="animate-spin" aria-hidden /> : <FileBarChart2 size={18} aria-hidden />}
           </div>
           <div className="min-w-0">
-            <p className="truncate font-medium text-ink-900">{r.title}</p>
+            {/* Generated titles now end with a coarse period ("· Jul–Aug 2026")
+                so they are distinguishable everywhere else — in the report
+                header, the PDF filename and email subjects. Here the exact
+                dates sit directly underneath, so the coarse repeat is stripped
+                rather than printed twice. */}
+            <p className="truncate font-medium text-ink-900">{displayTitle}</p>
             <p className="truncate text-xs text-ink-500">
               <span className="font-medium text-ink-600">{r.clientName}</span>
               {period ? <> · {period}</> : null}
