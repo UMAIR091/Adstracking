@@ -37,6 +37,14 @@ export type ReportMeta = {
   requested: { start: string; end: string };
   /** Extent of real data inside it, or null when the sources returned none. */
   coverage: { start: string; end: string } | null;
+  /**
+   * What kind of report this is — "seo" | "paid" | "analytics" |
+   * "cross_channel" | "custom". Inferred from the contributing sources unless
+   * the user picked one. Absent on reports generated before types existed.
+   */
+  reportType?: string;
+  /** Integration ids that actually contributed data, e.g. ["gsc","meta_ads"]. */
+  sourceIds?: string[];
 };
 
 // Stable, dependency-free hash (FNV-1a) of exactly the metrics the AI analyzes.

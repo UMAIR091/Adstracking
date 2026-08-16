@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { track, ANALYTICS } from "@/lib/analytics";
 import { canonicalPeriod, periodLabel } from "@/lib/report";
+import { REPORT_TYPES, inferReportType, suggestReportTitle, type ReportType } from "@/lib/reports/types";
 
 // `name` mirrors report_templates.name for the system templates seeded in
 // migration 0001 — generation titles the report "{client} — {template name}",
@@ -35,12 +36,15 @@ const STAGES = [
 export function GenerateReport({
   clientId,
   clientName,
+  sources = [],
   ready,
   blockedReason,
 }: {
   clientId: string;
   /** Named in the review line, so it's clear who the report is for. */
   clientName?: string;
+  /** Sources that will feed the report — shown, and used to infer the type. */
+  sources?: { id: string; name: string }[];
   /** A synced snapshot exists — generation reads cached data, not live APIs. */
   ready: boolean;
   /** Which setup step is missing, so the message names a next action. */
@@ -57,6 +61,21 @@ export function GenerateReport({
   // window the report is actually generated and stored with.
   const plannedPeriod = canonicalPeriod(period);
   const plannedLabel = periodLabel(plannedPeriod.start, plannedPeriod.end);
+
+  // The type defaults to whatever the connected sources imply and stays
+  // overridable; the title follows it until the user takes control.
+  const [type, setType] = useState<ReportType>(() => inferReportType(sources.map((s) => s.id)));
+  const suggestedTitle = suggestReportTitle({
+    clientName: clientName ?? "Client",
+    type,
+    periodLabel: plannedLabel,
+  });
+  const [title, setTitle] = useState("");
+  const [titleEdited, setTitleEdited] = useState(false);
+  const shownTitle = titleEdited ? title : suggestedTitle;
+  useEffect(() => {
+    if (!titleEdited) setTitle(suggestedTitle);
+  }, [suggestedTitle, titleEdited]);
 
   // Clear pending stage timers on unmount so a navigation mid-generation can't
   // set state on a component that no longer exists.
@@ -83,7 +102,7 @@ export function GenerateReport({
       const res = await fetch("/api/reports/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, templateKey: template, periodDays: period }),
+        body: JSON.stringify({ clientId, templateKey: template, periodDays: period, reportType: type, title: shownTitle.trim() || undefined }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -149,9 +168,36 @@ export function GenerateReport({
           // the run will actually produce before you commit to it — is what
           // makes the sequence readable.
           <div className="space-y-4">
+            {/* Which sources this report will be built from — previously the
+                form gave no indication, so "SEO Report" on an ads-only client
+                was the first hint anything was off. */}
+            {sources.length > 0 && (
+              <div>
+                <StepLabel n={1}>Sources</StepLabel>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {sources.map((s) => (
+                    <span key={s.id} className="inline-flex items-center gap-1.5 rounded-full border border-ink-200 bg-surface-muted/60 px-2.5 py-1 text-xs font-medium text-ink-700">
+                      {s.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div>
-              <StepLabel n={1}>Configure</StepLabel>
+              <StepLabel n={sources.length > 0 ? 2 : 1}>Report type &amp; period</StepLabel>
               <div className="mt-2 flex flex-wrap items-end gap-3">
+                <div>
+                  <label htmlFor="gen-type" className="mb-1 block text-xs font-medium text-ink-700">Report type</label>
+                  <select
+                    id="gen-type"
+                    value={type}
+                    onChange={(e) => setType(e.target.value as ReportType)}
+                    className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  >
+                    {REPORT_TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                  </select>
+                </div>
                 <div>
                   <label htmlFor="gen-template" className="mb-1 block text-xs font-medium text-ink-700">Template</label>
                   <select
@@ -179,13 +225,35 @@ export function GenerateReport({
             </div>
 
             <div>
-              <StepLabel n={2}>Review &amp; generate</StepLabel>
+              <StepLabel n={sources.length > 0 ? 3 : 2}>Title</StepLabel>
+              {/* Suggested from client + type + period, and rewritten as those
+                  change — until the user edits it, after which their text is
+                  left alone. Sent to the API; blank falls back to the same
+                  suggestion server-side. */}
+              <input
+                value={title}
+                onChange={(e) => { setTitle(e.target.value); setTitleEdited(true); }}
+                placeholder={suggestedTitle}
+                aria-label="Report title"
+                className="mt-2 h-10 w-full rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              />
+              {titleEdited && title.trim() !== suggestedTitle && (
+                <button
+                  type="button"
+                  onClick={() => { setTitle(suggestedTitle); setTitleEdited(false); }}
+                  className="mt-1.5 text-xs font-medium text-brand-600 hover:underline"
+                >
+                  Reset to suggested title
+                </button>
+              )}
+            </div>
+
+            <div>
+              <StepLabel n={sources.length > 0 ? 4 : 3}>Review &amp; generate</StepLabel>
               <div className="mt-2 rounded-xl border border-ink-100 bg-surface-muted/40 p-4">
                 <dl className="space-y-1.5 text-sm">
-                  <Row label="Report">
-                    {clientName ? `${clientName} — ${selected.name}` : selected.name}
-                    {plannedLabel ? ` · ${plannedLabel}` : ""}
-                  </Row>
+                  <Row label="Report">{title.trim() || suggestedTitle}</Row>
+                  <Row label="Type">{REPORT_TYPES.find((t) => t.id === type)?.label ?? type}</Row>
                   {/* The exact window generation will use, not a vague phrase —
                       it's the same canonicalPeriod() the report is stored with. */}
                   <Row label="Period">

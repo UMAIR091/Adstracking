@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { periodLabel } from "@/lib/report";
+import { reportTypeLabel, sourceNames } from "@/lib/reports/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,9 @@ export type ReportRow = {
   created_at: string;
   share_token: string | null;
   clientName: string;
+  /** Report kind and contributing sources, from data.meta. Null on older rows. */
+  reportType?: string | null;
+  sourceIds?: string[] | null;
   sentCount?: number;
   failedCount?: number;
 };
@@ -361,6 +365,15 @@ function ReportItem({ r, onDelete }: { r: ReportRow; onDelete: () => void }) {
       : null;
 
 
+  const typeLabel = reportTypeLabel(r.reportType);
+  // Display names, never raw ids, and capped so a six-source report can't blow
+  // out the row as report volume grows.
+  const names = r.sourceIds?.length ? sourceNames(r.sourceIds) : [];
+  const sourceLabel =
+    names.length === 0 ? null
+    : names.length <= 3 ? names.join(", ")
+    : `${names.slice(0, 2).join(", ")} +${names.length - 2} more`;
+
   function share() {
     const url = `${window.location.origin}/r/${r.share_token}`;
     navigator.clipboard.writeText(url).then(
@@ -409,10 +422,17 @@ function ReportItem({ r, onDelete }: { r: ReportRow; onDelete: () => void }) {
                 its place in the scannable heading even though the exact dates
                 repeat it beneath at finer granularity. */}
             <p className="truncate font-medium text-ink-900">{r.title}</p>
+            {/* Reporting period leads; the generated date is secondary and
+                trails. Type and sources answer "what kind of report is this,
+                built from what?" without opening it. */}
             <p className="truncate text-xs text-ink-500">
               <span className="font-medium text-ink-600">{r.clientName}</span>
-              {period ? <> · {period}</> : null}
-              {" · created "}{format(new Date(r.created_at), "d MMM yyyy")}
+              {period ? <> · <span className="font-medium text-ink-700">{period}</span></> : null}
+              {typeLabel ? <> · {typeLabel}</> : null}
+            </p>
+            <p className="truncate text-[11px] text-ink-400">
+              {sourceLabel ? <>{sourceLabel} · </> : null}
+              created {format(new Date(r.created_at), "d MMM yyyy")}
             </p>
           </div>
         </Link>

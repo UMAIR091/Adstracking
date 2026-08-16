@@ -353,7 +353,15 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       <Section title="Reporting" description="Generate a branded report, or put delivery on a schedule.">
         <BrandingNotice hasLogo={!!agency.logo_url} />
         <div className="space-y-4">
-          <GenerateReport clientId={client.id} clientName={client.name as string} ready={hasSyncedData} blockedReason={dataBlockedReason} />
+          <GenerateReport
+            clientId={client.id}
+            clientName={client.name as string}
+            // Only sources with a synced snapshot actually feed the report, so
+            // those are what the type is inferred from and what's listed.
+            sources={integrations.filter((i) => i.snapshot).map((i) => ({ id: i.def.id, name: i.def.name }))}
+            ready={hasSyncedData}
+            blockedReason={dataBlockedReason}
+          />
           <ReportSchedule
             clientId={client.id}
             clientEmail={(client.email as string | null) ?? null}

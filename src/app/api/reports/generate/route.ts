@@ -30,6 +30,10 @@ export async function POST(req: Request) {
     const result = await createClientReport(supabase, agency.id, clientId, {
       templateKey: body?.templateKey,
       periodDays: body?.periodDays,
+      // Both optional: an absent title falls back to the generated suggestion,
+      // an absent/invalid type is inferred from the contributing sources.
+      title: typeof body?.title === "string" ? body.title : undefined,
+      reportType: typeof body?.reportType === "string" ? body.reportType : undefined,
     });
 
     if (!result.ok) {

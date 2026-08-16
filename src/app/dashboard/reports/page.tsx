@@ -27,7 +27,7 @@ export default async function ReportsPage() {
   const [{ data: reports }, { data: clientRows }, { data: scheduleRows }] = await Promise.all([
     supabase
       .from("reports")
-      .select("id, title, status, period_start, period_end, created_at, share_token, clients(name)")
+      .select("id, title, status, period_start, period_end, created_at, share_token, meta:data->meta, clients(name)")
       .order("created_at", { ascending: false })
       .range(0, PAGE),
     supabase.from("clients").select("id, name").eq("archived", false).order("name"),
@@ -69,6 +69,9 @@ export default async function ReportsPage() {
       created_at: r.created_at as string,
       share_token: (r.share_token as string | null) ?? null,
       clientName: nameOf(r.clients as JoinedName),
+      // Small jsonb projection, not the whole report payload.
+      reportType: (r.meta as { reportType?: string } | null)?.reportType ?? null,
+      sourceIds: (r.meta as { sourceIds?: string[] } | null)?.sourceIds ?? null,
       sentCount: d?.sent ?? 0,
       failedCount: d?.failed ?? 0,
     };

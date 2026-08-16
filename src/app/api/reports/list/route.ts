@@ -37,7 +37,7 @@ export async function GET(req: Request) {
   const supabase = createClient();
   let query = supabase
     .from("reports")
-    .select("id, title, status, period_start, period_end, created_at, share_token, client_id, clients(name)")
+    .select("id, title, status, period_start, period_end, created_at, share_token, client_id, meta:data->meta, clients(name)")
     .order(sort.column, { ascending: sort.ascending })
     .range(offset, offset + limit); // fetch one extra to detect hasMore
 
@@ -98,6 +98,10 @@ export async function GET(req: Request) {
       created_at: r.created_at as string,
       share_token: (r.share_token as string | null) ?? null,
       clientName: (Array.isArray(c) ? c[0]?.name : c?.name) ?? "Client",
+      // Same jsonb projection as the first page, so rows fetched by filter or
+      // "Load more" carry the type and sources too rather than losing them.
+      reportType: (r.meta as { reportType?: string } | null)?.reportType ?? null,
+      sourceIds: (r.meta as { sourceIds?: string[] } | null)?.sourceIds ?? null,
       sentCount: d?.sent ?? 0,
       failedCount: d?.failed ?? 0,
     };

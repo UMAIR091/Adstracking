@@ -8,6 +8,7 @@ import { trackUsage } from "@/lib/usage";
 import { checkReportLimit } from "@/lib/billing/limits";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import { snapshotsToBlocks, type ReportBlock } from "@/lib/integrations/blocks";
+import { inferReportType, isReportType, suggestReportTitle, type ReportType } from "@/lib/reports/types";
 import { assembleReport, isGscEmpty, isGa4Empty, isReportEmpty, canonicalPeriod, dataCoverage, periodLabel, toInsightsInput, type ReportData } from "@/lib/report";
 
 export type CreateReportResult =
@@ -21,7 +22,7 @@ export async function createClientReport(
   supabase: SupabaseClient,
   agencyId: string,
   clientId: string,
-  opts: { templateKey?: string; periodDays?: number } = {}
+  opts: { templateKey?: string; periodDays?: number; title?: string; reportType?: string } = {}
 ): Promise<CreateReportResult> {
   const templateKey = opts.templateKey || "seo";
   const periodDays = [28, 90].includes(opts.periodDays as number) ? (opts.periodDays as number) : 28;
@@ -91,7 +92,16 @@ export async function createClientReport(
   // silently relabelling itself as a shorter period.
   const period = canonicalPeriod(periodDays);
   const coverage = dataCoverage({ gsc: gscData, ga4: ga4Data, blocks });
-  const meta = { periodDays, requested: period, coverage };
+
+  // Only sources that actually contributed data describe the report. A
+  // connected-but-empty source shouldn't make an SEO report look cross-channel.
+  const contributing = [
+    ...(gscData ? ["gsc"] : []),
+    ...(ga4Data ? ["ga4"] : []),
+    ...blocks.map((b) => b.sourceId).filter((id): id is string => Boolean(id)),
+  ];
+  const reportType = isReportType(opts.reportType) ? opts.reportType : inferReportType(contributing);
+  const meta = { periodDays, requested: period, coverage, reportType, sourceIds: contributing };
 
   const unified = assembleReport(gscData, ga4Data, null, blocks, meta);
   // The AI is told the real window, not a generic "last N days" phrase, so its
@@ -103,12 +113,12 @@ export async function createClientReport(
   if (insights && !cached) await trackUsage(agencyId, "ai_summaries");
   const data = assembleReport(gscData, ga4Data, insights, blocks, meta);
 
-  // Titles carry the client, the template and the window. Four reports for one
-  // client used to share a single identical title, distinguishable only by the
-  // date line beneath them.
+  // Title: the user's own if they edited one, otherwise a suggestion built from
+  // the client, the inferred type and the window. The old default came from the
+  // template row, which is why a Meta-Ads-only client received an "SEO Report".
   const label = periodLabel(period.start, period.end);
-  const baseTitle = `${client.name} — ${template?.name ?? "Performance Report"}`;
-  const title = label ? `${baseTitle} · ${label}` : baseTitle;
+  const suggested = suggestReportTitle({ clientName: client.name, type: reportType, periodLabel: label });
+  const title = opts.title?.trim() ? opts.title.trim().slice(0, 200) : suggested;
   const shareToken = crypto.randomBytes(16).toString("hex");
 
   const { data: report, error } = await supabase
