@@ -360,12 +360,6 @@ function ReportItem({ r, onDelete }: { r: ReportRow; onDelete: () => void }) {
       ? `${format(new Date(r.period_start), "d MMM")} – ${format(new Date(r.period_end), "d MMM yyyy")}`
       : null;
 
-  // Strip the coarse period suffix the generator appends, since the exact
-  // dates render immediately below it. Only removed when it genuinely matches
-  // this row's own period, so a hand-edited title is never truncated.
-  const coarse = periodLabel(r.period_start, r.period_end);
-  const suffix = coarse ? ` · ${coarse}` : null;
-  const displayTitle = suffix && r.title.endsWith(suffix) ? r.title.slice(0, -suffix.length) : r.title;
 
   function share() {
     const url = `${window.location.origin}/r/${r.share_token}`;
@@ -409,12 +403,12 @@ function ReportItem({ r, onDelete }: { r: ReportRow; onDelete: () => void }) {
             {regenerating ? <Loader2 size={17} className="animate-spin" aria-hidden /> : <FileBarChart2 size={18} aria-hidden />}
           </div>
           <div className="min-w-0">
-            {/* Generated titles now end with a coarse period ("· Jul–Aug 2026")
-                so they are distinguishable everywhere else — in the report
-                header, the PDF filename and email subjects. Here the exact
-                dates sit directly underneath, so the coarse repeat is stripped
-                rather than printed twice. */}
-            <p className="truncate font-medium text-ink-900">{displayTitle}</p>
+            {/* The title keeps its period suffix here. This list is exactly
+                where identical titles hurt — four "Umair Ali — SEO Report"
+                rows told the reader nothing — so the coarse month range earns
+                its place in the scannable heading even though the exact dates
+                repeat it beneath at finer granularity. */}
+            <p className="truncate font-medium text-ink-900">{r.title}</p>
             <p className="truncate text-xs text-ink-500">
               <span className="font-medium text-ink-600">{r.clientName}</span>
               {period ? <> · {period}</> : null}

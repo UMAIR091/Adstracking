@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { track, ANALYTICS } from "@/lib/analytics";
+import { canonicalPeriod, periodLabel } from "@/lib/report";
 
 // `name` mirrors report_templates.name for the system templates seeded in
 // migration 0001 — generation titles the report "{client} — {template name}",
@@ -52,6 +53,10 @@ export function GenerateReport({
   const [stage, setStage] = useState(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const selected = TEMPLATES.find((t) => t.key === template) ?? TEMPLATES[0];
+  // Same helper the server uses, so the review line cannot drift from the
+  // window the report is actually generated and stored with.
+  const plannedPeriod = canonicalPeriod(period);
+  const plannedLabel = periodLabel(plannedPeriod.start, plannedPeriod.end);
 
   // Clear pending stage timers on unmount so a navigation mid-generation can't
   // set state on a component that no longer exists.
@@ -179,8 +184,13 @@ export function GenerateReport({
                 <dl className="space-y-1.5 text-sm">
                   <Row label="Report">
                     {clientName ? `${clientName} — ${selected.name}` : selected.name}
+                    {plannedLabel ? ` · ${plannedLabel}` : ""}
                   </Row>
-                  <Row label="Period">Last {period} days of synced data</Row>
+                  {/* The exact window generation will use, not a vague phrase —
+                      it's the same canonicalPeriod() the report is stored with. */}
+                  <Row label="Period">
+                    {plannedPeriod.start} to {plannedPeriod.end} ({period} days)
+                  </Row>
                   <Row label="Branding">Your saved logo, colour and footer</Row>
                 </dl>
                 <div className="mt-4 flex flex-wrap items-center gap-3">
