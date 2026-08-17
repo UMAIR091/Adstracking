@@ -12,9 +12,10 @@ import { normalizeReportData, periodDayCount } from "@/lib/report";
 import { formatBlockValue } from "@/lib/integrations/blocks";
 import { detectSignals } from "@/lib/insights/signals";
 import { allSoWhat, allActions } from "@/lib/reports/soWhat";
-import { buildExecutiveSummary, blockHasComparison, periodSubtitle } from "@/lib/reports/summary";
+import { buildExecutiveSummary, blockHasComparison, hasCalculableKpis, periodSubtitle } from "@/lib/reports/summary";
 import { cleanBullets, cleanCommentary } from "@/lib/reports/commentary";
 import { coverBadgeLabel } from "@/lib/reports/types";
+import { MIN_TREND_POINTS } from "@/lib/reports/composition";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 
 type Branding = { name: string; logo_url: string | null; brand_color: string; website: string | null; footer_text: string | null };
@@ -165,6 +166,18 @@ export function ReportDocument({
     { l: "Engagement", v: pct1(ga4.totals.engagementRate), d: delta(ga4.totals.engagementRate, ga4.previousTotals?.engagementRate) },
     { l: "Conversions", v: fmt(ga4.totals.conversions), d: delta(ga4.totals.conversions, ga4.previousTotals?.conversions) },
   ] : [];
+
+  // A line needs enough points to be a line. The PDF has enforced this since
+  // Phase 2B; the on-screen report did not, so three days of data drew a
+  // "trend" chart here that the same data was refused in the document the
+  // client receives. Same constant, so the two can't drift apart again.
+  const gscTrend = (gsc?.byDate?.length ?? 0) >= MIN_TREND_POINTS;
+  const ga4Trend = (ga4?.byDate?.length ?? 0) >= MIN_TREND_POINTS;
+  const hasTrendCharts = gscTrend || ga4Trend;
+  // The traffic section is worth a heading when it has a chart, the GA4
+  // mini-stats, or a channel breakdown — not merely because a byDate array
+  // exists.
+  const showTrafficSection = hasTrendCharts || !!ga4;
 
   const landing = mergeLandingPages(gsc, ga4);
   const organic = ga4?.trafficSources?.find((s) => /organic search/i.test(s.key)) ?? null;
@@ -342,9 +355,19 @@ export function ReportDocument({
           </Section>
         )}
 
-        {/* Organic Traffic Overview */}
-        {(Boolean(gsc?.byDate?.length) || Boolean(ga4?.byDate?.length)) && (
-          <Section n={next()} title="Organic Traffic Overview" subtitle="How traffic and visibility moved this period" color={color}>
+        {/* Organic Traffic Overview.
+            The charts used to render on any number of daily rows, so three days
+            of data drew a "trend" the PDF had already refused to draw at the
+            same threshold. Both renderers now use MIN_TREND_POINTS, and the
+            section only appears when something inside it survives that test —
+            an empty frame around two flat lines is worse than no section. */}
+        {showTrafficSection && (
+          <Section
+            n={next()}
+            title="Organic Traffic Overview"
+            subtitle={hasTrendCharts ? "How traffic and visibility moved this period" : "Traffic composition for this period"}
+            color={color}
+          >
             {ga4 && (
               <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <MiniStat label="Organic sessions" value={organic ? fmt(organic.sessions) : "—"} color={color} />
@@ -354,21 +377,21 @@ export function ReportDocument({
               </div>
             )}
             <div className="grid gap-6 lg:grid-cols-2">
-              {gsc?.byDate?.length ? (
-                <TrendChart title="Search clicks" data={gsc.byDate} dataKey="clicks" color={color} />
+              {gscTrend ? (
+                <TrendChart title="Search clicks" data={gsc!.byDate} dataKey="clicks" color={color} />
               ) : null}
-              {ga4?.byDate?.length ? (
-                <TrendChart title="Sessions" data={ga4.byDate} dataKey="sessions" color="#0ea5e9" />
+              {ga4Trend ? (
+                <TrendChart title="Sessions" data={ga4!.byDate} dataKey="sessions" color="#0ea5e9" />
               ) : null}
             </div>
-            {gsc?.byDate?.length ? (
+            {gscTrend ? (
               <div className="mt-6">
                 <p className="mb-2 text-xs font-medium text-ink-600">Average position (lower is better)</p>
                 <div className="h-40">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={gsc.byDate} margin={{ top: 6, right: 6, left: -12, bottom: 0 }}>
+                    <LineChart data={gsc!.byDate} margin={{ top: 6, right: 6, left: -12, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#eef1f5" vertical={false} />
-                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} interval={Math.ceil(gsc.byDate.length / 6)} tickLine={false} axisLine={false} tickFormatter={(d) => String(d).slice(5)} />
+                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} interval={Math.ceil(gsc!.byDate.length / 6)} tickLine={false} axisLine={false} tickFormatter={(d) => String(d).slice(5)} />
                       <YAxis reversed tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} domain={["dataMin - 1", "dataMax + 1"]} />
                       <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }} />
                       <Line type="monotone" dataKey="position" stroke="#f59e0b" strokeWidth={2.5} dot={false} />
@@ -476,8 +499,16 @@ export function ReportDocument({
           </Section>
         )}
 
-        {/* Conversion Opportunities */}
-        {(opportunities.length > 0 || ga4 || (ins?.growthOpportunities.length ?? 0) > 0) && (
+        {/* Conversion Opportunities.
+            The presence of GA4 alone used to open this section, so a property
+            with no conversions and no near-page-one keywords got a heading
+            promising "where the next gains are" above a conversion count of
+            zero — a figure the KPI group above already carries. It now needs
+            something to point at: ranking opportunities, written ones, or
+            conversion activity to talk about. */}
+        {(opportunities.length > 0
+          || (ins?.growthOpportunities.length ?? 0) > 0
+          || (ga4 != null && (ga4.totals.conversions > 0 || ga4.totals.totalRevenue > 0))) && (
           <Section n={next()} title="Conversion Opportunities" subtitle="Where the next gains are — quick wins" color={color}>
             {ga4 && (
               <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -543,7 +574,10 @@ export function ReportDocument({
             subtitle={periodSubtitle("Performance during this period", blockHasComparison(block))}
             color={color}
           >
-            {block.kpis.length > 0 && (
+            {/* Same rule as the PDF: an individual "—" beside real figures says
+                that metric has no denominator, but a whole row of them says
+                nothing, so the row is dropped rather than rendered empty. */}
+            {hasCalculableKpis(block.kpis.slice(0, 8)) && (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {block.kpis.slice(0, 8).map((k) => {
                   const d = k.value === null || k.previous === null || k.previous === 0 ? null : (k.value - k.previous) / Math.abs(k.previous);

@@ -109,13 +109,20 @@ export function PageChrome({ s, branding, title, generatedAt, logoSrc }: {
 }
 
 // ── Numbered section with accent rule ────────────────────────────────────────
-export function Section({ s, num, title, subtitle, children, breakBefore }: {
+export function Section({ s, num, title, subtitle, children, breakBefore, keepWithHead }: {
   s: S;
   num: string;
   title: string;
   subtitle?: string;
   children: React.ReactNode;
   breakBefore?: boolean;
+  /**
+   * Content that must never be separated from the heading — typically the
+   * section's KPI row. minPresenceAhead alone doesn't hold a heading to a child
+   * that is itself unwrappable, so anything passed here shares the heading's
+   * own unwrappable block and moves with it.
+   */
+  keepWithHead?: React.ReactNode;
 }) {
   // minPresenceAhead keeps a heading with the start of its content. At 90 a
   // section head could still land at the foot of a page with its first card
@@ -124,12 +131,15 @@ export function Section({ s, num, title, subtitle, children, breakBefore }: {
   // section head plus one card is roughly 110pt.
   return (
     <View style={s.section} break={breakBefore} minPresenceAhead={130}>
-      <View style={s.sectionHead}>
-        <Text style={s.sectionNum}>{num}</Text>
-        <Text style={s.sectionTitle}>{title}</Text>
+      <View wrap={false}>
+        <View style={s.sectionHead}>
+          <Text style={s.sectionNum}>{num}</Text>
+          <Text style={s.sectionTitle}>{title}</Text>
+        </View>
+        <View style={s.sectionRule} />
+        {subtitle ? <Text style={s.sectionSub}>{subtitle}</Text> : null}
+        {keepWithHead}
       </View>
-      <View style={s.sectionRule} />
-      {subtitle ? <Text style={s.sectionSub}>{subtitle}</Text> : null}
       {children}
     </View>
   );

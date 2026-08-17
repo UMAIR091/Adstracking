@@ -19,7 +19,7 @@ import { LineChart, BarList, ShareBar } from "./charts";
 import { Icon, TrendArrow } from "./icons";
 import { detectSignals } from "@/lib/insights/signals";
 import { allSoWhat, allActions } from "@/lib/reports/soWhat";
-import { buildExecutiveSummary, blockHasComparison, hasComparison, periodSubtitle } from "@/lib/reports/summary";
+import { buildExecutiveSummary, blockHasComparison, hasCalculableKpis, hasComparison, periodSubtitle } from "@/lib/reports/summary";
 import { cleanBullets, cleanCommentary } from "@/lib/reports/commentary";
 import { coverBadgeLabel } from "@/lib/reports/types";
 import { assessComposition, MIN_TREND_POINTS } from "@/lib/reports/composition";
@@ -73,7 +73,11 @@ function ChannelSection({ s, color, palette, block, sectionNum }: {
   sectionNum: string;
 }) {
   // Cap KPIs so one data-rich channel can't push everything else off the page.
-  const kpis = block.kpis.slice(0, 8);
+  // A row where nothing is calculable is a row of em dashes: an individual "—"
+  // beside real figures tells the reader that metric has no denominator, but a
+  // whole row of them carries no information at all.
+  const allKpis = block.kpis.slice(0, 8);
+  const kpis = hasCalculableKpis(allKpis) ? allKpis : [];
   // Same rule as the Google trend sections: a two-point line is decoration.
   const charts = block.series.filter((ser) => ser.points.length >= 5).slice(0, 2);
 
@@ -83,8 +87,9 @@ function ChannelSection({ s, color, palette, block, sectionNum }: {
       num={sectionNum}
       title={block.sourceName}
       subtitle={`${periodSubtitle("Performance during this period", blockHasComparison(block))}.`}
-    >
-      {kpis.length > 0 ? (
+      // The KPI row travels with the channel's heading, so a section can never
+      // announce a channel on one page and show its figures on the next.
+      keepWithHead={kpis.length > 0 ? (
         <View style={s.kpiRow} wrap={false}>
           {kpis.map((k) => (
             <KpiCard
@@ -99,7 +104,7 @@ function ChannelSection({ s, color, palette, block, sectionNum }: {
           ))}
         </View>
       ) : null}
-
+    >
       {charts.length > 0 ? (
         <View style={s.chartRow}>
           {charts.map((ser, i) => (
@@ -280,7 +285,7 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
   if (ga4 && revenue == null) heroKpis.push({ icon: "users", label: "Users", value: fmt(ga4.totals.users), delta: deltaPct(ga4.totals.users, ga4.previousTotals?.users) });
   else if (gsc) heroKpis.push({ icon: "eye", label: "Impressions", value: fmt(gsc.totals.impressions), delta: deltaPct(gsc.totals.impressions, gsc.previousTotals?.impressions) });
   else if (ga4) heroKpis.push({ icon: "target", label: "Conversions", value: fmt(ga4.totals.conversions), delta: deltaPct(ga4.totals.conversions, ga4.previousTotals?.conversions) });
-  const heroRow = heroKpis.slice(0, 4);
+  const allHeroKpis = heroKpis.slice(0, 4);
 
   // Executive-dashboard derivations (deterministic, real data only).
   const score = performanceScore(gsc, ga4);
@@ -365,6 +370,15 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
   // page, and diverting into it dropped the section entirely.
   const soloChannel = composition.channels.length === 1 && !composition.channels[0].standalone;
   const mergeChannel = compact && soloChannel && !!(gsc || ga4);
+
+  // On a thin report the hero row and the Performance Overview that follows it
+  // on the same page are the same two or three numbers, presented twice at
+  // full size. With plenty of data the two earn their places — the hero row is
+  // the 30-second read and the overview breaks it out further — but with a
+  // handful of figures the overview is a strict superset, so the hero row is
+  // dropped rather than restating it. Nothing is lost: every hero metric
+  // appears in the overview, with its CTR and position alongside.
+  const heroRow = compact && (gsc || ga4) ? [] : allHeroKpis;
 
   // Channels are grouped onto pages rather than given one page each. The
   // composition assessment already measures whether a channel has enough to

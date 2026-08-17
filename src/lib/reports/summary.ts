@@ -70,6 +70,17 @@ export function blockHasComparison(b: ReportBlock): boolean {
   return b.kpis.some((k) => k.previous != null && Number.isFinite(k.previous));
 }
 
+/**
+ * True when at least one of a channel's KPIs is actually calculable.
+ *
+ * A single "—" among real figures tells the reader that metric has no
+ * denominator, which is worth saying. A whole row of them says nothing, so both
+ * renderers use this to drop the row rather than print it empty.
+ */
+export function hasCalculableKpis(kpis: BlockKpi[]): boolean {
+  return kpis.some((k) => k.value !== null && Number.isFinite(k.value));
+}
+
 /** True when any source in the report has a previous period to compare against. */
 export function hasComparison(input: {
   gsc: GscReportFull | null;

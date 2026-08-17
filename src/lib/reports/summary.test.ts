@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blockHasComparison, buildExecutiveSummary, hasComparison, periodSubtitle } from "./summary";
+import { blockHasComparison, buildExecutiveSummary, hasCalculableKpis, hasComparison, periodSubtitle } from "./summary";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import type { ReportBlock } from "@/lib/integrations/blocks";
 
@@ -238,5 +238,33 @@ describe("comparison availability", () => {
       .toBe("Performance during this period, compared with the previous period");
     expect(periodSubtitle("Performance during this period", false))
       .toBe("Performance during this period");
+  });
+});
+
+// A single "—" among real figures says that metric has no denominator, which is
+// worth showing. A whole row of them says nothing, and both renderers drop the
+// row rather than print an empty grid of cards.
+describe("hasCalculableKpis", () => {
+  it("keeps a row that has at least one real figure", () => {
+    expect(hasCalculableKpis(paid([
+      { label: "Spend", value: 228 },
+      { label: "CPC", value: null },
+      { label: "ROAS", value: null },
+    ]).kpis)).toBe(true);
+  });
+
+  it("drops a row where nothing is calculable", () => {
+    expect(hasCalculableKpis(paid([
+      { label: "CPC", value: null },
+      { label: "ROAS", value: null },
+    ]).kpis)).toBe(false);
+  });
+
+  it("treats a measured zero as a figure, because it is one", () => {
+    expect(hasCalculableKpis(paid([{ label: "Conversions", value: 0 }]).kpis)).toBe(true);
+  });
+
+  it("has nothing to show for an empty row", () => {
+    expect(hasCalculableKpis([])).toBe(false);
   });
 });
