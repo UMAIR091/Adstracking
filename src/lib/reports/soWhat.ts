@@ -161,6 +161,76 @@ export function blockActions(blocks: ReportBlock[]): RecommendedAction[] {
   return out;
 }
 
+/**
+ * Observations from non-Google channels.
+ *
+ * `detectSignals` only reaches Search Console and Analytics, so a paid-media
+ * or commerce report produced no interpretation at all — the "so what" layer
+ * was simply absent from exactly the reports that most needed it. These are
+ * plain readings of the block's own KPIs: what was spent, what came back, and
+ * whether the two are consistent. No figure is computed here that the block
+ * didn't already carry, and a KPI that is null (not calculable) is skipped
+ * rather than read as zero.
+ */
+export function blockSoWhat(blocks: ReportBlock[], limit = 2): SoWhat[] {
+  const out: SoWhat[] = [];
+
+  for (const b of blocks) {
+    const kpi = (label: string) => b.kpis.find((k) => k.label.toLowerCase() === label.toLowerCase());
+    const money = (v: number) => formatBlockValue(v, "currency", b.currency);
+    const spend = kpi("Spend")?.value ?? null;
+    const clicks = kpi("Clicks")?.value ?? null;
+    const conversions = kpi("Conversions")?.value ?? null;
+    const impressions = kpi("Impressions")?.value ?? null;
+
+    if (spend != null && spend > 0 && conversions === 0) {
+      out.push({
+        observation: `${b.sourceName} spent ${money(spend)} and recorded no conversions in this period.`,
+        meaning:
+          "Either the conversion is not being tracked back to the ads, or the traffic is arriving and not converting. Which of the two it is changes the fix entirely, so it is worth confirming before adjusting budget.",
+        metric: money(spend),
+        source: b.sourceName,
+        confidence: "high",
+        confidenceReason: "Spend and conversion counts are reported directly by the platform.",
+      });
+      continue;
+    }
+
+    if (spend != null && spend > 0 && impressions != null && impressions > 0 && clicks === 0) {
+      out.push({
+        observation: `${b.sourceName} served ${impressions.toLocaleString()} impressions for ${money(spend)} and received no clicks.`,
+        meaning:
+          "The ads are being shown but not acted on, which points at creative or audience match rather than budget or delivery.",
+        metric: `0 clicks`,
+        source: b.sourceName,
+        confidence: "high",
+        confidenceReason: "Impressions and clicks are reported directly by the platform.",
+      });
+      continue;
+    }
+
+    if (spend != null && spend > 0 && conversions != null && conversions > 0) {
+      const cpa = spend / conversions;
+      out.push({
+        observation: `${b.sourceName} produced ${conversions.toLocaleString()} conversions from ${money(spend)} of spend.`,
+        meaning:
+          "This channel is converting, so the question is efficiency rather than whether it works — compare the cost per conversion against what the same outcome costs elsewhere.",
+        metric: `${money(cpa)} per conversion`,
+        source: b.sourceName,
+        confidence: "high",
+        confidenceReason: "Both figures come from the platform's own reporting for this period.",
+      });
+    }
+  }
+
+  return out.slice(0, limit);
+}
+
+/** Everything the report can honestly interpret, Google sources first. */
+export function allSoWhat(signals: Signal[], blocks: ReportBlock[], limit = 3): SoWhat[] {
+  return [...buildSoWhat(signals, limit), ...blockSoWhat(blocks, limit)].slice(0, limit);
+}
+
 /** Merges signal-derived and channel-derived actions, strongest first. */
 export function allActions(signals: Signal[], blocks: ReportBlock[], limit = 4): RecommendedAction[] {
   return [...blockActions(blocks), ...buildActions(signals, limit)]

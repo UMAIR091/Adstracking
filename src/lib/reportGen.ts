@@ -228,7 +228,18 @@ export async function createClientReport(
   // The period is what the user asked for. `coverage` records how much real
   // data landed inside it, so a partially-covered report can say so instead of
   // silently relabelling itself as a shorter period.
-  const coverage = dataCoverage({ gsc: gscData, ga4: ga4Data, blocks });
+  // Coverage describes how much of THIS period the data spans, so it is clamped
+  // to the window. Providers settle on different lags (GA4 and most channels
+  // report through yesterday, Search Console two days back), which previously
+  // let coverage run a day past the period end and read as though the report
+  // covered dates outside its own stated range.
+  const rawCoverage = dataCoverage({ gsc: gscData, ga4: ga4Data, blocks });
+  const coverage = rawCoverage
+    ? {
+        start: rawCoverage.start < period.start ? period.start : rawCoverage.start,
+        end: rawCoverage.end > period.end ? period.end : rawCoverage.end,
+      }
+    : null;
 
   // Only sources that actually contributed data describe the report. A
   // connected-but-empty source shouldn't make an SEO report look cross-channel.

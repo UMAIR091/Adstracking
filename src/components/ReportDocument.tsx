@@ -300,7 +300,7 @@ export function ReportDocument({
 
         {/* SEO vs Website Performance — combined KPIs */}
         {(gsc || ga4) && (
-          <Section n={next()} title="SEO vs Website Performance" subtitle="Search visibility and on-site results, side by side" color={color}>
+          <Section n={next()} title={gsc && ga4 ? "Search vs Website Performance" : gsc ? "Search Performance" : "Website Performance"} subtitle={gsc && ga4 ? "Search visibility and on-site results, side by side" : gsc ? "Search visibility for the reporting period" : "On-site results for the reporting period"} color={color}>
             <div className="grid gap-6 lg:grid-cols-2">
               {gsc && <KpiGroup label="Search Console" icon={Search} color={color} kpis={gscKpis} />}
               {ga4 && <KpiGroup label="Website engagement (GA4)" icon={BarChart3} color={color} kpis={ga4Kpis} />}
@@ -668,7 +668,7 @@ export function ReportDocument({
             <p className="text-sm italic leading-relaxed text-ink-600">
               {branding.footer_text
                 ? branding.footer_text
-                : `Thanks for partnering with ${branding.name || "us"}, ${clientName}. We're focused on compounding these gains next month — reach out any time with questions.`}
+                : `Prepared for ${clientName} by ${branding.name || "your agency"}. The figures above cover the reporting period shown on the cover — get in touch with any questions.`}
             </p>
           </div>
         </Section>

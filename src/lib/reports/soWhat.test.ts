@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSoWhat, buildActions, blockActions, allActions } from "./soWhat";
+import { buildSoWhat, buildActions, blockActions, allActions, blockSoWhat, allSoWhat } from "./soWhat";
 import type { Signal } from "@/lib/insights/signals";
 import type { ReportBlock } from "@/lib/integrations/blocks";
 
@@ -155,5 +155,77 @@ describe("allActions", () => {
 
   it("stays concise on sparse data instead of padding", () => {
     expect(allActions([], [])).toEqual([]);
+  });
+});
+
+// Channel-derived interpretation. Without this, a paid-media or commerce report
+// produced no "so what" at all, because detectSignals only reads Search Console
+// and Analytics — the reports that most needed the layer were the ones missing it.
+describe("blockSoWhat", () => {
+  it("reads spend with no conversions as a tracking-or-conversion question", () => {
+    const [w] = blockSoWhat([paidBlock([
+      { label: "Spend", value: 4200 },
+      { label: "Conversions", value: 0 },
+    ])]);
+    expect(w.observation).toMatch(/\$4,200/);
+    expect(w.observation).toMatch(/no conversions/);
+    expect(w.meaning).toMatch(/tracked|converting/i);
+    expect(w.source).toBe("Meta Ads");
+  });
+
+  it("reads impressions without clicks as a creative question", () => {
+    const [w] = blockSoWhat([paidBlock([
+      { label: "Spend", value: 300 },
+      { label: "Impressions", value: 50000 },
+      { label: "Clicks", value: 0 },
+      { label: "Conversions", value: 4 },
+    ])]);
+    expect(w.observation).toMatch(/50,000 impressions/);
+    expect(w.meaning).toMatch(/creative|audience/i);
+  });
+
+  it("states cost per conversion when the channel converts", () => {
+    const [w] = blockSoWhat([paidBlock([
+      { label: "Spend", value: 1000 },
+      { label: "Conversions", value: 25 },
+    ])]);
+    expect(w.metric).toMatch(/\$40 per conversion/);
+    expect(w.meaning).toMatch(/efficiency/i);
+  });
+
+  it("says nothing when spend is not calculable", () => {
+    expect(blockSoWhat([paidBlock([
+      { label: "Spend", value: null },
+      { label: "Conversions", value: 0 },
+    ])])).toEqual([]);
+  });
+
+  it("says nothing about a channel with no spend recorded", () => {
+    expect(blockSoWhat([paidBlock([{ label: "Impressions", value: 900 }])])).toEqual([]);
+  });
+});
+
+describe("allSoWhat", () => {
+  it("gives an ads-only report an interpretation layer", () => {
+    const out = allSoWhat([], [paidBlock([
+      { label: "Spend", value: 500 },
+      { label: "Conversions", value: 0 },
+    ])]);
+    expect(out).toHaveLength(1);
+    expect(out[0].source).toBe("Meta Ads");
+  });
+
+  it("puts Search Console and Analytics signals first when both exist", () => {
+    const out = allSoWhat(
+      [signal()],
+      [paidBlock([{ label: "Spend", value: 500 }, { label: "Conversions", value: 0 }])],
+      3,
+    );
+    expect(out[0].source).toBe("Search Console");
+    expect(out.map((w) => w.source)).toContain("Meta Ads");
+  });
+
+  it("stays empty when nothing was measured", () => {
+    expect(allSoWhat([], [])).toEqual([]);
   });
 });

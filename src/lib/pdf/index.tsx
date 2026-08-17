@@ -18,7 +18,8 @@ import { CoverPage, PageChrome, Section, KpiCard, DataTable, HighlightChips, Cha
 import { LineChart, BarList, ShareBar } from "./charts";
 import { Icon, TrendArrow } from "./icons";
 import { detectSignals } from "@/lib/insights/signals";
-import { buildSoWhat, allActions } from "@/lib/reports/soWhat";
+import { allSoWhat, allActions } from "@/lib/reports/soWhat";
+import { reportTypeLabel } from "@/lib/reports/types";
 import { performanceScore, bestChannel, biggestOpportunity, biggestRisk, toInsightCard, actionMeta, buildForecast } from "./analysis";
 import type { BlockFormat, ReportBlock } from "@/lib/integrations/blocks";
 
@@ -70,7 +71,8 @@ function ChannelSection({ s, color, palette, block, sectionNum }: {
 }) {
   // Cap KPIs so one data-rich channel can't push everything else off the page.
   const kpis = block.kpis.slice(0, 8);
-  const charts = block.series.filter((ser) => ser.points.length > 1).slice(0, 2);
+  // Same rule as the Google trend sections: a two-point line is decoration.
+  const charts = block.series.filter((ser) => ser.points.length >= 5).slice(0, 2);
 
   return (
     <Section s={s} num={sectionNum} title={block.sourceName} subtitle={`Performance for the reporting period, compared with the previous period.`}>
@@ -259,7 +261,22 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
   const opportunities = movers?.opportunities ?? [];
   const highlights = buildHighlights(gsc, ga4);
   const summaryText = executiveSummary || buildFallbackSummary(clientName, period, gsc, ga4);
-  const badge = gsc && ga4 ? "SEO + Analytics Report" : ga4 ? "Analytics Report" : "SEO Report";
+  // The cover badge describes what the report actually IS. It used to be
+  // `gsc && ga4 ? … : ga4 ? … : "SEO Report"`, so anything without GA4 — a
+  // Meta-Ads-only paid report included — was stamped "SEO Report". The stored
+  // report type is authoritative; the connected channels are the fallback for
+  // reports generated before types existed.
+  const typeLabel = reportTypeLabel(meta?.reportType);
+  const channelNames = [
+    ...(gsc ? ["Search Console"] : []),
+    ...(ga4 ? ["Analytics"] : []),
+    ...channelBlocks.map((b) => b.sourceName),
+  ];
+  const badge = typeLabel
+    ? `${typeLabel} Report`
+    : channelNames.length === 0 ? "Performance Report"
+    : channelNames.length <= 2 ? `${channelNames.join(" + ")} Report`
+    : "Cross-Channel Report";
   const chrome = { s, branding, title, generatedAt, logoSrc };
 
   const revenue = ga4 && ga4.totals.totalRevenue > 0 ? ga4.totals.totalRevenue : null;
@@ -292,7 +309,12 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
   // rows; buildSoWhat attaches the standing meaning of each pattern and
   // allActions the next step, each carrying the figure that motivated it.
   const signals = detectSignals(gsc, ga4, 6);
-  const soWhat = buildSoWhat(signals, 3);
+  const soWhat = allSoWhat(signals, channelBlocks, 3);
+  // The executive dashboard page only exists when a Google source is present.
+  // Without it the interpretation layer had nowhere to render at all, which is
+  // why an ads-only report showed no "what this means" — it moves to the
+  // insights page instead of being dropped.
+  const soWhatOffDashboard = gsc || ga4 ? [] : soWhat;
   const evidenceActions = allActions(signals, channelBlocks, 4);
 
   // Coverage and limitations, stated in the document the client receives —
@@ -315,13 +337,28 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
     for (const u of meta.unavailable ?? []) coverageLines.push(`${u.section}: ${u.reason}`);
   }
 
-  const hasTrends = (gsc?.byDate?.length ?? 0) > 1 || (ga4?.byDate?.length ?? 0) > 1;
+  // A two-point line is not a trend. Below this a chart page would be shape
+  // without information, so the section is dropped rather than drawn — this is
+  // what kept a two-day report at full template length.
+  const MIN_TREND_POINTS = 5;
+  const hasTrends = (gsc?.byDate?.length ?? 0) >= MIN_TREND_POINTS || (ga4?.byDate?.length ?? 0) >= MIN_TREND_POINTS;
   const hasSearch = !!gsc && (gsc.topQueries.length > 0 || (movers?.winners?.length ?? 0) > 0 || opportunities.length > 0);
   const hasTraffic = !!ga4 && ((ga4.trafficSources?.length ?? 0) > 0 || (ga4.topLandingPages?.length ?? 0) > 0);
   const hasAudience = !!ga4 && ((ga4.devices?.length ?? 0) > 0 || (ga4.countries?.length ?? 0) > 0);
   const hasDetails = hasTrends || hasSearch || hasTraffic || hasAudience;
+  // A thin report shouldn't be spread across the same number of pages as a rich
+  // one. With no detail sections and at most one channel, the overview and the
+  // closing sections are short enough to sit with the dashboard rather than
+  // each opening a page of their own.
+  const compact = !hasDetails && channelBlocks.length <= 1;
+  // Only divert the channel section into the dashboard page when that page
+  // actually exists — it is gated on a Google source. Without this check an
+  // ads-only report lost its channel section entirely.
+  const mergeChannel = compact && channelBlocks.length === 1 && !!(gsc || ga4);
   const hasInsightCards = keyWins.length > 0 || issuesDetected.length > 0 || growthOpportunities.length > 0;
-  const hasInsights = hasInsightCards || recommendedActions.length > 0 || !!branding.footer_text;
+  // Previously excluded the evidence layer, so a report whose only content
+  // was "what this means" + coverage skipped the page holding them entirely.
+  const hasInsights = hasInsightCards || recommendedActions.length > 0 || !!branding.footer_text || evidenceActions.length > 0 || coverageLines.length > 0 || soWhatOffDashboard.length > 0;
 
   // Sections are numbered in document order; only rendered sections count.
   let sn = 0;
@@ -337,6 +374,51 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
     { header: "Position", width: 44, align: "right", cell: (q) => q.position.toFixed(1) },
   ];
 
+  // Extracted so the same section can render either on its own page or, when
+  // the report is thin, inside the dashboard page. Defined as a function so
+  // num() fires in document order and only for the branch that renders.
+  const renderOverview = () => (
+    <>
+
+        {(gsc || ga4) ? (
+          <Section s={s} num={num()} title="Performance Overview" subtitle="Key metrics for the reporting period, compared with the previous period.">
+            {gsc ? (
+              <View wrap={false}>
+                <Text style={s.groupLabel}>Search visibility · Google Search Console</Text>
+                <View style={s.kpiRow}>
+                  <KpiCard s={s} color={color} icon="clicks" label="Clicks" value={fmt(gsc.totals.clicks)} delta={deltaPct(gsc.totals.clicks, gsc.previousTotals?.clicks)} />
+                  <KpiCard s={s} color={color} icon="eye" label="Impressions" value={fmt(gsc.totals.impressions)} delta={deltaPct(gsc.totals.impressions, gsc.previousTotals?.impressions)} />
+                  <KpiCard s={s} color={color} icon="percent" label="Avg. CTR" value={pct1(gsc.totals.ctr)} delta={deltaPct(gsc.totals.ctr, gsc.previousTotals?.ctr)} />
+                  <KpiCard s={s} color={color} icon="target" label="Avg. Position" value={gsc.totals.position.toFixed(1)} delta={deltaPct(gsc.totals.position, gsc.previousTotals?.position)} lowerBetter />
+                </View>
+              </View>
+            ) : null}
+            {ga4 ? (
+              <View wrap={false}>
+                <Text style={s.groupLabel}>Website engagement · Google Analytics 4</Text>
+                <View style={s.kpiRow}>
+                  <KpiCard s={s} color={color} icon="users" label="Users" value={fmt(ga4.totals.users)} delta={deltaPct(ga4.totals.users, ga4.previousTotals?.users)} />
+                  <KpiCard s={s} color={color} icon="activity" label="Sessions" value={fmt(ga4.totals.sessions)} delta={deltaPct(ga4.totals.sessions, ga4.previousTotals?.sessions)} />
+                  <KpiCard s={s} color={color} icon="zap" label="Engagement Rate" value={pct1(ga4.totals.engagementRate)} delta={deltaPct(ga4.totals.engagementRate, ga4.previousTotals?.engagementRate)} />
+                  <KpiCard s={s} color={color} icon="checkCircle" label="Conversions" value={fmt(ga4.totals.conversions)} delta={deltaPct(ga4.totals.conversions, ga4.previousTotals?.conversions)} />
+                </View>
+              </View>
+            ) : null}
+            {ga4 && revenue != null ? (
+              <View wrap={false}>
+                <Text style={s.groupLabel}>Ecommerce & conversions</Text>
+                <View style={s.kpiRow}>
+                  <KpiCard s={s} color={color} icon="dollar" label="Total Revenue" value={fmt(revenue)} delta={deltaPct(revenue, ga4.previousTotals?.totalRevenue)} />
+                  <KpiCard s={s} color={color} icon="percent" label="Conversion Rate" value={convRate != null ? pct1(convRate) : "—"} delta={convRate != null ? deltaPct(convRate, prevConvRate) : null} />
+                  <KpiCard s={s} color={color} icon="userPlus" label="New Users" value={fmt(ga4.totals.newUsers)} delta={deltaPct(ga4.totals.newUsers, ga4.previousTotals?.newUsers)} />
+                  <KpiCard s={s} color={color} icon="file" label="Pageviews" value={fmt(ga4.totals.views)} delta={deltaPct(ga4.totals.views, ga4.previousTotals?.views)} />
+                </View>
+              </View>
+            ) : null}
+          </Section>
+        ) : null}
+    </>
+  );
   return (
     <Document title={title} author={branding.name || "Agency"} subject={`Performance report for ${clientName}`} creator={branding.name || "Agency"}>
       <CoverPage s={s} color={color} branding={branding} logoSrc={logoSrc} badge={badge} title={title} clientName={clientName} period={period} generatedAt={generatedAt} />
@@ -400,52 +482,22 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
               ))}
             </Section>
           ) : null}
+
+          {/* Thin report: the overview joins the dashboard rather than opening
+              a page that would be mostly whitespace. */}
+          {compact ? renderOverview() : null}
+          {mergeChannel ? (
+            <ChannelSection s={s} color={color} palette={palette} block={channelBlocks[0]} sectionNum={num()} />
+          ) : null}
         </Page>
       ) : null}
 
       {/* ── Performance overview ── */}
-      {(gsc || ga4) ? (
-      <Page size="A4" style={s.page}>
-        <PageChrome {...chrome} />
-
-        {(gsc || ga4) ? (
-          <Section s={s} num={num()} title="Performance Overview" subtitle="Key metrics for the reporting period, compared with the previous period.">
-            {gsc ? (
-              <View wrap={false}>
-                <Text style={s.groupLabel}>Search visibility · Google Search Console</Text>
-                <View style={s.kpiRow}>
-                  <KpiCard s={s} color={color} icon="clicks" label="Clicks" value={fmt(gsc.totals.clicks)} delta={deltaPct(gsc.totals.clicks, gsc.previousTotals?.clicks)} />
-                  <KpiCard s={s} color={color} icon="eye" label="Impressions" value={fmt(gsc.totals.impressions)} delta={deltaPct(gsc.totals.impressions, gsc.previousTotals?.impressions)} />
-                  <KpiCard s={s} color={color} icon="percent" label="Avg. CTR" value={pct1(gsc.totals.ctr)} delta={deltaPct(gsc.totals.ctr, gsc.previousTotals?.ctr)} />
-                  <KpiCard s={s} color={color} icon="target" label="Avg. Position" value={gsc.totals.position.toFixed(1)} delta={deltaPct(gsc.totals.position, gsc.previousTotals?.position)} lowerBetter />
-                </View>
-              </View>
-            ) : null}
-            {ga4 ? (
-              <View wrap={false}>
-                <Text style={s.groupLabel}>Website engagement · Google Analytics 4</Text>
-                <View style={s.kpiRow}>
-                  <KpiCard s={s} color={color} icon="users" label="Users" value={fmt(ga4.totals.users)} delta={deltaPct(ga4.totals.users, ga4.previousTotals?.users)} />
-                  <KpiCard s={s} color={color} icon="activity" label="Sessions" value={fmt(ga4.totals.sessions)} delta={deltaPct(ga4.totals.sessions, ga4.previousTotals?.sessions)} />
-                  <KpiCard s={s} color={color} icon="zap" label="Engagement Rate" value={pct1(ga4.totals.engagementRate)} delta={deltaPct(ga4.totals.engagementRate, ga4.previousTotals?.engagementRate)} />
-                  <KpiCard s={s} color={color} icon="checkCircle" label="Conversions" value={fmt(ga4.totals.conversions)} delta={deltaPct(ga4.totals.conversions, ga4.previousTotals?.conversions)} />
-                </View>
-              </View>
-            ) : null}
-            {ga4 && revenue != null ? (
-              <View wrap={false}>
-                <Text style={s.groupLabel}>Ecommerce & conversions</Text>
-                <View style={s.kpiRow}>
-                  <KpiCard s={s} color={color} icon="dollar" label="Total Revenue" value={fmt(revenue)} delta={deltaPct(revenue, ga4.previousTotals?.totalRevenue)} />
-                  <KpiCard s={s} color={color} icon="percent" label="Conversion Rate" value={convRate != null ? pct1(convRate) : "—"} delta={convRate != null ? deltaPct(convRate, prevConvRate) : null} />
-                  <KpiCard s={s} color={color} icon="userPlus" label="New Users" value={fmt(ga4.totals.newUsers)} delta={deltaPct(ga4.totals.newUsers, ga4.previousTotals?.newUsers)} />
-                  <KpiCard s={s} color={color} icon="file" label="Pageviews" value={fmt(ga4.totals.views)} delta={deltaPct(ga4.totals.views, ga4.previousTotals?.views)} />
-                </View>
-              </View>
-            ) : null}
-          </Section>
-        ) : null}
-      </Page>
+      {(gsc || ga4) && !compact ? (
+        <Page size="A4" style={s.page}>
+          <PageChrome {...chrome} />
+          {renderOverview()}
+        </Page>
       ) : null}
 
       {/* ── Detailed performance ── */}
@@ -456,14 +508,14 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
           {hasTrends ? (
             <Section s={s} num={num()} title="Performance Trends" subtitle="Daily movement across the reporting period.">
               <View style={s.chartRow}>
-                {(gsc?.byDate?.length ?? 0) > 1 ? (
+                {(gsc?.byDate?.length ?? 0) >= MIN_TREND_POINTS ? (
                   <View style={s.chartCol}>
                     <ChartCard s={s} title="Organic clicks" value={fmt(gsc!.totals.clicks)} hint={trendCaption("Organic clicks", gsc!.byDate.map((d) => d.clicks), "Google Search Console")}>
                       <LineChart id="clicks" values={gsc!.byDate.map((d) => d.clicks)} dates={gsc!.byDate.map((d) => d.date)} color={color} width={HALF_W - CARD_PAD} />
                     </ChartCard>
                   </View>
                 ) : null}
-                {(ga4?.byDate?.length ?? 0) > 1 ? (
+                {(ga4?.byDate?.length ?? 0) >= MIN_TREND_POINTS ? (
                   <View style={s.chartCol}>
                     <ChartCard s={s} title="Sessions" value={fmt(ga4!.totals.sessions)} hint={trendCaption("Sessions", ga4!.byDate.map((d) => d.sessions), "Google Analytics 4")}>
                       <LineChart id="sessions" values={ga4!.byDate.map((d) => d.sessions)} dates={ga4!.byDate.map((d) => d.date)} color={palette[1]} width={HALF_W - CARD_PAD} />
@@ -598,7 +650,7 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
       {/* ── Connected channels (every non-Google integration) ──
           Provider-agnostic: each block renders itself from its own labels,
           formats and currency, so new integrations need no change here. */}
-      {channelBlocks.map((block) => (
+      {(mergeChannel ? [] : channelBlocks).map((block) => (
         <Page key={block.sourceId} size="A4" style={s.page}>
           <PageChrome {...chrome} />
           <ChannelSection s={s} color={color} palette={palette} block={block} sectionNum={num()} />
@@ -609,6 +661,18 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
       {hasInsights ? (
         <Page size="A4" style={s.page}>
           <PageChrome {...chrome} />
+
+          {soWhatOffDashboard.length > 0 ? (
+            <Section s={s} num={num()} title="What this means" subtitle="Each point below is tied to a figure measured in this report.">
+              {soWhatOffDashboard.map((w) => (
+                <View key={w.observation} style={s.soWhatRow} wrap={false}>
+                  <Text style={s.soWhatObs}>{w.observation}</Text>
+                  <Text style={s.soWhatMeaning}>{w.meaning}</Text>
+                  <Text style={s.soWhatEvidence}>{w.metric} · {w.source} · {w.confidence} confidence — {w.confidenceReason}</Text>
+                </View>
+              ))}
+            </Section>
+          ) : null}
 
           {hasInsightCards ? (
             <Section s={s} num={num()} title="Insights & Analysis" subtitle="What stood out this period — scan the cards for the headline, read on for detail.">
