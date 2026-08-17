@@ -105,6 +105,26 @@ export function makeStyles(color: string) {
     para: { fontSize: 9.5, lineHeight: 1.65, color: ink[700] },
     summaryPanel: { backgroundColor: ink.bgSoft, border: `1pt solid ${ink.line}`, borderRadius: 9, padding: 15 },
 
+    // "What this means" — the observation reads as the claim, the meaning as
+    // the interpretation, the evidence line as the receipt underneath.
+    soWhatRow: { borderLeft: `2pt solid ${ink.line}`, paddingLeft: 11, marginBottom: 11 },
+    soWhatObs: { fontSize: 9.5, fontFamily: "Helvetica-Bold", color: ink[900], marginBottom: 2.5, lineHeight: 1.45 },
+    soWhatMeaning: { fontSize: 9, lineHeight: 1.6, color: ink[700] },
+    soWhatEvidence: { fontSize: 7.5, color: ink[500], marginTop: 3.5, lineHeight: 1.45 },
+
+    // Evidence-backed recommendations: the step, then the measurement it came
+    // from, so a reader can trace every recommendation to a number.
+    evActionRow: { flexDirection: "row", marginBottom: 9 },
+    evActionPriority: { width: 46, fontSize: 7, fontFamily: "Helvetica-Bold", letterSpacing: 0.5, textTransform: "uppercase", paddingTop: 1.5 },
+    evActionBody: { flex: 1 },
+    evActionText: { fontSize: 9.5, color: ink[900], lineHeight: 1.5 },
+    evActionBecause: { fontSize: 8, color: ink[500], marginTop: 2, lineHeight: 1.45 },
+
+    // Coverage / limitation notice — visible, never hidden in a footnote.
+    coverageNote: { backgroundColor: ink.bgSoft, border: `1pt solid ${ink.line}`, borderRadius: 7, padding: 11, marginTop: 10 },
+    coverageTitle: { fontSize: 8, fontFamily: "Helvetica-Bold", color: ink[700], marginBottom: 3 },
+    coverageText: { fontSize: 8, lineHeight: 1.5, color: ink[700] },
+
     // ── KPI cards ────────────────────────────────────────────────────────────
     kpiRow: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
     kpi: { width: "23.6%", border: `1pt solid ${ink.line}`, borderRadius: 8, padding: 10, backgroundColor: ink.white },

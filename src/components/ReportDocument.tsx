@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { normalizeReportData, periodDayCount } from "@/lib/report";
 import { formatBlockValue } from "@/lib/integrations/blocks";
+import { detectSignals } from "@/lib/insights/signals";
+import { buildSoWhat, allActions } from "@/lib/reports/soWhat";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 
 type Branding = { name: string; logo_url: string | null; brand_color: string; website: string | null; footer_text: string | null };
@@ -195,6 +197,12 @@ export function ReportDocument({
   }
 
   const unavailable = meta?.unavailable ?? [];
+
+  // Same interpretation layer the PDF uses, so the on-screen report and the
+  // document the client receives never disagree.
+  const signals = detectSignals(gsc, ga4, 6);
+  const soWhat = buildSoWhat(signals, 3);
+  const evidenceActions = allActions(signals, blocks ?? [], 4);
 
   // States plainly when the period is only partly covered, rather than letting
   // the cover imply a full window of measurement.
@@ -595,9 +603,53 @@ export function ReportDocument({
           </Section>
         )}
 
-        {/* Recommended Actions (AI) */}
+        {/* What this means — the interpretation layer. Each entry pairs a
+            measured signal with the standing meaning of that pattern, so the
+            client gets "and therefore…" rather than another table. */}
+        {soWhat.length > 0 && (
+          <Section n={next()} title="What this means" subtitle="Each point is tied to a figure measured in this report" color={color}>
+            <div className="space-y-4">
+              {soWhat.map((w) => (
+                <div key={w.observation} className="border-l-2 border-slate-200 pl-4">
+                  <p className="text-sm font-semibold text-ink-900">{w.observation}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-ink-700">{w.meaning}</p>
+                  <p className="mt-1.5 text-xs text-ink-500">
+                    {w.metric} · {w.source} · {w.confidence} confidence — {w.confidenceReason}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {/* Evidence-backed next steps, each carrying the figure behind it. */}
+        {evidenceActions.length > 0 && (
+          <Section n={next()} title="Recommended actions" subtitle="Each step is prompted by a figure measured in this report" color={color}>
+            <ul className="space-y-3">
+              {evidenceActions.map((a) => (
+                <li key={a.action} className="flex gap-3 rounded-lg border border-slate-100 bg-white p-3">
+                  <span
+                    className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                      a.priority === "High" ? "bg-amber-50 text-amber-700"
+                      : a.priority === "Medium" ? "bg-slate-100 text-ink-700"
+                      : "bg-slate-50 text-ink-500"
+                    }`}
+                  >
+                    {a.priority}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm text-ink-800">{a.action}</p>
+                    <p className="mt-0.5 text-xs text-ink-500">Because: {a.because} ({a.source})</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
+
+        {/* AI commentary, kept distinct from the evidence-backed steps above. */}
         {ins && ins.recommendedActions.length > 0 && (
-          <Section n={next()} title="Recommended Actions" subtitle="Prioritised for impact" color={color}>
+          <Section n={next()} title="Further commentary" subtitle="Written by AI from the metrics in this report" color={color}>
             <ol className="space-y-2">
               {ins.recommendedActions.map((r, i) => (
                 <li key={i} className="flex gap-3 rounded-lg border border-slate-100 bg-white p-3">

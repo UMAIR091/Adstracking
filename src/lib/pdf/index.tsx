@@ -9,7 +9,7 @@
 // tokens in ./theme.ts.
 import React from "react";
 import { Document, Page, View, Text, Font, renderToBuffer } from "@react-pdf/renderer";
-import { normalizeReportData } from "@/lib/report";
+import { normalizeReportData, periodDayCount } from "@/lib/report";
 import { safeFetch } from "@/lib/ssrf";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import { makeStyles, safeColor, tint, tones, seriesColors, ink, up, down, type Tone } from "./theme";
@@ -17,6 +17,8 @@ import { fmt, pct1, fmtDate, deltaPct, deltaLabel, pagePathOf } from "./format";
 import { CoverPage, PageChrome, Section, KpiCard, DataTable, HighlightChips, ChartCard, Bullets, GaugePanel, DashTile, InsightCards, ActionCard, type Branding, type Highlight, type Col } from "./components";
 import { LineChart, BarList, ShareBar } from "./charts";
 import { Icon, TrendArrow } from "./icons";
+import { detectSignals } from "@/lib/insights/signals";
+import { buildSoWhat, allActions } from "@/lib/reports/soWhat";
 import { performanceScore, bestChannel, biggestOpportunity, biggestRisk, toInsightCard, actionMeta, buildForecast } from "./analysis";
 import type { BlockFormat, ReportBlock } from "@/lib/integrations/blocks";
 
@@ -138,6 +140,29 @@ function ChannelSection({ s, color, palette, block, sectionNum }: {
   );
 }
 
+/**
+ * A caption that tells the reader what the line MEANS, computed from the line
+ * itself: first half of the period against the second. A chart with a title and
+ * a number still leaves "is that good?" unanswered.
+ *
+ * Says nothing when there are too few points to compare — an unsupported
+ * "trending up" on four days of data is exactly the kind of claim this report
+ * must not make.
+ */
+function trendCaption(label: string, values: number[], source: string): string {
+  if (values.length < 6) return `${source} · too few days to describe a trend`;
+  const half = Math.floor(values.length / 2);
+  const mean = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
+  const first = mean(values.slice(0, half));
+  const second = mean(values.slice(half));
+  if (first === 0) return `${source} · no earlier activity to compare against`;
+  const pct = ((second - first) / first) * 100;
+  // Under 5% either way is noise, not a movement worth narrating.
+  if (Math.abs(pct) < 5) return `${source} · broadly flat across the period`;
+  const dir = pct > 0 ? "higher" : "lower";
+  return `${source} · ${label.toLowerCase()} ran ${Math.abs(pct).toFixed(0)}% ${dir} in the second half of the period`;
+}
+
 // ── Auto-computed "at a glance" movements for the executive summary ──────────
 function buildHighlights(gsc: GscReportFull | null, ga4: Ga4ReportFull | null): Highlight[] {
   type Cand = { label: string; cur: number; prev: number | null | undefined; lowerBetter?: boolean; format: (n: number) => string };
@@ -212,7 +237,7 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
 }) {
   const color = safeColor(branding.brand_color);
   const s = makeStyles(color);
-  const { gsc, ga4, blocks, insights } = normalizeReportData(data);
+  const { gsc, ga4, blocks, insights, meta } = normalizeReportData(data);
 
   // Every connected integration other than Search Console / GA4, already
   // projected into the neutral block vocabulary by lib/integrations/blocks.ts.
@@ -263,6 +288,33 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
   const dashTiles = [channelTile, opportunityTile, riskTile].filter((t): t is NonNullable<typeof t> => t != null);
   const forecast = buildForecast(gsc, ga4);
 
+  // The interpretation layer. Signals are arithmetic over the client's own
+  // rows; buildSoWhat attaches the standing meaning of each pattern and
+  // allActions the next step, each carrying the figure that motivated it.
+  const signals = detectSignals(gsc, ga4, 6);
+  const soWhat = buildSoWhat(signals, 3);
+  const evidenceActions = allActions(signals, channelBlocks, 4);
+
+  // Coverage and limitations, stated in the document the client receives —
+  // not just in the dashboard. A partially-covered period must never look like
+  // a full one.
+  const coverageLines: string[] = [];
+  if (meta) {
+    const requested = periodDayCount(meta.requested.start, meta.requested.end);
+    if (!meta.coverage) {
+      coverageLines.push(`No daily data was recorded for ${meta.requested.start} to ${meta.requested.end}; the totals above come from the sources' own period figures.`);
+    } else {
+      const covered = periodDayCount(meta.coverage.start, meta.coverage.end);
+      if (requested > 0 && covered > 0 && covered < requested) {
+        coverageLines.push(`Data is available for ${covered} of the ${requested} days in this period (${meta.coverage.start} to ${meta.coverage.end}). Figures reflect the days measured.`);
+      }
+    }
+    if (meta.periodInProgress) {
+      coverageLines.push("This period is still in progress, so the figures cover it only up to the last settled day.");
+    }
+    for (const u of meta.unavailable ?? []) coverageLines.push(`${u.section}: ${u.reason}`);
+  }
+
   const hasTrends = (gsc?.byDate?.length ?? 0) > 1 || (ga4?.byDate?.length ?? 0) > 1;
   const hasSearch = !!gsc && (gsc.topQueries.length > 0 || (movers?.winners?.length ?? 0) > 0 || opportunities.length > 0);
   const hasTraffic = !!ga4 && ((ga4.trafficSources?.length ?? 0) > 0 || (ga4.topLandingPages?.length ?? 0) > 0);
@@ -312,6 +364,16 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
               </View>
             ) : null}
 
+            {/* Biggest movements — measured deltas, not a restatement of the
+                summary. Previously these sat on a second page under a repeated
+                copy of the same summary text. */}
+            {highlights.length > 0 ? (
+              <View style={{ marginBottom: dashTiles.length > 0 ? 12 : 0 }}>
+                <Text style={s.groupLabel}>Biggest movements this period</Text>
+                <HighlightChips s={s} items={highlights} />
+              </View>
+            ) : null}
+
             {/* Best channel / biggest opportunity / biggest risk */}
             {dashTiles.length > 0 ? (
               <View style={s.dashRow} wrap={false}>
@@ -321,24 +383,30 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
               </View>
             ) : null}
           </Section>
+
+          {/* "So what?" — what the measured movements mean and what to do.
+              Sits on the opening page so the 60-second read is: score, summary,
+              headline numbers, meaning, next steps. */}
+          {soWhat.length > 0 ? (
+            <Section s={s} num={num()} title="What this means" subtitle="Each point below is tied to a figure measured in this report.">
+              {soWhat.map((w) => (
+                <View key={w.observation} style={s.soWhatRow} wrap={false}>
+                  <Text style={s.soWhatObs}>{w.observation}</Text>
+                  <Text style={s.soWhatMeaning}>{w.meaning}</Text>
+                  <Text style={s.soWhatEvidence}>
+                    {w.metric} · {w.source} · {w.confidence} confidence — {w.confidenceReason}
+                  </Text>
+                </View>
+              ))}
+            </Section>
+          ) : null}
         </Page>
       ) : null}
 
-      {/* ── Executive summary + performance overview ── */}
+      {/* ── Performance overview ── */}
+      {(gsc || ga4) ? (
       <Page size="A4" style={s.page}>
         <PageChrome {...chrome} />
-
-        <Section s={s} num={num()} title="Executive Summary" subtitle={`${clientName} · ${fmtDate(period.start)} – ${fmtDate(period.end)}`}>
-          <View style={s.summaryPanel}>
-            <Text style={s.para}>{summaryText}</Text>
-          </View>
-          {highlights.length > 0 ? (
-            <View style={{ marginTop: 12 }}>
-              <Text style={s.groupLabel}>Biggest movements this period</Text>
-              <HighlightChips s={s} items={highlights} />
-            </View>
-          ) : null}
-        </Section>
 
         {(gsc || ga4) ? (
           <Section s={s} num={num()} title="Performance Overview" subtitle="Key metrics for the reporting period, compared with the previous period.">
@@ -375,18 +443,10 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
                 </View>
               </View>
             ) : null}
-            {!gsc && !ga4 ? <Text style={s.para}>No data sources were connected for this reporting period.</Text> : null}
           </Section>
-        ) : (
-          <Section s={s} num={num()} title="Performance Overview">
-            <Text style={s.para}>
-              {channelBlocks.length > 0
-                ? "Search and website analytics were not connected for this period. Connected channel performance follows."
-                : "No data sources were connected for this reporting period."}
-            </Text>
-          </Section>
-        )}
+        ) : null}
       </Page>
+      ) : null}
 
       {/* ── Detailed performance ── */}
       {hasDetails ? (
@@ -398,14 +458,14 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
               <View style={s.chartRow}>
                 {(gsc?.byDate?.length ?? 0) > 1 ? (
                   <View style={s.chartCol}>
-                    <ChartCard s={s} title="Organic clicks" value={fmt(gsc!.totals.clicks)} hint="Google Search Console">
+                    <ChartCard s={s} title="Organic clicks" value={fmt(gsc!.totals.clicks)} hint={trendCaption("Organic clicks", gsc!.byDate.map((d) => d.clicks), "Google Search Console")}>
                       <LineChart id="clicks" values={gsc!.byDate.map((d) => d.clicks)} dates={gsc!.byDate.map((d) => d.date)} color={color} width={HALF_W - CARD_PAD} />
                     </ChartCard>
                   </View>
                 ) : null}
                 {(ga4?.byDate?.length ?? 0) > 1 ? (
                   <View style={s.chartCol}>
-                    <ChartCard s={s} title="Sessions" value={fmt(ga4!.totals.sessions)} hint="Google Analytics 4">
+                    <ChartCard s={s} title="Sessions" value={fmt(ga4!.totals.sessions)} hint={trendCaption("Sessions", ga4!.byDate.map((d) => d.sessions), "Google Analytics 4")}>
                       <LineChart id="sessions" values={ga4!.byDate.map((d) => d.sessions)} dates={ga4!.byDate.map((d) => d.date)} color={palette[1]} width={HALF_W - CARD_PAD} />
                     </ChartCard>
                   </View>
@@ -573,13 +633,43 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
             </Section>
           ) : null}
 
+          {/* Evidence-backed next steps. Priority comes from the confidence and
+              weight of the signal behind each one, not from list position, and
+              every step carries the measurement that prompted it. */}
+          {evidenceActions.length > 0 ? (
+            <Section s={s} num={num()} title="Recommended actions" subtitle="Each step below is prompted by a figure measured in this report.">
+              {evidenceActions.map((a) => (
+                <View key={a.action} style={s.evActionRow} wrap={false}>
+                  <Text style={[s.evActionPriority, a.priority === "High" ? { color: tones.warning.fg } : a.priority === "Medium" ? { color: color } : { color: ink[500] }]}>
+                    {a.priority}
+                  </Text>
+                  <View style={s.evActionBody}>
+                    <Text style={s.evActionText}>{a.action}</Text>
+                    <Text style={s.evActionBecause}>Because: {a.because} ({a.source})</Text>
+                  </View>
+                </View>
+              ))}
+            </Section>
+          ) : null}
+
           {recommendedActions.length > 0 ? (
-            <Section s={s} num={num()} title="Executive Recommendations" subtitle="Prioritized next steps, ordered by expected business impact.">
-              {recommendedActions.slice(0, 6).map((a, i) => {
-                const meta = actionMeta(a, i, Math.min(6, recommendedActions.length));
+            <Section s={s} num={num()} title="Further commentary" subtitle="Written by ReportFlow's AI from the metrics in this report.">
+              {recommendedActions.slice(0, 4).map((a, i) => {
+                const meta = actionMeta(a, i, Math.min(4, recommendedActions.length));
                 return <ActionCard key={i} s={s} color={color} index={i} priority={meta.priority} impact={meta.impact} focus={meta.focus} card={toInsightCard(a)} />;
               })}
             </Section>
+          ) : null}
+
+          {/* Stated plainly rather than buried: what this period does and
+              doesn't cover, and which figures could not be produced for it. */}
+          {coverageLines.length > 0 ? (
+            <View style={s.coverageNote} wrap={false}>
+              <Text style={s.coverageTitle}>About the data in this report</Text>
+              {coverageLines.map((line) => (
+                <Text key={line} style={s.coverageText}>· {line}</Text>
+              ))}
+            </View>
           ) : null}
 
           {branding.footer_text ? (
