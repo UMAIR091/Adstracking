@@ -45,6 +45,20 @@ export type ReportMeta = {
   reportType?: string;
   /** Integration ids that actually contributed data, e.g. ["gsc","meta_ads"]. */
   sourceIds?: string[];
+  /** Which period preset produced this window, e.g. "previous_month". */
+  periodPreset?: string;
+  /** "rolling" | "calendar" | "custom". */
+  periodKind?: string;
+  /** Human label: "Last 28 days", "August 2026", "Q2 2026". */
+  periodLabel?: string;
+  /** True when the window was still running when the report was generated. */
+  periodInProgress?: boolean;
+  /**
+   * Sections that could not be rebuilt for a derived window, with the reason.
+   * Rendered as an explicit "not available for this period" note — never
+   * silently omitted and never approximated.
+   */
+  unavailable?: { section: string; reason: string }[];
 };
 
 // Stable, dependency-free hash (FNV-1a) of exactly the metrics the AI analyzes.

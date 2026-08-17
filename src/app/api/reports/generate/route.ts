@@ -34,6 +34,12 @@ export async function POST(req: Request) {
       // an absent/invalid type is inferred from the contributing sources.
       title: typeof body?.title === "string" ? body.title : undefined,
       reportType: typeof body?.reportType === "string" ? body.reportType : undefined,
+      // Period preset (plus bounds when it's "custom"). Absent falls back to
+      // periodDays, so existing callers behave exactly as before. Validation
+      // and rejection of unusable ranges happen in createClientReport.
+      period: typeof body?.period === "string" ? body.period : undefined,
+      customStart: typeof body?.customStart === "string" ? body.customStart : undefined,
+      customEnd: typeof body?.customEnd === "string" ? body.customEnd : undefined,
     });
 
     if (!result.ok) {

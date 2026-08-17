@@ -8,7 +8,8 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { track, ANALYTICS } from "@/lib/analytics";
-import { canonicalPeriod, periodLabel } from "@/lib/report";
+import { periodLabel } from "@/lib/report";
+import { PERIOD_PRESETS, resolvePeriod, latestSettledDay, type PeriodPreset } from "@/lib/reports/periods";
 import { REPORT_TYPES, inferReportType, suggestReportTitle, type ReportType } from "@/lib/reports/types";
 
 // `name` mirrors report_templates.name for the system templates seeded in
@@ -52,15 +53,24 @@ export function GenerateReport({
 }) {
   const router = useRouter();
   const [template, setTemplate] = useState("seo");
-  const [period, setPeriod] = useState(28);
+  const [preset, setPreset] = useState<PeriodPreset>("last_28");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const selected = TEMPLATES.find((t) => t.key === template) ?? TEMPLATES[0];
-  // Same helper the server uses, so the review line cannot drift from the
-  // window the report is actually generated and stored with.
-  const plannedPeriod = canonicalPeriod(period);
-  const plannedLabel = periodLabel(plannedPeriod.start, plannedPeriod.end);
+  // Resolved with the SAME function the server uses, so what the review step
+  // promises is exactly the window the report is generated and stored with.
+  // An unusable custom range surfaces its error here rather than after a
+  // round-trip.
+  const resolved = resolvePeriod({ preset, customStart, customEnd });
+  const plannedPeriod = resolved.ok ? resolved : null;
+  const periodError = resolved.ok ? null : resolved.error;
+  const plannedLabel = resolved.ok
+    ? (resolved.period.kind === "calendar" ? resolved.period.label : periodLabel(resolved.period.start, resolved.period.end))
+    : null;
+  const maxDate = latestSettledDay();
 
   // The type defaults to whatever the connected sources imply and stays
   // overridable; the title follows it until the user takes control.
@@ -102,7 +112,7 @@ export function GenerateReport({
       const res = await fetch("/api/reports/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, templateKey: template, periodDays: period, reportType: type, title: shownTitle.trim() || undefined }),
+        body: JSON.stringify({ clientId, templateKey: template, period: preset, customStart: customStart || undefined, customEnd: customEnd || undefined, reportType: type, title: shownTitle.trim() || undefined }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -210,17 +220,50 @@ export function GenerateReport({
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="gen-period" className="mb-1 block text-xs font-medium text-ink-700">Date range</label>
+                  <label htmlFor="gen-period" className="mb-1 block text-xs font-medium text-ink-700">Reporting period</label>
+                  {/* Rolling and calendar windows are grouped, because they are
+                      genuinely different things — "Last 30 days" is not August. */}
                   <select
                     id="gen-period"
-                    value={period}
-                    onChange={(e) => setPeriod(Number(e.target.value))}
+                    value={preset}
+                    onChange={(e) => setPreset(e.target.value as PeriodPreset)}
                     className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                   >
-                    <option value={28}>Last 28 days</option>
-                    <option value={90}>Last 90 days</option>
+                    <optgroup label="Rolling">
+                      {PERIOD_PRESETS.filter((p) => p.kind === "rolling").map((p) => (
+                        <option key={p.id} value={p.id}>{p.label}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Calendar">
+                      {PERIOD_PRESETS.filter((p) => p.kind === "calendar").map((p) => (
+                        <option key={p.id} value={p.id}>{p.label}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Custom">
+                      <option value="custom">Custom range</option>
+                    </optgroup>
                   </select>
                 </div>
+                {preset === "custom" && (
+                  <>
+                    <div>
+                      <label htmlFor="gen-from" className="mb-1 block text-xs font-medium text-ink-700">From</label>
+                      <input
+                        id="gen-from" type="date" value={customStart} max={maxDate}
+                        onChange={(e) => setCustomStart(e.target.value)}
+                        className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="gen-to" className="mb-1 block text-xs font-medium text-ink-700">To</label>
+                      <input
+                        id="gen-to" type="date" value={customEnd} max={maxDate}
+                        onChange={(e) => setCustomEnd(e.target.value)}
+                        className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                      />
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -254,15 +297,24 @@ export function GenerateReport({
                 <dl className="space-y-1.5 text-sm">
                   <Row label="Report">{title.trim() || suggestedTitle}</Row>
                   <Row label="Type">{REPORT_TYPES.find((t) => t.id === type)?.label ?? type}</Row>
-                  {/* The exact window generation will use, not a vague phrase —
-                      it's the same canonicalPeriod() the report is stored with. */}
+                  {/* The exact window generation will use, resolved by the same
+                      function the server calls — not a restatement of it. */}
                   <Row label="Period">
-                    {plannedPeriod.start} to {plannedPeriod.end} ({period} days)
+                    {plannedPeriod ? (
+                      <>
+                        {plannedPeriod.period.label} · {plannedPeriod.period.start} to {plannedPeriod.period.end}
+                        {" "}({plannedPeriod.period.days} {plannedPeriod.period.days === 1 ? "day" : "days"}
+                        {plannedPeriod.period.kind === "calendar" ? ", calendar" : plannedPeriod.period.kind === "rolling" ? ", rolling" : ""}
+                        {plannedPeriod.period.inProgress ? ", still in progress" : ""})
+                      </>
+                    ) : (
+                      <span className="text-amber-700">{periodError}</span>
+                    )}
                   </Row>
                   <Row label="Branding">Your saved logo, colour and footer</Row>
                 </dl>
                 <div className="mt-4 flex flex-wrap items-center gap-3">
-                  <Button onClick={generate}>Generate report</Button>
+                  <Button onClick={generate} disabled={!plannedPeriod}>Generate report</Button>
                   <Link href="/dashboard/reports/preview" className="text-sm font-medium text-brand-600 hover:underline">
                     See a sample first
                   </Link>

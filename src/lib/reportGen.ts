@@ -8,8 +8,40 @@ import { trackUsage } from "@/lib/usage";
 import { checkReportLimit } from "@/lib/billing/limits";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import { snapshotsToBlocks, type ReportBlock } from "@/lib/integrations/blocks";
+import { resolvePeriod, isPeriodPreset, type PeriodPreset, type ResolveResult } from "@/lib/reports/periods";
+import { deriveGsc, deriveGa4, deriveBlock, seriesCoverage, covers, type Unavailable } from "@/lib/reports/derive";
 import { inferReportType, isReportType, suggestReportTitle, type ReportType } from "@/lib/reports/types";
-import { assembleReport, isGscEmpty, isGa4Empty, isReportEmpty, canonicalPeriod, dataCoverage, periodLabel, toInsightsInput, type ReportData } from "@/lib/report";
+import { assembleReport, isGscEmpty, isGa4Empty, isReportEmpty, dataCoverage, periodLabel, toInsightsInput, type ReportData } from "@/lib/report";
+
+/**
+ * Bridges the legacy `periodDays` argument and the period presets.
+ *
+ * Backward compatibility is deliberate: every existing caller passes 28 or 90
+ * (or nothing), and each maps onto the identical rolling window it produced
+ * before, reading the same cached snapshot. Only a `period` preset opts into
+ * the new calendar/custom behaviour.
+ */
+function resolveRequestedPeriod(opts: {
+  periodDays?: number;
+  period?: string;
+  customStart?: string | null;
+  customEnd?: string | null;
+  now?: number;
+}): ResolveResult {
+  if (opts.period) {
+    if (!isPeriodPreset(opts.period)) {
+      return { ok: false, error: `Unknown reporting period "${opts.period}".` };
+    }
+    return resolvePeriod({
+      preset: opts.period,
+      customStart: opts.customStart,
+      customEnd: opts.customEnd,
+      now: opts.now,
+    });
+  }
+  const preset: PeriodPreset = opts.periodDays === 90 ? "last_90" : "last_28";
+  return resolvePeriod({ preset, now: opts.now });
+}
 
 export type CreateReportResult =
   | { ok: true; id: string; shareToken: string; title: string; data: ReportData; period: { start: string; end: string } }
@@ -22,10 +54,33 @@ export async function createClientReport(
   supabase: SupabaseClient,
   agencyId: string,
   clientId: string,
-  opts: { templateKey?: string; periodDays?: number; title?: string; reportType?: string } = {}
+  opts: {
+    templateKey?: string;
+    /** Legacy 28/90 selector — still honoured for existing callers. */
+    periodDays?: number;
+    /** Preferred: a period preset, with custom bounds when preset is "custom". */
+    period?: string;
+    customStart?: string | null;
+    customEnd?: string | null;
+    title?: string;
+    reportType?: string;
+    now?: number;
+  } = {}
 ): Promise<CreateReportResult> {
   const templateKey = opts.templateKey || "seo";
-  const periodDays = [28, 90].includes(opts.periodDays as number) ? (opts.periodDays as number) : 28;
+
+  // ── Resolve the window before touching any data ──────────────────────────
+  // `periodDays` remains supported so existing callers (and the 28/90 presets)
+  // behave exactly as before. A `period` preset takes precedence.
+  const resolved = resolveRequestedPeriod(opts);
+  if (!resolved.ok) return { ok: false, status: 400, error: resolved.error };
+  const period = resolved.period;
+
+  // Which cached snapshot to read. A window of 28 rolling days matches the
+  // 28-day snapshot exactly and is served at full fidelity; anything else is
+  // rebuilt from the 90-day daily series.
+  const snapshotDays = period.preset === "last_28" ? 28 : 90;
+  const derived = period.preset !== "last_28" && period.preset !== "last_90";
 
   const { data: client } = await supabase
     .from("clients").select("id, name").eq("id", clientId).eq("agency_id", agencyId).maybeSingle();
@@ -54,7 +109,7 @@ export async function createClientReport(
   let gscData: GscReportFull | null = null;
   if (gscReady && gscDs) {
     const { data: snap } = await supabase
-      .from("gsc_snapshots").select("data").eq("data_source_id", gscDs.id).eq("period_days", periodDays).maybeSingle();
+      .from("gsc_snapshots").select("data").eq("data_source_id", gscDs.id).eq("period_days", snapshotDays).maybeSingle();
     const s = (snap?.data as GscReportFull | undefined) ?? null;
     gscData = isGscEmpty(s) ? null : s;
   }
@@ -62,7 +117,7 @@ export async function createClientReport(
   let ga4Data: Ga4ReportFull | null = null;
   if (ga4Ready && ga4Ds) {
     const { data: snap } = await supabase
-      .from("ga4_snapshots").select("data").eq("data_source_id", ga4Ds.id).eq("period_days", periodDays).maybeSingle();
+      .from("ga4_snapshots").select("data").eq("data_source_id", ga4Ds.id).eq("period_days", snapshotDays).maybeSingle();
     const s = (snap?.data as Ga4ReportFull | undefined) ?? null;
     ga4Data = isGa4Empty(s) ? null : s;
   }
@@ -74,13 +129,62 @@ export async function createClientReport(
       .from("integration_snapshots")
       .select("data_source_id, data")
       .in("data_source_id", otherSources.map((s) => s.id))
-      .eq("period_days", periodDays);
+      .eq("period_days", snapshotDays);
     const byId = new Map((snaps ?? []).map((r) => [r.data_source_id as string, r.data]));
     blocks = snapshotsToBlocks(otherSources.map((s) => ({ type: s.type as string, snapshot: byId.get(s.id as string) })));
   }
 
   if (isReportEmpty({ gsc: gscData, ga4: ga4Data, blocks })) {
     return { ok: false, status: 400, error: "No analytics data is available yet. Click “Refresh now” on the client's data source, then generate the report." };
+  }
+
+  // ── Rebuild the requested window from the cached daily series ─────────────
+  // Only for windows that don't match a cached snapshot. The guard below is
+  // what stops a selected period silently producing another period's numbers:
+  // if the cache doesn't span the window, generation fails with an explanation
+  // instead of returning whatever it happens to hold.
+  const unavailable: Unavailable[] = [];
+  if (derived) {
+    const allDates = [
+      ...(gscData?.byDate ?? []).map((d) => d.date),
+      ...(ga4Data?.byDate ?? []).map((d) => d.date),
+      ...blocks.flatMap((b) => b.series.flatMap((s) => s.points.map((p) => p.date))),
+    ];
+    const cached = seriesCoverage(allDates);
+    if (!covers(cached, period)) {
+      return {
+        ok: false,
+        status: 400,
+        error:
+          `This report covers ${period.start} to ${period.end}, but cached data only runs ` +
+          `${cached ? `from ${cached.start} to ${cached.end}` : "for no days yet"}. ` +
+          `ReportFlow keeps 90 days of daily history per source — pick a period inside that range, or wait for more history to build up.`,
+      };
+    }
+
+    const g = deriveGsc(gscData, period);
+    gscData = g.data;
+    unavailable.push(...g.unavailable);
+
+    const a = deriveGa4(ga4Data, period);
+    ga4Data = a.data;
+    unavailable.push(...a.unavailable);
+
+    const rebuilt: ReportBlock[] = [];
+    for (const b of blocks) {
+      const r = deriveBlock(b, period);
+      if (r.data) rebuilt.push(r.data);
+      unavailable.push(...r.unavailable);
+    }
+    blocks = rebuilt;
+
+    if (isReportEmpty({ gsc: gscData, ga4: ga4Data, blocks })) {
+      return {
+        ok: false,
+        status: 400,
+        error: `No data was recorded between ${period.start} and ${period.end}. Choose a different period.`,
+      };
+    }
   }
 
   const { data: template } = await supabase
@@ -90,7 +194,6 @@ export async function createClientReport(
   // The period is what the user asked for. `coverage` records how much real
   // data landed inside it, so a partially-covered report can say so instead of
   // silently relabelling itself as a shorter period.
-  const period = canonicalPeriod(periodDays);
   const coverage = dataCoverage({ gsc: gscData, ga4: ga4Data, blocks });
 
   // Only sources that actually contributed data describe the report. A
@@ -101,13 +204,25 @@ export async function createClientReport(
     ...blocks.map((b) => b.sourceId).filter((id): id is string => Boolean(id)),
   ];
   const reportType = isReportType(opts.reportType) ? opts.reportType : inferReportType(contributing);
-  const meta = { periodDays, requested: period, coverage, reportType, sourceIds: contributing };
+  const meta = {
+    periodDays: period.days,
+    requested: { start: period.start, end: period.end },
+    coverage,
+    reportType,
+    sourceIds: contributing,
+    // What the period system resolved, and what could not be rebuilt for it.
+    periodPreset: period.preset,
+    periodKind: period.kind,
+    periodLabel: period.label,
+    periodInProgress: period.inProgress,
+    unavailable: unavailable.length ? unavailable : undefined,
+  };
 
   const unified = assembleReport(gscData, ga4Data, null, blocks, meta);
   // The AI is told the real window, not a generic "last N days" phrase, so its
   // prose can't describe a period the report doesn't cover.
   const { insights, cached } = await generateReportInsightsCached(
-    toInsightsInput(unified, client.name, `${period.start} to ${period.end} (${periodDays} days)`)
+    toInsightsInput(unified, client.name, `${period.label} — ${period.start} to ${period.end} (${period.days} days)`)
   );
   // Meter AI usage only when the model actually ran (a cache hit costs nothing).
   if (insights && !cached) await trackUsage(agencyId, "ai_summaries");

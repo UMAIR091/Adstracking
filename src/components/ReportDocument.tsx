@@ -194,6 +194,8 @@ export function ReportDocument({
     callouts.push({ tone: "amber", icon: Target, title: "Trend", text: `${opportunities.length} keyword${opportunities.length === 1 ? "" : "s"} near page one.` });
   }
 
+  const unavailable = meta?.unavailable ?? [];
+
   // States plainly when the period is only partly covered, rather than letting
   // the cover imply a full window of measurement.
   const coverageNote = (() => {
@@ -267,6 +269,24 @@ export function ReportDocument({
             <p className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs leading-relaxed text-ink-600">
               {coverageNote}
             </p>
+          )}
+
+          {/* What this period genuinely cannot show, and why. A custom or
+              calendar window is rebuilt from daily history, and some figures —
+              keyword tables, unique visitors, per-period breakdowns — cannot be
+              recovered from daily totals. Saying so is the honest alternative
+              to omitting them silently or estimating them. */}
+          {unavailable.length > 0 && (
+            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-3">
+              <p className="text-xs font-semibold text-ink-700">Not available for this period</p>
+              <ul className="mt-1.5 space-y-1.5">
+                {unavailable.map((u) => (
+                  <li key={u.section} className="text-xs leading-relaxed text-ink-600">
+                    <span className="font-medium text-ink-700">{u.section}.</span> {u.reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </Section>
 

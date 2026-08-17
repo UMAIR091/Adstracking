@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   const clientId: string | undefined = body?.clientId;
   const frequency = body?.frequency;
   if (!clientId || !isFrequency(frequency)) {
-    return NextResponse.json({ error: "clientId and a valid frequency (weekly/monthly/quarterly) are required." }, { status: 400 });
+    return NextResponse.json({ error: "clientId and a valid frequency (weekly/biweekly/monthly/quarterly) are required." }, { status: 400 });
   }
 
   const recipients: string[] = Array.isArray(body?.recipients)
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
   // Clamp to what nextRunAt understands: hour 0-23 UTC; day = weekday 0-6 for
   // weekly, day-of-month 1-28 for monthly/quarterly.
   const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.trunc(n)));
-  const dayRange: [number, number] = frequency === "weekly" ? [0, 6] : [1, 28];
+  const dayRange: [number, number] = frequency === "weekly" || frequency === "biweekly" ? [0, 6] : [1, 28];
   const sendDay = Number.isFinite(body?.sendDay) ? clamp(Number(body.sendDay), dayRange[0], dayRange[1]) : null;
   const sendHour = Number.isFinite(body?.sendHour) ? clamp(Number(body.sendHour), 0, 23) : 8;
 

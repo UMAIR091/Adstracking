@@ -23,7 +23,16 @@ export type ScheduleData = {
   message: string | null;
 } | null;
 
-const FREQ_LABEL: Record<Frequency, string> = { weekly: "Weekly", monthly: "Monthly", quarterly: "Quarterly" };
+const FREQ_LABEL: Record<Frequency, string> = { weekly: "Weekly", biweekly: "Every 2 weeks", monthly: "Monthly", quarterly: "Quarterly" };
+
+// What each cadence actually reports on, so the user can see that a monthly
+// schedule sends a calendar month rather than 28 rolling days.
+const FREQ_PERIOD: Record<Frequency, string> = {
+  weekly: "Covers the previous 7 days",
+  biweekly: "Covers the previous 14 days",
+  monthly: "Covers the previous calendar month",
+  quarterly: "Covers the previous calendar quarter",
+};
 const DOW = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export function ReportSchedule({
@@ -147,9 +156,10 @@ export function ReportSchedule({
             <select value={frequency} onChange={(e) => setFrequency(e.target.value as Frequency)} className={selectCls}>
               {FREQUENCIES.map((f) => <option key={f} value={f}>{FREQ_LABEL[f]}</option>)}
             </select>
+            <p className="mt-1 text-xs text-ink-500">{FREQ_PERIOD[frequency]}</p>
           </Field>
-          <Field label={frequency === "weekly" ? "Day of week" : "Day of month"}>
-            {frequency === "weekly" ? (
+          <Field label={frequency === "weekly" || frequency === "biweekly" ? "Day of week" : "Day of month"}>
+            {frequency === "weekly" || frequency === "biweekly" ? (
               <select value={sendDay} onChange={(e) => setSendDay(Number(e.target.value))} className={selectCls}>
                 {DOW.map((d, i) => <option key={i} value={i}>{d}</option>)}
               </select>
