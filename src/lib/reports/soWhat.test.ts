@@ -21,7 +21,9 @@ describe("buildSoWhat", () => {
     const [w] = buildSoWhat([signal()]);
     // The observation is the signal's own sentence — not rewritten.
     expect(w.observation).toBe("“running shoes” gained 142% more clicks than the previous period.");
-    expect(w.meaning).toMatch(/further investment/i);
+    // The interpretation reads the measurement rather than asserting a general
+    // rule of marketing, so it is asserted on its evidence-first wording.
+    expect(w.meaning).toMatch(/already ranking and gaining clicks/i);
     expect(w.metric).toBe("+142%");
     expect(w.source).toBe("Search Console");
   });

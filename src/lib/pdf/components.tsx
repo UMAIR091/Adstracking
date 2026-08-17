@@ -117,8 +117,13 @@ export function Section({ s, num, title, subtitle, children, breakBefore }: {
   children: React.ReactNode;
   breakBefore?: boolean;
 }) {
+  // minPresenceAhead keeps a heading with the start of its content. At 90 a
+  // section head could still land at the foot of a page with its first card
+  // pushed over, which is how a client report came to show a "Further
+  // commentary" heading on one page and a lone numbered card on the next. A
+  // section head plus one card is roughly 110pt.
   return (
-    <View style={s.section} break={breakBefore} minPresenceAhead={90}>
+    <View style={s.section} break={breakBefore} minPresenceAhead={130}>
       <View style={s.sectionHead}>
         <Text style={s.sectionNum}>{num}</Text>
         <Text style={s.sectionTitle}>{title}</Text>
@@ -238,28 +243,41 @@ const IMPACT_TONES: Record<string, { bg: string; fg: string }> = {
   Low: { bg: "#f1f5f9", fg: "#64748b" },
 };
 
+/**
+ * A numbered action/commentary card.
+ *
+ * The priority / impact / focus badges are optional and are only ever passed
+ * where the values are derived from measured data. They used to be filled in
+ * for AI commentary from the item's position in the list and a keyword match on
+ * its text, which put "HIGH PRIORITY · MEDIUM IMPACT" on a sentence the report
+ * had measured nothing about — and stamped the last item of a two-item list
+ * "LOW PRIORITY" purely because it was second.
+ */
 export function ActionCard({ s, color, index, priority, impact, focus, card }: {
   s: S;
   color: string;
   index: number;
-  priority: "High" | "Medium" | "Low";
-  impact: "High" | "Medium" | "Low";
-  focus: string;
+  priority?: "High" | "Medium" | "Low";
+  impact?: "High" | "Medium" | "Low";
+  focus?: string;
   card: InsightCardData;
 }) {
-  const pt = LEVEL_TONES[priority];
-  const it = IMPACT_TONES[impact];
+  const pt = priority ? LEVEL_TONES[priority] : null;
+  const it = impact ? IMPACT_TONES[impact] : null;
+  const hasBadges = !!(pt || it || focus);
   return (
     <View style={s.actionCard} wrap={false}>
       <View style={s.actionNum}>
         <Text style={s.actionNumText}>{index + 1}</Text>
       </View>
       <View style={s.actionBody}>
-        <View style={s.actionMetaRow}>
-          <Text style={[s.metaBadge, { backgroundColor: pt.bg, color: pt.fg }]}>{priority} priority</Text>
-          <Text style={[s.metaBadge, { backgroundColor: it.bg, color: it.fg }]}>{impact} impact</Text>
-          <Text style={[s.metaBadge, { backgroundColor: tint(color, 0.92), color }]}>{focus}</Text>
-        </View>
+        {hasBadges ? (
+          <View style={s.actionMetaRow}>
+            {pt ? <Text style={[s.metaBadge, { backgroundColor: pt.bg, color: pt.fg }]}>{priority} priority</Text> : null}
+            {it ? <Text style={[s.metaBadge, { backgroundColor: it.bg, color: it.fg }]}>{impact} impact</Text> : null}
+            {focus ? <Text style={[s.metaBadge, { backgroundColor: tint(color, 0.92), color }]}>{focus}</Text> : null}
+          </View>
+        ) : null}
         <Text style={s.actionLead}>{card.lead}</Text>
         {card.body ? <Text style={s.actionText}>{card.body}</Text> : null}
       </View>
@@ -280,8 +298,12 @@ export type Col<T> = {
 export function DataTable<T>({ s, cols, rows }: { s: S; cols: Col<T>[]; rows: T[] }) {
   const colStyle = (c: Col<T>) =>
     ({ ...(c.width ? { width: c.width } : { flex: c.flex ?? 1 }), textAlign: c.align ?? "left" }) as const;
+  // Tables are capped at 10 rows by every caller (~200pt including the header),
+  // so keeping one atomic moves it whole rather than letting it strand its last
+  // row on a page of its own — a generated report devoted a page to a single
+  // campaign row that overflowed.
   return (
-    <View style={s.table}>
+    <View style={s.table} wrap={false}>
       <View style={s.tableHeader} wrap={false}>
         {cols.map((c, i) => (
           <Text key={i} style={[s.th, colStyle(c)]}>{c.header}</Text>

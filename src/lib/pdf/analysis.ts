@@ -117,36 +117,14 @@ function rest(s: string, max: number): string {
   return t.length > max ? `${t.slice(0, max - 1)}…` : t;
 }
 
-// ── Recommended-action metadata (rank-derived, not fabricated) ───────────────
-// The AI returns actions already ordered by priority; surface that ordering as
-// explicit priority levels, classify the focus area from the action text, and
-// map that focus to an expected-impact level (revenue/conversion work carries
-// the most business weight). Priority = urgency/order; impact = business lever —
-// deliberately independent so the two badges add information rather than repeat.
-export type Level = "High" | "Medium" | "Low";
-export type ActionMeta = { priority: Level; impact: Level; focus: string };
-
-const FOCUS_IMPACT: Record<string, Level> = {
-  Revenue: "High",
-  Conversion: "High",
-  "SEO & Content": "Medium",
-  Advertising: "Medium",
-  "Site Experience": "Medium",
-  Growth: "Low",
-};
-
-export function actionMeta(text: string, index: number, total: number): ActionMeta {
-  const priority: Level = index === 0 ? "High" : index < Math.min(3, total - 1) ? "Medium" : "Low";
-  const t = text.toLowerCase();
-  const focus =
-    /revenue|sale|checkout|cart|purchas|pric/.test(t) ? "Revenue" :
-    /convert|conversion|lead|form|cta|signup|email|newsletter|flow/.test(t) ? "Conversion" :
-    /rank|keyword|seo|search|meta |title tag|backlink|interlink|content|blog|guide|page one/.test(t) ? "SEO & Content" :
-    /speed|layout|mobile|tablet|ux|bug|fix|render/.test(t) ? "Site Experience" :
-    /ad |ads|campaign|social|paid/.test(t) ? "Advertising" :
-    "Growth";
-  return { priority, impact: FOCUS_IMPACT[focus] ?? "Medium", focus };
-}
+// Recommended-action metadata used to live here: a priority read off the item's
+// position in the list and an "impact" level mapped from a keyword match on its
+// text. Both were presented to clients as badges beside AI prose — "HIGH
+// PRIORITY · MEDIUM IMPACT" on a sentence nothing in the report had measured,
+// and "LOW PRIORITY" on the second of two items purely for being second. The
+// evidence-backed steps carry priorities derived from the confidence and weight
+// of a real measurement (lib/reports/soWhat.ts), so there is nothing left for a
+// rank-derived badge to add that would be true.
 
 // ── Forecast (linear trend projection) ───────────────────────────────────────
 // Ordinary least squares over the daily series, projected over the next window

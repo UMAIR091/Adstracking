@@ -19,7 +19,7 @@
 // Priority is derived from the signal's own confidence and weight, never from
 // its position in a list.
 import type { Signal, Confidence } from "@/lib/insights/signals";
-import type { ReportBlock } from "@/lib/integrations/blocks";
+import type { BlockKpi, ReportBlock } from "@/lib/integrations/blocks";
 import { formatBlockValue } from "@/lib/integrations/blocks";
 
 export type Priority = "High" | "Medium" | "Low";
@@ -36,31 +36,60 @@ export type SoWhat = {
   confidenceReason: string;
 };
 
+/**
+ * Whether a step addresses something going wrong or builds on something going
+ * right. Recorded explicitly because a recommendation engine that only reads
+ * problems produces a report that reads as a list of faults even when the data
+ * shows a channel working — and because "protect what is working" is a real
+ * recommendation, not filler.
+ */
+export type ActionKind = "risk" | "opportunity";
+
 export type RecommendedAction = {
   action: string;
   /** The measurement behind it — always a real figure from the report. */
   because: string;
   priority: Priority;
   source: string;
+  kind: ActionKind;
 };
 
 // What each measured pattern means. Deliberately general: these describe the
 // pattern, not the client, so they stay true whatever the numbers are.
+//
+// Each line is an implication of the measurement it is attached to and nothing
+// more. Earlier versions reached past the data — "declines usually compound as
+// competitors consolidate the position" asserts a general market behaviour the
+// report never measured, and "terms already moving up respond best to further
+// investment" is a claim about marketing in general rather than about this
+// client. Both are gone: what remains states what the measured pattern implies
+// for the account in front of the reader.
 const MEANING: Record<Signal["kind"], string> = {
   winning_keyword:
-    "Demand is converting into visibility here. Terms already moving up respond best to further investment, because the page behind them has proven it can rank.",
+    "The page behind this term is already ranking and gaining clicks, so further content and internal linking builds on movement that has been measured rather than starting from an untested position.",
   declining_keyword:
-    "Lost ground on a term that was working. Declines usually compound as competitors consolidate the position, so this is cheaper to address now than later.",
+    "This term delivered more clicks a period ago, so the change is in this site's own measured performance and not a new baseline. What changed on the page and in its ranking is the thing to establish.",
   winning_page:
-    "One page is carrying a disproportionate share of growth. That makes it both an asset to protect and a template for what works on this site.",
+    "One page is carrying a disproportionate share of the traffic recorded here. That makes it both the asset most exposed to an unrelated change and the clearest working example to copy on comparable pages.",
   opportunity:
-    "Impressions without the matching clicks means the audience is finding the listing but not choosing it — a presentation problem rather than a visibility one.",
+    "Impressions without the matching clicks means the audience is reaching the listing and not choosing it — the gap is in the listing itself, not in visibility.",
   traffic_spike:
-    "A step change rather than normal variation. Worth identifying the cause so it can be repeated deliberately instead of hoped for.",
+    "The day sits outside this site's own measured daily variation, so it reflects an event rather than routine fluctuation. Identifying which event makes it repeatable.",
   traffic_drop:
-    "A fall outside normal variation. Something changed in demand, visibility or tracking, and confirming which one is the first step.",
+    "The day sits outside this site's own measured daily variation, so something changed in demand, visibility or tracking. Which of the three it was determines the fix.",
   conversion_opportunity:
-    "Traffic is arriving but not completing. The cost of fixing conversion is usually far lower than the cost of buying more visits.",
+    "The sessions are being recorded but the conversions are not following at the same rate, so the constraint measured here is on the path through the site rather than on the volume reaching it.",
+};
+
+/** Whether each pattern is a problem to fix or a position to build on. */
+const KIND: Record<Signal["kind"], ActionKind> = {
+  winning_keyword: "opportunity",
+  declining_keyword: "risk",
+  winning_page: "opportunity",
+  opportunity: "opportunity",
+  traffic_spike: "opportunity",
+  traffic_drop: "risk",
+  conversion_opportunity: "risk",
 };
 
 // The next step each pattern calls for.
@@ -82,6 +111,14 @@ function priorityOf(sig: Signal): Priority {
 }
 
 const RANK: Record<Priority, number> = { High: 0, Medium: 1, Low: 2 };
+
+// Something going wrong leads something going right at the same priority. A
+// client reading a report wants the problem first; the opportunity beside it is
+// what to do with the budget once the problem is understood.
+const KIND_RANK: Record<ActionKind, number> = { risk: 0, opportunity: 1 };
+
+const byPriority = (a: RecommendedAction, b: RecommendedAction) =>
+  RANK[a.priority] - RANK[b.priority] || KIND_RANK[a.kind] - KIND_RANK[b.kind];
 
 /**
  * The interpretation layer. One entry per measured signal, strongest first,
@@ -113,47 +150,190 @@ export function buildActions(signals: Signal[], limit = 4): RecommendedAction[] 
     const action = ACTION[sig.kind];
     if (!action || seen.has(action)) continue;
     seen.add(action);
-    out.push({ action, because: sig.detail, priority: priorityOf(sig), source: sig.source });
+    out.push({ action, because: sig.detail, priority: priorityOf(sig), source: sig.source, kind: KIND[sig.kind] });
   }
 
-  return out.sort((a, b) => RANK[a.priority] - RANK[b.priority]).slice(0, limit);
+  return out.sort(byPriority).slice(0, limit);
+}
+
+/** Reads a KPI by label, case-insensitively. */
+function kpiOf(b: ReportBlock, label: string): BlockKpi | undefined {
+  return b.kpis.find((k) => k.label.toLowerCase() === label.toLowerCase());
+}
+
+/** A KPI's value when it is genuinely calculable, else null. */
+function val(k: BlockKpi | undefined): number | null {
+  return k?.value != null && Number.isFinite(k.value) ? k.value : null;
+}
+
+/**
+ * Cost per conversion for a paid block, preferring the platform's own figure
+ * and falling back to spend ÷ conversions — which is the same arithmetic the
+ * report already shows, not a new estimate.
+ */
+function costPerConversion(b: ReportBlock): number | null {
+  const reported = val(kpiOf(b, "Cost per conversion"));
+  if (reported != null && reported > 0) return reported;
+  const spend = val(kpiOf(b, "Spend"));
+  const conv = val(kpiOf(b, "Conversions"));
+  if (spend != null && spend > 0 && conv != null && conv > 0) return spend / conv;
+  return null;
+}
+
+/**
+ * The best row of a channel's own campaign table, by conversions where the
+ * table reports them and by spend otherwise. Returns nothing unless there is a
+ * table with at least two rows — "the top campaign" of a single-row table is
+ * not a finding.
+ */
+function topCampaign(b: ReportBlock): { name: string; conversions: number | null; spend: number | null } | null {
+  const table = b.tables.find((t) => /campaign/i.test(t.title) && t.rows.length >= 2);
+  if (!table) return null;
+  const numberAt = (row: Record<string, string | number>, key: string): number | null => {
+    const v = row[key];
+    return typeof v === "number" && Number.isFinite(v) ? v : null;
+  };
+  const rows = table.rows
+    .map((r) => ({
+      name: typeof r.name === "string" ? r.name : null,
+      conversions: numberAt(r, "conversions"),
+      spend: numberAt(r, "spend"),
+    }))
+    .filter((r): r is { name: string; conversions: number | null; spend: number | null } => !!r.name && r.name !== "—");
+  if (rows.length < 2) return null;
+  const byConversions = rows.filter((r) => (r.conversions ?? 0) > 0).sort((a, z) => (z.conversions ?? 0) - (a.conversions ?? 0));
+  if (byConversions.length > 0) return byConversions[0];
+  const bySpend = rows.filter((r) => (r.spend ?? 0) > 0).sort((a, z) => (z.spend ?? 0) - (a.spend ?? 0));
+  return bySpend[0] ?? null;
 }
 
 /**
  * Measured checks over non-Google channels, where `detectSignals` doesn't
  * reach. Each is a plain arithmetic fact about the block's own KPIs — spend
- * with nothing to show for it, or clicks that never convert — not a model's
- * opinion. Returns nothing when the components aren't present, so a channel
- * without conversion tracking is never accused of failing to convert.
+ * with nothing to show for it, clicks that never convert, a return the platform
+ * itself reports — not a model's opinion. Returns nothing when the components
+ * aren't present, so a channel without conversion tracking is never accused of
+ * failing to convert, and a channel with no reported return is never called
+ * efficient.
+ *
+ * Both halves matter. An engine that only fires on problems produces a report
+ * that reads as a list of faults even for an account where a channel is plainly
+ * working, and leaves the two questions a client asks about a working channel —
+ * do we protect it, do we scale it — unanswered.
  */
 export function blockActions(blocks: ReportBlock[]): RecommendedAction[] {
   const out: RecommendedAction[] = [];
 
+  // The paid channel carrying the most budget. Used to keep the campaign-level
+  // step to one, on the account where it matters most.
+  const heaviestPaidId = blocks
+    .filter((b) => b.category === "paid")
+    .map((b) => ({ id: b.sourceId, spend: val(kpiOf(b, "Spend")) ?? 0 }))
+    .sort((a, z) => z.spend - a.spend)[0]?.id;
+
   for (const b of blocks) {
     if (b.category !== "paid") continue;
-    const kpi = (label: string) => b.kpis.find((k) => k.label.toLowerCase() === label.toLowerCase());
-    const spend = kpi("Spend");
-    const conversions = kpi("Conversions");
-    const clicks = kpi("Clicks");
+    const spend = kpiOf(b, "Spend");
+    const conversions = kpiOf(b, "Conversions");
+    const clicks = kpiOf(b, "Clicks");
+    const money = (v: number) => formatBlockValue(v, "currency", b.currency);
+    const spendValue = val(spend);
 
     // Spend recorded, conversions tracked as a metric, and none of them landed.
-    if (spend?.value != null && spend.value > 0 && conversions?.value === 0) {
+    if (spendValue != null && spendValue > 0 && conversions?.value === 0) {
       out.push({
         action: `Confirm conversion tracking is firing for ${b.sourceName}, then review targeting and landing pages.`,
-        because: `${b.sourceName} recorded ${formatBlockValue(spend.value, "currency", b.currency)} of spend and no conversions in this period.`,
+        because: `${b.sourceName} recorded ${money(spendValue)} of spend and no conversions in this period.`,
         priority: "High",
         source: b.sourceName,
+        kind: "risk",
       });
       continue;
     }
 
     // Money spent, and not a single click to show for it.
-    if (spend?.value != null && spend.value > 0 && clicks?.value === 0) {
+    if (spendValue != null && spendValue > 0 && clicks?.value === 0) {
       out.push({
         action: `Review creative and targeting for ${b.sourceName} — the ads are being served but not clicked.`,
-        because: `${b.sourceName} recorded ${formatBlockValue(spend.value, "currency", b.currency)} of spend and no clicks in this period.`,
+        because: `${b.sourceName} recorded ${money(spendValue)} of spend and no clicks in this period.`,
         priority: "High",
         source: b.sourceName,
+        kind: "risk",
+      });
+      continue;
+    }
+
+    // ── The channel is working: what to do about that ──
+    const conv = val(conversions);
+    if (spendValue == null || spendValue <= 0 || conv == null || conv <= 0) continue;
+
+    const roas = val(kpiOf(b, "ROAS"));
+    const cpa = costPerConversion(b);
+    const prevCpa = kpiOf(b, "Cost per conversion")?.previous ?? null;
+
+    // A return the platform itself reports, above break-even on its own figures.
+    if (roas != null && roas >= 2) {
+      out.push({
+        action: `Hold or increase budget on ${b.sourceName} while the reported return holds, and re-check it against the same figures next period.`,
+        because: `${b.sourceName} returned ${roas.toFixed(1)}x on ${money(spendValue)} of spend across ${conv.toLocaleString()} conversions.`,
+        priority: roas >= 3 ? "High" : "Medium",
+        source: b.sourceName,
+        kind: "opportunity",
+      });
+    } else if (cpa != null && prevCpa != null && prevCpa > 0 && cpa < prevCpa * 0.9) {
+      // Efficiency improved on the platform's own before-and-after figures.
+      const improvement = ((prevCpa - cpa) / prevCpa) * 100;
+      out.push({
+        action: `Keep ${b.sourceName} funded at its current level and identify what changed, so the same change can be applied elsewhere.`,
+        because: `${b.sourceName} brought cost per conversion down ${improvement.toFixed(0)}% to ${money(cpa)} while producing ${conv.toLocaleString()} conversions.`,
+        priority: "Medium",
+        source: b.sourceName,
+        kind: "opportunity",
+      });
+    }
+
+    // The channel's own strongest campaign, named from its own table. Emitted
+    // for the heaviest-spending channel only — one per channel produced a run of
+    // near-identical "review the top campaign" steps that crowded out the rest.
+    if (b.sourceId === heaviestPaidId) {
+      const top = topCampaign(b);
+      if (top) {
+        const evidence =
+          top.conversions != null && top.conversions > 0
+            ? `“${top.name}” was the highest-converting campaign on ${b.sourceName}, with ${top.conversions.toLocaleString()} conversions${top.spend != null && top.spend > 0 ? ` on ${money(top.spend)} of spend` : ""}.`
+            : `“${top.name}” took the largest share of ${b.sourceName} spend at ${money(top.spend ?? 0)}.`;
+        out.push({
+          action: `Work out what “${top.name}” is doing differently before changing the ${b.sourceName} budget, and use it as the reference for the rest of the account.`,
+          because: evidence,
+          priority: "Medium",
+          source: b.sourceName,
+          kind: "opportunity",
+        });
+      }
+    }
+  }
+
+  // ── Across channels: the same outcome at two different prices ──
+  // Only ever stated when both channels report a cost per conversion, and only
+  // when the gap is large enough to be worth acting on rather than noise.
+  const priced = blocks
+    .filter((b) => b.category === "paid")
+    .map((b) => ({ b, cpa: costPerConversion(b) }))
+    .filter((x): x is { b: ReportBlock; cpa: number } => x.cpa != null && x.cpa > 0)
+    .sort((a, z) => a.cpa - z.cpa);
+  if (priced.length >= 2) {
+    const cheap = priced[0];
+    const dear = priced[priced.length - 1];
+    if (dear.cpa >= cheap.cpa * 1.25) {
+      const gap = ((dear.cpa - cheap.cpa) / dear.cpa) * 100;
+      out.push({
+        action: `Test moving part of the ${dear.b.sourceName} budget to ${cheap.b.sourceName} and compare cost per conversion again next period.`,
+        because: `${cheap.b.sourceName} bought a conversion for ${formatBlockValue(cheap.cpa, "currency", cheap.b.currency)} against ${formatBlockValue(dear.cpa, "currency", dear.b.currency)} on ${dear.b.sourceName} — ${gap.toFixed(0)}% cheaper for the same outcome.`,
+        // A gap this wide is a budget decision rather than a note, and the
+        // figure behind it is the platforms' own cost per conversion.
+        priority: gap >= 40 ? "High" : "Medium",
+        source: `${cheap.b.sourceName} · ${dear.b.sourceName}`,
+        kind: "opportunity",
       });
     }
   }
@@ -211,10 +391,18 @@ export function blockSoWhat(blocks: ReportBlock[], limit = 2): SoWhat[] {
 
     if (spend != null && spend > 0 && conversions != null && conversions > 0) {
       const cpa = spend / conversions;
+      const roas = val(kpiOf(b, "ROAS"));
+      const revenue = val(kpiOf(b, "Revenue"));
       out.push({
-        observation: `${b.sourceName} produced ${conversions.toLocaleString()} conversions from ${money(spend)} of spend.`,
+        observation:
+          `${b.sourceName} produced ${conversions.toLocaleString()} conversions from ${money(spend)} of spend at ${money(cpa)} each` +
+          (roas != null && roas > 0
+            ? `, a reported return of ${roas.toFixed(1)}x${revenue != null && revenue > 0 ? ` on ${money(revenue)} of revenue` : ""}.`
+            : `.`),
         meaning:
-          "This channel is converting, so the question is efficiency rather than whether it works — compare the cost per conversion against what the same outcome costs elsewhere.",
+          roas != null && roas >= 2
+            ? "The channel is converting and returning more than it costs on the platform's own figures, so the decision it presents is how much further to fund it — and what in the account is producing the result, so the same thing can be tried elsewhere."
+            : "The channel is converting, so what is open here is efficiency rather than whether it works — the cost per conversion above is the figure to compare against the same outcome bought through another channel.",
         metric: `${money(cpa)} per conversion`,
         source: b.sourceName,
         confidence: "high",
@@ -226,14 +414,58 @@ export function blockSoWhat(blocks: ReportBlock[], limit = 2): SoWhat[] {
   return out.slice(0, limit);
 }
 
-/** Everything the report can honestly interpret, Google sources first. */
+/**
+ * Everything the report can honestly interpret, Google sources first.
+ *
+ * The Google signals used to fill the limit on their own, so a cross-channel
+ * report interpreted its Search Console and Analytics figures and said nothing
+ * at all about the paid channels it also contained. One slot is now reserved for
+ * a channel-derived reading whenever there is one, so every source the report
+ * carries is represented in the layer that explains it.
+ */
 export function allSoWhat(signals: Signal[], blocks: ReportBlock[], limit = 3): SoWhat[] {
-  return [...buildSoWhat(signals, limit), ...blockSoWhat(blocks, limit)].slice(0, limit);
+  const fromSignals = buildSoWhat(signals, limit);
+  const fromBlocks = blockSoWhat(blocks, limit);
+  if (limit <= 0) return [];
+  if (fromSignals.length + fromBlocks.length <= limit) return [...fromSignals, ...fromBlocks];
+  if (fromBlocks.length === 0) return fromSignals.slice(0, limit);
+  // Keep the strongest signals, then hand the last place to a channel.
+  return [...fromSignals.slice(0, limit - 1), fromBlocks[0]];
 }
 
-/** Merges signal-derived and channel-derived actions, strongest first. */
+/**
+ * Merges signal-derived and channel-derived actions, strongest first.
+ *
+ * Priority still decides the order, but the cut is not purely by priority: a
+ * report whose problems happen to outnumber the limit would otherwise drop
+ * every opportunity, which is how the engine came to read as a list of faults
+ * on accounts where a channel was working. So when the slice would contain no
+ * opportunity and one was actually measured, the weakest step in the slice
+ * gives up its place. Nothing is invented to fill the slot — if the data
+ * produced no opportunity, none appears.
+ */
 export function allActions(signals: Signal[], blocks: ReportBlock[], limit = 4): RecommendedAction[] {
-  return [...blockActions(blocks), ...buildActions(signals, limit)]
-    .sort((a, b) => RANK[a.priority] - RANK[b.priority])
-    .slice(0, limit);
+  const merged = [...blockActions(blocks), ...buildActions(signals, limit + 2)];
+
+  // De-duplicate by step text: two channels can motivate the same instruction.
+  const seen = new Set<string>();
+  const unique = merged.filter((a) => {
+    const k = a.action.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+
+  const ranked = unique.sort(byPriority);
+  if (limit <= 0) return [];
+  const head = ranked.slice(0, limit);
+  if (head.some((a) => a.kind === "opportunity")) return head;
+
+  // head shorter than the limit means it already holds every ranked step, so
+  // the absence of an opportunity there is the absence of one entirely.
+  const opportunity = ranked.find((a) => a.kind === "opportunity");
+  if (!opportunity) return head;
+
+  // Swap out the last (lowest-priority) step rather than extending the list.
+  return [...head.slice(0, limit - 1), opportunity];
 }

@@ -19,9 +19,11 @@ import { LineChart, BarList, ShareBar } from "./charts";
 import { Icon, TrendArrow } from "./icons";
 import { detectSignals } from "@/lib/insights/signals";
 import { allSoWhat, allActions } from "@/lib/reports/soWhat";
+import { buildExecutiveSummary } from "@/lib/reports/summary";
+import { cleanBullets, cleanCommentary } from "@/lib/reports/commentary";
 import { coverBadgeLabel } from "@/lib/reports/types";
 import { assessComposition, MIN_TREND_POINTS } from "@/lib/reports/composition";
-import { performanceScore, bestChannel, biggestOpportunity, biggestRisk, toInsightCard, actionMeta, buildForecast } from "./analysis";
+import { performanceScore, bestChannel, biggestOpportunity, biggestRisk, toInsightCard, buildForecast } from "./analysis";
 import type { BlockFormat, ReportBlock } from "@/lib/integrations/blocks";
 
 export type { Branding };
@@ -116,9 +118,12 @@ function ChannelSection({ s, color, palette, block, sectionNum }: {
         </View>
       ) : null}
 
+      {/* Heading and table move together: `wrap={false}` on the pair keeps a
+          "Top campaigns" title from sitting at the foot of one page with its
+          table on the next. Capped at 8 rows, so the pair always fits a page. */}
       {block.tables.map((table) => (
         table.rows.length > 0 ? (
-          <View key={table.title} style={{ marginTop: 10 }}>
+          <View key={table.title} style={{ marginTop: 10 }} wrap={false}>
             <Text style={s.h3}>{table.title}</Text>
             <DataTable
               s={s}
@@ -201,33 +206,6 @@ function buildHighlights(gsc: GscReportFull | null, ga4: Ga4ReportFull | null): 
     }));
 }
 
-// Business-friendly deterministic summary used when AI insights are disabled,
-// so the executive summary section never ships empty.
-function buildFallbackSummary(clientName: string, period: { start: string; end: string }, gsc: GscReportFull | null, ga4: Ga4ReportFull | null): string {
-  const parts: string[] = [];
-  if (gsc) {
-    const d = deltaPct(gsc.totals.clicks, gsc.previousTotals?.clicks);
-    parts.push(
-      `organic search delivered ${fmt(gsc.totals.clicks)} clicks from ${fmt(gsc.totals.impressions)} impressions` +
-        (d != null ? ` (${deltaLabel(d)} vs. the previous period)` : "")
-    );
-  }
-  if (ga4) {
-    const d = deltaPct(ga4.totals.sessions, ga4.previousTotals?.sessions);
-    parts.push(
-      `the website recorded ${fmt(ga4.totals.sessions)} sessions from ${fmt(ga4.totals.users)} users` +
-        (d != null ? ` (${deltaLabel(d)} vs. the previous period)` : "")
-    );
-  }
-  if (parts.length === 0) return `No performance data was available for ${clientName} in this reporting period.`;
-  let out = `Between ${fmtDate(period.start)} and ${fmtDate(period.end)}, ${parts.join(", and ")}.`;
-  if (ga4 && ga4.totals.conversions > 0) {
-    out += ` The period generated ${fmt(ga4.totals.conversions)} conversions` +
-      (ga4.totals.totalRevenue > 0 ? ` and ${fmt(ga4.totals.totalRevenue)} in tracked revenue.` : ".");
-  }
-  return out;
-}
-
 // ── Document ─────────────────────────────────────────────────────────────────
 function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, generatedAt }: {
   data: unknown;
@@ -252,16 +230,18 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
     issuesDetected?: string[]; growthOpportunities?: string[];
     recommendedActions?: string[]; recommendations?: string[];
   } | null;
-  const executiveSummary = ins?.executiveSummary ?? ins?.summary ?? "";
-  const keyWins = ins?.keyWins ?? ins?.highlights ?? [];
-  const issuesDetected = ins?.issuesDetected ?? [];
-  const growthOpportunities = ins?.growthOpportunities ?? [];
-  const recommendedActions = ins?.recommendedActions ?? ins?.recommendations ?? [];
+  // AI text is cleaned before it is trusted: models add list numbering to
+  // strings that are already list items, and a bullet that is a numbering
+  // artefact ("1") rendered beside a card's own ordinal read as "1. 1" in a
+  // report a client received.
+  const executiveSummary = (ins?.executiveSummary ?? ins?.summary ?? "").trim();
+  const keyWins = cleanBullets(ins?.keyWins ?? ins?.highlights);
+  const issuesDetected = cleanBullets(ins?.issuesDetected);
+  const growthOpportunities = cleanBullets(ins?.growthOpportunities);
 
   const movers = gsc?.movers ?? null;
   const opportunities = movers?.opportunities ?? [];
   const highlights = buildHighlights(gsc, ga4);
-  const summaryText = executiveSummary || buildFallbackSummary(clientName, period, gsc, ga4);
   // The cover badge describes what the report actually IS. It used to be
   // `gsc && ga4 ? … : ga4 ? … : "SEO Report"`, so anything without GA4 — a
   // Meta-Ads-only paid report included — was stamped "SEO Report". The stored
@@ -311,7 +291,26 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
   // why an ads-only report showed no "what this means" — it moves to the
   // insights page instead of being dropped.
   const soWhatOffDashboard = gsc || ga4 ? [] : soWhat;
-  const evidenceActions = allActions(signals, channelBlocks, 4);
+  const evidenceActions = allActions(signals, channelBlocks, 5);
+
+  // The executive summary. The AI paragraph is preferred when there is one;
+  // otherwise it is built from the measured figures, which is possible with or
+  // without a previous period to compare against. The old fallback read only
+  // Search Console and Analytics, so a paid-media report was told "a written
+  // summary needs a full period of data to compare against" while holding real
+  // spend, clicks and conversions.
+  const summary = buildExecutiveSummary({
+    clientName, period, gsc, ga4, blocks: channelBlocks,
+    watch: evidenceActions[0] ? { action: evidenceActions[0].action, because: evidenceActions[0].because } : null,
+  });
+  const summaryText = executiveSummary || summary.text;
+
+  // Commentary the AI wrote that isn't already covered by the evidence-backed
+  // steps. Empty after cleaning means the section does not render at all.
+  const commentary = cleanCommentary(
+    ins?.recommendedActions ?? ins?.recommendations,
+    evidenceActions.map((a) => a.action),
+  );
 
   // Coverage and limitations, stated in the document the client receives —
   // not just in the dashboard. A partially-covered period must never look like
@@ -357,10 +356,32 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
   // page, and diverting into it dropped the section entirely.
   const soloChannel = composition.channels.length === 1 && !composition.channels[0].standalone;
   const mergeChannel = compact && soloChannel && !!(gsc || ga4);
+
+  // Channels are grouped onto pages rather than given one page each. The
+  // composition assessment already measures whether a channel has enough to
+  // justify opening a page (`standalone`); that answer was only being used for
+  // the single-channel case, so a thin second channel — five KPI cards and
+  // nothing else — still got a page to itself. One that doesn't qualify now
+  // flows onto the page before it. No page target is involved: a channel with
+  // enough content still leads its own page, and nothing is dropped either way.
+  const channelPages: ReportBlock[][] = [];
+  for (const b of mergeChannel ? [] : orderedChannelBlocks) {
+    const standalone = composition.channels.find((c) => c.sourceId === b.sourceId)?.standalone ?? true;
+    if (channelPages.length === 0 || standalone) channelPages.push([b]);
+    else channelPages[channelPages.length - 1].push(b);
+  }
   const hasInsightCards = keyWins.length > 0 || issuesDetected.length > 0 || growthOpportunities.length > 0;
   // Previously excluded the evidence layer, so a report whose only content
   // was "what this means" + coverage skipped the page holding them entirely.
-  const hasInsights = hasInsightCards || recommendedActions.length > 0 || !!branding.footer_text || evidenceActions.length > 0 || coverageLines.length > 0 || soWhatOffDashboard.length > 0;
+  // Where the written summary lands. The dashboard page holds it when there is
+  // one; otherwise the first channel page opens with it; and a report with
+  // neither still gets it, on the closing page, rather than none at all.
+  const summaryOnDashboard = !!(gsc || ga4);
+  const summaryOnChannelPage = !summaryOnDashboard && channelPages.length > 0;
+  const summaryOnInsightsPage = !summaryOnDashboard && !summaryOnChannelPage;
+  const hasInsights =
+    hasInsightCards || commentary.length > 0 || !!branding.footer_text || evidenceActions.length > 0 ||
+    coverageLines.length > 0 || soWhatOffDashboard.length > 0 || summaryOnInsightsPage;
 
   // Sections are numbered in document order; only rendered sections count.
   let sn = 0;
@@ -421,6 +442,19 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
         ) : null}
     </>
   );
+
+  // The summary section for a report with no executive-dashboard page — that
+  // page is gated on a Google source, and a paid-media-only report was
+  // therefore shipping with no written summary at all. Rendered at the top of
+  // the first channel page instead, where it opens the document.
+  const renderStandaloneSummary = () => (
+    <Section s={s} num={num()} title="Executive Summary" subtitle={`${clientName} · ${fmtDate(period.start)} – ${fmtDate(period.end)}`}>
+      <View style={s.summaryPanel}>
+        <Text style={s.para}>{summaryText}</Text>
+      </View>
+    </Section>
+  );
+
   return (
     <Document title={title} author={branding.name || "Agency"} subject={`Performance report for ${clientName}`} creator={branding.name || "Agency"}>
       <CoverPage s={s} color={color} branding={branding} logoSrc={logoSrc} badge={badge} title={title} clientName={clientName} period={period} generatedAt={generatedAt} />
@@ -485,20 +519,18 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
             </Section>
           ) : null}
 
-          {/* Thin report: the overview joins the dashboard rather than opening
-              a page that would be mostly whitespace. */}
-          {compact ? renderOverview() : null}
+          {/* The overview joins the dashboard rather than opening a page of its
+              own. It used to do so only for a thin report, which left a
+              substantial one with a dashboard page that spilled two lines onto
+              the next page and then began a fresh page for four KPI cards. The
+              two belong together at any density — the dashboard states the
+              headline figures and the overview breaks them out — and letting
+              them flow means the break falls where the content runs out rather
+              than where the template said. */}
+          {renderOverview()}
           {mergeChannel ? (
             <ChannelSection s={s} color={color} palette={palette} block={orderedChannelBlocks[0] ?? channelBlocks[0]} sectionNum={num()} />
           ) : null}
-        </Page>
-      ) : null}
-
-      {/* ── Performance overview ── */}
-      {(gsc || ga4) && !compact ? (
-        <Page size="A4" style={s.page}>
-          <PageChrome {...chrome} />
-          {renderOverview()}
         </Page>
       ) : null}
 
@@ -652,10 +684,13 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
       {/* ── Connected channels (every non-Google integration) ──
           Provider-agnostic: each block renders itself from its own labels,
           formats and currency, so new integrations need no change here. */}
-      {(mergeChannel ? [] : orderedChannelBlocks).map((block) => (
-        <Page key={block.sourceId} size="A4" style={s.page}>
+      {channelPages.map((group, i) => (
+        <Page key={group[0].sourceId} size="A4" style={s.page}>
           <PageChrome {...chrome} />
-          <ChannelSection s={s} color={color} palette={palette} block={block} sectionNum={num()} />
+          {i === 0 && summaryOnChannelPage ? renderStandaloneSummary() : null}
+          {group.map((block) => (
+            <ChannelSection key={block.sourceId} s={s} color={color} palette={palette} block={block} sectionNum={num()} />
+          ))}
         </Page>
       ))}
 
@@ -664,20 +699,14 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
         <Page size="A4" style={s.page}>
           <PageChrome {...chrome} />
 
-          {soWhatOffDashboard.length > 0 ? (
-            <Section s={s} num={num()} title="What this means" subtitle="Each point below is tied to a figure measured in this report.">
-              {soWhatOffDashboard.map((w) => (
-                <View key={w.observation} style={s.soWhatRow} wrap={false}>
-                  <Text style={s.soWhatObs}>{w.observation}</Text>
-                  <Text style={s.soWhatMeaning}>{w.meaning}</Text>
-                  <Text style={s.soWhatEvidence}>{w.metric} · {w.source} · {w.confidence} confidence — {w.confidenceReason}</Text>
-                </View>
-              ))}
-            </Section>
-          ) : null}
+          {summaryOnInsightsPage ? renderStandaloneSummary() : null}
 
-          {hasInsightCards ? (
-            <Section s={s} num={num()} title="Insights & Analysis" subtitle="What stood out this period — scan the cards for the headline, read on for detail.">
+          {/* One "what stood out and what it means" section rather than three
+              separate ones. Wins, risks, opportunities and the interpretation
+              layer are the same act of reading for the client, and splitting
+              them opened pages that each carried a heading and a card. */}
+          {hasInsightCards || soWhatOffDashboard.length > 0 ? (
+            <Section s={s} num={num()} title="What stood out, and what it means" subtitle="Each point below is tied to a figure measured in this report.">
               {keyWins.length > 0 ? (
                 <View style={{ marginBottom: 12 }}>
                   <Text style={s.groupLabel}>Key Wins</Text>
@@ -691,18 +720,32 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
                 </View>
               ) : null}
               {growthOpportunities.length > 0 ? (
-                <View>
+                <View style={{ marginBottom: soWhatOffDashboard.length > 0 ? 12 : 0 }}>
                   <Text style={s.groupLabel}>Opportunities</Text>
                   <InsightCards s={s} tone={tones.info} icon="bulb" kind="Opportunity" items={growthOpportunities.map(toInsightCard)} />
+                </View>
+              ) : null}
+              {soWhatOffDashboard.length > 0 ? (
+                <View>
+                  {hasInsightCards ? <Text style={s.groupLabel}>What this means</Text> : null}
+                  {soWhatOffDashboard.map((w) => (
+                    <View key={w.observation} style={s.soWhatRow} wrap={false}>
+                      <Text style={s.soWhatObs}>{w.observation}</Text>
+                      <Text style={s.soWhatMeaning}>{w.meaning}</Text>
+                      <Text style={s.soWhatEvidence}>{w.metric} · {w.source} · {w.confidence} confidence — {w.confidenceReason}</Text>
+                    </View>
+                  ))}
                 </View>
               ) : null}
             </Section>
           ) : null}
 
-          {/* Evidence-backed next steps. Priority comes from the confidence and
-              weight of the signal behind each one, not from list position, and
-              every step carries the measurement that prompted it. */}
-          {evidenceActions.length > 0 ? (
+          {/* Evidence-backed next steps, with the AI's remaining commentary
+              beneath them in the same section rather than under a heading of its
+              own. Priority comes from the confidence and weight of the signal
+              behind each step, not from list position, and every step carries
+              the measurement that prompted it. */}
+          {evidenceActions.length > 0 || commentary.length > 0 ? (
             <Section s={s} num={num()} title="Recommended actions" subtitle="Each step below is prompted by a figure measured in this report.">
               {evidenceActions.map((a) => (
                 <View key={a.action} style={s.evActionRow} wrap={false}>
@@ -715,15 +758,29 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
                   </View>
                 </View>
               ))}
-            </Section>
-          ) : null}
 
-          {recommendedActions.length > 0 ? (
-            <Section s={s} num={num()} title="Further commentary" subtitle="Written by ReportFlow's AI from the metrics in this report.">
-              {recommendedActions.slice(0, 4).map((a, i) => {
-                const meta = actionMeta(a, i, Math.min(4, recommendedActions.length));
-                return <ActionCard key={i} s={s} color={color} index={i} priority={meta.priority} impact={meta.impact} focus={meta.focus} card={toInsightCard(a)} />;
-              })}
+              {/* Only reached when cleaning left something that reads as
+                  commentary. A section titled "Further commentary" whose whole
+                  content was a numbering artefact shipped to a client once. */}
+              {commentary.length > 0 ? (
+                <View style={{ marginTop: evidenceActions.length > 0 ? 12 : 0 }}>
+                  {/* The label and the first card are one unwrappable unit.
+                      minPresenceAhead alone does not hold them together when the
+                      card itself is unwrappable, which is how a heading came to
+                      sit at the foot of one page with its only card on the next.
+                      No priority or impact badge here either: the steps above
+                      carry priorities derived from the confidence and weight of
+                      a measurement, and there is nothing measured behind a badge
+                      on free prose. */}
+                  <View wrap={false}>
+                    <Text style={s.groupLabel}>Further commentary</Text>
+                    <ActionCard s={s} color={color} index={0} card={toInsightCard(commentary[0])} />
+                  </View>
+                  {commentary.slice(1, 4).map((a, i) => (
+                    <ActionCard key={i} s={s} color={color} index={i + 1} card={toInsightCard(a)} />
+                  ))}
+                </View>
+              ) : null}
             </Section>
           ) : null}
 

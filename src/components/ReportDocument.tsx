@@ -12,6 +12,8 @@ import { normalizeReportData, periodDayCount } from "@/lib/report";
 import { formatBlockValue } from "@/lib/integrations/blocks";
 import { detectSignals } from "@/lib/insights/signals";
 import { allSoWhat, allActions } from "@/lib/reports/soWhat";
+import { buildExecutiveSummary } from "@/lib/reports/summary";
+import { cleanBullets, cleanCommentary } from "@/lib/reports/commentary";
 import { coverBadgeLabel } from "@/lib/reports/types";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 
@@ -83,12 +85,15 @@ function pagePathOf(url: string): string {
   }
 }
 
+// AI text is cleaned before it is trusted. Models add list numbering to strings
+// that are already list items, and the renderer used to pass every element
+// through — a bullet reading "1" rendered next to the list's own ordinal.
 function normInsights(ins: RawInsights) {
   if (!ins) return null;
-  const executiveSummary = ins.executiveSummary ?? ins.summary ?? "";
-  const keyWins = ins.keyWins ?? ins.highlights ?? [];
-  const issuesDetected = ins.issuesDetected ?? [];
-  const growthOpportunities = ins.growthOpportunities ?? [];
+  const executiveSummary = (ins.executiveSummary ?? ins.summary ?? "").trim();
+  const keyWins = cleanBullets(ins.keyWins ?? ins.highlights);
+  const issuesDetected = cleanBullets(ins.issuesDetected);
+  const growthOpportunities = cleanBullets(ins.growthOpportunities);
   const recommendedActions = ins.recommendedActions ?? ins.recommendations ?? [];
   const empty = !executiveSummary && !keyWins.length && !issuesDetected.length && !growthOpportunities.length && !recommendedActions.length;
   return empty ? null : { executiveSummary, keyWins, issuesDetected, growthOpportunities, recommendedActions };
@@ -209,7 +214,23 @@ export function ReportDocument({
   // document the client receives never disagree.
   const signals = detectSignals(gsc, ga4, 6);
   const soWhat = allSoWhat(signals, blocks ?? [], 3);
-  const evidenceActions = allActions(signals, blocks ?? [], 4);
+  const evidenceActions = allActions(signals, blocks ?? [], 5);
+
+  // The written summary. The AI paragraph is preferred where one exists;
+  // otherwise it is built from the measured figures. It used to be neither: with
+  // no AI text the section said "a written summary needs a full period of data
+  // to compare against" and stopped, on reports that had spend, clicks and
+  // conversions in them. A comparison enriches the summary; its absence does not
+  // make one impossible.
+  const summary = buildExecutiveSummary({
+    clientName, period, gsc, ga4, blocks: channelBlocks,
+    watch: evidenceActions[0] ? { action: evidenceActions[0].action, because: evidenceActions[0].because } : null,
+  });
+  const summaryText = ins?.executiveSummary || summary.text;
+
+  // Commentary the AI wrote that the evidence-backed steps don't already cover.
+  // Empty after cleaning means the section does not render.
+  const commentary = cleanCommentary(ins?.recommendedActions, evidenceActions.map((a) => a.action));
 
   // States plainly when the period is only partly covered, rather than letting
   // the cover imply a full window of measurement.
@@ -268,14 +289,7 @@ export function ReportDocument({
             supported. A slot with no fact behind it is now omitted, and when
             nothing at all qualifies the section says so plainly. */}
         <Section n={next()} title="Executive Summary" subtitle="Performance at a glance" color={color}>
-          {ins?.executiveSummary ? (
-            <p className="text-sm leading-relaxed text-ink-700">{ins.executiveSummary}</p>
-          ) : (
-            <p className="text-sm leading-relaxed text-ink-600">
-              A written summary needs a full period of data to compare against. The measured figures for this period
-              are below.
-            </p>
-          )}
+          <p className="text-sm leading-relaxed text-ink-700">{summaryText}</p>
 
           {callouts.length > 0 && (
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -587,89 +601,104 @@ export function ReportDocument({
           </Section>
         ))}
 
-        {/* Key Wins (AI) */}
-        {ins && ins.keyWins.length > 0 && (
-          <Section n={next()} title="Key Wins" subtitle="What worked this period" color={color}>
-            <ul className="space-y-2">
-              {ins.keyWins.map((w, i) => (
-                <li key={i} className="flex gap-2.5 rounded-lg border border-emerald-100 bg-emerald-50/50 px-3 py-2.5 text-sm text-ink-700">
-                  <Trophy size={15} className="mt-0.5 flex-shrink-0 text-emerald-600" />
-                  <span>{w}</span>
-                </li>
-              ))}
-            </ul>
-          </Section>
-        )}
+        {/* What stood out, and what it means.
+            Wins, risks and the interpretation layer were three sections, each
+            with its own heading and a short list under it — the same act of
+            reading for the client, fragmented. They share one section now, and
+            the interpretation layer still pairs each measured signal with the
+            standing meaning of that pattern, so the client gets "and
+            therefore…" rather than another table. */}
+        {((ins && (ins.keyWins.length > 0 || ins.issuesDetected.length > 0)) || soWhat.length > 0) && (
+          <Section n={next()} title="What stood out, and what it means" subtitle="Each point is tied to a figure measured in this report" color={color}>
+            {ins && ins.keyWins.length > 0 && (
+              <>
+                <p className="mb-2 text-xs font-semibold text-emerald-700">Key wins</p>
+                <ul className="space-y-2">
+                  {ins.keyWins.map((w, i) => (
+                    <li key={i} className="flex gap-2.5 rounded-lg border border-emerald-100 bg-emerald-50/50 px-3 py-2.5 text-sm text-ink-700">
+                      <Trophy size={15} className="mt-0.5 flex-shrink-0 text-emerald-600" />
+                      <span>{w}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
 
-        {/* Issues Detected (AI) */}
-        {ins && ins.issuesDetected.length > 0 && (
-          <Section n={next()} title="Issues Detected" subtitle="Risks and declines to address" color={color}>
-            <ul className="space-y-2">
-              {ins.issuesDetected.map((it, i) => (
-                <li key={i} className="flex gap-2.5 rounded-lg border border-rose-100 bg-rose-50/50 px-3 py-2.5 text-sm text-ink-700">
-                  <AlertTriangle size={15} className="mt-0.5 flex-shrink-0 text-rose-500" />
-                  <span>{it}</span>
-                </li>
-              ))}
-            </ul>
-          </Section>
-        )}
+            {ins && ins.issuesDetected.length > 0 && (
+              <>
+                <p className={`mb-2 text-xs font-semibold text-rose-600 ${ins.keyWins.length > 0 ? "mt-5" : ""}`}>Issues detected</p>
+                <ul className="space-y-2">
+                  {ins.issuesDetected.map((it, i) => (
+                    <li key={i} className="flex gap-2.5 rounded-lg border border-rose-100 bg-rose-50/50 px-3 py-2.5 text-sm text-ink-700">
+                      <AlertTriangle size={15} className="mt-0.5 flex-shrink-0 text-rose-500" />
+                      <span>{it}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
 
-        {/* What this means — the interpretation layer. Each entry pairs a
-            measured signal with the standing meaning of that pattern, so the
-            client gets "and therefore…" rather than another table. */}
-        {soWhat.length > 0 && (
-          <Section n={next()} title="What this means" subtitle="Each point is tied to a figure measured in this report" color={color}>
-            <div className="space-y-4">
-              {soWhat.map((w) => (
-                <div key={w.observation} className="border-l-2 border-slate-200 pl-4">
-                  <p className="text-sm font-semibold text-ink-900">{w.observation}</p>
-                  <p className="mt-1 text-sm leading-relaxed text-ink-700">{w.meaning}</p>
-                  <p className="mt-1.5 text-xs text-ink-500">
-                    {w.metric} · {w.source} · {w.confidence} confidence — {w.confidenceReason}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </Section>
-        )}
-
-        {/* Evidence-backed next steps, each carrying the figure behind it. */}
-        {evidenceActions.length > 0 && (
-          <Section n={next()} title="Recommended actions" subtitle="Each step is prompted by a figure measured in this report" color={color}>
-            <ul className="space-y-3">
-              {evidenceActions.map((a) => (
-                <li key={a.action} className="flex gap-3 rounded-lg border border-slate-100 bg-white p-3">
-                  <span
-                    className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                      a.priority === "High" ? "bg-amber-50 text-amber-700"
-                      : a.priority === "Medium" ? "bg-slate-100 text-ink-700"
-                      : "bg-slate-50 text-ink-500"
-                    }`}
-                  >
-                    {a.priority}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm text-ink-800">{a.action}</p>
-                    <p className="mt-0.5 text-xs text-ink-500">Because: {a.because} ({a.source})</p>
+            {soWhat.length > 0 && (
+              <div className={`space-y-4 ${ins && (ins.keyWins.length > 0 || ins.issuesDetected.length > 0) ? "mt-5" : ""}`}>
+                {ins && (ins.keyWins.length > 0 || ins.issuesDetected.length > 0) && (
+                  <p className="text-xs font-semibold text-ink-600">What this means</p>
+                )}
+                {soWhat.map((w) => (
+                  <div key={w.observation} className="border-l-2 border-slate-200 pl-4">
+                    <p className="text-sm font-semibold text-ink-900">{w.observation}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-ink-700">{w.meaning}</p>
+                    <p className="mt-1.5 text-xs text-ink-500">
+                      {w.metric} · {w.source} · {w.confidence} confidence — {w.confidenceReason}
+                    </p>
                   </div>
-                </li>
-              ))}
-            </ul>
+                ))}
+              </div>
+            )}
           </Section>
         )}
 
-        {/* AI commentary, kept distinct from the evidence-backed steps above. */}
-        {ins && ins.recommendedActions.length > 0 && (
-          <Section n={next()} title="Further commentary" subtitle="Written by AI from the metrics in this report" color={color}>
-            <ol className="space-y-2">
-              {ins.recommendedActions.map((r, i) => (
-                <li key={i} className="flex gap-3 rounded-lg border border-slate-100 bg-white p-3">
-                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white" style={{ background: color }}>{i + 1}</span>
-                  <p className="text-sm text-ink-700">{r}</p>
-                </li>
-              ))}
-            </ol>
+        {/* Evidence-backed next steps, each carrying the figure behind it, with
+            the AI's remaining commentary beneath them in the same section. The
+            commentary only appears when cleaning left something that reads as
+            commentary — it had its own heading before, which meant a heading
+            could ship above a single malformed list item. */}
+        {(evidenceActions.length > 0 || commentary.length > 0) && (
+          <Section n={next()} title="Recommended actions" subtitle="Each step is prompted by a figure measured in this report" color={color}>
+            {evidenceActions.length > 0 && (
+              <ul className="space-y-3">
+                {evidenceActions.map((a) => (
+                  <li key={a.action} className="flex gap-3 rounded-lg border border-slate-100 bg-white p-3">
+                    <span
+                      className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                        a.priority === "High" ? "bg-amber-50 text-amber-700"
+                        : a.priority === "Medium" ? "bg-slate-100 text-ink-700"
+                        : "bg-slate-50 text-ink-500"
+                      }`}
+                    >
+                      {a.priority}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm text-ink-800">{a.action}</p>
+                      <p className="mt-0.5 text-xs text-ink-500">Because: {a.because} ({a.source})</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {commentary.length > 0 && (
+              <div className={evidenceActions.length > 0 ? "mt-5" : ""}>
+                <p className="mb-2 text-xs font-semibold text-ink-600">Further commentary</p>
+                <ol className="space-y-2">
+                  {commentary.map((r, i) => (
+                    <li key={i} className="flex gap-3 rounded-lg border border-slate-100 bg-white p-3">
+                      <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white" style={{ background: color }}>{i + 1}</span>
+                      <p className="text-sm text-ink-700">{r}</p>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
           </Section>
         )}
 
