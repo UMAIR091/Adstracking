@@ -19,7 +19,7 @@ import { LineChart, BarList, ShareBar } from "./charts";
 import { Icon, TrendArrow } from "./icons";
 import { detectSignals } from "@/lib/insights/signals";
 import { allSoWhat, allActions } from "@/lib/reports/soWhat";
-import { buildExecutiveSummary } from "@/lib/reports/summary";
+import { buildExecutiveSummary, blockHasComparison, hasComparison, periodSubtitle } from "@/lib/reports/summary";
 import { cleanBullets, cleanCommentary } from "@/lib/reports/commentary";
 import { coverBadgeLabel } from "@/lib/reports/types";
 import { assessComposition, MIN_TREND_POINTS } from "@/lib/reports/composition";
@@ -78,7 +78,12 @@ function ChannelSection({ s, color, palette, block, sectionNum }: {
   const charts = block.series.filter((ser) => ser.points.length >= 5).slice(0, 2);
 
   return (
-    <Section s={s} num={sectionNum} title={block.sourceName} subtitle={`Performance for the reporting period, compared with the previous period.`}>
+    <Section
+      s={s}
+      num={sectionNum}
+      title={block.sourceName}
+      subtitle={`${periodSubtitle("Performance during this period", blockHasComparison(block))}.`}
+    >
       {kpis.length > 0 ? (
         <View style={s.kpiRow} wrap={false}>
           {kpis.map((k) => (
@@ -242,6 +247,10 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
   const movers = gsc?.movers ?? null;
   const opportunities = movers?.opportunities ?? [];
   const highlights = buildHighlights(gsc, ga4);
+  // Whether this report has a previous period behind it at all. Section
+  // subtitles promised "compared with the previous period" regardless, which
+  // sat above KPI cards carrying no deltas.
+  const comparison = hasComparison({ gsc, ga4, blocks: channelBlocks });
   // The cover badge describes what the report actually IS. It used to be
   // `gsc && ga4 ? … : ga4 ? … : "SEO Report"`, so anything without GA4 — a
   // Meta-Ads-only paid report included — was stamped "SEO Report". The stored
@@ -404,7 +413,7 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
     <>
 
         {(gsc || ga4) ? (
-          <Section s={s} num={num()} title="Performance Overview" subtitle="Key metrics for the reporting period, compared with the previous period.">
+          <Section s={s} num={num()} title="Performance Overview" subtitle={`${periodSubtitle("Key metrics for this reporting period", comparison)}.`}>
             {gsc ? (
               <View wrap={false}>
                 <Text style={s.groupLabel}>Search visibility · Google Search Console</Text>
@@ -463,7 +472,7 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
       {(gsc || ga4) ? (
         <Page size="A4" style={s.page}>
           <PageChrome {...chrome} />
-          <Section s={s} num={num()} title="Executive Dashboard" subtitle={`${clientName} · ${fmtDate(period.start)} – ${fmtDate(period.end)} · vs. previous period`}>
+          <Section s={s} num={num()} title="Executive Dashboard" subtitle={`${clientName} · ${fmtDate(period.start)} – ${fmtDate(period.end)}${comparison ? " · vs. previous period" : ""}`}>
             {/* Score gauge + AI summary */}
             <View style={s.dashRow}>
               {score ? <GaugePanel s={s} color={color} data={score} /> : null}

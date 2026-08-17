@@ -58,6 +58,40 @@ export type SummaryInput = {
   watch?: WatchItem;
 };
 
+// ── Is there anything to compare against? ───────────────────────────────────
+//
+// Section subtitles promised a comparison unconditionally — "compared with the
+// previous period" sat above KPI cards showing no deltas at all, because the
+// sources had returned no prior window. The promise has to follow the data, so
+// both renderers ask these before choosing their wording.
+
+/** True when this channel carries a previous value for at least one KPI. */
+export function blockHasComparison(b: ReportBlock): boolean {
+  return b.kpis.some((k) => k.previous != null && Number.isFinite(k.previous));
+}
+
+/** True when any source in the report has a previous period to compare against. */
+export function hasComparison(input: {
+  gsc: GscReportFull | null;
+  ga4: Ga4ReportFull | null;
+  blocks: ReportBlock[];
+}): boolean {
+  if (input.gsc?.previousTotals) return true;
+  if (input.ga4?.previousTotals) return true;
+  return input.blocks.some(blockHasComparison);
+}
+
+/**
+ * A section subtitle that only mentions a comparison when one exists.
+ *
+ * `base` describes what the section shows; the comparison clause is appended
+ * only when there is a previous period behind it. Returned unpunctuated, so
+ * each renderer keeps its own subtitle style.
+ */
+export function periodSubtitle(base: string, comparison: boolean): string {
+  return comparison ? `${base}, compared with the previous period` : base;
+}
+
 // ── "What happened" ─────────────────────────────────────────────────────────
 
 function gscClause(gsc: GscReportFull): string {
@@ -95,7 +129,17 @@ const HEADLINE_LABELS = [
 ];
 
 function kpiPhrase(k: BlockKpi, currency: string | null): string {
-  return `${formatBlockValue(k.value, k.format, currency)} ${k.label.toLowerCase()}`;
+  const value = formatBlockValue(k.value, k.format, currency);
+  const label = k.label.toLowerCase();
+  // "$4,200 in spend" rather than "$4,200 spend" — a money figure reads as a
+  // sum, not as a count of something.
+  return k.format === "currency" ? `${value} in ${label}` : `${value} ${label}`;
+}
+
+/** "a, b and c" — a list a person would read aloud, not a data dump. */
+function sentenceList(parts: string[]): string {
+  if (parts.length <= 1) return parts[0] ?? "";
+  return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
 }
 
 function blockClause(b: ReportBlock): string | null {
@@ -106,12 +150,12 @@ function blockClause(b: ReportBlock): string | null {
     return i === -1 ? HEADLINE_LABELS.length : i;
   };
   const picked = [...usable].sort((a, z) => rank(a) - rank(z)).slice(0, 3);
-  return `${b.sourceName} recorded ${picked.map((k) => kpiPhrase(k, b.currency)).join(", ")}`;
+  return `${b.sourceName} recorded ${sentenceList(picked.map((k) => kpiPhrase(k, b.currency)))}`;
 }
 
 // ── "What matters most" ─────────────────────────────────────────────────────
 
-type Movement = { label: string; value: string; delta: number; good: boolean };
+type Movement = { label: string; value: string; delta: number; good: boolean; lowerBetter: boolean };
 
 function movements(input: SummaryInput): Movement[] {
   const out: Movement[] = [];
@@ -124,7 +168,7 @@ function movements(input: SummaryInput): Movement[] {
   ) => {
     const d = deltaPct(cur, prev);
     if (d == null || Math.abs(d) < 5) return;
-    out.push({ label, value, delta: d, good: lowerBetter ? d < 0 : d > 0 });
+    out.push({ label, value, delta: d, good: lowerBetter ? d < 0 : d > 0, lowerBetter });
   };
 
   const { gsc, ga4 } = input;
@@ -208,46 +252,52 @@ export function buildExecutiveSummary(input: SummaryInput): ExecutiveSummary {
 
   if (clauses.length === 0) {
     return {
-      text: `No performance data was recorded for ${input.clientName} between ${fmtDate(input.period.start)} and ${fmtDate(input.period.end)}. The connected sources returned nothing for this window, so there is nothing to interpret — the coverage note below explains what was requested.`,
+      text:
+        `No performance data was recorded for ${input.clientName} between ${fmtDate(input.period.start)} and ${fmtDate(input.period.end)}. ` +
+        `The connected sources returned no results for this period — see the note on data coverage below.`,
       limited: true,
     };
   }
 
   const sentences: string[] = [
     `Between ${fmtDate(input.period.start)} and ${fmtDate(input.period.end)}, ${clauses.join("; ")}` +
-      (extra > 0 ? `; ${extra} further connected channel${extra === 1 ? " is" : "s are"} detailed in the sections below` : "") +
+      (extra > 0 ? `, with ${extra} further channel${extra === 1 ? "" : "s"} detailed below` : "") +
       `.`,
   ];
 
   const moves = movements(input);
+  const hasBaseline = hasComparison(input);
+
   if (moves[0]) {
     const m = moves[0];
-    const direction = m.delta >= 0 ? "up" : "down";
-    // For a lower-is-better metric "down 14%" reads as bad unless the report
-    // says which way is better, so it is stated explicitly.
-    const gloss = /position|cost|cpc|cpm/i.test(m.label) ? (m.good ? " — an improvement" : " — a decline") : "";
-    sentences.push(
-      `The largest measured movement was ${m.label}, ${direction} ${abs0(m.delta)} against the previous period at ${m.value}${gloss}.`,
-    );
+    // A lower-is-better metric reads wrong as "down 14%", so it is described as
+    // improving or worsening instead of by direction.
+    const change = m.lowerBetter
+      ? `${m.good ? "improved" : "worsened"} ${abs0(m.delta)} to ${m.value}`
+      : `${m.delta >= 0 ? "rose" : "fell"} ${abs0(m.delta)} to ${m.value}`;
+    sentences.push(`The biggest change was ${m.label}, which ${change}.`);
   } else {
+    // No movement to report. What that means depends on why: without a
+    // baseline there is nothing to compare against, and saying so once is
+    // enough — the alternative wording implied a comparison had been made and
+    // found nothing.
     const contrib = contribution(input);
-    sentences.push(
-      `There is no previous-period baseline for this window, so the figures above stand on their own rather than as a comparison.` +
-        (contrib ? ` ${contrib}` : ""),
-    );
+    const note = hasBaseline
+      ? `No metric moved materially against the previous period.`
+      : `Figures are shown for this period only, as there is no comparable previous period.`;
+    sentences.push(contrib ? `${note} ${contrib}` : note);
   }
 
   if (input.watch) {
-    sentences.push(`Most worth attention: ${input.watch.because} ${input.watch.action}`);
+    sentences.push(`The priority from here: ${input.watch.because} ${input.watch.action}`);
   }
 
-  // Figures but nothing to read into them: no movement to report and no
-  // evidence-backed action. Saying so is better than a summary that trails off.
+  // Figures, but nothing to read into them: no movement to report and no
+  // evidence-backed action. Saying so plainly is better than a summary that
+  // trails off, and better than implying a conclusion the data can't carry.
   const limited = moves.length === 0 && !input.watch;
   if (limited) {
-    sentences.push(
-      `There is not yet enough measured activity in this period to draw a conclusion from — the figures are reported as recorded, without interpretation.`,
-    );
+    sentences.push(`Activity in this period is too limited to draw firm conclusions from.`);
   }
 
   return { text: sentences.join(" "), limited };

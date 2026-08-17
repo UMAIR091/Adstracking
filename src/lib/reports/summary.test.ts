@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildExecutiveSummary } from "./summary";
+import { blockHasComparison, buildExecutiveSummary, hasComparison, periodSubtitle } from "./summary";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import type { ReportBlock } from "@/lib/integrations/blocks";
 
@@ -57,7 +57,7 @@ describe("buildExecutiveSummary", () => {
     expect(limited).toBe(false);
     expect(text).toMatch(/organic search delivered 14,841 clicks/);
     expect(text).toMatch(/31,000 sessions from 22,000 users/);
-    expect(text).toMatch(/largest measured movement/);
+    expect(text).toMatch(/The biggest change was organic clicks, which rose 24% to 14,841./);
   });
 
   // The defect this module exists for: a paid-media report reached the summary
@@ -73,7 +73,8 @@ describe("buildExecutiveSummary", () => {
     });
     expect(limited).toBe(false);
     expect(text).toMatch(/Meta Ads recorded/);
-    expect(text).toMatch(/\$4,200 spend/);
+    // A money figure reads as a sum: "$4,200 in spend", not "$4,200 spend".
+    expect(text).toMatch(/\$4,200 in spend/);
     expect(text).toMatch(/120 conversions/);
   });
 
@@ -83,7 +84,7 @@ describe("buildExecutiveSummary", () => {
       gsc: gsc({ previousTotals: null }),
     });
     expect(text).toMatch(/organic search delivered 14,841 clicks/);
-    expect(text).toMatch(/no previous-period baseline/);
+    expect(text).toMatch(/no comparable previous period/);
     // And never implies a comparison it doesn't have.
     expect(text).not.toMatch(/vs\.? the previous period/);
   });
@@ -112,11 +113,11 @@ describe("buildExecutiveSummary", () => {
         because: "Meta Ads recorded $228 of spend and no conversions in this period.",
       },
     });
-    expect(text).toMatch(/Most worth attention: Meta Ads recorded \$228 of spend and no conversions/);
+    expect(text).toMatch(/The priority from here: Meta Ads recorded \$228 of spend and no conversions/);
     expect(text).toMatch(/Confirm conversion tracking is firing/);
   });
 
-  it("says a lower-is-better improvement is an improvement", () => {
+  it("describes a lower-is-better metric as improving, not as falling", () => {
     const { text } = buildExecutiveSummary({
       ...base,
       blocks: [paid([
@@ -136,7 +137,8 @@ describe("buildExecutiveSummary", () => {
       } as unknown as ReportBlock],
     });
     expect(withFlag.text).toMatch(/cost per conversion/i);
-    expect(withFlag.text).toMatch(/an improvement/);
+    expect(withFlag.text).toMatch(/which improved 17% to \$35/);
+    expect(withFlag.text).not.toMatch(/cost per conversion, which fell/i);
     expect(text).toBeTruthy();
   });
 
@@ -148,7 +150,7 @@ describe("buildExecutiveSummary", () => {
         { label: "CPC", value: null },
       ])],
     });
-    expect(text).toMatch(/\$228 spend/);
+    expect(text).toMatch(/\$228 in spend/);
     expect(text).not.toMatch(/cpc/i);
     // The em dash the formatter uses for "not calculable" never reaches prose.
     expect(text).not.toMatch(/— \w+ (?:cpc|per click)/i);
@@ -159,7 +161,7 @@ describe("buildExecutiveSummary", () => {
     const { text, limited } = buildExecutiveSummary(base);
     expect(limited).toBe(true);
     expect(text).toMatch(/No performance data was recorded for Acme Running Co\./);
-    expect(text).toMatch(/nothing to interpret/);
+    expect(text).toMatch(/returned no results for this period/);
   });
 
   it("says so plainly when there are figures but nothing to read into them", () => {
@@ -169,7 +171,7 @@ describe("buildExecutiveSummary", () => {
     });
     expect(limited).toBe(true);
     expect(text).toMatch(/1,295 impressions/);
-    expect(text).toMatch(/not yet enough measured activity/);
+    expect(text).toMatch(/too limited to draw firm conclusions/);
   });
 
   it("never returns an empty summary", () => {
@@ -183,6 +185,58 @@ describe("buildExecutiveSummary", () => {
       paid([{ label: "Spend", value: 100 }], { sourceId: id, sourceName: id }),
     );
     const { text } = buildExecutiveSummary({ ...base, blocks });
-    expect(text).toMatch(/2 further connected channels are detailed in the sections below/);
+    expect(text).toMatch(/with 2 further channels detailed below/);
+  });
+
+  // Client-facing tone: the summary states what happened and what to do about
+  // it. It should not read like the reporting engine explaining itself.
+  it("keeps the wording client-facing rather than defensive", () => {
+    const texts = [
+      buildExecutiveSummary({ ...base, gsc: gsc(), ga4: ga4() }).text,
+      buildExecutiveSummary({ ...base, gsc: gsc({ previousTotals: null }) }).text,
+      buildExecutiveSummary({ ...base, blocks: [paid([{ label: "Impressions", value: 1295 }])] }).text,
+      buildExecutiveSummary(base).text,
+    ].join(" ");
+    for (const jargon of [
+      /baseline/i, /window/i, /measured movement/i, /stand on their own/i,
+      /without interpretation/i, /nothing to interpret/i, /reported as recorded/i,
+    ]) {
+      expect(texts).not.toMatch(jargon);
+    }
+  });
+});
+
+// Section subtitles promised "compared with the previous period" whatever the
+// data held, so a report whose sources returned no prior window carried that
+// line above KPI cards showing no change at all.
+describe("comparison availability", () => {
+  it("sees a baseline on whichever source actually has one", () => {
+    expect(hasComparison({ gsc: gsc(), ga4: null, blocks: [] })).toBe(true);
+    expect(hasComparison({ gsc: null, ga4: ga4(), blocks: [] })).toBe(true);
+    expect(hasComparison({
+      gsc: null, ga4: null,
+      blocks: [paid([{ label: "Spend", value: 4200, previous: 3780 }])],
+    })).toBe(true);
+  });
+
+  it("reports none when no source carries a previous figure", () => {
+    expect(hasComparison({
+      gsc: gsc({ previousTotals: null }),
+      ga4: null,
+      blocks: [paid([{ label: "Spend", value: 228 }])],
+    })).toBe(false);
+    expect(hasComparison({ gsc: null, ga4: null, blocks: [] })).toBe(false);
+  });
+
+  it("judges each channel on its own previous figures", () => {
+    expect(blockHasComparison(paid([{ label: "Spend", value: 4200, previous: 3780 }]))).toBe(true);
+    expect(blockHasComparison(paid([{ label: "Spend", value: 228 }]))).toBe(false);
+  });
+
+  it("only promises a comparison when there is one", () => {
+    expect(periodSubtitle("Performance during this period", true))
+      .toBe("Performance during this period, compared with the previous period");
+    expect(periodSubtitle("Performance during this period", false))
+      .toBe("Performance during this period");
   });
 });

@@ -12,7 +12,7 @@ import { normalizeReportData, periodDayCount } from "@/lib/report";
 import { formatBlockValue } from "@/lib/integrations/blocks";
 import { detectSignals } from "@/lib/insights/signals";
 import { allSoWhat, allActions } from "@/lib/reports/soWhat";
-import { buildExecutiveSummary } from "@/lib/reports/summary";
+import { buildExecutiveSummary, blockHasComparison, periodSubtitle } from "@/lib/reports/summary";
 import { cleanBullets, cleanCommentary } from "@/lib/reports/commentary";
 import { coverBadgeLabel } from "@/lib/reports/types";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
@@ -540,7 +540,7 @@ export function ReportDocument({
             key={block.sourceId}
             n={next()}
             title={block.sourceName}
-            subtitle="Performance for this period, compared with the previous one"
+            subtitle={periodSubtitle("Performance during this period", blockHasComparison(block))}
             color={color}
           >
             {block.kpis.length > 0 && (
