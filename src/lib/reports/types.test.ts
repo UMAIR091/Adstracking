@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inferReportType, suggestReportTitle, reportTypeLabel, isReportType } from "./types";
+import { inferReportType, suggestReportTitle, reportTypeLabel, isReportType, coverBadgeLabel } from "./types";
 
 // The headline complaint this fixes: every report was titled "SEO Report",
 // because "seo" was the default template and nothing looked at the data.
@@ -72,5 +72,36 @@ describe("isReportType", () => {
     expect(isReportType("paid")).toBe(true);
     expect(isReportType("")).toBe(false);
     expect(isReportType("SEO")).toBe(false);
+  });
+});
+
+// The badge is the line a client reads first. Both renderers now call this, so
+// a cross-channel report can no longer be stamped "SEO Report" in one place and
+// labelled correctly in another.
+describe("coverBadgeLabel", () => {
+  it("uses the stored report type over the connected channels", () => {
+    expect(coverBadgeLabel("cross_channel", ["Search Console"])).toBe("Cross-Channel Report");
+    expect(coverBadgeLabel("paid", ["Meta Ads"])).toBe("Paid Media Report");
+  });
+
+  it("never calls an ads-only report an SEO report", () => {
+    expect(coverBadgeLabel(null, ["Meta Ads"])).toBe("Meta Ads Report");
+    expect(coverBadgeLabel(null, ["Meta Ads", "TikTok Ads"])).toBe("Meta Ads + TikTok Ads Report");
+  });
+
+  it("falls back to the channels for reports predating types", () => {
+    expect(coverBadgeLabel(null, ["Search Console", "Analytics"])).toBe("Search Console + Analytics Report");
+  });
+
+  it("calls three or more channels cross-channel", () => {
+    expect(coverBadgeLabel(null, ["Search Console", "Analytics", "Meta Ads"])).toBe("Cross-Channel Report");
+  });
+
+  it("stays neutral when nothing is connected", () => {
+    expect(coverBadgeLabel(null, [])).toBe("Performance Report");
+  });
+
+  it("ignores an unrecognised stored type rather than printing it raw", () => {
+    expect(coverBadgeLabel("nonsense", ["Meta Ads"])).toBe("Meta Ads Report");
   });
 });

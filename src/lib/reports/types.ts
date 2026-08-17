@@ -80,6 +80,23 @@ export function suggestReportTitle(input: {
   return input.periodLabel ? `${base} · ${input.periodLabel}` : base;
 }
 
+/**
+ * The label shown on a report's cover: what this report actually IS.
+ *
+ * Shared by the PDF and the on-screen report so the two can't disagree — they
+ * previously each carried their own `gsc && ga4 ? … : ga4 ? … : "SEO Report"`
+ * ladder, which stamped "SEO Report" on every cross-channel and ads-only
+ * report. The stored type wins; connected channel names are the fallback for
+ * reports generated before types existed.
+ */
+export function coverBadgeLabel(reportType: string | null | undefined, channelNames: string[]): string {
+  const label = reportTypeLabel(reportType);
+  if (label) return `${label} Report`;
+  if (channelNames.length === 0) return "Performance Report";
+  if (channelNames.length <= 2) return `${channelNames.join(" + ")} Report`;
+  return "Cross-Channel Report";
+}
+
 /** Display names for the sources feeding a report, in a stable order. */
 export function sourceNames(sourceIds: string[]): string[] {
   return sourceIds.map(getIntegrationName);

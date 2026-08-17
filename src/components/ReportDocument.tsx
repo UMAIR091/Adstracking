@@ -11,7 +11,8 @@ import {
 import { normalizeReportData, periodDayCount } from "@/lib/report";
 import { formatBlockValue } from "@/lib/integrations/blocks";
 import { detectSignals } from "@/lib/insights/signals";
-import { buildSoWhat, allActions } from "@/lib/reports/soWhat";
+import { allSoWhat, allActions } from "@/lib/reports/soWhat";
+import { coverBadgeLabel } from "@/lib/reports/types";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 
 type Branding = { name: string; logo_url: string | null; brand_color: string; website: string | null; footer_text: string | null };
@@ -198,10 +199,16 @@ export function ReportDocument({
 
   const unavailable = meta?.unavailable ?? [];
 
+  const coverBadge = coverBadgeLabel(meta?.reportType, [
+    ...(gsc ? ["Search Console"] : []),
+    ...(ga4 ? ["Analytics"] : []),
+    ...channelBlocks.map((b) => b.sourceName),
+  ]);
+
   // Same interpretation layer the PDF uses, so the on-screen report and the
   // document the client receives never disagree.
   const signals = detectSignals(gsc, ga4, 6);
-  const soWhat = buildSoWhat(signals, 3);
+  const soWhat = allSoWhat(signals, blocks ?? [], 3);
   const evidenceActions = allActions(signals, blocks ?? [], 4);
 
   // States plainly when the period is only partly covered, rather than letting
@@ -239,8 +246,13 @@ export function ReportDocument({
             </div>
             <span className="font-semibold">{branding.name || "Your Agency"}</span>
           </div>
+          {/* Same rule as the PDF cover: the stored report type is
+              authoritative, with the actually-connected channels as the
+              fallback for reports generated before types existed. This used to
+              be `gsc && ga4 ? … : ga4 ? … : "SEO Report"`, which labelled every
+              cross-channel and ads-only report "SEO Report". */}
           <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium">
-            {gsc && ga4 ? "SEO + Analytics" : ga4 ? "Analytics Report" : "SEO Report"}
+            {coverBadge}
           </span>
         </div>
         <h1 className="mt-8 text-2xl font-semibold sm:mt-10 sm:text-3xl">{title}</h1>

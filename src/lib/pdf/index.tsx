@@ -19,7 +19,8 @@ import { LineChart, BarList, ShareBar } from "./charts";
 import { Icon, TrendArrow } from "./icons";
 import { detectSignals } from "@/lib/insights/signals";
 import { allSoWhat, allActions } from "@/lib/reports/soWhat";
-import { reportTypeLabel } from "@/lib/reports/types";
+import { coverBadgeLabel } from "@/lib/reports/types";
+import { assessComposition, MIN_TREND_POINTS } from "@/lib/reports/composition";
 import { performanceScore, bestChannel, biggestOpportunity, biggestRisk, toInsightCard, actionMeta, buildForecast } from "./analysis";
 import type { BlockFormat, ReportBlock } from "@/lib/integrations/blocks";
 
@@ -266,17 +267,12 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
   // Meta-Ads-only paid report included — was stamped "SEO Report". The stored
   // report type is authoritative; the connected channels are the fallback for
   // reports generated before types existed.
-  const typeLabel = reportTypeLabel(meta?.reportType);
   const channelNames = [
     ...(gsc ? ["Search Console"] : []),
     ...(ga4 ? ["Analytics"] : []),
     ...channelBlocks.map((b) => b.sourceName),
   ];
-  const badge = typeLabel
-    ? `${typeLabel} Report`
-    : channelNames.length === 0 ? "Performance Report"
-    : channelNames.length <= 2 ? `${channelNames.join(" + ")} Report`
-    : "Cross-Channel Report";
+  const badge = coverBadgeLabel(meta?.reportType, channelNames);
   const chrome = { s, branding, title, generatedAt, logoSrc };
 
   const revenue = ga4 && ga4.totals.totalRevenue > 0 ? ga4.totals.totalRevenue : null;
@@ -337,24 +333,30 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
     for (const u of meta.unavailable ?? []) coverageLines.push(`${u.section}: ${u.reason}`);
   }
 
-  // A two-point line is not a trend. Below this a chart page would be shape
-  // without information, so the section is dropped rather than drawn — this is
-  // what kept a two-day report at full template length.
-  const MIN_TREND_POINTS = 5;
+  // MIN_TREND_POINTS is shared with the composition assessment so the page
+  // planner and the renderer agree on what counts as a chart.
   const hasTrends = (gsc?.byDate?.length ?? 0) >= MIN_TREND_POINTS || (ga4?.byDate?.length ?? 0) >= MIN_TREND_POINTS;
   const hasSearch = !!gsc && (gsc.topQueries.length > 0 || (movers?.winners?.length ?? 0) > 0 || opportunities.length > 0);
   const hasTraffic = !!ga4 && ((ga4.trafficSources?.length ?? 0) > 0 || (ga4.topLandingPages?.length ?? 0) > 0);
   const hasAudience = !!ga4 && ((ga4.devices?.length ?? 0) > 0 || (ga4.countries?.length ?? 0) > 0);
   const hasDetails = hasTrends || hasSearch || hasTraffic || hasAudience;
-  // A thin report shouldn't be spread across the same number of pages as a rich
-  // one. With no detail sections and at most one channel, the overview and the
-  // closing sections are short enough to sit with the dashboard rather than
-  // each opening a page of their own.
-  const compact = !hasDetails && channelBlocks.length <= 1;
-  // Only divert the channel section into the dashboard page when that page
-  // actually exists — it is gated on a Google source. Without this check an
-  // ads-only report lost its channel section entirely.
-  const mergeChannel = compact && channelBlocks.length === 1 && !!(gsc || ga4);
+  // Composition is decided from how much renderable content exists, not from
+  // a shape that happened to match one sparse test account.
+  const composition = assessComposition({
+    gsc, ga4, blocks: channelBlocks,
+    insightUnits: soWhat.length + evidenceActions.length,
+  });
+  const compact = composition.flowSummary;
+  // Heaviest channel first, so the one carrying the most data leads instead of
+  // every channel getting equal billing in connection order.
+  const orderedChannelBlocks = composition.channels
+    .map((c) => channelBlocks.find((b) => b.sourceId === c.sourceId))
+    .filter((b): b is ReportBlock => !!b);
+  // A channel only shares the dashboard page when it has too little to fill
+  // one of its own AND that page exists — an ads-only report has no dashboard
+  // page, and diverting into it dropped the section entirely.
+  const soloChannel = composition.channels.length === 1 && !composition.channels[0].standalone;
+  const mergeChannel = compact && soloChannel && !!(gsc || ga4);
   const hasInsightCards = keyWins.length > 0 || issuesDetected.length > 0 || growthOpportunities.length > 0;
   // Previously excluded the evidence layer, so a report whose only content
   // was "what this means" + coverage skipped the page holding them entirely.
@@ -487,7 +489,7 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
               a page that would be mostly whitespace. */}
           {compact ? renderOverview() : null}
           {mergeChannel ? (
-            <ChannelSection s={s} color={color} palette={palette} block={channelBlocks[0]} sectionNum={num()} />
+            <ChannelSection s={s} color={color} palette={palette} block={orderedChannelBlocks[0] ?? channelBlocks[0]} sectionNum={num()} />
           ) : null}
         </Page>
       ) : null}
@@ -650,7 +652,7 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
       {/* ── Connected channels (every non-Google integration) ──
           Provider-agnostic: each block renders itself from its own labels,
           formats and currency, so new integrations need no change here. */}
-      {(mergeChannel ? [] : channelBlocks).map((block) => (
+      {(mergeChannel ? [] : orderedChannelBlocks).map((block) => (
         <Page key={block.sourceId} size="A4" style={s.page}>
           <PageChrome {...chrome} />
           <ChannelSection s={s} color={color} palette={palette} block={block} sectionNum={num()} />
