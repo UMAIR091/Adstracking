@@ -113,6 +113,11 @@ function extremeDay(days: GscDay[]): { day: GscDay; z: number; baseline: number 
   return best;
 }
 
+/** True when every named field is a usable finite number. */
+function complete<T extends object>(row: T, keys: string[]): boolean {
+  return keys.every((k) => Number.isFinite((row as Record<string, unknown>)[k] as number));
+}
+
 const fmtDate = (iso: string) => {
   const d = new Date(iso);
   return isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -137,6 +142,11 @@ export function detectSignals(
 
     // Winning keywords — real current-vs-previous comparison from sync.
     for (const w of (movers?.winners ?? []).slice(0, 2)) {
+      // A row missing any of its numbers cannot produce an honest sentence, and
+      // must not crash a client-facing PDF either. normalizeReportData accepts
+      // legacy stored shapes, so this guards reports written before a field
+      // existed rather than trusting every row to be complete.
+      if (!complete(w, ["clicks", "prevClicks", "changePct", "position"])) continue;
       if (w.clicks <= 0) continue;
       const c = volumeConfidence(w.clicks, Math.abs(w.changePct));
       out.push({
@@ -154,6 +164,7 @@ export function detectSignals(
 
     // Declining keywords — the half most tools bury.
     for (const d of (movers?.decliners ?? []).slice(0, 2)) {
+      if (!complete(d, ["clicks", "prevClicks", "changePct", "position"])) continue;
       if (d.prevClicks <= 0) continue;
       const c = volumeConfidence(Math.max(d.prevClicks, d.clicks), Math.abs(d.changePct));
       out.push({
@@ -172,6 +183,7 @@ export function detectSignals(
     // Growth opportunities — queries ranking just off page one with real
     // impression volume, i.e. demand already proven to exist.
     for (const o of (movers?.opportunities ?? []).slice(0, 2)) {
+      if (!complete(o, ["clicks", "impressions", "position"])) continue;
       if (o.impressions <= 0) continue;
       const c = volumeConfidence(o.impressions / 10, 15);
       out.push({
