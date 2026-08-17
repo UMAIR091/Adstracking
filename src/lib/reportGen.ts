@@ -9,7 +9,8 @@ import { checkReportLimit } from "@/lib/billing/limits";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import { snapshotsToBlocks, type ReportBlock } from "@/lib/integrations/blocks";
 import { resolvePeriod, isPeriodPreset, type PeriodPreset, type ResolveResult } from "@/lib/reports/periods";
-import { deriveGsc, deriveGa4, deriveBlock, seriesCoverage, covers, type Unavailable } from "@/lib/reports/derive";
+import { deriveGsc, deriveGa4, deriveBlock, seriesCoverage, covers, archiveToGscByDate, archiveToGa4ByDate, archiveToBlockSeries, type Unavailable } from "@/lib/reports/derive";
+import { fetchHistory } from "@/lib/metrics/history";
 import { inferReportType, isReportType, suggestReportTitle, type ReportType } from "@/lib/reports/types";
 import { assembleReport, isGscEmpty, isGa4Empty, isReportEmpty, dataCoverage, periodLabel, toInsightsInput, type ReportData } from "@/lib/report";
 
@@ -150,15 +151,48 @@ export async function createClientReport(
       ...(ga4Data?.byDate ?? []).map((d) => d.date),
       ...blocks.flatMap((b) => b.series.flatMap((s) => s.points.map((p) => p.date))),
     ];
-    const cached = seriesCoverage(allDates);
+    let cached = seriesCoverage(allDates);
+
+    // Outside the rolling 90-day cache — a previous quarter almost always is —
+    // fall back to the durable metric_daily archive every sync writes to. No
+    // provider call is made either way.
+    if (!covers(cached, period)) {
+      const history = await fetchHistory(supabase, {
+        agencyId, clientId, from: period.start, to: period.end,
+      }).catch(() => [] as Awaited<ReturnType<typeof fetchHistory>>);
+
+      const archiveDates = history.map((r) => r.date);
+      const archived = seriesCoverage(archiveDates);
+      if (covers(archived, period)) {
+        // Re-seat each source's daily series on the archived rows, then let the
+        // same derive functions below do the arithmetic.
+        if (gscData) {
+          const byDate = archiveToGscByDate(history);
+          gscData = byDate.length ? { ...gscData, byDate } : null;
+        }
+        if (ga4Data) {
+          const byDate = archiveToGa4ByDate(history);
+          ga4Data = byDate.length ? { ...ga4Data, byDate } : null;
+        }
+        const seriesByProvider = archiveToBlockSeries(history);
+        blocks = blocks
+          .map((b) => {
+            const series = seriesByProvider.get(b.sourceId);
+            return series?.length ? { ...b, series } : null;
+          })
+          .filter((b): b is ReportBlock => b !== null);
+        cached = archived;
+      }
+    }
+
     if (!covers(cached, period)) {
       return {
         ok: false,
         status: 400,
         error:
-          `This report covers ${period.start} to ${period.end}, but cached data only runs ` +
+          `This report covers ${period.start} to ${period.end}, but stored history for this client only runs ` +
           `${cached ? `from ${cached.start} to ${cached.end}` : "for no days yet"}. ` +
-          `ReportFlow keeps 90 days of daily history per source — pick a period inside that range, or wait for more history to build up.`,
+          `Daily history builds up from the day a source is connected — choose a period inside that range.`,
       };
     }
 

@@ -27,7 +27,7 @@
 // Those are surfaced through `unavailable`, which the report renders as an
 // explicit "not available for this period" state. Nothing here is estimated.
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
-import type { ReportBlock } from "@/lib/integrations/blocks";
+import type { ReportBlock, BlockSeries } from "@/lib/integrations/blocks";
 import { dayCount } from "@/lib/reports/periods";
 
 export type Window = { start: string; end: string };
@@ -66,6 +66,88 @@ export function coverageWithin(dates: string[], w: Window): { covered: number; r
     requested: dayCount(w.start, w.end),
     range: inside.length ? { start: inside[0], end: inside[inside.length - 1] } : null,
   };
+}
+
+// ── Rebuilding daily series from the durable archive ────────────────────────
+//
+// The snapshot tables are a rolling 90-day cache, so a previous QUARTER is
+// almost always outside them: Q2 ends up to two and a half months before the
+// cache begins. `metric_daily` (migration 0019) is the append-only companion
+// every sync writes to, keyed on (data_source_id, date) and kept indefinitely,
+// so older windows are served from our own database rather than by refetching
+// from providers that may no longer offer the range.
+//
+// Archive rows carry the same daily keys the provider's `byDate` had, so they
+// reconstitute into the same shapes the derive functions above already handle.
+// Everything those functions mark unavailable stays unavailable here — the
+// archive stores daily totals, not dimension breakdowns.
+
+export type ArchiveRow = { date: string; provider: string; metrics: Record<string, number> };
+
+const pick = (m: Record<string, number>, key: string) => num(m[key]);
+
+/** Search-Console-shaped daily rows from archive entries. */
+export function archiveToGscByDate(rows: ArchiveRow[]): { date: string; clicks: number; impressions: number; ctr: number; position: number }[] {
+  return rows
+    .filter((r) => r.provider === "gsc")
+    .map((r) => ({
+      date: r.date,
+      clicks: pick(r.metrics, "clicks"),
+      impressions: pick(r.metrics, "impressions"),
+      ctr: pick(r.metrics, "ctr"),
+      position: pick(r.metrics, "position"),
+    }));
+}
+
+/** GA4-shaped daily rows from archive entries. */
+export function archiveToGa4ByDate(rows: ArchiveRow[]): { date: string; users: number; sessions: number; views: number }[] {
+  return rows
+    .filter((r) => r.provider === "ga4")
+    .map((r) => ({
+      date: r.date,
+      users: pick(r.metrics, "users"),
+      sessions: pick(r.metrics, "sessions"),
+      views: pick(r.metrics, "views"),
+    }));
+}
+
+/**
+ * Named daily series per non-Google provider, in the shape ReportBlock.series
+ * uses, so archive data flows through the same deriveBlock() path.
+ * Metric keys are capitalised into the labels deriveBlock recognises.
+ */
+export function archiveToBlockSeries(rows: ArchiveRow[]): Map<string, BlockSeries[]> {
+  const CURRENCY_KEYS = new Set(["spend", "revenue", "cost"]);
+  const LABELS: Record<string, string> = {
+    spend: "Spend", impressions: "Impressions", clicks: "Clicks",
+    conversions: "Conversions", orders: "Orders", revenue: "Revenue",
+  };
+  const byProvider = new Map<string, Map<string, { date: string; value: number }[]>>();
+
+  for (const r of rows) {
+    if (r.provider === "gsc" || r.provider === "ga4") continue;
+    const series = byProvider.get(r.provider) ?? new Map();
+    for (const [key, value] of Object.entries(r.metrics)) {
+      if (!(key in LABELS) || !Number.isFinite(value)) continue;
+      const points = series.get(key) ?? [];
+      points.push({ date: r.date, value });
+      series.set(key, points);
+    }
+    byProvider.set(r.provider, series);
+  }
+
+  // Array.from rather than for-of over the Map: this file compiles for the
+  // browser and the project targets ES5 downlevel iteration.
+  const out = new Map<string, BlockSeries[]>();
+  Array.from(byProvider.entries()).forEach(([provider, series]) => {
+    const built: BlockSeries[] = Array.from(series.entries()).map(([key, points]) => ({
+      label: LABELS[key],
+      format: CURRENCY_KEYS.has(key) ? ("currency" as const) : ("number" as const),
+      points,
+    }));
+    out.set(provider, built);
+  });
+  return out;
 }
 
 // ── Search Console ──────────────────────────────────────────────────────────
