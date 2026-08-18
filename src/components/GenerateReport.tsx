@@ -74,7 +74,14 @@ export function GenerateReport({
 
   // The type defaults to whatever the connected sources imply and stays
   // overridable; the title follows it until the user takes control.
+  //
+  // This default is a PREVIEW. It is inferred from the sources that have a
+  // snapshot, which is not the same question as which sources will contribute
+  // data to the period being generated — a source can be connected and synced
+  // and still have nothing in this window. Only a type the user actually picked
+  // is sent; otherwise the server infers from what really contributed.
   const [type, setType] = useState<ReportType>(() => inferReportType(sources.map((s) => s.id)));
+  const [typeEdited, setTypeEdited] = useState(false);
   const suggestedTitle = suggestReportTitle({
     clientName: clientName ?? "Client",
     type,
@@ -112,7 +119,18 @@ export function GenerateReport({
       const res = await fetch("/api/reports/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, templateKey: template, period: preset, customStart: customStart || undefined, customEnd: customEnd || undefined, reportType: type, title: shownTitle.trim() || undefined }),
+        body: JSON.stringify({
+          clientId,
+          templateKey: template,
+          period: preset,
+          customStart: customStart || undefined,
+          customEnd: customEnd || undefined,
+          // Only what the user chose. An untouched control is a suggestion,
+          // and sending it would override the server's inference with a guess
+          // made before the data was read.
+          reportType: typeEdited ? type : undefined,
+          title: titleEdited && title.trim() ? title.trim() : undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -202,7 +220,7 @@ export function GenerateReport({
                   <select
                     id="gen-type"
                     value={type}
-                    onChange={(e) => setType(e.target.value as ReportType)}
+                    onChange={(e) => { setType(e.target.value as ReportType); setTypeEdited(true); }}
                     className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                   >
                     {REPORT_TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}

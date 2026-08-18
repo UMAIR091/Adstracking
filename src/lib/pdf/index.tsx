@@ -22,7 +22,7 @@ import { allSoWhat, allActions, NO_EVIDENCE_NOTE } from "@/lib/reports/soWhat";
 import { buildExecutiveSummary, blockHasComparison, hasCalculableKpis, hasComparison, periodSubtitle } from "@/lib/reports/summary";
 import { agencyNote, cleanBullets, cleanCommentary } from "@/lib/reports/commentary";
 import { badgeRepeatsTitle, coverBadgeLabel } from "@/lib/reports/types";
-import { assessComposition, MIN_BREAKDOWN_ROWS, MIN_DAYS_FOR_PROJECTION, MIN_TREND_POINTS, shortPeriodNote } from "@/lib/reports/composition";
+import { assessComposition, MAX_CHANNEL_KPIS, MIN_BREAKDOWN_ROWS, MIN_DAYS_FOR_PROJECTION, MIN_TREND_POINTS, shortPeriodNote } from "@/lib/reports/composition";
 import { performanceScore, bestChannel, biggestOpportunity, biggestRisk, toInsightCard, buildForecast } from "./analysis";
 import type { BlockFormat, ReportBlock } from "@/lib/integrations/blocks";
 
@@ -72,11 +72,11 @@ function ChannelSection({ s, color, palette, block, sectionNum }: {
   block: ReportBlock;
   sectionNum: string;
 }) {
-  // Cap KPIs so one data-rich channel can't push everything else off the page.
-  // A row where nothing is calculable is a row of em dashes: an individual "—"
-  // beside real figures tells the reader that metric has no denominator, but a
-  // whole row of them carries no information at all.
-  const allKpis = block.kpis.slice(0, 8);
+  // Every metric the source reported, up to the cap. A row where nothing is
+  // calculable is a row of em dashes: an individual "—" beside real figures
+  // tells the reader that metric has no denominator, but a whole row of them
+  // carries no information at all.
+  const allKpis = block.kpis.slice(0, MAX_CHANNEL_KPIS);
   const kpis = hasCalculableKpis(allKpis) ? allKpis : [];
   // Same rule as the Google trend sections: a two-point line is decoration.
   const charts = block.series.filter((ser) => ser.points.length >= 5).slice(0, 2);

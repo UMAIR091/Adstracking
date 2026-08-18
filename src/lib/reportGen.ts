@@ -12,6 +12,7 @@ import { resolvePeriod, isPeriodPreset, type PeriodPreset, type ResolveResult } 
 import { deriveGsc, deriveGa4, deriveBlock, seriesCoverage, covers, archiveToGscByDate, archiveToGa4ByDate, archiveToBlockSeries, type Unavailable } from "@/lib/reports/derive";
 import { fetchHistory } from "@/lib/metrics/history";
 import { inferReportType, isReportType, suggestReportTitle, type ReportType } from "@/lib/reports/types";
+import { hasCalculableKpis } from "@/lib/reports/summary";
 import { assembleReport, isGscEmpty, isGa4Empty, isReportEmpty, dataCoverage, periodLabel, toInsightsInput, type ReportData } from "@/lib/report";
 
 /**
@@ -243,10 +244,17 @@ export async function createClientReport(
 
   // Only sources that actually contributed data describe the report. A
   // connected-but-empty source shouldn't make an SEO report look cross-channel.
+  //
+  // gscData and ga4Data are already nulled when empty. A block reaches here
+  // whenever it carries any KPI at all, and a KPI can be present but null — a
+  // channel that returned nothing still projects its ratio metrics as "not
+  // calculable". A block like that contributed no figure, so it names nothing.
+  const blockContributed = (b: ReportBlock) =>
+    hasCalculableKpis(b.kpis) || b.tables.some((tbl) => tbl.rows.length > 0);
   const contributing = [
     ...(gscData ? ["gsc"] : []),
     ...(ga4Data ? ["ga4"] : []),
-    ...blocks.map((b) => b.sourceId).filter((id): id is string => Boolean(id)),
+    ...blocks.filter(blockContributed).map((b) => b.sourceId).filter((id): id is string => Boolean(id)),
   ];
   const reportType = isReportType(opts.reportType) ? opts.reportType : inferReportType(contributing);
   const meta = {

@@ -30,6 +30,21 @@ export const MIN_TREND_POINTS = 5;
 export const MIN_BREAKDOWN_ROWS = 2;
 
 /**
+ * Most KPI cards one channel may show.
+ *
+ * The cap exists so a single data-rich channel cannot push the rest of the
+ * report off the page. At 8 it was doing more than that: a Meta Ads block
+ * projects eleven metrics, so Revenue, ROAS and Reach were dropped without a
+ * word — the return on the spend, and the audience it reached, cut from a paid
+ * media report. The projection layer has already removed what isn't worth
+ * showing (a metric that is zero with no prior period) and nulled what cannot
+ * be calculated, so nothing arriving here is filler and the cap only needs to
+ * bound the pathological case. Twelve covers every metric the ad platforms
+ * report, in three rows of the wrapping grid.
+ */
+export const MAX_CHANNEL_KPIS = 12;
+
+/**
  * Days of daily history the projection and the day-level anomaly check need.
  * Matches the thresholds in pdf/analysis.ts (linProject) and
  * insights/signals.ts (extremeDay): below this a standard deviation is

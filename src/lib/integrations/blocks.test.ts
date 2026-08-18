@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { MAX_CHANNEL_KPIS } from "@/lib/reports/composition";
 import { snapshotToBlock, snapshotsToBlocks, formatBlockValue, blocksToPromptText, aggregatePaidSnapshots } from "./blocks";
 
 // The projection layer is what carries every integration into the PDF, the AI
@@ -218,5 +219,54 @@ describe("blocksToPromptText", () => {
 
   it("returns an empty string when nothing is connected", () => {
     expect(blocksToPromptText([])).toBe("");
+  });
+});
+
+// A paid block projects more metrics than the KPI row used to show. At a cap
+// of 8, Revenue, ROAS and Reach were cut from a Meta Ads report — the return
+// on the spend and the audience it reached, gone without a word.
+describe("a paid channel reports more than eight metrics", () => {
+  const metaSnapshot = {
+    currency: "USD",
+    totals: {
+      spend: 4200, impressions: 480000, clicks: 3100, ctr: 0.0065, cpc: 1.35, cpm: 8.75,
+      conversions: 120, costPerConversion: 35, revenue: 12600, roas: 3, reach: 210000,
+    },
+    previousTotals: {
+      spend: 3780, impressions: 450000, clicks: 2900, ctr: 0.0064, cpc: 1.3, cpm: 8.4,
+      conversions: 90, costPerConversion: 42, revenue: 10200, roas: 2.7, reach: 198000,
+    },
+    byDate: [], topCampaigns: [],
+  };
+
+  it("projects every metric the platform reported", () => {
+    const b = snapshotToBlock("meta_ads", metaSnapshot)!;
+    const labels = b.kpis.map((k) => k.label);
+    for (const wanted of ["Clicks", "CTR", "CPM", "Reach", "Conversions", "Cost per conversion", "ROAS"]) {
+      expect(labels).toContain(wanted);
+    }
+  });
+
+  it("fits inside the cap the renderers apply, so none is silently dropped", () => {
+    const b = snapshotToBlock("meta_ads", metaSnapshot)!;
+    expect(b.kpis.length).toBeLessThanOrEqual(MAX_CHANNEL_KPIS);
+    const shown = b.kpis.slice(0, MAX_CHANNEL_KPIS).map((k) => k.label);
+    expect(shown).toContain("ROAS");
+    expect(shown).toContain("Reach");
+    expect(shown).toContain("Revenue");
+  });
+
+  it("still shows an uncalculable metric as such rather than dropping it", () => {
+    // No clicks: CPC has no denominator, so it is present and null — the
+    // renderers print "—". A metric that is a real zero stays zero.
+    const b = snapshotToBlock("meta_ads", {
+      currency: "USD",
+      totals: { spend: 300, impressions: 50000, clicks: 0, conversions: 0, cpc: 0 },
+      previousTotals: { spend: 280, impressions: 47000, clicks: 4, conversions: 0, cpc: 70 },
+      byDate: [], topCampaigns: [],
+    })!;
+    const cpc = b.kpis.find((k) => k.label === "CPC");
+    expect(cpc).toBeDefined();
+    expect(cpc!.value).toBeNull();
   });
 });

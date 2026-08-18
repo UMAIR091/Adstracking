@@ -15,7 +15,7 @@ import { allSoWhat, allActions, NO_EVIDENCE_NOTE } from "@/lib/reports/soWhat";
 import { buildExecutiveSummary, blockHasComparison, hasCalculableKpis, periodSubtitle } from "@/lib/reports/summary";
 import { agencyNote, cleanBullets, cleanCommentary } from "@/lib/reports/commentary";
 import { badgeRepeatsTitle, coverBadgeLabel } from "@/lib/reports/types";
-import { MIN_BREAKDOWN_ROWS, MIN_TREND_POINTS, shortPeriodNote } from "@/lib/reports/composition";
+import { MAX_CHANNEL_KPIS, MIN_BREAKDOWN_ROWS, MIN_TREND_POINTS, shortPeriodNote } from "@/lib/reports/composition";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 
 type Branding = { name: string; logo_url: string | null; brand_color: string; website: string | null; footer_text: string | null };
@@ -605,9 +605,9 @@ export function ReportDocument({
             {/* Same rule as the PDF: an individual "—" beside real figures says
                 that metric has no denominator, but a whole row of them says
                 nothing, so the row is dropped rather than rendered empty. */}
-            {hasCalculableKpis(block.kpis.slice(0, 8)) && (
+            {hasCalculableKpis(block.kpis.slice(0, MAX_CHANNEL_KPIS)) && (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {block.kpis.slice(0, 8).map((k) => {
+                {block.kpis.slice(0, MAX_CHANNEL_KPIS).map((k) => {
                   const d = k.value === null || k.previous === null || k.previous === 0 ? null : (k.value - k.previous) / Math.abs(k.previous);
                   const good = d === null ? null : k.lowerBetter ? d < 0 : d > 0;
                   return (

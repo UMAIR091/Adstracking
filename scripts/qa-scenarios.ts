@@ -127,17 +127,21 @@ function adsBlock(opts: {
   prevCostPerConversion?: number | null;
   withSeries?: boolean;
   campaigns?: number;
+  reach?: number;
 }): ReportBlock {
   const {
     sourceId, sourceName, spend, prevSpend, impressions, clicks, conversions,
-    revenue, costPerConversion, prevCostPerConversion, withSeries = false, campaigns = 0,
+    revenue, costPerConversion, prevCostPerConversion, withSeries = false, campaigns = 0, reach,
   } = opts;
   const kpis: ReportBlock["kpis"] = [
     { label: "Spend", value: spend, previous: prevSpend, format: "currency" },
     { label: "Impressions", value: impressions, previous: null, format: "number" },
     { label: "Clicks", value: clicks, previous: null, format: "number" },
     { label: "Conversions", value: conversions, previous: null, format: "number" },
+    { label: "CTR", value: impressions > 0 ? clicks / impressions : null, previous: null, format: "percent" },
     { label: "CPC", value: clicks > 0 ? spend / clicks : null, previous: null, format: "currency", lowerBetter: true },
+    { label: "CPM", value: impressions > 0 ? (spend / impressions) * 1000 : null, previous: null, format: "currency", lowerBetter: true },
+    { label: "Reach", value: reach ?? null, previous: null, format: "number" },
   ];
   if (costPerConversion !== undefined) {
     kpis.push({ label: "Cost per conversion", value: costPerConversion, previous: prevCostPerConversion ?? null, format: "currency", lowerBetter: true });

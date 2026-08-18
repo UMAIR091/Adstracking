@@ -105,3 +105,47 @@ describe("coverBadgeLabel", () => {
     expect(coverBadgeLabel("nonsense", ["Meta Ads"])).toBe("Meta Ads Report");
   });
 });
+
+// The reported defect: a Meta-Ads-only report arrived titled "Website
+// Analytics Report". Inference itself was sound — what reached it was not.
+// These pin the mapping end to end, so title, badge and content can only
+// disagree if the source list does.
+describe("names the report from the sources that carried data", () => {
+  const cases: [string[], string, string][] = [
+    [["meta_ads"], "paid", "Paid Media"],
+    [["meta_ads", "tiktok_ads"], "paid", "Paid Media"],
+    [["gsc"], "seo", "SEO"],
+    [["ga4"], "analytics", "Website Analytics"],
+    [["gsc", "ga4"], "cross_channel", "Cross-Channel"],
+    [["meta_ads", "ga4"], "cross_channel", "Cross-Channel"],
+    [["gsc", "ga4", "meta_ads"], "cross_channel", "Cross-Channel"],
+  ];
+
+  it("infers the type each set of sources implies", () => {
+    for (const [ids, type] of cases) {
+      expect(inferReportType(ids)).toBe(type);
+    }
+  });
+
+  it("carries that type through the title and the cover badge alike", () => {
+    for (const [ids, , label] of cases) {
+      const type = inferReportType(ids);
+      expect(suggestReportTitle({ clientName: "Acme", type })).toBe(`Acme — ${label} Report`);
+      expect(coverBadgeLabel(type, [])).toBe(`${label} Report`);
+    }
+  });
+
+  it("never calls a paid-only report an analytics one", () => {
+    const type = inferReportType(["meta_ads"]);
+    expect(type).not.toBe("analytics");
+    expect(suggestReportTitle({ clientName: "Acme", type })).not.toMatch(/Website Analytics/);
+    expect(coverBadgeLabel(type, [])).not.toMatch(/Website Analytics/);
+  });
+
+  it("takes its answer only from the sources it is given", () => {
+    // A connected source that contributed nothing is filtered out before this
+    // is called (reportGen), so passing it is the same as not having it.
+    expect(inferReportType(["meta_ads"])).toBe("paid");
+    expect(inferReportType([])).toBe("custom");
+  });
+});
