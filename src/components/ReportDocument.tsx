@@ -11,7 +11,7 @@ import {
 import { normalizeReportData, periodDayCount } from "@/lib/report";
 import { formatBlockValue } from "@/lib/integrations/blocks";
 import { detectSignals } from "@/lib/insights/signals";
-import { allSoWhat, allActions } from "@/lib/reports/soWhat";
+import { allSoWhat, allActions, NO_EVIDENCE_NOTE } from "@/lib/reports/soWhat";
 import { buildExecutiveSummary, blockHasComparison, hasCalculableKpis, periodSubtitle } from "@/lib/reports/summary";
 import { agencyNote, cleanBullets, cleanCommentary } from "@/lib/reports/commentary";
 import { coverBadgeLabel } from "@/lib/reports/types";
@@ -247,6 +247,11 @@ export function ReportDocument({
 
   // The agency's own closing note — null when they haven't written one.
   const note = agencyNote(branding.footer_text);
+
+  // Whether the report has any connected source at all. A report with data but
+  // no action worth taking says so outright; a report with nothing in it has
+  // already said so in the summary and doesn't repeat itself.
+  const hasAnySource = !!(gsc || ga4 || channelBlocks.length > 0);
 
   // States plainly when the period is only partly covered, rather than letting
   // the cover imply a full window of measurement.
@@ -699,8 +704,16 @@ export function ReportDocument({
             commentary only appears when cleaning left something that reads as
             commentary — it had its own heading before, which meant a heading
             could ship above a single malformed list item. */}
-        {(evidenceActions.length > 0 || commentary.length > 0) && (
-          <Section n={next()} title="Recommended actions" subtitle="Each step is prompted by a figure measured in this report" color={color}>
+        {(evidenceActions.length > 0 || commentary.length > 0 || hasAnySource) && (
+          <Section n={next()} title="Recommended actions" subtitle={evidenceActions.length > 0 ? "Each step is prompted by a figure measured in this report" : "What this period's data does, and does not, support acting on"} color={color}>
+            {/* Nothing measured cleared the bar. Said outright, because a
+                section that silently disappears reads as an omission. */}
+            {evidenceActions.length === 0 && (
+              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-3 text-sm leading-relaxed text-ink-600">
+                {NO_EVIDENCE_NOTE}
+              </p>
+            )}
+
             {evidenceActions.length > 0 && (
               <ul className="space-y-3">
                 {evidenceActions.map((a) => (

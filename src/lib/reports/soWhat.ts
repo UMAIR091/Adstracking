@@ -66,19 +66,19 @@ export type RecommendedAction = {
 // for the account in front of the reader.
 const MEANING: Record<Signal["kind"], string> = {
   winning_keyword:
-    "The page behind this term is already ranking and gaining clicks, so further content and internal linking builds on movement that has been measured rather than starting from an untested position.",
+    "The page behind this term is already ranking and gaining clicks, so building on it extends something measured rather than testing something new.",
   declining_keyword:
-    "This term delivered more clicks a period ago, so the change is in this site's own measured performance and not a new baseline. What changed on the page and in its ranking is the thing to establish.",
+    "The fall is in this site's own measured performance, not a new baseline — what changed on the page, and in its ranking, is what to establish.",
   winning_page:
-    "One page is carrying a disproportionate share of the traffic recorded here. That makes it both the asset most exposed to an unrelated change and the clearest working example to copy on comparable pages.",
+    "One page carries a disproportionate share of the traffic recorded here: the site's most exposed asset, and its clearest working example to copy.",
   opportunity:
-    "Impressions without the matching clicks means the audience is reaching the listing and not choosing it — the gap is in the listing itself, not in visibility.",
+    "The audience is reaching this listing and not choosing it, so the gap is in the listing itself rather than in visibility.",
   traffic_spike:
-    "The day sits outside this site's own measured daily variation, so it reflects an event rather than routine fluctuation. Identifying which event makes it repeatable.",
+    "The day sits outside this site's own daily variation, so something specific caused it — identifying what makes it repeatable.",
   traffic_drop:
-    "The day sits outside this site's own measured daily variation, so something changed in demand, visibility or tracking. Which of the three it was determines the fix.",
+    "The day sits outside this site's own daily variation, so demand, visibility or tracking changed — which of the three determines the fix.",
   conversion_opportunity:
-    "The sessions are being recorded but the conversions are not following at the same rate, so the constraint measured here is on the path through the site rather than on the volume reaching it.",
+    "Sessions are arriving but conversions are not following at the same rate, so the constraint is the path through the site, not the volume reaching it.",
 };
 
 /** Whether each pattern is a problem to fix or a position to build on. */
@@ -156,6 +156,18 @@ export function buildActions(signals: Signal[], limit = 4): RecommendedAction[] 
   return out.sort(byPriority).slice(0, limit);
 }
 
+/**
+ * What the Recommended actions section says when the data produced nothing.
+ *
+ * Previously the section simply did not render, which reads as an omission
+ * rather than a finding: the client cannot tell whether the report had no
+ * advice or forgot to give any. Every step in this report is tied to a
+ * measurement, so when no measurement clears the bar the honest output is to
+ * say that plainly and recommend waiting — not to soften a weak signal into a
+ * recommendation to fill the space.
+ */
+export const NO_EVIDENCE_NOTE =
+  "No optimization decision should be made on this period's data yet: nothing measured here is strong enough to tie a recommendation to. A further period of data is needed before this report can recommend a change.";
 /** Reads a KPI by label, case-insensitively. */
 function kpiOf(b: ReportBlock, label: string): BlockKpi | undefined {
   return b.kpis.find((k) => k.label.toLowerCase() === label.toLowerCase());
@@ -274,7 +286,7 @@ export function blockActions(blocks: ReportBlock[]): RecommendedAction[] {
     // A return the platform itself reports, above break-even on its own figures.
     if (roas != null && roas >= 2) {
       out.push({
-        action: `Hold or increase budget on ${b.sourceName} while the reported return holds, and re-check it against the same figures next period.`,
+        action: `Hold or increase ${b.sourceName} budget while the return holds, and re-check against the same figures next period.`,
         because: `${b.sourceName} returned ${roas.toFixed(1)}x on ${money(spendValue)} of spend across ${conv.toLocaleString()} conversions.`,
         priority: roas >= 3 ? "High" : "Medium",
         source: b.sourceName,
@@ -284,7 +296,7 @@ export function blockActions(blocks: ReportBlock[]): RecommendedAction[] {
       // Efficiency improved on the platform's own before-and-after figures.
       const improvement = ((prevCpa - cpa) / prevCpa) * 100;
       out.push({
-        action: `Keep ${b.sourceName} funded at its current level and identify what changed, so the same change can be applied elsewhere.`,
+        action: `Keep ${b.sourceName} at its current budget and identify what drove the improvement, so it can be applied elsewhere.`,
         because: `${b.sourceName} brought cost per conversion down ${improvement.toFixed(0)}% to ${money(cpa)} while producing ${conv.toLocaleString()} conversions.`,
         priority: "Medium",
         source: b.sourceName,
@@ -303,7 +315,7 @@ export function blockActions(blocks: ReportBlock[]): RecommendedAction[] {
             ? `“${top.name}” was the highest-converting campaign on ${b.sourceName}, with ${top.conversions.toLocaleString()} conversions${top.spend != null && top.spend > 0 ? ` on ${money(top.spend)} of spend` : ""}.`
             : `“${top.name}” took the largest share of ${b.sourceName} spend at ${money(top.spend ?? 0)}.`;
         out.push({
-          action: `Work out what “${top.name}” is doing differently before changing the ${b.sourceName} budget, and use it as the reference for the rest of the account.`,
+          action: `Use “${top.name}” as the reference for the rest of the ${b.sourceName} account before changing budget.`,
           because: evidence,
           priority: "Medium",
           source: b.sourceName,
@@ -367,7 +379,7 @@ export function blockSoWhat(blocks: ReportBlock[], limit = 2): SoWhat[] {
       out.push({
         observation: `${b.sourceName} spent ${money(spend)} and recorded no conversions in this period.`,
         meaning:
-          "Either the conversion is not being tracked back to the ads, or the traffic is arriving and not converting. Which of the two it is changes the fix entirely, so it is worth confirming before adjusting budget.",
+          "Either conversions are not being tracked back to the ads, or the traffic is not converting — which of the two changes the fix entirely, so confirm it before adjusting budget.",
         metric: money(spend),
         source: b.sourceName,
         confidence: "high",
@@ -401,8 +413,8 @@ export function blockSoWhat(blocks: ReportBlock[], limit = 2): SoWhat[] {
             : `.`),
         meaning:
           roas != null && roas >= 2
-            ? "The channel is converting and returning more than it costs on the platform's own figures, so the decision it presents is how much further to fund it — and what in the account is producing the result, so the same thing can be tried elsewhere."
-            : "The channel is converting, so what is open here is efficiency rather than whether it works — the cost per conversion above is the figure to compare against the same outcome bought through another channel.",
+            ? "The channel returns more than it costs on the platform's own figures, so the open question is how much further to fund it — and what in the account is producing that result."
+            : "The channel converts, so the open question is efficiency rather than whether it works — compare the cost per conversion above against the same outcome bought elsewhere.",
         metric: `${money(cpa)} per conversion`,
         source: b.sourceName,
         confidence: "high",

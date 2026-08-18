@@ -18,7 +18,7 @@ import { CoverPage, PageChrome, Section, KpiCard, DataTable, HighlightChips, Cha
 import { LineChart, BarList, ShareBar } from "./charts";
 import { Icon, TrendArrow } from "./icons";
 import { detectSignals } from "@/lib/insights/signals";
-import { allSoWhat, allActions } from "@/lib/reports/soWhat";
+import { allSoWhat, allActions, NO_EVIDENCE_NOTE } from "@/lib/reports/soWhat";
 import { buildExecutiveSummary, blockHasComparison, hasCalculableKpis, hasComparison, periodSubtitle } from "@/lib/reports/summary";
 import { agencyNote, cleanBullets, cleanCommentary } from "@/lib/reports/commentary";
 import { coverBadgeLabel } from "@/lib/reports/types";
@@ -328,6 +328,11 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
 
   // The agency's own closing note — null when they haven't written one.
   const note = agencyNote(branding.footer_text);
+
+  // Whether the report has any connected source at all. A report with data but
+  // no action worth taking says so outright; a report with nothing in it has
+  // already said so in the summary and doesn't repeat itself.
+  const hasAnySource = !!(gsc || ga4 || channelBlocks.length > 0);
 
   // Coverage and limitations, stated in the document the client receives —
   // not just in the dashboard. A partially-covered period must never look like
@@ -771,8 +776,14 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
               own. Priority comes from the confidence and weight of the signal
               behind each step, not from list position, and every step carries
               the measurement that prompted it. */}
-          {evidenceActions.length > 0 || commentary.length > 0 ? (
-            <Section s={s} num={num()} title="Recommended actions" subtitle="Each step below is prompted by a figure measured in this report.">
+          {evidenceActions.length > 0 || commentary.length > 0 || hasAnySource ? (
+            <Section s={s} num={num()} title="Recommended actions" subtitle={evidenceActions.length > 0 ? "Each step below is prompted by a figure measured in this report." : "What this period's data does, and does not, support acting on."}>
+              {/* Nothing measured cleared the bar. Said outright, because a
+                  section that silently disappears reads as an omission. */}
+              {evidenceActions.length === 0 ? (
+                <Text style={s.para}>{NO_EVIDENCE_NOTE}</Text>
+              ) : null}
+
               {evidenceActions.map((a) => (
                 <View key={a.action} style={s.evActionRow} wrap={false}>
                   <Text style={[s.evActionPriority, a.priority === "High" ? { color: tones.warning.fg } : a.priority === "Medium" ? { color: color } : { color: ink[500] }]}>

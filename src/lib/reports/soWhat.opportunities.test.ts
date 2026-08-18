@@ -7,7 +7,7 @@
 // faults. These cover the other half, and equally the cases where staying quiet
 // is the correct behaviour.
 import { describe, expect, it } from "vitest";
-import { allActions, allSoWhat, blockActions } from "./soWhat";
+import { allActions, allSoWhat, blockActions, NO_EVIDENCE_NOTE } from "./soWhat";
 import type { Signal } from "@/lib/insights/signals";
 import type { BlockKpi, ReportBlock } from "@/lib/integrations/blocks";
 
@@ -76,7 +76,7 @@ describe("blockActions on a channel that is working", () => {
   it("recommends holding or scaling against the reported return", () => {
     const [a] = blockActions([converting()]);
     expect(a.kind).toBe("opportunity");
-    expect(a.action).toMatch(/hold or increase budget/i);
+    expect(a.action).toMatch(/hold or increase Meta Ads budget/i);
     expect(a.because).toMatch(/3\.0x/);
     expect(a.because).toMatch(/\$4,200/);
     expect(a.priority).toBe("High");
@@ -154,7 +154,7 @@ describe("blockActions on a channel that is working", () => {
       ])],
     });
     const actions = blockActions([meta, tiktok]);
-    expect(actions.filter((a) => /reference for the rest of the account/.test(a.action))).toHaveLength(1);
+    expect(actions.filter((a) => /as the reference for the rest of/.test(a.action))).toHaveLength(1);
     expect(actions.some((a) => /Meta A/.test(a.action))).toBe(true);
   });
 
@@ -253,5 +253,31 @@ describe("evidence-first language", () => {
     expect(meanings).not.toMatch(/\busually\b/i);
     expect(meanings).not.toMatch(/\btypically\b/i);
     expect(meanings).not.toMatch(/\bindustry\b/i);
+  });
+});
+
+// When nothing clears the bar, the report used to render no Recommended
+// actions section at all — which reads as an omission rather than a finding.
+// The client cannot tell whether the report had no advice or forgot to give
+// any, and the space is exactly where a weak signal gets softened into a
+// recommendation to fill it.
+describe("the no-evidence statement", () => {
+  it("recommends waiting rather than acting", () => {
+    expect(NO_EVIDENCE_NOTE).toMatch(/no optimization decision should be made/i);
+    expect(NO_EVIDENCE_NOTE).toMatch(/a further period of data is needed/i);
+  });
+
+  it("claims nothing about the data beyond its insufficiency", () => {
+    // No verdict on performance, and no figure — there is no measurement
+    // behind this line, so it must not read as though there were.
+    for (const claim of [/improved/i, /declined/i, /grew/i, /rose/i, /fell/i, /success/i]) {
+      expect(NO_EVIDENCE_NOTE).not.toMatch(claim);
+    }
+    expect(NO_EVIDENCE_NOTE).not.toMatch(/[0-9]/);
+  });
+
+  it("is what the report has to fall back on: no data produces no actions", () => {
+    expect(allActions([], [])).toEqual([]);
+    expect(allSoWhat([], [])).toEqual([]);
   });
 });
