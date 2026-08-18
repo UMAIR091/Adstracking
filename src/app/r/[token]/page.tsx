@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ReportDocument } from "@/components/ReportDocument";
 import { ReportActions } from "@/components/ReportActions";
 import { DownloadPdf } from "@/components/DownloadPdf";
+import { loadReportForRender } from "@/lib/reports/branding";
 
 export const dynamic = "force-dynamic";
 
@@ -15,21 +16,10 @@ export const metadata = {
 // Public, unauthenticated report — accessed via an unguessable share token.
 export default async function PublicReportPage({ params }: { params: { token: string } }) {
   const admin = createAdminClient();
-  const { data: report } = await admin
-    .from("reports")
-    .select("title, period_start, period_end, data, share_token, agency_id, clients(name)")
-    .eq("share_token", params.token)
-    .maybeSingle();
+  // Same loader the authenticated views use: branding from the report's own
+  // agency, client name from its own client.
+  const report = await loadReportForRender(admin, { shareToken: params.token });
   if (!report) notFound();
-
-  const { data: agency } = await admin
-    .from("agencies")
-    .select("name, logo_url, brand_color, website, footer_text")
-    .eq("id", report.agency_id)
-    .maybeSingle();
-
-  const c = report.clients as unknown as { name: string | null } | { name: string | null }[] | null;
-  const clientName = (Array.isArray(c) ? c[0]?.name : c?.name) ?? "Client";
 
   return (
     <div className="min-h-screen bg-surface-muted py-8">
@@ -42,15 +32,15 @@ export default async function PublicReportPage({ params }: { params: { token: st
         </div>
         <ReportDocument
           branding={{
-            name: agency?.name ?? "Agency",
-            logo_url: agency?.logo_url ?? null,
-            brand_color: agency?.brand_color ?? "#4f46e5",
-            website: agency?.website ?? null,
-            footer_text: agency?.footer_text ?? null,
+            name: report.branding.name,
+            logo_url: report.branding.logo_url,
+            brand_color: report.branding.brand_color,
+            website: report.branding.website,
+            footer_text: report.branding.footer_text,
           }}
-          clientName={clientName}
+          clientName={report.clientName}
           title={report.title}
-          period={{ start: report.period_start as string, end: report.period_end as string }}
+          period={report.period}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           data={report.data as any}
         />

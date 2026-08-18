@@ -4,6 +4,7 @@ import { getCurrentUserAndAgency } from "@/lib/agency";
 import { requireActiveAccess } from "@/lib/billing/subscription";
 import { emailConfigured } from "@/lib/email";
 import { deliverReport } from "@/lib/delivery";
+import { loadReportForRender } from "@/lib/reports/branding";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { publicError } from "@/lib/errors";
 
@@ -29,21 +30,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const blocked = await requireActiveAccess(supabase, agency.id);
   if (blocked) return NextResponse.json({ error: blocked.error }, { status: blocked.status });
 
-  const { data: report } = await supabase
-    .from("reports")
-    .select("id, title, period_start, period_end, data, share_token, clients(name, email)")
-    .eq("id", params.id)
-    .maybeSingle();
+  // Branding and recipient both come from the report's own agency and client.
+  const report = await loadReportForRender(supabase, { id: params.id }, agency.id);
   if (!report) return NextResponse.json({ error: "Report not found" }, { status: 404 });
-
-  const c = report.clients as unknown as { name: string | null; email: string | null } | { name: string | null; email: string | null }[] | null;
-  const client = Array.isArray(c) ? c[0] : c;
-  const clientName = client?.name ?? "Client";
+  const clientName = report.clientName;
 
   const fromBody: string[] = Array.isArray(body?.recipients)
     ? body.recipients.filter((e: unknown) => typeof e === "string" && (e as string).includes("@")).slice(0, 10)
     : [];
-  const recipients = fromBody.length ? fromBody : client?.email ? [client.email] : [];
+  const recipients = fromBody.length ? fromBody : report.clientEmail ? [report.clientEmail] : [];
   if (recipients.length === 0) {
     return NextResponse.json({ error: "No recipient email. Add the client's email or pass recipients." }, { status: 400 });
   }
@@ -52,7 +47,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const result = await deliverReport(supabase, {
     agencyId: agency.id,
-    branding: { name: agency.name, brand_color: agency.brand_color, website: agency.website, footer_text: agency.footer_text, contact_email: agency.contact_email, logo_url: agency.logo_url, email_footer: agency.email_footer },
+    branding: report.branding,
     clientName,
     recipients,
     subject,
@@ -61,7 +56,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     // "Report emailed", never "Scheduled report sent".
     source: "manual",
     actorId: user.id,
-    report: { id: report.id, title: report.title, shareToken: report.share_token, data: report.data, period: { start: report.period_start as string, end: report.period_end as string } },
+    report: { id: report.id, title: report.title, shareToken: report.shareToken ?? "", data: report.data, period: report.period },
   });
 
   if (!result.ok) {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { renderReportPdf } from "@/lib/pdf";
+import { loadReportForRender } from "@/lib/reports/branding";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -16,23 +17,19 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   if (!user || !agency) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const supabase = createClient();
-  const { data: report } = await supabase
-    .from("reports")
-    .select("id, title, period_start, period_end, data, clients(name)")
-    .eq("id", params.id)
-    .maybeSingle();
+  // Branding comes from the agency the REPORT belongs to, and the client name
+  // from the client it was generated for — not from the signed-in session,
+  // which is how one workspace's brand ended up on another's report.
+  const report = await loadReportForRender(supabase, { id: params.id }, agency.id);
   if (!report) return NextResponse.json({ error: "Report not found" }, { status: 404 });
-
-  const c = report.clients as unknown as { name: string | null } | { name: string | null }[] | null;
-  const clientName = (Array.isArray(c) ? c[0]?.name : c?.name) ?? "Client";
 
   try {
     const pdf = await renderReportPdf({
       data: report.data,
-      branding: { name: agency.name, brand_color: agency.brand_color, website: agency.website, footer_text: agency.footer_text, contact_email: agency.contact_email, logo_url: agency.logo_url },
-      clientName,
+      branding: report.branding,
+      clientName: report.clientName,
       title: report.title,
-      period: { start: report.period_start as string, end: report.period_end as string },
+      period: report.period,
     });
     return new NextResponse(new Uint8Array(pdf), {
       headers: {

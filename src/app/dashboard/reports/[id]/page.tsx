@@ -11,6 +11,7 @@ import { DownloadPdf } from "@/components/DownloadPdf";
 import { AiAnalysisPanel } from "@/components/insights/AiAnalysisPanel";
 import { DeliveryHistory, type DeliveryLog } from "@/components/DeliveryHistory";
 import { format } from "date-fns";
+import { loadReportForRender } from "@/lib/reports/branding";
 
 export const dynamic = "force-dynamic";
 
@@ -23,12 +24,17 @@ export default async function ReportViewPage({ params }: { params: { id: string 
   if (!user || !agency) redirect("/login");
 
   const supabase = createClient();
-  const { data: report } = await supabase
+  // Branding follows the report, not the session. Reading it from the
+  // signed-in agency is what put one workspace's brand on another's report.
+  const report = await loadReportForRender(supabase, { id: params.id }, agency.id);
+  if (!report) notFound();
+
+  // `created_at` isn't part of the render payload; read it alongside.
+  const { data: meta } = await supabase
     .from("reports")
-    .select("id, client_id, title, status, period_start, period_end, data, share_token, created_at, clients(name, email)")
+    .select("created_at")
     .eq("id", params.id)
     .maybeSingle();
-  if (!report) notFound();
 
   // Delivery history for THIS report — previously only visible on the client
   // page, which meant "did this one go out?" required leaving the report.
@@ -39,12 +45,10 @@ export default async function ReportViewPage({ params }: { params: { id: string 
     .order("sent_at", { ascending: false })
     .limit(20);
 
-  const c = report.clients as unknown as { name: string | null; email: string | null } | { name: string | null; email: string | null }[] | null;
-  const clientRow = Array.isArray(c) ? c[0] : c;
-  const clientName = clientRow?.name ?? "Client";
-  const clientEmail = clientRow?.email ?? null;
+  const clientName = report.clientName;
+  const clientEmail = report.clientEmail;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const shareUrl = `${appUrl}/r/${report.share_token}`;
+  const shareUrl = `${appUrl}/r/${report.shareToken}`;
 
   const deliveryLogs = (logs ?? []) as DeliveryLog[];
   const sentCount = deliveryLogs.filter((l) => l.status !== "failed" && l.status !== "bounced" && l.status !== "pending").length;
@@ -65,10 +69,10 @@ export default async function ReportViewPage({ params }: { params: { id: string 
             <h1 className="truncate text-2xl font-semibold tracking-tight text-ink-900">{report.title}</h1>
             <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-500">
               <span className="font-medium text-ink-700">{clientName}</span>
-              {report.period_start && report.period_end && (
-                <>· <span>{format(new Date(report.period_start as string), "d MMM")} – {format(new Date(report.period_end as string), "d MMM yyyy")}</span></>
+              {report.period.start && report.period.end && (
+                <>· <span>{format(new Date(report.period.start), "d MMM")} – {format(new Date(report.period.end), "d MMM yyyy")}</span></>
               )}
-              {report.created_at && <>· <span>created {format(new Date(report.created_at as string), "d MMM yyyy")}</span></>}
+              {meta?.created_at && <>· <span>created {format(new Date(meta.created_at as string), "d MMM yyyy")}</span></>}
               {sentCount > 0 && <>· <span>emailed {sentCount}×</span></>}
             </p>
           </div>
@@ -76,10 +80,10 @@ export default async function ReportViewPage({ params }: { params: { id: string 
               insights, take a copy, share the link, then send it to the
               client — which is the one filled button in the row. */}
           <div className="flex flex-wrap items-center gap-2">
-            <RegenerateInsights reportId={report.id as string} />
+            <RegenerateInsights reportId={report.id} />
             <DownloadPdf href={`/api/reports/${report.id}/pdf`} filename={`${pdfSlug(report.title)}.pdf`} />
             <ReportActions shareUrl={shareUrl} />
-            <SendReport reportId={report.id as string} clientEmail={clientEmail} />
+            <SendReport reportId={report.id} clientEmail={clientEmail} />
           </div>
         </div>
       </div>
@@ -90,10 +94,10 @@ export default async function ReportViewPage({ params }: { params: { id: string 
       <AiAnalysisPanel data={report.data} />
 
       <ReportDocument
-        branding={{ name: agency.name, logo_url: agency.logo_url, brand_color: agency.brand_color, website: agency.website, footer_text: agency.footer_text }}
+        branding={{ name: report.branding.name, logo_url: report.branding.logo_url, brand_color: report.branding.brand_color, website: report.branding.website, footer_text: report.branding.footer_text }}
         clientName={clientName}
         title={report.title}
-        period={{ start: report.period_start as string, end: report.period_end as string }}
+        period={report.period}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         data={report.data as any}
       />
