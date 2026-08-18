@@ -13,7 +13,7 @@ import { formatBlockValue } from "@/lib/integrations/blocks";
 import { detectSignals } from "@/lib/insights/signals";
 import { allSoWhat, allActions } from "@/lib/reports/soWhat";
 import { buildExecutiveSummary, blockHasComparison, hasCalculableKpis, periodSubtitle } from "@/lib/reports/summary";
-import { cleanBullets, cleanCommentary } from "@/lib/reports/commentary";
+import { agencyNote, cleanBullets, cleanCommentary } from "@/lib/reports/commentary";
 import { coverBadgeLabel } from "@/lib/reports/types";
 import { MIN_TREND_POINTS } from "@/lib/reports/composition";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
@@ -244,6 +244,9 @@ export function ReportDocument({
   // Commentary the AI wrote that the evidence-backed steps don't already cover.
   // Empty after cleaning means the section does not render.
   const commentary = cleanCommentary(ins?.recommendedActions, evidenceActions.map((a) => a.action));
+
+  // The agency's own closing note — null when they haven't written one.
+  const note = agencyNote(branding.footer_text);
 
   // States plainly when the period is only partly covered, rather than letting
   // the cover imply a full window of measurement.
@@ -736,17 +739,18 @@ export function ReportDocument({
           </Section>
         )}
 
-        {/* Agency Notes */}
-        <Section n={next()} title="Agency Notes" subtitle="A note from your team" color={color}>
-          <div className="flex gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-4">
-            <StickyNote size={18} className="mt-0.5 flex-shrink-0 text-ink-500" />
-            <p className="text-sm italic leading-relaxed text-ink-600">
-              {branding.footer_text
-                ? branding.footer_text
-                : `Prepared for ${clientName} by ${branding.name || "your agency"}. The figures above cover the reporting period shown on the cover — get in touch with any questions.`}
-            </p>
-          </div>
-        </Section>
+        {/* Agency Notes.
+            Rendered only when the agency actually wrote one. This section used
+            to render unconditionally, filling itself with a sentence the agency
+            never said — in italics, under "A note from your team". */}
+        {note && (
+          <Section n={next()} title="Agency Notes" subtitle="A note from your team" color={color}>
+            <div className="flex gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-4">
+              <StickyNote size={18} className="mt-0.5 flex-shrink-0 text-ink-500" />
+              <p className="text-sm italic leading-relaxed text-ink-600">{note}</p>
+            </div>
+          </Section>
+        )}
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-slate-100 pt-5 text-xs text-ink-500">

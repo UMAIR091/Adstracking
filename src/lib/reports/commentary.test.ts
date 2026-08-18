@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanBullets, cleanCommentary } from "./commentary";
+import { agencyNote, cleanBullets, cleanCommentary } from "./commentary";
 
 describe("cleanCommentary", () => {
   it("drops a bare ordinal — the artefact that shipped as “1. 1”", () => {
@@ -85,5 +85,42 @@ describe("cleanBullets", () => {
 
   it("de-duplicates", () => {
     expect(cleanBullets(["Clicks up 24%", "clicks up 24%!"])).toEqual(["Clicks up 24%"]);
+  });
+});
+
+// The on-screen report opened an "Agency Notes" section whatever the agency had
+// configured, filling it with a sentence they never wrote — under a heading
+// reading "A note from your team". A note the agency did not write is better
+// absent than invented on their behalf.
+describe("agencyNote", () => {
+  it("keeps a note the agency actually wrote", () => {
+    const note = "Great momentum this month — we'll focus on the beginner audience next.";
+    expect(agencyNote(note)).toBe(note);
+  });
+
+  it("returns nothing when no note is configured", () => {
+    expect(agencyNote(null)).toBeNull();
+    expect(agencyNote(undefined)).toBeNull();
+    expect(agencyNote("")).toBeNull();
+  });
+
+  it("treats whitespace and stubs as no note at all", () => {
+    for (const stub of ["   ", "\n\t ", "-", ".", "n/a", "tbd", "notes"]) {
+      expect(agencyNote(stub)).toBeNull();
+    }
+  });
+
+  it("tidies stray markers and spacing rather than rejecting the note", () => {
+    expect(agencyNote("  - Reply to this email with any questions.  "))
+      .toBe("Reply to this email with any questions.");
+    expect(agencyNote("Questions?\n\nReply any time."))
+      .toBe("Questions? Reply any time.");
+  });
+
+  it("never substitutes a note of its own", () => {
+    // Whatever comes back is either the agency's own words or nothing.
+    for (const input of [null, "", "  ", "x"]) {
+      expect(agencyNote(input)).toBeNull();
+    }
   });
 });

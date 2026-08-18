@@ -147,3 +147,25 @@ export function cleanBullets(items: readonly string[] | null | undefined): strin
   }
   return out;
 }
+
+/**
+ * The agency's own closing note, or null when there isn't one worth a section.
+ *
+ * The on-screen report rendered an "Agency Notes" section unconditionally and,
+ * with nothing configured, filled it with "Prepared for {client} by {agency}.
+ * The figures above cover the reporting period shown on the cover — get in
+ * touch with any questions." — set in italics under the heading "A note from
+ * your team". That is a voice the agency never used, saying nothing the cover
+ * and the coverage note don't already say. A note the agency did not write is
+ * better absent than invented on their behalf.
+ *
+ * Whitespace, stubs and single tokens are treated as absent, so a field left at
+ * "-" or "n/a" doesn't open an empty section either.
+ */
+export function agencyNote(text: string | null | undefined): string | null {
+  if (typeof text !== "string") return null;
+  const s = tidy(text);
+  if (s.length < 12) return null;
+  const words = s.split(" ").filter((w) => /[a-z]/i.test(w));
+  return words.length >= 2 ? s : null;
+}

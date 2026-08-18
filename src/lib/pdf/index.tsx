@@ -20,7 +20,7 @@ import { Icon, TrendArrow } from "./icons";
 import { detectSignals } from "@/lib/insights/signals";
 import { allSoWhat, allActions } from "@/lib/reports/soWhat";
 import { buildExecutiveSummary, blockHasComparison, hasCalculableKpis, hasComparison, periodSubtitle } from "@/lib/reports/summary";
-import { cleanBullets, cleanCommentary } from "@/lib/reports/commentary";
+import { agencyNote, cleanBullets, cleanCommentary } from "@/lib/reports/commentary";
 import { coverBadgeLabel } from "@/lib/reports/types";
 import { assessComposition, MIN_TREND_POINTS } from "@/lib/reports/composition";
 import { performanceScore, bestChannel, biggestOpportunity, biggestRisk, toInsightCard, buildForecast } from "./analysis";
@@ -326,6 +326,9 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
     evidenceActions.map((a) => a.action),
   );
 
+  // The agency's own closing note — null when they haven't written one.
+  const note = agencyNote(branding.footer_text);
+
   // Coverage and limitations, stated in the document the client receives —
   // not just in the dashboard. A partially-covered period must never look like
   // a full one.
@@ -403,7 +406,7 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
   const summaryOnChannelPage = !summaryOnDashboard && channelPages.length > 0;
   const summaryOnInsightsPage = !summaryOnDashboard && !summaryOnChannelPage;
   const hasInsights =
-    hasInsightCards || commentary.length > 0 || !!branding.footer_text || evidenceActions.length > 0 ||
+    hasInsightCards || commentary.length > 0 || !!note || evidenceActions.length > 0 ||
     coverageLines.length > 0 || soWhatOffDashboard.length > 0 || summaryOnInsightsPage;
 
   // Sections are numbered in document order; only rendered sections count.
@@ -818,9 +821,11 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
             </View>
           ) : null}
 
-          {branding.footer_text ? (
+          {/* The agency's own note, only when they wrote one. A truthy check
+              let a field left at whitespace open an empty "Notes" section. */}
+          {note ? (
             <Section s={s} num={num()} title="Notes">
-              <Bullets s={s} items={[branding.footer_text]} />
+              <Bullets s={s} items={[note]} />
             </Section>
           ) : null}
         </Page>
