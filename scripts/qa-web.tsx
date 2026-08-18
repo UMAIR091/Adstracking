@@ -28,7 +28,7 @@ for (const sc of SCENARIOS) {
       },
       clientName: CLIENT,
       title: sc.title,
-      period: PERIOD,
+      period: sc.period ?? PERIOD,
       data: sc.data,
     }),
   );

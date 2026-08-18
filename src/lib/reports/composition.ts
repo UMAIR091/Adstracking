@@ -16,6 +16,46 @@ import type { ReportBlock } from "@/lib/integrations/blocks";
 /** Minimum points before a line is a trend rather than a pair of dots. */
 export const MIN_TREND_POINTS = 5;
 
+/**
+ * Minimum rows before a breakdown is a breakdown.
+ *
+ * One row is not a distribution, not a ranking and not a comparison — it is a
+ * single number the totals already carry, under a heading that promises more.
+ * A seven-day report was drawing "Sessions by device: Mobile 100%" (100% by
+ * construction, because mobile was the only row) and a "Top countries" table
+ * with one country in it, and giving them a page. The same rule as
+ * MIN_TREND_POINTS, applied to rows instead of points: content has to earn its
+ * heading, at any period length.
+ */
+export const MIN_BREAKDOWN_ROWS = 2;
+
+/**
+ * Days of daily history the projection and the day-level anomaly check need.
+ * Matches the thresholds in pdf/analysis.ts (linProject) and
+ * insights/signals.ts (extremeDay): below this a standard deviation is
+ * meaningless and a straight line through the points is not a trend.
+ */
+export const MIN_DAYS_FOR_PROJECTION = 14;
+
+/**
+ * What a short reporting window cannot show, stated for the client.
+ *
+ * A seven-day report is not a monthly report with less in it: the forecast and
+ * the anomaly check are absent by design, and without a line saying so their
+ * absence looks like an omission. Saying which analyses the window is too short
+ * for is the honest form of a compact report — it explains the compactness
+ * instead of leaving the reader to notice it.
+ *
+ * Returns null for a window long enough that nothing was withheld.
+ */
+export function shortPeriodNote(days: number): string | null {
+  if (!Number.isFinite(days) || days <= 0 || days >= MIN_DAYS_FOR_PROJECTION) return null;
+  return (
+    `This report covers ${days} day${days === 1 ? "" : "s"}. A trend projection and day-level anomaly detection need at least ` +
+    `${MIN_DAYS_FOR_PROJECTION} days of history, so neither is included here.`
+  );
+}
+
 export type ChannelWeight = {
   sourceId: string;
   sourceName: string;
@@ -52,11 +92,11 @@ function gscUnits(gsc: GscReportFull | null): number {
   if (!gsc) return 0;
   let u = 1; // the KPI group
   if ((gsc.byDate?.length ?? 0) >= MIN_TREND_POINTS) u += 2; // clicks + position charts
-  if ((gsc.topQueries?.length ?? 0) > 0) u += 1;
-  if ((gsc.topPages?.length ?? 0) > 0) u += 1;
+  if ((gsc.topQueries?.length ?? 0) >= MIN_BREAKDOWN_ROWS) u += 1;
+  if ((gsc.topPages?.length ?? 0) >= MIN_BREAKDOWN_ROWS) u += 1;
   if ((gsc.movers?.winners?.length ?? 0) > 0 || (gsc.movers?.decliners?.length ?? 0) > 0) u += 1;
   if ((gsc.movers?.opportunities?.length ?? 0) > 0) u += 1;
-  if ((gsc.topCountries?.length ?? 0) > 0 || (gsc.topDevices?.length ?? 0) > 0) u += 1;
+  if ((gsc.topCountries?.length ?? 0) >= MIN_BREAKDOWN_ROWS || (gsc.topDevices?.length ?? 0) >= MIN_BREAKDOWN_ROWS) u += 1;
   return u;
 }
 
@@ -65,9 +105,9 @@ function ga4Units(ga4: Ga4ReportFull | null): number {
   if (!ga4) return 0;
   let u = 1;
   if ((ga4.byDate?.length ?? 0) >= MIN_TREND_POINTS) u += 1;
-  if ((ga4.trafficSources?.length ?? 0) > 0) u += 1;
-  if ((ga4.topLandingPages?.length ?? 0) > 0) u += 1;
-  if ((ga4.devices?.length ?? 0) > 0 || (ga4.countries?.length ?? 0) > 0) u += 1;
+  if ((ga4.trafficSources?.length ?? 0) >= MIN_BREAKDOWN_ROWS) u += 1;
+  if ((ga4.topLandingPages?.length ?? 0) >= MIN_BREAKDOWN_ROWS) u += 1;
+  if ((ga4.devices?.length ?? 0) >= MIN_BREAKDOWN_ROWS || (ga4.countries?.length ?? 0) >= MIN_BREAKDOWN_ROWS) u += 1;
   if (has(ga4.totals?.totalRevenue) && ga4.totals.totalRevenue > 0) u += 1;
   return u;
 }
@@ -79,7 +119,7 @@ export function blockUnits(b: ReportBlock): number {
   // em dashes is not content.
   if (b.kpis.some((k) => k.value !== null)) u += 1;
   u += b.series.filter((ser) => ser.points.length >= MIN_TREND_POINTS).length;
-  u += b.tables.filter((t) => t.rows.length > 0).length;
+  u += b.tables.filter((t) => t.rows.length >= MIN_BREAKDOWN_ROWS).length;
   return u;
 }
 

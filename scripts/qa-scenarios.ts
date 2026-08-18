@@ -181,6 +181,42 @@ function adsBlock(opts: {
   };
 }
 
+
+const days7 = Array.from({ length: 7 }, (_, i) => `2026-07-${String(i + 1).padStart(2, "0")}`);
+
+export const SHORT_PERIOD = { start: "2026-07-01", end: "2026-07-07" };
+
+const shortGsc = {
+  totals: { clicks: 412, impressions: 9800, ctr: 0.042, position: 12.1 },
+  previousTotals: { clicks: 385, impressions: 9200, ctr: 0.042, position: 12.4 },
+  topQueries: Array.from({ length: 4 }, (_, i) => ({
+    key: `running shoes ${i}`, clicks: 90 - i * 15, impressions: 1400 - i * 200, ctr: 0.06, position: 5 + i,
+  })),
+  topPages: [{ key: "https://acme.example/shoes", clicks: 180, impressions: 3200, ctr: 0.056, position: 5.2 }],
+  topCountries: [], topDevices: [],
+  byDate: days7.map((date, i) => ({ date, clicks: 55 + i * 2, impressions: 1350 + i * 20, ctr: 0.041, position: 12.3 - i * 0.05 })),
+  movers: { winners: [], decliners: [], opportunities: [] },
+};
+
+const shortGa4 = {
+  totals: {
+    users: 640, newUsers: 470, sessions: 880, engagedSessions: 560,
+    engagementRate: 0.636, avgEngagementTime: 71, views: 2100, conversions: 14, totalRevenue: 1180,
+  },
+  previousTotals: {
+    users: 610, newUsers: 450, sessions: 840, engagedSessions: 520,
+    engagementRate: 0.619, avgEngagementTime: 68, views: 1980, conversions: 12, totalRevenue: 990,
+  },
+  byDate: days7.map((date, i) => ({ date, users: 88 + i, sessions: 122 + i * 2, views: 295 + i * 3 })),
+  topLandingPages: [{ key: "/shoes", sessions: 340, users: 280 }],
+  trafficSources: [
+    { key: "Organic Search", sessions: 520, users: 410 },
+    { key: "Paid Social", sessions: 210, users: 180 },
+  ],
+  devices: [{ key: "mobile", sessions: 610, users: 450 }],
+  countries: [{ key: "United States", sessions: 700, users: 520 }],
+};
+
 const meta = (over: Record<string, unknown> = {}) => ({
   periodDays: 31,
   requested: PERIOD,
@@ -190,7 +226,7 @@ const meta = (over: Record<string, unknown> = {}) => ({
 
 // ── Scenarios ───────────────────────────────────────────────────────────────
 
-export const SCENARIOS: { name: string; title: string; data: unknown }[] = [
+export const SCENARIOS: { name: string; title: string; data: unknown; period?: { start: string; end: string } }[] = [
   {
     name: "1-sparse",
     title: "Acme Running Co — Cross-Channel Report · July 2026",
@@ -286,6 +322,29 @@ export const SCENARIOS: { name: string; title: string; data: unknown }[] = [
         ],
       },
       meta: meta({ reportType: "cross_channel" }),
+    },
+  },
+  {
+    name: "5-short-period",
+    title: "Acme Running Co — SEO Report · 1–7 July 2026",
+    period: SHORT_PERIOD,
+    data: {
+      gsc: shortGsc,
+      ga4: shortGa4,
+      blocks: [
+        adsBlock({
+          sourceId: "meta_ads", sourceName: "Meta Ads",
+          spend: 310, prevSpend: 290, impressions: 22400, clicks: 180, conversions: 6,
+        }),
+      ],
+      insights: null,
+      meta: {
+        periodDays: 7,
+        requested: SHORT_PERIOD,
+        coverage: SHORT_PERIOD,
+        reportType: "cross_channel",
+        periodLabel: "Last 7 days",
+      },
     },
   },
 ];

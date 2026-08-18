@@ -24,7 +24,7 @@ mkdirSync(outDir, { recursive: true });
       branding: BRANDING,
       clientName: CLIENT,
       title: sc.title,
-      period: PERIOD,
+      period: sc.period ?? PERIOD,
       generatedAt: "July 31, 2026",
     });
     const file = join(outDir, `${sc.name}.pdf`);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assessComposition, blockUnits, MIN_TREND_POINTS } from "./composition";
+import { assessComposition, blockUnits, MIN_TREND_POINTS, MIN_BREAKDOWN_ROWS, shortPeriodNote } from "./composition";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import type { ReportBlock } from "@/lib/integrations/blocks";
 
@@ -36,7 +36,7 @@ describe("blockUnits", () => {
   it("counts a KPI group, qualifying charts and populated tables", () => {
     const b = block({
       series: [{ label: "Spend", format: "currency", points: series(31) }] as ReportBlock["series"],
-      tables: [{ title: "Campaigns", columns: [], rows: [{}] }] as unknown as ReportBlock["tables"],
+      tables: [{ title: "Campaigns", columns: [], rows: [{}, {}] }] as unknown as ReportBlock["tables"],
     });
     expect(blockUnits(b)).toBe(3);
   });
@@ -75,7 +75,7 @@ describe("assessComposition", () => {
   it("calls several rich channels substantial", () => {
     const heavy = block({
       series: [{ label: "Spend", format: "currency", points: series(31) }] as ReportBlock["series"],
-      tables: [{ title: "Campaigns", columns: [], rows: [{}] }] as unknown as ReportBlock["tables"],
+      tables: [{ title: "Campaigns", columns: [], rows: [{}, {}] }] as unknown as ReportBlock["tables"],
     });
     const c = assessComposition({
       gsc: gscRich, ga4: null,
@@ -90,7 +90,7 @@ describe("assessComposition", () => {
     const heavy = block({
       sourceId: "meta_ads", sourceName: "Meta Ads",
       series: [{ label: "Spend", format: "currency", points: series(31) }] as ReportBlock["series"],
-      tables: [{ title: "Campaigns", columns: [], rows: [{}] }] as unknown as ReportBlock["tables"],
+      tables: [{ title: "Campaigns", columns: [], rows: [{}, {}] }] as unknown as ReportBlock["tables"],
     });
     const c = assessComposition({ gsc: null, ga4: null, blocks: [thin, heavy] });
     expect(c.channels[0].sourceName).toBe("Meta Ads");
@@ -123,5 +123,64 @@ describe("assessComposition", () => {
     const noRev = { totals: { ...base, totalRevenue: 0 }, byDate: [], trafficSources: [], topLandingPages: [], devices: [], countries: [] } as unknown as Ga4ReportFull;
     expect(assessComposition({ gsc: null, ga4: withRev, blocks: [] }).units)
       .toBeGreaterThan(assessComposition({ gsc: null, ga4: noRev, blocks: [] }).units);
+  });
+});
+
+// A breakdown needs rows to be a breakdown. One row is a single number the
+// totals already carry, under a heading that promises a ranking — a seven-day
+// report was drawing "Sessions by device: Mobile 100%" and giving it a page.
+describe("breakdowns with too few rows", () => {
+  it("does not count a one-row table as content", () => {
+    const oneRow = block({
+      tables: [{
+        title: "Top campaigns",
+        columns: [{ key: "name", label: "Campaign", format: "number" as const }],
+        rows: [{ name: "Only one" }],
+      }],
+    });
+    // The default KPI row still counts; the one-row table adds nothing.
+    expect(blockUnits(oneRow)).toBe(1);
+  });
+
+  it("counts a table once it can be read as a ranking", () => {
+    const twoRows = block({
+      tables: [{
+        title: "Top campaigns",
+        columns: [{ key: "name", label: "Campaign", format: "number" as const }],
+        rows: [{ name: "First" }, { name: "Second" }],
+      }],
+    });
+    // KPI row plus the table, now that the table can be read as a ranking.
+    expect(blockUnits(twoRows)).toBe(2);
+  });
+
+  it("is the same threshold both renderers read", () => {
+    expect(MIN_BREAKDOWN_ROWS).toBe(2);
+  });
+});
+
+// A short window is not a monthly report with less in it: the projection and
+// the anomaly check are absent by design, and a line saying so is what makes
+// the compactness read as a decision rather than an omission.
+describe("shortPeriodNote", () => {
+  it("names the days covered and what needs more of them", () => {
+    const note = shortPeriodNote(7);
+    expect(note).toMatch(/covers 7 days/);
+    expect(note).toMatch(/at least 14 days/);
+  });
+
+  it("says nothing once the window is long enough", () => {
+    expect(shortPeriodNote(14)).toBeNull();
+    expect(shortPeriodNote(31)).toBeNull();
+  });
+
+  it("says nothing when the day count is unusable", () => {
+    expect(shortPeriodNote(0)).toBeNull();
+    expect(shortPeriodNote(-3)).toBeNull();
+    expect(shortPeriodNote(Number.NaN)).toBeNull();
+  });
+
+  it("gets the singular right", () => {
+    expect(shortPeriodNote(1)).toMatch(/covers 1 day. /);
   });
 });

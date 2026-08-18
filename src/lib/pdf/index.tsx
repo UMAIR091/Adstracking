@@ -22,7 +22,7 @@ import { allSoWhat, allActions, NO_EVIDENCE_NOTE } from "@/lib/reports/soWhat";
 import { buildExecutiveSummary, blockHasComparison, hasCalculableKpis, hasComparison, periodSubtitle } from "@/lib/reports/summary";
 import { agencyNote, cleanBullets, cleanCommentary } from "@/lib/reports/commentary";
 import { coverBadgeLabel } from "@/lib/reports/types";
-import { assessComposition, MIN_TREND_POINTS } from "@/lib/reports/composition";
+import { assessComposition, MIN_BREAKDOWN_ROWS, MIN_DAYS_FOR_PROJECTION, MIN_TREND_POINTS, shortPeriodNote } from "@/lib/reports/composition";
 import { performanceScore, bestChannel, biggestOpportunity, biggestRisk, toInsightCard, buildForecast } from "./analysis";
 import type { BlockFormat, ReportBlock } from "@/lib/integrations/blocks";
 
@@ -132,7 +132,7 @@ function ChannelSection({ s, color, palette, block, sectionNum }: {
           "Top campaigns" title from sitting at the foot of one page with its
           table on the next. Capped at 8 rows, so the pair always fits a page. */}
       {block.tables.map((table) => (
-        table.rows.length > 0 ? (
+        table.rows.length >= MIN_BREAKDOWN_ROWS ? (
           <View key={table.title} style={{ marginTop: 10 }} wrap={false}>
             <Text style={s.h3}>{table.title}</Text>
             <DataTable
@@ -168,7 +168,15 @@ function ChannelSection({ s, color, palette, block, sectionNum }: {
  * must not make.
  */
 function trendCaption(label: string, values: number[], source: string): string {
-  if (values.length < 6) return `${source} · too few days to describe a trend`;
+  // Below MIN_DAYS_FOR_PROJECTION the two halves are three or four days each, so
+  // "ran 12% higher in the second half" is a claim about day-of-week variation
+  // as much as about performance. The chart still shows the shape, which is
+  // real; the sentence that interprets it waits for enough days to mean it.
+  if (values.length < MIN_DAYS_FOR_PROJECTION) {
+    return values.length > 0
+      ? `${source} · ${values.length} day${values.length === 1 ? "" : "s"} of daily data — too few to describe a trend`
+      : `${source} · no daily data`;
+  }
   const half = Math.floor(values.length / 2);
   const mean = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
   const first = mean(values.slice(0, half));
@@ -351,6 +359,12 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
     if (meta.periodInProgress) {
       coverageLines.push("This period is still in progress, so the figures cover it only up to the last settled day.");
     }
+    // What a short window is too short to show. Only where the analyses in
+    // question apply at all: they read Search Console and Analytics history.
+    if (gsc || ga4) {
+      const short = shortPeriodNote(requested);
+      if (short) coverageLines.push(short);
+    }
     for (const u of meta.unavailable ?? []) coverageLines.push(`${u.section}: ${u.reason}`);
   }
 
@@ -358,8 +372,14 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
   // planner and the renderer agree on what counts as a chart.
   const hasTrends = (gsc?.byDate?.length ?? 0) >= MIN_TREND_POINTS || (ga4?.byDate?.length ?? 0) >= MIN_TREND_POINTS;
   const hasSearch = !!gsc && (gsc.topQueries.length > 0 || (movers?.winners?.length ?? 0) > 0 || opportunities.length > 0);
-  const hasTraffic = !!ga4 && ((ga4.trafficSources?.length ?? 0) > 0 || (ga4.topLandingPages?.length ?? 0) > 0);
-  const hasAudience = !!ga4 && ((ga4.devices?.length ?? 0) > 0 || (ga4.countries?.length ?? 0) > 0);
+  // A breakdown needs MIN_BREAKDOWN_ROWS rows to be a breakdown, so a section
+  // whose tables all hold a single row does not open at all.
+  const hasChannels = (ga4?.trafficSources?.length ?? 0) >= MIN_BREAKDOWN_ROWS;
+  const hasLandingPages = (ga4?.topLandingPages?.length ?? 0) >= MIN_BREAKDOWN_ROWS;
+  const hasDevices = (ga4?.devices?.length ?? 0) >= MIN_BREAKDOWN_ROWS;
+  const hasCountries = (ga4?.countries?.length ?? 0) >= MIN_BREAKDOWN_ROWS;
+  const hasTraffic = !!ga4 && (hasChannels || hasLandingPages);
+  const hasAudience = !!ga4 && (hasDevices || hasCountries);
   const hasDetails = hasTrends || hasSearch || hasTraffic || hasAudience;
   // Composition is decided from how much renderable content exists, not from
   // a shape that happened to match one sparse test account.
@@ -376,6 +396,13 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
   // A channel only shares the dashboard page when it has too little to fill
   // one of its own AND that page exists — an ads-only report has no dashboard
   // page, and diverting into it dropped the section entirely.
+  //
+  // Density is part of the condition on purpose. Dropping it, so that any thin
+  // channel merged, was measured on the seven-day fixture: the dashboard page
+  // was already full, so the channel spilled onto a page of its own anyway —
+  // same page count, and the channel now read before the trends and tables
+  // instead of after them. A merge only helps when the page it merges into has
+  // room, which is what minimal density means.
   const soloChannel = composition.channels.length === 1 && !composition.channels[0].standalone;
   const mergeChannel = compact && soloChannel && !!(gsc || ga4);
 
@@ -657,13 +684,13 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
 
           {hasTraffic ? (
             <Section s={s} num={num()} title="Traffic & Acquisition" subtitle="Where sessions came from and which pages received them.">
-              {(ga4!.trafficSources?.length ?? 0) > 0 ? (
+              {hasChannels ? (
                 <View wrap={false}>
                   <Text style={s.h3}>Sessions by channel</Text>
                   <BarList s={s} color={color} rows={ga4!.trafficSources!.map((t) => ({ label: t.key, value: t.sessions }))} />
                 </View>
               ) : null}
-              {(ga4!.topLandingPages?.length ?? 0) > 0 ? (
+              {hasLandingPages ? (
                 <View style={{ marginTop: 10 }}>
                   <Text style={s.h3}>Top landing pages</Text>
                   <DataTable
@@ -683,7 +710,7 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
           {hasAudience ? (
             <Section s={s} num={num()} title="Audience" subtitle="Devices and locations of the people visiting the site.">
               <View style={s.twoCol} wrap={false}>
-                {(ga4!.devices?.length ?? 0) > 0 ? (
+                {hasDevices ? (
                   <View style={s.col}>
                     <Text style={s.h3}>Sessions by device</Text>
                     <ShareBar
@@ -693,7 +720,7 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
                     />
                   </View>
                 ) : null}
-                {(ga4!.countries?.length ?? 0) > 0 ? (
+                {hasCountries ? (
                   <View style={s.col}>
                     <Text style={s.h3}>Top countries</Text>
                     <DataTable

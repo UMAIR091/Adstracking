@@ -15,7 +15,7 @@ import { allSoWhat, allActions, NO_EVIDENCE_NOTE } from "@/lib/reports/soWhat";
 import { buildExecutiveSummary, blockHasComparison, hasCalculableKpis, periodSubtitle } from "@/lib/reports/summary";
 import { agencyNote, cleanBullets, cleanCommentary } from "@/lib/reports/commentary";
 import { coverBadgeLabel } from "@/lib/reports/types";
-import { MIN_TREND_POINTS } from "@/lib/reports/composition";
+import { MIN_BREAKDOWN_ROWS, MIN_TREND_POINTS, shortPeriodNote } from "@/lib/reports/composition";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 
 type Branding = { name: string; logo_url: string | null; brand_color: string; website: string | null; footer_text: string | null };
@@ -177,7 +177,14 @@ export function ReportDocument({
   // The traffic section is worth a heading when it has a chart, the GA4
   // mini-stats, or a channel breakdown — not merely because a byDate array
   // exists.
-  const showTrafficSection = hasTrendCharts || !!ga4;
+  // A breakdown needs MIN_BREAKDOWN_ROWS rows to be a breakdown: one row is a
+  // single number the totals already carry, under a heading promising a
+  // ranking. A short window drew "Sessions by device: Mobile 100%" — 100% by
+  // construction, because mobile was the only row returned.
+  const hasChannels = (ga4?.trafficSources?.length ?? 0) >= MIN_BREAKDOWN_ROWS;
+  const hasDevices = (ga4?.devices?.length ?? 0) >= MIN_BREAKDOWN_ROWS;
+  const hasCountries = (ga4?.countries?.length ?? 0) >= MIN_BREAKDOWN_ROWS;
+  const showTrafficSection = hasTrendCharts || hasChannels || !!ga4;
 
   const landing = mergeLandingPages(gsc, ga4);
   const organic = ga4?.trafficSources?.find((s) => /organic search/i.test(s.key)) ?? null;
@@ -259,14 +266,22 @@ export function ReportDocument({
     const m = meta;
     if (!m) return null;
     const requested = periodDayCount(m.requested.start, m.requested.end);
+    const lines: string[] = [];
     if (!m.coverage) {
-      return `This report covers ${m.requested.start} to ${m.requested.end}. No daily data was returned for the period — the totals above come from the sources' own period figures.`;
+      lines.push(`This report covers ${m.requested.start} to ${m.requested.end}. No daily data was returned for the period — the totals above come from the sources' own period figures.`);
+    } else {
+      const covered = periodDayCount(m.coverage.start, m.coverage.end);
+      if (requested > 0 && covered > 0 && covered < requested) {
+        lines.push(`Data is available for ${covered} of the ${requested} days in this period (${m.coverage.start} to ${m.coverage.end}). Figures reflect the days measured; the connected sources had no data for the rest.`);
+      }
     }
-    const covered = periodDayCount(m.coverage.start, m.coverage.end);
-    if (requested > 0 && covered > 0 && covered < requested) {
-      return `Data is available for ${covered} of the ${requested} days in this period (${m.coverage.start} to ${m.coverage.end}). Figures reflect the days measured; the connected sources had no data for the rest.`;
+    // What a short window is too short to show, so its compactness reads as a
+    // decision rather than an omission.
+    if (gsc || ga4) {
+      const short = shortPeriodNote(requested);
+      if (short) lines.push(short);
     }
-    return null;
+    return lines.length > 0 ? lines.join(" ") : null;
   })();
 
   let n = 0;
@@ -408,17 +423,17 @@ export function ReportDocument({
                 </div>
               </div>
             ) : null}
-            {ga4?.trafficSources?.length ? (
+            {hasChannels ? (
               <div className="mt-6">
                 <p className="mb-2 text-xs font-medium text-ink-600">Traffic by channel</p>
-                <DimTable rows={ga4.trafficSources} label="Channel" />
+                <DimTable rows={ga4!.trafficSources!} label="Channel" />
               </div>
             ) : null}
           </Section>
         )}
 
         {/* Landing Page Performance */}
-        {landing.length > 0 && (
+        {landing.length >= MIN_BREAKDOWN_ROWS && (
           <Section n={next()} title="Landing Page Performance" subtitle="Where search traffic lands and how it engages" color={color}>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[520px] text-sm">
@@ -554,16 +569,16 @@ export function ReportDocument({
         )}
 
         {/* Audience — GA4 devices & countries */}
-        {ga4 && ((ga4.devices?.length ?? 0) > 0 || (ga4.countries?.length ?? 0) > 0) && (
+        {ga4 && (hasDevices || hasCountries) && (
           <Section n={next()} title="Audience" subtitle="How visitors reach the site — by device and country" color={color}>
             <div className="grid gap-6 lg:grid-cols-2">
-              {(ga4.devices?.length ?? 0) > 0 && (
+              {hasDevices && (
                 <div>
                   <p className="mb-2 text-xs font-medium text-ink-600">Devices</p>
                   <DimTable rows={ga4.devices!} label="Device" format={titleCase} />
                 </div>
               )}
-              {(ga4.countries?.length ?? 0) > 0 && (
+              {hasCountries && (
                 <div>
                   <p className="mb-2 text-xs font-medium text-ink-600">Top countries</p>
                   <DimTable rows={ga4.countries!} label="Country" />
@@ -608,7 +623,7 @@ export function ReportDocument({
             )}
 
             {block.tables.map((table) => (
-              table.rows.length > 0 && (
+              table.rows.length >= MIN_BREAKDOWN_ROWS && (
                 <div key={table.title} className="mt-6 overflow-x-auto">
                   <p className="mb-2 text-xs font-medium text-ink-600">{table.title}</p>
                   <table className="w-full min-w-[420px] text-sm">
