@@ -22,6 +22,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     .from("reports")
     .select("id, data, clients(name)")
     .eq("id", params.id)
+    .eq("agency_id", agency.id)
     .maybeSingle();
   if (!report) return NextResponse.json({ error: "Report not found" }, { status: 404 });
 
@@ -50,10 +51,17 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     );
   }
 
+  // Spread the normalized payload rather than rebuilding it from two fields.
+  // The old literal wrote only { gsc, ga4, insights, insightsHash }, dropping
+  // `blocks` and `meta` — so regenerating insights deleted every non-Google
+  // channel from the report, and with meta went the report type, the period
+  // label and the coverage notes. A Meta-Ads-only report came back empty, and
+  // any report lost the identity it was generated with.
   const { error } = await supabase
     .from("reports")
-    .update({ data: { gsc: data.gsc, ga4: data.ga4, insights, insightsHash: hash } })
-    .eq("id", params.id);
+    .update({ data: { ...data, insights, insightsHash: hash } })
+    .eq("id", params.id)
+    .eq("agency_id", agency.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
   return NextResponse.json({ ok: true, cached: false });

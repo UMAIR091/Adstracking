@@ -46,7 +46,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const message = typeof body?.message === "string" ? body.message.trim().slice(0, 2000) || null : null;
 
   const result = await deliverReport(supabase, {
-    agencyId: agency.id,
+    // The report's own workspace, not the session's: this picks the sender
+    // identity and files the delivery log, and both must match the branding
+    // on the PDF that is being attached.
+    agencyId: report.agencyId,
     branding: report.branding,
     clientName,
     recipients,

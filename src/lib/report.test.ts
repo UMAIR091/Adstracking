@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canonicalPeriod, periodDayCount, periodLabel, dataCoverage, REPORT_LAG_DAYS } from "./report";
+import { canonicalPeriod, periodDayCount, periodLabel, dataCoverage, normalizeReportData, isReportEmpty, REPORT_LAG_DAYS } from "./report";
 
 // The canonical window is the contract between the period a user selects, the
 // row stored in the database, the PDF and every UI surface. Before it existed,
@@ -78,5 +78,59 @@ describe("periodDayCount", () => {
   it("returns 0 for a reversed or unparseable range", () => {
     expect(periodDayCount("2026-08-28", "2026-08-01")).toBe(0);
     expect(periodDayCount("", "2026-08-01")).toBe(0);
+  });
+});
+
+// Regenerating a report's insights rewrote reports.data from a four-field
+// literal — { gsc, ga4, insights, insightsHash } — so `blocks` and `meta` were
+// dropped on every regenerate. A Meta-Ads-only report came back empty, and any
+// report lost the type, period label and coverage notes it was generated with.
+// The route now spreads the normalized payload; this pins what that has to
+// preserve.
+describe("regenerating insights preserves the rest of the report", () => {
+  const stored = {
+    gsc: null,
+    ga4: null,
+    blocks: [
+      {
+        sourceId: "meta_ads", sourceName: "Meta Ads", category: "paid", currency: "USD",
+        kpis: [{ label: "Spend", value: 4200, previous: 3780, format: "currency" }],
+        series: [], tables: [], notes: [],
+      },
+    ],
+    insights: { executiveSummary: "old" },
+    insightsHash: "stale",
+    meta: {
+      periodDays: 31,
+      requested: { start: "2026-07-01", end: "2026-07-31" },
+      coverage: { start: "2026-07-01", end: "2026-07-31" },
+      reportType: "paid",
+      sourceIds: ["meta_ads"],
+      periodLabel: "July 2026",
+    },
+  };
+
+  it("carries blocks and meta through the update the route writes", () => {
+    const data = normalizeReportData(stored);
+    const insights = { executiveSummary: "new" } as never;
+    const written = { ...data, insights, insightsHash: "fresh" };
+
+    expect(written.blocks).toHaveLength(1);
+    expect(written.blocks[0].sourceId).toBe("meta_ads");
+    expect(written.meta?.reportType).toBe("paid");
+    expect(written.meta?.periodLabel).toBe("July 2026");
+    expect(written.meta?.coverage).toEqual(stored.meta.coverage);
+    expect(written.insights).toEqual({ executiveSummary: "new" });
+    expect(written.insightsHash).toBe("fresh");
+  });
+
+  it("would have emptied a channel-only report under the old write", () => {
+    const data = normalizeReportData(stored);
+    // The literal the route used to write.
+    const old = { gsc: data.gsc, ga4: data.ga4, insights: data.insights, insightsHash: "fresh" };
+    const reread = normalizeReportData(old);
+    expect(reread.blocks).toHaveLength(0);
+    expect(reread.meta).toBeUndefined();
+    expect(isReportEmpty(reread)).toBe(true);
   });
 });
