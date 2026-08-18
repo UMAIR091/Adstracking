@@ -28,6 +28,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       data: report.data,
       branding: report.branding,
       clientName: report.clientName,
+      clientLogoUrl: report.clientLogoUrl,
       title: report.title,
       period: report.period,
     });

@@ -96,6 +96,7 @@ export default async function ReportViewPage({ params }: { params: { id: string 
       <ReportDocument
         branding={{ name: report.branding.name, logo_url: report.branding.logo_url, brand_color: report.branding.brand_color, website: report.branding.website, footer_text: report.branding.footer_text }}
         clientName={clientName}
+        clientLogoUrl={report.clientLogoUrl}
         title={report.title}
         period={report.period}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

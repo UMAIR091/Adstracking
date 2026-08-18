@@ -39,6 +39,7 @@ export default async function PublicReportPage({ params }: { params: { token: st
             footer_text: report.branding.footer_text,
           }}
           clientName={report.clientName}
+          clientLogoUrl={report.clientLogoUrl}
           title={report.title}
           period={report.period}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any

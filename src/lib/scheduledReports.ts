@@ -120,7 +120,7 @@ async function processJob(admin: SupabaseClient, job: DeliveryJob, allowed: bool
   }
 
   const [{ data: client }, { data: ag }] = await Promise.all([
-    admin.from("clients").select("name, email").eq("id", job.client_id).maybeSingle(),
+    admin.from("clients").select("name, email, logo_url").eq("id", job.client_id).maybeSingle(),
     admin.from("agencies").select("name, brand_color, website, footer_text, contact_email, logo_url, email_footer").eq("id", job.agency_id).maybeSingle(),
   ]);
 
@@ -144,6 +144,7 @@ async function processJob(admin: SupabaseClient, job: DeliveryJob, allowed: bool
       email_footer: ag?.email_footer ?? null,
     },
     clientName,
+    clientLogoUrl: client?.logo_url ?? null,
     recipients,
     subject: job.subject || `${clientName} — your latest performance report`,
     message: job.message,

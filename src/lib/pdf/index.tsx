@@ -245,10 +245,11 @@ function buildHighlights(gsc: GscReportFull | null, ga4: Ga4ReportFull | null): 
 }
 
 // ── Document ─────────────────────────────────────────────────────────────────
-function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, generatedAt }: {
+function ReportPdfDoc({ data, branding, logoSrc, clientLogoSrc, clientName, title, period, generatedAt }: {
   data: unknown;
   branding: Branding;
   logoSrc: string | null;
+  clientLogoSrc: string | null;
   clientName: string;
   title: string;
   period: { start: string; end: string };
@@ -545,7 +546,7 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
 
   return (
     <Document title={title} author={branding.name || "Agency"} subject={`Performance report for ${clientName}`} creator={branding.name || "Agency"}>
-      <CoverPage s={s} color={color} branding={branding} logoSrc={logoSrc} badge={badge} title={title} clientName={clientName} period={period} generatedAt={generatedAt} />
+      <CoverPage s={s} color={color} branding={branding} logoSrc={logoSrc} clientLogoSrc={clientLogoSrc} badge={badge} title={title} clientName={clientName} period={period} generatedAt={generatedAt} />
 
       {/* ── Executive dashboard: the whole report in 30 seconds ── */}
       {(gsc || ga4) ? (
@@ -943,14 +944,25 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
 // URL would then fail the whole render. Fetch it up front with a short timeout
 // and an SSRF guard, and fall back to the monogram on any problem. PNG/JPEG
 // only — the PDF engine doesn't decode SVG or WebP.
+const EMBEDDABLE = new Set(["image/png", "image/jpeg", "image/jpg"]);
+
 async function fetchLogoDataUri(url: string | null | undefined): Promise<string | null> {
-  if (!url || !/^https?:\/\//i.test(url)) return null;
+  if (!url) return null;
+  // Already inlined: apply the same media-type and size rules, then use it as
+  // is. Fetching is a means to an embeddable image, not the point of this.
+  const inline = /^data:([^;,]+)(;base64)?,/i.exec(url);
+  if (inline) {
+    const type = inline[1].trim().toLowerCase();
+    if (!EMBEDDABLE.has(type)) return null;
+    return url.length > 2_800_000 ? null : url;
+  }
+  if (!/^https?:\/\//i.test(url)) return null;
   try {
     // SSRF-safe: IP-pinned at connect time + per-hop redirect validation.
     const res = await safeFetch(url, { timeoutMs: 3500 });
     if (!res.ok) return null;
     const ct = (res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
-    if (ct !== "image/png" && ct !== "image/jpeg" && ct !== "image/jpg") return null;
+    if (!EMBEDDABLE.has(ct)) return null;
     const buf = Buffer.from(await res.arrayBuffer());
     if (buf.length === 0 || buf.length > 2_000_000) return null;
     return `data:${ct === "image/jpg" ? "image/jpeg" : ct};base64,${buf.toString("base64")}`;
@@ -964,11 +976,20 @@ export async function renderReportPdf(args: {
   data: unknown;
   branding: Branding;
   clientName: string;
+  /** The client's own logo, scoped to this report by the branding loader. */
+  clientLogoUrl?: string | null;
   title: string;
   period: { start: string; end: string };
   generatedAt?: string;
 }): Promise<Buffer> {
   const generatedAt = args.generatedAt ?? new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-  const logoSrc = await fetchLogoDataUri(args.branding.logo_url);
-  return renderToBuffer(<ReportPdfDoc {...args} logoSrc={logoSrc} generatedAt={generatedAt} />);
+  // Resolved independently: a client whose logo is missing or unreachable
+  // still gets the agency's, and neither can ever stand in for the other.
+  const [logoSrc, clientLogoSrc] = await Promise.all([
+    fetchLogoDataUri(args.branding.logo_url),
+    fetchLogoDataUri(args.clientLogoUrl),
+  ]);
+  return renderToBuffer(
+    <ReportPdfDoc {...args} logoSrc={logoSrc} clientLogoSrc={clientLogoSrc} generatedAt={generatedAt} />,
+  );
 }

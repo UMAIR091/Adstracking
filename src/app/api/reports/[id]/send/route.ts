@@ -52,6 +52,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     agencyId: report.agencyId,
     branding: report.branding,
     clientName,
+    clientLogoUrl: report.clientLogoUrl,
     recipients,
     subject,
     message,

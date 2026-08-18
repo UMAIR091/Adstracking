@@ -37,6 +37,7 @@ export async function GET(req: Request, { params }: { params: { token: string } 
         data: report.data,
         branding: report.branding,
         clientName: report.clientName,
+        clientLogoUrl: report.clientLogoUrl,
         title: report.title,
         period: report.period,
       }

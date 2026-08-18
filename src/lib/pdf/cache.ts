@@ -18,6 +18,7 @@ export type RenderArgs = {
   data: unknown;
   branding: Branding;
   clientName: string;
+  clientLogoUrl?: string | null;
   title: string;
   period: { start: string; end: string };
 };
@@ -27,7 +28,7 @@ export type RenderArgs = {
 function renderHash(args: RenderArgs): string {
   return crypto
     .createHash("sha256")
-    .update(JSON.stringify({ data: args.data, branding: args.branding, clientName: args.clientName, title: args.title, period: args.period }))
+    .update(JSON.stringify({ data: args.data, branding: args.branding, clientName: args.clientName, clientLogoUrl: args.clientLogoUrl ?? null, title: args.title, period: args.period }))
     .digest("hex");
 }
 

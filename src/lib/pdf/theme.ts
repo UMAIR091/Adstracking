@@ -68,6 +68,11 @@ export function makeStyles(color: string) {
     coverBrandRow: { flexDirection: "row", alignItems: "center", gap: 12 },
     logoBox: { width: 46, height: 46, borderRadius: 9, backgroundColor: ink.white, alignItems: "center", justifyContent: "center", padding: 5 },
     logoImg: { width: 36, height: 36, objectFit: "contain" },
+    // Secondary client mark: deliberately smaller than the agency's, and on
+    // the line that already names the client, so the agency stays primary.
+    coverClientRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10 },
+    clientLogoBox: { width: 28, height: 28, borderRadius: 6, backgroundColor: ink.white, alignItems: "center", justifyContent: "center", padding: 3 },
+    clientLogoImg: { width: 22, height: 22, objectFit: "contain" },
     logoLetter: { fontSize: 22, fontFamily: "Helvetica-Bold", color },
     agencyName: { fontSize: 15, fontFamily: "Helvetica-Bold", color: ink.white },
     coverKicker: { fontSize: 8, color: "rgba(255,255,255,0.75)", letterSpacing: 2, textTransform: "uppercase" },

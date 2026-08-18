@@ -127,12 +127,15 @@ function mergeLandingPages(gsc: GscReportFull | null, ga4: Ga4ReportFull | null)
 export function ReportDocument({
   branding,
   clientName,
+  clientLogoUrl,
   title,
   period,
   data,
 }: {
   branding: Branding;
   clientName: string;
+  /** The client's own logo, scoped to this report by the branding loader. */
+  clientLogoUrl?: string | null;
   title: string;
   period: { start: string; end: string };
   data: unknown;
@@ -318,7 +321,19 @@ export function ReportDocument({
           )}
         </div>
         <h1 className="mt-8 text-2xl font-semibold sm:mt-10 sm:text-3xl">{title}</h1>
-        <p className="mt-2 text-sm text-white/80">Prepared for {clientName} · {formatPeriod(period.start, period.end)}</p>
+        {/* Who the report is for. The client's mark sits beside their name as
+            secondary identity — smaller than the agency logo above it and on the
+            agency's own cover colour, so it never reads as the publisher. Omitted
+            entirely when the client has no logo; never substituted. */}
+        <div className="mt-2 flex items-center gap-2.5">
+          {clientLogoUrl && (
+            <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-md bg-white/95">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={clientLogoUrl} alt="" decoding="async" className="max-h-full max-w-full object-contain" />
+            </span>
+          )}
+          <p className="text-sm text-white/80">Prepared for {clientName} · {formatPeriod(period.start, period.end)}</p>
+        </div>
       </div>
 
       <div className="space-y-10 p-6 sm:p-10">

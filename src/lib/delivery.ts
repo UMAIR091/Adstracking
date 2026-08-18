@@ -35,6 +35,7 @@ export type DeliverInput = {
   agencyId: string;
   branding: DeliveryBranding;
   clientName: string;
+  clientLogoUrl?: string | null;
   recipients: string[];
   subject: string;
   message?: string | null;
@@ -65,7 +66,7 @@ function summaryOf(data: unknown): string | null {
 // and the sender actually used) or 'failed' (with the error). Never throws —
 // returns a result.
 export async function deliverReport(supabase: SupabaseClient, input: DeliverInput): Promise<{ ok: boolean; error?: string; sent: number }> {
-  const { agencyId, branding, clientName, recipients, subject, report, source } = input;
+  const { agencyId, branding, clientName, clientLogoUrl, recipients, subject, report, source } = input;
   if (recipients.length === 0) return { ok: false, error: "No recipients", sent: 0 };
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
@@ -96,7 +97,7 @@ export async function deliverReport(supabase: SupabaseClient, input: DeliverInpu
     const pdf = await getOrRenderReportPdf(
       cacheAdmin,
       { id: report.id, pdf_cached_hash: (cacheRow?.pdf_cached_hash as string | null) ?? null },
-      { data: report.data, branding, clientName, title: report.title, period: report.period }
+      { data: report.data, branding, clientName, clientLogoUrl, title: report.title, period: report.period }
     );
     const html = reportEmailHtml({
       agencyName: branding.name,

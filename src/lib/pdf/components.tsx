@@ -19,11 +19,13 @@ export type Branding = {
 };
 
 // ── Cover page ───────────────────────────────────────────────────────────────
-export function CoverPage({ s, color, branding, logoSrc, badge, title, clientName, period, generatedAt }: {
+export function CoverPage({ s, color, branding, logoSrc, clientLogoSrc, badge, title, clientName, period, generatedAt }: {
   s: S;
   color: string;
   branding: Branding;
   logoSrc: string | null;
+  /** The client's own mark, when they have one. Omitted entirely otherwise. */
+  clientLogoSrc?: string | null;
   badge: string;
   title: string;
   clientName: string;
@@ -56,7 +58,20 @@ export function CoverPage({ s, color, branding, logoSrc, badge, title, clientNam
         <View>
           {badge ? <Text style={s.badge}>{badge.toUpperCase()}</Text> : null}
           <Text style={s.coverTitle}>{title}</Text>
-          <Text style={s.coverClient}>Prepared for {clientName}</Text>
+          {/* Who the report is for. The client's logo sits beside their name
+              as secondary identity — smaller than the agency mark above and
+              on the agency's own cover colour, so it can never read as the
+              publisher. Absent when the client has no logo. */}
+          {clientLogoSrc ? (
+            <View style={s.coverClientRow}>
+              <View style={s.clientLogoBox}>
+                <Image src={clientLogoSrc} style={s.clientLogoImg} />
+              </View>
+              <Text style={s.coverClient}>Prepared for {clientName}</Text>
+            </View>
+          ) : (
+            <Text style={s.coverClient}>Prepared for {clientName}</Text>
+          )}
           <View style={s.coverMetaGrid}>
             <View style={s.coverMetaCell}>
               <Text style={s.coverMetaLabel}>Reporting period</Text>
