@@ -21,7 +21,7 @@ import { detectSignals } from "@/lib/insights/signals";
 import { allSoWhat, allActions, NO_EVIDENCE_NOTE } from "@/lib/reports/soWhat";
 import { buildExecutiveSummary, blockHasComparison, hasCalculableKpis, hasComparison, periodSubtitle } from "@/lib/reports/summary";
 import { agencyNote, cleanBullets, cleanCommentary } from "@/lib/reports/commentary";
-import { coverBadgeLabel } from "@/lib/reports/types";
+import { badgeRepeatsTitle, coverBadgeLabel } from "@/lib/reports/types";
 import { assessComposition, MIN_BREAKDOWN_ROWS, MIN_DAYS_FOR_PROJECTION, MIN_TREND_POINTS, shortPeriodNote } from "@/lib/reports/composition";
 import { performanceScore, bestChannel, biggestOpportunity, biggestRisk, toInsightCard, buildForecast } from "./analysis";
 import type { BlockFormat, ReportBlock } from "@/lib/integrations/blocks";
@@ -174,7 +174,7 @@ function trendCaption(label: string, values: number[], source: string): string {
   // real; the sentence that interprets it waits for enough days to mean it.
   if (values.length < MIN_DAYS_FOR_PROJECTION) {
     return values.length > 0
-      ? `${source} · ${values.length} day${values.length === 1 ? "" : "s"} of daily data — too few to describe a trend`
+      ? `${source} · ${values.length} day${values.length === 1 ? "" : "s"} of data — too few to describe a trend`
       : `${source} · no daily data`;
   }
   const half = Math.floor(values.length / 2);
@@ -187,6 +187,26 @@ function trendCaption(label: string, values: number[], source: string): string {
   if (Math.abs(pct) < 5) return `${source} · broadly flat across the period`;
   const dir = pct > 0 ? "higher" : "lower";
   return `${source} · ${label.toLowerCase()} ran ${Math.abs(pct).toFixed(0)}% ${dir} in the second half of the period`;
+}
+
+// Which metric a label refers to, regardless of how the label is worded.
+// "Traffic (sessions)" on a hero card and "Sessions" on a movement chip are the
+// same number; so are "Impressions" and "Search impressions". Used to keep the
+// dashboard from stating a movement twice on one page.
+function metricKey(label: string): string {
+  const t = label.toLowerCase();
+  if (/revenue/.test(t)) return "revenue";
+  if (/conversion rate/.test(t)) return "conversion-rate";
+  if (/conversion/.test(t)) return "conversions";
+  if (/session|traffic/.test(t)) return "sessions";
+  if (/impression/.test(t)) return "impressions";
+  if (/click-through|ctr/.test(t)) return "ctr";
+  if (/click/.test(t)) return "clicks";
+  if (/position/.test(t)) return "position";
+  if (/new users/.test(t)) return "new-users";
+  if (/user/.test(t)) return "users";
+  if (/engagement/.test(t)) return "engagement";
+  return t;
 }
 
 // ── Auto-computed "at a glance" movements for the executive summary ──────────
@@ -259,7 +279,7 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
 
   const movers = gsc?.movers ?? null;
   const opportunities = movers?.opportunities ?? [];
-  const highlights = buildHighlights(gsc, ga4);
+  const allHighlights = buildHighlights(gsc, ga4);
   // Whether this report has a previous period behind it at all. Section
   // subtitles promised "compared with the previous period" regardless, which
   // sat above KPI cards carrying no deltas.
@@ -274,7 +294,10 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
     ...(ga4 ? ["Analytics"] : []),
     ...channelBlocks.map((b) => b.sourceName),
   ];
-  const badge = coverBadgeLabel(meta?.reportType, channelNames);
+  const badgeLabel = coverBadgeLabel(meta?.reportType, channelNames);
+  // Dropped when the title already says it — the cover carried the same phrase
+  // twice, once as a badge and once in the title beneath it.
+  const badge = badgeRepeatsTitle(badgeLabel, title) ? "" : badgeLabel;
   const chrome = { s, branding, title, generatedAt, logoSrc };
 
   const revenue = ga4 && ga4.totals.totalRevenue > 0 ? ga4.totals.totalRevenue : null;
@@ -294,6 +317,13 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
   else if (gsc) heroKpis.push({ icon: "eye", label: "Impressions", value: fmt(gsc.totals.impressions), delta: deltaPct(gsc.totals.impressions, gsc.previousTotals?.impressions) });
   else if (ga4) heroKpis.push({ icon: "target", label: "Conversions", value: fmt(ga4.totals.conversions), delta: deltaPct(ga4.totals.conversions, ga4.previousTotals?.conversions) });
   const allHeroKpis = heroKpis.slice(0, 4);
+
+  // The chips used to restate the hero cards: a rich report showed REVENUE +20%
+  // and TRAFFIC (SESSIONS) +15% as cards, then "Revenue: 48,000 (+20%)" and
+  // "Sessions: 31,000 (+15%)" as chips directly beneath them. Anything already
+  // on a card is dropped from the chips, so the two rows say different things.
+  const heroKeys = new Set(allHeroKpis.map((k) => metricKey(k.label)));
+  const highlights = allHighlights.filter((h) => !heroKeys.has(metricKey(h.text.split(":")[0])));
 
   // Executive-dashboard derivations (deterministic, real data only).
   const score = performanceScore(gsc, ga4);
@@ -349,7 +379,7 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
   if (meta) {
     const requested = periodDayCount(meta.requested.start, meta.requested.end);
     if (!meta.coverage) {
-      coverageLines.push(`No daily data was recorded for ${meta.requested.start} to ${meta.requested.end}; the totals above come from the sources' own period figures.`);
+      coverageLines.push(`No day-by-day data was returned for ${meta.requested.start} to ${meta.requested.end}, so the totals above are the period figures each source reported.`);
     } else {
       const covered = periodDayCount(meta.coverage.start, meta.coverage.end);
       if (requested > 0 && covered > 0 && covered < requested) {
@@ -357,7 +387,7 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
       }
     }
     if (meta.periodInProgress) {
-      coverageLines.push("This period is still in progress, so the figures cover it only up to the last settled day.");
+      coverageLines.push("This period is still running, so the figures cover it up to the most recent complete day.");
     }
     // What a short window is too short to show. Only where the analyses in
     // question apply at all: they read Search Console and Analytics history.
@@ -506,7 +536,7 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
   // therefore shipping with no written summary at all. Rendered at the top of
   // the first channel page instead, where it opens the document.
   const renderStandaloneSummary = () => (
-    <Section s={s} num={num()} title="Executive Summary" subtitle={`${clientName} · ${fmtDate(period.start)} – ${fmtDate(period.end)}`}>
+    <Section s={s} num={num()} title="Executive Summary" subtitle={`${fmtDate(period.start)} – ${fmtDate(period.end)}`}>
       <View style={s.summaryPanel}>
         <Text style={s.para}>{summaryText}</Text>
       </View>
@@ -521,7 +551,7 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
       {(gsc || ga4) ? (
         <Page size="A4" style={s.page}>
           <PageChrome {...chrome} />
-          <Section s={s} num={num()} title="Executive Dashboard" subtitle={`${clientName} · ${fmtDate(period.start)} – ${fmtDate(period.end)}${comparison ? " · vs. previous period" : ""}`}>
+          <Section s={s} num={num()} title="Executive Dashboard" subtitle={`${fmtDate(period.start)} – ${fmtDate(period.end)}`}>
             {/* Score gauge + AI summary */}
             <View style={s.dashRow}>
               {score ? <GaugePanel s={s} color={color} data={score} /> : null}
@@ -564,7 +594,7 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
               Sits on the opening page so the 60-second read is: score, summary,
               headline numbers, meaning, next steps. */}
           {soWhat.length > 0 ? (
-            <Section s={s} num={num()} title="What this means" subtitle="Each point below is tied to a figure measured in this report.">
+            <Section s={s} num={num()} title="What this means" subtitle="What the figures above point to.">
               {soWhat.map((w) => (
                 <View key={w.observation} style={s.soWhatRow} wrap={false}>
                   <Text style={s.soWhatObs}>{w.observation}</Text>
@@ -617,7 +647,7 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
               </View>
               {(gsc?.byDate?.length ?? 0) > 1 ? (
                 <View style={{ marginTop: 10 }}>
-                  <ChartCard s={s} title="Average search position" value={gsc!.totals.position.toFixed(1)} hint="Lower is better — the axis is inverted so an upward line means improving rank.">
+                  <ChartCard s={s} title="Average search position" value={gsc!.totals.position.toFixed(1)} hint="Lower is better, so an upward line means rankings improved.">
                     <LineChart id="position" values={gsc!.byDate.map((d) => d.position)} dates={gsc!.byDate.map((d) => d.date)} color={palette[2]} width={CONTENT_W - CARD_PAD} height={60} reversed />
                   </ChartCard>
                 </View>
@@ -764,7 +794,7 @@ function ReportPdfDoc({ data, branding, logoSrc, clientName, title, period, gene
               layer are the same act of reading for the client, and splitting
               them opened pages that each carried a heading and a card. */}
           {hasInsightCards || soWhatOffDashboard.length > 0 ? (
-            <Section s={s} num={num()} title="What stood out, and what it means" subtitle="Each point below is tied to a figure measured in this report.">
+            <Section s={s} num={num()} title="What stood out, and what it means" subtitle="Highlights from the period, and what they point to.">
               {keyWins.length > 0 ? (
                 <View style={{ marginBottom: 12 }}>
                   <Text style={s.groupLabel}>Key Wins</Text>

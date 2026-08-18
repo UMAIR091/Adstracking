@@ -54,7 +54,7 @@ export function CoverPage({ s, color, branding, logoSrc, badge, title, clientNam
         </View>
 
         <View>
-          <Text style={s.badge}>{badge.toUpperCase()}</Text>
+          {badge ? <Text style={s.badge}>{badge.toUpperCase()}</Text> : null}
           <Text style={s.coverTitle}>{title}</Text>
           <Text style={s.coverClient}>Prepared for {clientName}</Text>
           <View style={s.coverMetaGrid}>

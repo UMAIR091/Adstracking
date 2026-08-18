@@ -14,7 +14,7 @@ import { detectSignals } from "@/lib/insights/signals";
 import { allSoWhat, allActions, NO_EVIDENCE_NOTE } from "@/lib/reports/soWhat";
 import { buildExecutiveSummary, blockHasComparison, hasCalculableKpis, periodSubtitle } from "@/lib/reports/summary";
 import { agencyNote, cleanBullets, cleanCommentary } from "@/lib/reports/commentary";
-import { coverBadgeLabel } from "@/lib/reports/types";
+import { badgeRepeatsTitle, coverBadgeLabel } from "@/lib/reports/types";
 import { MIN_BREAKDOWN_ROWS, MIN_TREND_POINTS, shortPeriodNote } from "@/lib/reports/composition";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 
@@ -224,11 +224,14 @@ export function ReportDocument({
 
   const unavailable = meta?.unavailable ?? [];
 
-  const coverBadge = coverBadgeLabel(meta?.reportType, [
+  const coverBadgeRaw = coverBadgeLabel(meta?.reportType, [
     ...(gsc ? ["Search Console"] : []),
     ...(ga4 ? ["Analytics"] : []),
     ...channelBlocks.map((b) => b.sourceName),
   ]);
+  // Dropped when the title already says it: the header carried the same phrase
+  // twice, once as a pill and once in the title below it.
+  const coverBadge = badgeRepeatsTitle(coverBadgeRaw, title) ? "" : coverBadgeRaw;
 
   // Same interpretation layer the PDF uses, so the on-screen report and the
   // document the client receives never disagree.
@@ -268,7 +271,7 @@ export function ReportDocument({
     const requested = periodDayCount(m.requested.start, m.requested.end);
     const lines: string[] = [];
     if (!m.coverage) {
-      lines.push(`This report covers ${m.requested.start} to ${m.requested.end}. No daily data was returned for the period — the totals above come from the sources' own period figures.`);
+      lines.push(`This report covers ${m.requested.start} to ${m.requested.end}. No day-by-day data was returned for it, so the totals above are the period figures each source reported.`);
     } else {
       const covered = periodDayCount(m.coverage.start, m.coverage.end);
       if (requested > 0 && covered > 0 && covered < requested) {
@@ -308,9 +311,11 @@ export function ReportDocument({
               fallback for reports generated before types existed. This used to
               be `gsc && ga4 ? … : ga4 ? … : "SEO Report"`, which labelled every
               cross-channel and ads-only report "SEO Report". */}
-          <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium">
-            {coverBadge}
-          </span>
+          {coverBadge && (
+            <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium">
+              {coverBadge}
+            </span>
+          )}
         </div>
         <h1 className="mt-8 text-2xl font-semibold sm:mt-10 sm:text-3xl">{title}</h1>
         <p className="mt-2 text-sm text-white/80">Prepared for {clientName} · {formatPeriod(period.start, period.end)}</p>
@@ -666,7 +671,7 @@ export function ReportDocument({
             standing meaning of that pattern, so the client gets "and
             therefore…" rather than another table. */}
         {((ins && (ins.keyWins.length > 0 || ins.issuesDetected.length > 0)) || soWhat.length > 0) && (
-          <Section n={next()} title="What stood out, and what it means" subtitle="Each point is tied to a figure measured in this report" color={color}>
+          <Section n={next()} title="What stood out, and what it means" subtitle="Highlights from the period, and what they point to" color={color}>
             {ins && ins.keyWins.length > 0 && (
               <>
                 <p className="mb-2 text-xs font-semibold text-emerald-700">Key wins</p>

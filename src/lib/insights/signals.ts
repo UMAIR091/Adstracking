@@ -225,12 +225,12 @@ export function detectSignals(
       out.push({
         kind: up ? "traffic_spike" : "traffic_drop",
         title: up ? `Traffic spike on ${fmtDate(ex.day.date)}` : `Traffic dip on ${fmtDate(ex.day.date)}`,
-        detail: `${num(ex.day.clicks)} clicks against a ${num(ex.baseline)}-click daily average for the period — ${Math.abs(ex.z).toFixed(1)} standard deviations from normal.`,
+        detail: `${num(ex.day.clicks)} clicks against a ${num(ex.baseline)}-click daily average for the period.`,
         metric: pct(deltaPct),
         changePct: deltaPct,
         // The z-score IS the confidence here, so it is reported as such.
         confidence: Math.abs(ex.z) >= 3 ? "high" : "medium",
-        confidenceReason: `Measured against this site's own daily variation over ${gsc.byDate.length} days. Anything beyond 2 standard deviations is unlikely to be routine fluctuation.`,
+        confidenceReason: `Measured against this site's own day-to-day swing across ${gsc.byDate.length} days: this day sits ${Math.abs(ex.z).toFixed(1)} times that swing from the average, which ordinary variation does not explain.`,
         source: "Search Console",
         weight: up ? 85 : 88,
       });
@@ -260,7 +260,7 @@ export function detectSignals(
         metric: `${rate.toFixed(1)}%`,
         changePct: change,
         confidence: c.level,
-        confidenceReason: `Based on ${num(t.sessions)} sessions. Conversion tracking accuracy depends on your GA4 setup.`,
+        confidenceReason: `Based on ${num(t.sessions)} sessions. Accuracy depends on how conversions are configured on the site.`,
         source: "Analytics",
         weight: 78,
       });

@@ -193,9 +193,9 @@ export function buildForecast(gsc: GscReportFull | null, ga4: Ga4ReportFull | nu
   const lead = items[0];
   const dir = lead.growthPct >= 1 ? "an upward" : lead.growthPct <= -1 ? "a downward" : "a flat";
   const narrative =
-    `Projection based on the linear trend of the last ${days} days of data, extended over the next ${days} days. ` +
+    `Projected from the last ${days} days and extended over the next ${days}. ` +
     `The current trajectory is ${dir} trend${Math.abs(lead.growthPct) >= 1 ? ` of about ${Math.abs(lead.growthPct).toFixed(0)}%` : ""}. ` +
-    `Confidence is ${confidence.toLowerCase()} (based on how consistently the daily data follows the trend). ` +
-    `Projections assume current conditions continue and are not a guarantee of results.`;
+    `Confidence is ${confidence.toLowerCase()}, based on how closely the daily figures follow that trajectory. ` +
+    `A projection assumes conditions hold, and is not a guarantee of results.`;
   return { days, confidence, items, narrative };
 }

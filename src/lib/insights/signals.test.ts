@@ -59,7 +59,14 @@ describe("anomaly detection is statistical, not editorial", () => {
     const spike = out.find((s) => s.kind === "traffic_spike");
     expect(spike).toBeDefined();
     expect(spike!.detail).toContain("900");
-    expect(spike!.detail).toMatch(/standard deviations/);
+    expect(spike!.detail).toContain("100");
+    // The rigour is stated, but in the confidence reason and in plain words —
+    // "2.4 standard deviations from normal" is not a sentence for a business
+    // owner, and the observation reads better as the two figures alone.
+    expect(spike!.detail).not.toMatch(/standard deviation/);
+    expect(spike!.confidenceReason).toMatch(/day-to-day swing/);
+    expect(spike!.confidenceReason).toMatch(/times that swing/);
+    expect(spike!.confidenceReason).not.toMatch(/standard deviation/);
   });
 
   it("reports a dip as a drop, not a spike", () => {

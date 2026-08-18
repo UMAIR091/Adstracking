@@ -101,3 +101,18 @@ export function coverBadgeLabel(reportType: string | null | undefined, channelNa
 export function sourceNames(sourceIds: string[]): string[] {
   return sourceIds.map(getIntegrationName);
 }
+
+/**
+ * True when the cover title already says what the badge would say.
+ *
+ * The badge exists to name what a report IS ("PAID MEDIA REPORT" above a title
+ * the agency wrote as "Monthly Update"). When the title already carries those
+ * words, the badge is the same phrase twice on one cover, so the caller drops
+ * it. Compared on words rather than characters, so punctuation and case in
+ * either string don't defeat the check.
+ */
+export function badgeRepeatsTitle(badge: string, title: string): boolean {
+  const words = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const b = words(badge);
+  return b.length > 0 && words(title).includes(b);
+}

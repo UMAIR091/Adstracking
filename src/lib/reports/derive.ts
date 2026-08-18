@@ -186,8 +186,8 @@ export function deriveGsc(full: GscReportFull | null, w: Window): DeriveOutcome<
       movers: null,
     },
     unavailable: [
-      { section: "Top queries and pages", reason: "Search Console reports these per requested period; daily rows don't record which query produced each click." },
-      { section: "Winning and declining keywords", reason: "Requires per-keyword figures for this period and the one before it, which aren't stored day by day." },
+      { section: "Top queries and pages", reason: "These are reported per period rather than per day, so they cannot be rebuilt for a custom date range." },
+      { section: "Winning and declining keywords", reason: "This needs per-keyword figures for both this period and the one before it, which aren't kept day by day." },
     ],
   };
 }
@@ -230,9 +230,9 @@ export function deriveGa4(full: Ga4ReportFull | null, w: Window): DeriveOutcome<
       previousTotals: null,
     },
     unavailable: [
-      { section: "Users and new users", reason: "These count unique people. Adding up daily uniques would count anyone who visited on more than one day twice, so they can't be rebuilt for a custom window." },
-      { section: "Engagement, conversions and revenue", reason: "Analytics stores these per requested period; the daily rows hold sessions and views only." },
-      { section: "Traffic sources and landing pages", reason: "Breakdowns belong to the period they were requested for and can't be split by day." },
+      { section: "Users and new users", reason: "These count unique people, and adding up each day's figures would count anyone who visited on more than one day twice — so they can't be rebuilt for a custom range." },
+      { section: "Engagement, conversions and revenue", reason: "These are reported per period rather than per day, so a custom date range can show sessions and views only." },
+      { section: "Traffic sources and landing pages", reason: "These breakdowns are reported for a whole period and can't be split by day." },
     ],
   };
 }

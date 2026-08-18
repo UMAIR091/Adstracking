@@ -245,7 +245,7 @@ export const SCENARIOS: { name: string; title: string; data: unknown; period?: {
         coverage: { start: "2026-07-29", end: "2026-07-31" },
         unavailable: [{
           section: "Top queries and pages",
-          reason: "Search Console reports these per requested period; daily rows don't record which query produced each click.",
+          reason: "These are reported per period rather than per day, so they cannot be rebuilt for a custom date range.",
         }],
       }),
     },
