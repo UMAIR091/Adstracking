@@ -21,7 +21,14 @@ const OPTIONS: { value: ThemeChoice; label: string; icon: LucideIcon }[] = [
   { value: "system", label: "System", icon: Monitor },
 ];
 
-export function ThemeToggle({ className = "" }: { className?: string }) {
+export function ThemeToggle({
+  className = "",
+  compact = false,
+}: {
+  className?: string;
+  /** Icons only — for the marketing header, where there is no room for labels. */
+  compact?: boolean;
+}) {
   // Server and first client render must agree, so the real choice is read after
   // mount. public/theme.js has already painted the right palette by then — this
   // state only drives which segment looks selected.
@@ -57,13 +64,14 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
             type="button"
             onClick={() => select(o.value)}
             aria-pressed={active}
+            aria-label={`${o.label} theme`}
             title={`${o.label} theme`}
-            className={`focus-ring flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
-              active ? "bg-surface text-ink-900 shadow-xs" : "text-ink-500 hover:text-ink-800"
-            }`}
+            className={`focus-ring flex items-center justify-center gap-1.5 rounded-md text-xs font-medium transition-colors ${
+              compact ? "px-2 py-1.5" : "flex-1 px-2 py-1.5"
+            } ${active ? "bg-surface text-ink-900 shadow-xs" : "text-ink-500 hover:text-ink-800"}`}
           >
             <Icon size={14} aria-hidden />
-            {o.label}
+            {!compact && o.label}
           </button>
         );
       })}

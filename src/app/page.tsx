@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { isLive } from "@/lib/integrations/registry";
 import { Brand } from "@/components/Brand";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { getPlanPricing, headlineSavingPct, type PlanPricing } from "@/lib/billing/prices";
 import { PAID_TRIAL_DAYS } from "@/lib/billing/config";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -146,6 +147,9 @@ export default async function LandingPage() {
             ))}
           </nav>
           <div className="flex items-center gap-2 text-sm sm:gap-3">
+            {/* Icons only here — the sidebar carries the labelled version. Public
+                so the theme can be set before signing in. */}
+            <ThemeToggle compact />
             <Link href="/login" className="hidden text-ink-700 transition-colors hover:text-ink-900 sm:inline">Sign in</Link>
             <Link href="/signup" className="rounded-lg bg-brand-solid px-4 py-2 font-medium text-white transition-colors hover:bg-brand-solid-hover">
               Start free
