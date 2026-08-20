@@ -17,12 +17,12 @@ export function BillingBanner({
 }) {
   if (!hasAccess) {
     return (
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-800">
         <span className="flex items-start gap-2">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" />
           {blockedReason ?? "Subscription required to keep generating reports."}
         </span>
-        <Link href="/dashboard/billing" className="shrink-0 rounded-lg bg-danger-600 px-3.5 py-1.5 font-medium text-white transition-colors hover:bg-danger-700">
+        <Link href="/dashboard/billing" className="shrink-0 rounded-lg bg-danger-solid px-3.5 py-1.5 font-medium text-white transition-colors hover:bg-danger-solid-hover">
           Choose a plan
         </Link>
       </div>
@@ -31,7 +31,7 @@ export function BillingBanner({
 
   if (isTrial && trialDaysLeft !== null && trialDaysLeft <= 7) {
     return (
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-800">
         <span className="flex items-center gap-2">
           <Clock size={16} className="shrink-0" />
           {trialDaysLeft === 0
@@ -41,7 +41,7 @@ export function BillingBanner({
         </span>
         {/* Accent rather than amber: this is the primary upgrade action, so it
             gets the one filled-accent treatment on the page. */}
-        <Link href="/dashboard/billing" className="shrink-0 rounded-lg bg-brand-500 px-3.5 py-1.5 font-medium text-white transition-colors hover:bg-brand-600">
+        <Link href="/dashboard/billing" className="shrink-0 rounded-lg bg-brand-solid px-3.5 py-1.5 font-medium text-white transition-colors hover:bg-brand-solid-hover">
           Upgrade
         </Link>
       </div>

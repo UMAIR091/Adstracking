@@ -115,7 +115,7 @@ export default async function IntegrationsPage() {
 
       {/* ── Available integrations ── */}
       <section>
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-2 border-b border-slate-100 pb-3">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-2 border-b border-ink-100 pb-3">
           <div>
             <h2 className="text-base font-semibold tracking-tight text-ink-900">Available integrations</h2>
             <p className="mt-0.5 text-sm text-ink-500">Ready to connect to any of your clients.</p>
@@ -127,7 +127,7 @@ export default async function IntegrationsPage() {
 
       {/* ── Connected accounts ── */}
       <section>
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-2 border-b border-slate-100 pb-3">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-2 border-b border-ink-100 pb-3">
           <div>
             <h2 className="text-base font-semibold tracking-tight text-ink-900">Connected accounts</h2>
             <p className="mt-0.5 text-sm text-ink-500">Every account connected across your clients.</p>
@@ -161,7 +161,7 @@ export default async function IntegrationsPage() {
       {/* ── Roadmap: genuinely not connectable yet ── */}
       {upcoming.length > 0 && (
         <section>
-          <div className="mb-4 flex flex-wrap items-end justify-between gap-2 border-b border-slate-100 pb-3">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-2 border-b border-ink-100 pb-3">
             <div>
               <h2 className="text-base font-semibold tracking-tight text-ink-900">Coming soon</h2>
               <p className="mt-0.5 text-sm text-ink-500">Built and on the way — not yet available to connect.</p>

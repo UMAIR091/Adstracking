@@ -50,7 +50,7 @@ export function StatTile({ label, value, hint, icon, tone = "neutral", href }: S
   const inner = (
     // Hover lifts the border and shadow rather than translating the card —
     // a whole row of tiles jumping on hover reads as a toy.
-    <Card className={`h-full ${href ? "transition-all duration-150 group-hover:border-ink-300 group-hover:shadow-md" : ""}`}>
+    <Card className={`h-full ${href ? "transition-all duration-150 group-hover:border-ink-300" : ""}`}>
       <CardContent className="flex h-full flex-col p-5">
         <div className="flex items-start justify-between gap-3">
           <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${TONES[tone]}`}>
@@ -74,7 +74,7 @@ export function StatTile({ label, value, hint, icon, tone = "neutral", href }: S
   );
 
   return href ? (
-    <Link href={href} className="group block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2">
+    <Link href={href} className="group block h-full rounded-xl focus-ring">
       {inner}
     </Link>
   ) : (

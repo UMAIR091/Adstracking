@@ -137,7 +137,7 @@ export default async function LandingPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(pricing, savingPct)) }} />
 
       {/* ── Nav ── */}
-      <header className="sticky top-0 z-30 border-b border-slate-100 bg-surface/80 backdrop-blur">
+      <header className="sticky top-0 z-30 border-b border-ink-200 bg-surface/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5">
           <Brand className="text-lg" />
           <nav aria-label="Main" className="hidden items-center gap-7 text-sm text-ink-600 md:flex">
@@ -147,7 +147,7 @@ export default async function LandingPage() {
           </nav>
           <div className="flex items-center gap-2 text-sm sm:gap-3">
             <Link href="/login" className="hidden text-ink-700 transition-colors hover:text-ink-900 sm:inline">Sign in</Link>
-            <Link href="/signup" className="rounded-lg bg-brand-500 px-4 py-2 font-medium text-white transition-colors hover:bg-brand-600">
+            <Link href="/signup" className="rounded-lg bg-brand-solid px-4 py-2 font-medium text-white transition-colors hover:bg-brand-solid-hover">
               Start free
             </Link>
           </div>
@@ -156,15 +156,15 @@ export default async function LandingPage() {
 
       {/* ── 1. Hero ── */}
       <section className="relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-[560px] bg-gradient-to-b from-brand-50 via-brand-50/40 to-surface" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[560px] bg-gradient-to-b from-ink-100 via-ink-50 to-surface" />
         <div
           className="pointer-events-none absolute left-1/2 top-24 h-[420px] w-[720px] -translate-x-1/2 rounded-full opacity-30 blur-3xl"
-          style={{ background: "radial-gradient(closest-side, rgb(var(--brand-300)), transparent)" }}
+          style={{ background: "radial-gradient(closest-side, rgb(var(--ink-300)), transparent)" }}
         />
         <div className="relative mx-auto max-w-6xl px-5 pb-14 pt-16 text-center sm:pt-24">
           {/* ── Development notice ── */}
           <div role="status" className="mb-5 flex justify-center">
-            <span className="inline-flex max-w-2xl flex-wrap items-center justify-center gap-x-2 gap-y-0.5 rounded-full bg-brand-500 px-4 py-1.5 text-xs text-white shadow-xs sm:text-sm">
+            <span className="inline-flex max-w-2xl flex-wrap items-center justify-center gap-x-2 gap-y-0.5 rounded-full bg-brand-solid px-4 py-1.5 text-xs text-white shadow-xs sm:text-sm">
               <span className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wide">
                 <Wrench size={12} aria-hidden /> In development
               </span>
@@ -187,13 +187,13 @@ export default async function LandingPage() {
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
               href="/signup"
-              className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-7 py-3.5 font-medium text-white shadow-md shadow-brand-500/25 transition hover:bg-brand-600"
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-solid px-7 py-3.5 font-medium text-white shadow-md transition hover:bg-brand-solid-hover"
             >
               Start free — no card required <ArrowRight size={18} aria-hidden />
             </Link>
             <Link
               href="/sample-report"
-              className="rounded-lg border border-slate-200 bg-surface/70 px-7 py-3.5 font-medium text-ink-700 transition hover:bg-slate-50"
+              className="rounded-lg border border-ink-200 bg-surface/70 px-7 py-3.5 font-medium text-ink-700 transition hover:bg-ink-50"
             >
               View a sample report
             </Link>
@@ -204,12 +204,12 @@ export default async function LandingPage() {
 
           {/* Hero product mock: report in a browser frame + floating proof chips */}
           <div className="relative mx-auto mt-14 max-w-4xl">
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-surface shadow-xl shadow-brand-500/10">
+            <div className="overflow-hidden rounded-2xl border border-ink-200 bg-surface shadow-xl">
               <BrowserBar url="reports.youragency.com/acme-co" />
               <ReportMock />
             </div>
 
-            <div className="absolute -left-6 top-24 hidden w-52 rotate-[-2deg] rounded-xl border border-slate-200 bg-surface p-3 text-left shadow-lg lg:block">
+            <div className="absolute -left-6 top-24 hidden w-52 rotate-[-2deg] rounded-xl border border-ink-200 bg-surface p-3 text-left shadow-lg lg:block">
               <p className="flex items-center gap-1.5 text-xs font-semibold text-brand-600">
                 <Sparkles size={12} aria-hidden /> AI insight
               </p>
@@ -217,8 +217,8 @@ export default async function LandingPage() {
                 &ldquo;Carbon plate shoes&rdquo; is one spot off page one — a beginner&apos;s guide should tip it over.
               </p>
             </div>
-            <div className="absolute -right-6 bottom-20 hidden w-56 rotate-[2deg] rounded-xl border border-slate-200 bg-surface p-3 text-left shadow-lg lg:block">
-              <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
+            <div className="absolute -right-6 bottom-20 hidden w-56 rotate-[2deg] rounded-xl border border-ink-200 bg-surface p-3 text-left shadow-lg lg:block">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-success-600">
                 <MailCheck size={13} aria-hidden /> Report delivered
               </p>
               <p className="mt-1 text-[11px] leading-relaxed text-ink-600">
@@ -230,7 +230,7 @@ export default async function LandingPage() {
       </section>
 
       {/* ── 2. Stat strip ── */}
-      <section aria-label="Highlights" className="border-y border-slate-100 bg-slate-50/60">
+      <section aria-label="Highlights" className="border-y border-ink-200 bg-surface-band">
         <div className="mx-auto grid max-w-5xl grid-cols-2 gap-6 px-5 py-8 text-center sm:grid-cols-4">
           {[
             { v: "5 min", l: "from signup to first report" },
@@ -239,7 +239,7 @@ export default async function LandingPage() {
             { v: "100%", l: "your brand, not ours" },
           ].map((s) => (
             <div key={s.l}>
-              <p className="text-2xl font-semibold text-brand-600">{s.v}</p>
+              <p className="text-2xl font-semibold text-ink-900">{s.v}</p>
               <p className="mt-0.5 text-xs text-ink-500">{s.l}</p>
             </div>
           ))}
@@ -273,8 +273,8 @@ export default async function LandingPage() {
           ].map((s) => {
             const Icon = s.icon;
             return (
-              <div key={s.title} className="group relative rounded-2xl border border-slate-200 bg-surface p-6 transition-shadow hover:shadow-md">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+              <div key={s.title} className="group relative rounded-2xl border border-ink-200 bg-surface p-6 transition-colors hover:border-ink-300">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-ink-100 text-ink-700">
                   <Icon size={20} aria-hidden />
                 </div>
                 <h3 className="mt-4 font-semibold text-ink-900">{s.title}</h3>
@@ -291,7 +291,7 @@ export default async function LandingPage() {
       </section>
 
       {/* ── 4. Benefits ── */}
-      <section id="features" className="scroll-mt-20 bg-slate-50/60 py-24">
+      <section id="features" className="scroll-mt-20 border-y border-ink-200 bg-surface-band py-24">
         <div className="mx-auto max-w-6xl px-5">
           <SectionHeading
             eyebrow="Why agencies switch"
@@ -309,8 +309,8 @@ export default async function LandingPage() {
             ].map((b) => {
               const Icon = b.icon;
               return (
-                <div key={b.title} className="rounded-2xl border border-slate-200 bg-surface p-6 transition-shadow hover:shadow-md">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                <div key={b.title} className="rounded-2xl border border-ink-200 bg-surface p-6 transition-colors hover:border-ink-300">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-ink-100 text-ink-700">
                     <Icon size={18} aria-hidden />
                   </div>
                   <h3 className="mt-4 font-semibold text-ink-900">{b.title}</h3>
@@ -340,26 +340,26 @@ export default async function LandingPage() {
               "A prioritised action plan your client can say yes to",
             ].map((t) => (
               <li key={t} className="flex items-start gap-2.5 text-sm text-ink-700">
-                <Check size={16} className="mt-0.5 shrink-0 text-brand-600" aria-hidden /> {t}
+                <Check size={16} className="mt-0.5 shrink-0 text-ink-400" aria-hidden /> {t}
               </li>
             ))}
           </ul>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-surface p-6 shadow-sm">
+        <div className="rounded-2xl border border-ink-200 bg-surface p-6 shadow-sm">
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-brand-600">
             <Sparkles size={15} aria-hidden /> AI summary
           </div>
           <p className="text-sm leading-relaxed text-ink-700">
-            &ldquo;Organic clicks are up <span className="font-semibold text-emerald-600">18%</span> and impressions{" "}
-            <span className="font-semibold text-emerald-600">12%</span> this month, led by &lsquo;carbon plate running
+            &ldquo;Organic clicks are up <span className="font-semibold text-success-600">18%</span> and impressions{" "}
+            <span className="font-semibold text-success-600">12%</span> this month, led by &lsquo;carbon plate running
             shoes&rsquo; at position 2.1. Engaged sessions from organic rose 14% — search growth is converting into real
             visits.&rdquo;
           </p>
           <div className="mt-4 space-y-2">
             {[
-              { t: "Win", c: "bg-emerald-50 text-emerald-700", x: "“Carbon plate shoes” clicks up 142% after the comparison post." },
-              { t: "Issue", c: "bg-rose-50 text-rose-600", x: "“Cheap running shoes” slipped to page 2 — refresh the buying guide." },
-              { t: "Next", c: "bg-amber-50 text-amber-700", x: "Build a beginner's page — one spot off page one, 2.4k monthly searches." },
+              { t: "Win", c: "bg-success-50 text-success-700", x: "“Carbon plate shoes” clicks up 142% after the comparison post." },
+              { t: "Issue", c: "bg-danger-50 text-danger-600", x: "“Cheap running shoes” slipped to page 2 — refresh the buying guide." },
+              { t: "Next", c: "bg-warning-50 text-warning-700", x: "Build a beginner's page — one spot off page one, 2.4k monthly searches." },
             ].map((r) => (
               <div key={r.t} className="flex items-start gap-2 text-xs">
                 <span className={`shrink-0 rounded-full px-2 py-0.5 font-semibold ${r.c}`}>{r.t}</span>
@@ -371,31 +371,31 @@ export default async function LandingPage() {
       </section>
 
       {/* ── 6. Product tour: autopilot ── */}
-      <section className="bg-slate-50/60 py-24">
+      <section className="border-y border-ink-200 bg-surface-band py-24">
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 lg:grid-cols-2">
           <div className="order-2 lg:order-1">
-            <div className="rounded-2xl border border-slate-200 bg-surface p-6 shadow-sm">
+            <div className="rounded-2xl border border-ink-200 bg-surface p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-ink-900">Acme Co — delivery schedule</p>
-                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-600">Active</span>
+                <span className="rounded-full bg-success-50 px-2.5 py-1 text-[11px] font-semibold text-success-600">Active</span>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3 text-left">
-                <div className="rounded-lg bg-slate-50 p-3">
+                <div className="rounded-lg bg-surface-band p-3">
                   <p className="text-[10px] uppercase tracking-wide text-ink-500">Frequency</p>
                   <p className="mt-0.5 text-sm font-medium text-ink-800">Monthly · 1st · 8:00</p>
                 </div>
-                <div className="rounded-lg bg-slate-50 p-3">
+                <div className="rounded-lg bg-surface-band p-3">
                   <p className="text-[10px] uppercase tracking-wide text-ink-500">Recipients</p>
                   <p className="mt-0.5 text-sm font-medium text-ink-800">sarah@acme.co</p>
                 </div>
               </div>
               <div className="mt-4 space-y-2">
                 {[
-                  { d: "Jun 1", s: "Sent", c: "text-emerald-600 bg-emerald-50" },
-                  { d: "May 1", s: "Sent", c: "text-emerald-600 bg-emerald-50" },
-                  { d: "Apr 1", s: "Sent", c: "text-emerald-600 bg-emerald-50" },
+                  { d: "Jun 1", s: "Sent", c: "text-success-600 bg-success-50" },
+                  { d: "May 1", s: "Sent", c: "text-success-600 bg-success-50" },
+                  { d: "Apr 1", s: "Sent", c: "text-success-600 bg-success-50" },
                 ].map((r) => (
-                  <div key={r.d} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-xs">
+                  <div key={r.d} className="flex items-center justify-between rounded-lg border border-ink-200 px-3 py-2 text-xs">
                     <span className="flex items-center gap-2 text-ink-600">
                       <FileBarChart2 size={13} className="text-ink-500" aria-hidden /> Performance report · {r.d}
                     </span>
@@ -421,7 +421,7 @@ export default async function LandingPage() {
                 "Full delivery history with sent / failed status",
               ].map((t) => (
                 <li key={t} className="flex items-start gap-2.5 text-sm text-ink-700">
-                  <Check size={16} className="mt-0.5 shrink-0 text-brand-600" aria-hidden /> {t}
+                  <Check size={16} className="mt-0.5 shrink-0 text-ink-400" aria-hidden /> {t}
                 </li>
               ))}
             </ul>
@@ -432,18 +432,18 @@ export default async function LandingPage() {
       {/* ── 7. Product tour: white-label ── */}
       <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-24 lg:grid-cols-2">
         <div className="order-2 lg:order-1">
-          <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
+          <div className="overflow-hidden rounded-2xl border border-ink-200 shadow-sm">
             <div className="flex items-center gap-3 px-6 py-6 text-white" style={{ background: "linear-gradient(135deg, rgb(var(--brand-500)), rgb(var(--brand-700)))" }}>
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface/95 text-sm font-bold text-brand-600">N</div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/95 text-sm font-bold text-brand-solid">N</div>
               <span className="font-semibold">Northbeam Digital</span>
-              <span className="ml-auto rounded-full bg-surface/15 px-2.5 py-1 text-[11px] font-medium">Performance Report</span>
+              <span className="ml-auto rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-medium">Performance Report</span>
             </div>
             <div className="space-y-3 bg-surface p-6">
               <div className="grid grid-cols-3 gap-2">
                 {["Clicks", "Sessions", "Conversions"].map((k) => (
-                  <div key={k} className="rounded-lg bg-slate-50 p-3">
+                  <div key={k} className="rounded-lg bg-surface-band p-3">
                     <p className="text-[10px] text-ink-500">{k}</p>
-                    <div className="mt-1 h-4 w-12 rounded bg-brand-100" />
+                    <div className="mt-1 h-4 w-12 rounded bg-ink-200" />
                   </div>
                 ))}
               </div>
@@ -473,7 +473,7 @@ export default async function LandingPage() {
               "Shareable live link + downloadable PDF export",
             ].map((t) => (
               <li key={t} className="flex items-start gap-2.5 text-sm text-ink-700">
-                <Check size={16} className="mt-0.5 shrink-0 text-brand-600" aria-hidden /> {t}
+                <Check size={16} className="mt-0.5 shrink-0 text-ink-400" aria-hidden /> {t}
               </li>
             ))}
           </ul>
@@ -484,7 +484,7 @@ export default async function LandingPage() {
       </section>
 
       {/* ── 8. Integrations ── */}
-      <section id="integrations" className="scroll-mt-20 bg-slate-50/60 py-24">
+      <section id="integrations" className="scroll-mt-20 border-y border-ink-200 bg-surface-band py-24">
         <div className="mx-auto max-w-6xl px-5">
           <SectionHeading
             eyebrow="Integrations"
@@ -499,8 +499,8 @@ export default async function LandingPage() {
               // integration is "coming soon" while the app is already offering it.
               const live = isLive(it.id);
               return (
-                <div key={it.id} className="rounded-xl border border-slate-200 bg-surface p-4 text-center">
-                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                <div key={it.id} className="rounded-xl border border-ink-200 bg-surface p-4 text-center">
+                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-ink-100 text-ink-700">
                     <Icon size={18} aria-hidden />
                   </div>
                   <p className="mt-3 text-sm font-medium text-ink-800">{it.n}</p>
@@ -521,7 +521,7 @@ export default async function LandingPage() {
       </section>
 
       {/* ── 10. Testimonials ── */}
-      <section className="bg-slate-50/60 py-24">
+      <section className="border-b border-ink-200 bg-surface-band py-24">
         <div className="mx-auto max-w-6xl px-5">
           <SectionHeading eyebrow="Built for lean agencies" title="More billable hours, fewer reporting weekends" />
           <div className="mt-14 grid gap-6 md:grid-cols-3">
@@ -530,13 +530,13 @@ export default async function LandingPage() {
               { q: "Switching off per-client pricing saved us hundreds a month. Adding a client now costs us nothing.", n: "Owner", a: "PPC agency" },
               { q: "Clients think we built a custom reporting platform. It's just ReportFlow under our brand.", n: "Director", a: "Growth agency" },
             ].map((t) => (
-              <figure key={t.q} className="flex flex-col rounded-2xl border border-slate-200 bg-surface p-6">
-                <div className="flex gap-0.5 text-amber-400" aria-hidden>
+              <figure key={t.q} className="flex flex-col rounded-2xl border border-ink-200 bg-surface p-6">
+                <div className="flex gap-0.5 text-warning-400" aria-hidden>
                   {Array.from({ length: 5 }).map((_, j) => <Star key={j} size={14} fill="currentColor" />)}
                 </div>
                 <blockquote className="mt-3 flex-1 text-sm leading-relaxed text-ink-700">&ldquo;{t.q}&rdquo;</blockquote>
                 <figcaption className="mt-4 flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700" aria-hidden>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-ink-100 text-xs font-semibold text-ink-700" aria-hidden>
                     {t.n.charAt(0)}
                   </div>
                   <div>
@@ -553,7 +553,7 @@ export default async function LandingPage() {
 
       {/* ── 11. Trust / security band ── */}
       <section aria-label="Security and data practices" className="mx-auto max-w-6xl px-5 py-24">
-        <div className="rounded-3xl border border-slate-200 bg-surface p-8 sm:p-12">
+        <div className="rounded-3xl border border-ink-200 bg-surface p-8 sm:p-12">
           <div className="mx-auto max-w-2xl text-center">
             <Eyebrow icon={ShieldCheck}>Trust &amp; security</Eyebrow>
             <h2 className="mt-4 text-3xl font-semibold tracking-tight">Your clients&apos; data, handled like it&apos;s ours</h2>
@@ -571,7 +571,7 @@ export default async function LandingPage() {
               const Icon = s.icon;
               return (
                 <div key={s.t}>
-                  <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+                  <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-ink-100 text-ink-700">
                     <Icon size={20} aria-hidden />
                   </div>
                   <h3 className="mt-3 font-semibold text-ink-900">{s.t}</h3>
@@ -588,7 +588,7 @@ export default async function LandingPage() {
       </section>
 
       {/* ── 12. Pricing ── */}
-      <section id="pricing" className="scroll-mt-20 bg-slate-50/60 py-24">
+      <section id="pricing" className="scroll-mt-20 border-y border-ink-200 bg-surface-band py-24">
         <div className="mx-auto max-w-5xl px-5">
           <SectionHeading
             eyebrow="Pricing"
@@ -607,11 +607,11 @@ export default async function LandingPage() {
               <div
                 key={p.name}
                 className={`relative flex flex-col rounded-2xl bg-surface p-6 ${
-                  p.featured ? "border-2 border-brand-500 shadow-lg shadow-brand-500/10" : "border border-slate-200"
+                  p.featured ? "border-2 border-brand-500 shadow-lg" : "border border-ink-200"
                 }`}
               >
                 {p.featured && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-brand-500 px-3 py-1 text-xs font-semibold text-white">
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-brand-solid px-3 py-1 text-xs font-semibold text-white">
                     Most Popular
                   </span>
                 )}
@@ -623,17 +623,17 @@ export default async function LandingPage() {
                   <p className="mt-1 text-xs text-ink-500">or {p.quarterlyPerMonth}/mo billed every 3 months</p>
                 )}
                 <p className="mt-4 flex items-center gap-2 text-sm font-semibold text-ink-800">
-                  <Users size={15} className="shrink-0 text-brand-600" aria-hidden /> {p.clients}
+                  <Users size={15} className="shrink-0 text-ink-400" aria-hidden /> {p.clients}
                 </p>
                 <p className="mt-2 flex items-center gap-2 text-sm text-ink-600">
-                  <Check size={15} className="shrink-0 text-brand-600" aria-hidden /> Every feature included
+                  <Check size={15} className="shrink-0 text-ink-400" aria-hidden /> Every feature included
                 </p>
                 <Link
                   href="/signup"
                   className={`mt-6 block rounded-lg px-5 py-3 text-center font-medium transition ${
                     p.featured
-                      ? "bg-brand-500 text-white hover:bg-brand-600"
-                      : "border border-slate-200 text-ink-700 hover:bg-slate-50"
+                      ? "bg-brand-solid text-white hover:bg-brand-solid-hover"
+                      : "border border-ink-200 text-ink-700 hover:bg-ink-50"
                   }`}
                 >
                   {/* Paid plans carry the Paddle-backed trial; the length is
@@ -653,7 +653,7 @@ export default async function LandingPage() {
       {/* ── 13. FAQ ── */}
       <section id="faq" className="mx-auto max-w-3xl scroll-mt-20 px-5 py-24">
         <SectionHeading eyebrow="FAQ" title="Questions, answered" />
-        <div className="mt-10 divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-surface">
+        <div className="mt-10 divide-y divide-ink-100 rounded-2xl border border-ink-200 bg-surface">
           {faqs(pricing, savingPct).map((f) => (
             <details key={f.q} className="group p-5">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium text-ink-800 marker:hidden">
@@ -680,10 +680,10 @@ export default async function LandingPage() {
             hands before your coffee goes cold.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href="/signup" className="inline-flex items-center gap-2 rounded-lg bg-surface px-7 py-3.5 font-medium text-brand-700 transition hover:bg-surface/90">
+            <Link href="/signup" className="inline-flex items-center gap-2 rounded-lg bg-white px-7 py-3.5 font-medium text-brand-solid transition hover:bg-white/90">
               Start free <ArrowRight size={18} aria-hidden />
             </Link>
-            <Link href="/sample-report" className="rounded-lg border border-white/30 px-7 py-3.5 font-medium text-white transition hover:bg-surface/10">
+            <Link href="/sample-report" className="rounded-lg border border-white/30 px-7 py-3.5 font-medium text-white transition hover:bg-white/10">
               View a sample report
             </Link>
           </div>
@@ -717,13 +717,13 @@ function Eyebrow({ icon: Icon, children }: { icon: typeof Sparkles; children: Re
 
 function BrowserBar({ url }: { url: string }) {
   return (
-    <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/80 px-4 py-2.5" aria-hidden>
+    <div className="flex items-center gap-2 border-b border-ink-200 bg-surface-band px-4 py-2.5" aria-hidden>
       <span className="flex gap-1.5">
-        <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
-        <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
-        <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
+        <span className="h-2.5 w-2.5 rounded-full bg-ink-200" />
+        <span className="h-2.5 w-2.5 rounded-full bg-ink-200" />
+        <span className="h-2.5 w-2.5 rounded-full bg-ink-200" />
       </span>
-      <span className="mx-auto flex items-center gap-1.5 rounded-md bg-surface px-3 py-1 text-[11px] text-ink-500 ring-1 ring-slate-200">
+      <span className="mx-auto flex items-center gap-1.5 rounded-md bg-surface px-3 py-1 text-[11px] text-ink-500 ring-1 ring-ink-200">
         <Lock size={10} /> {url}
       </span>
     </div>
@@ -735,12 +735,12 @@ function ReportMock() {
   return (
     <div>
       <div className="flex items-center gap-3 px-6 py-5 text-white" style={{ background: "linear-gradient(135deg, rgb(var(--brand-500)), rgb(var(--brand-700)))" }}>
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface/95 text-sm font-bold text-brand-600">A</div>
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-sm font-bold text-brand-solid">A</div>
         <div className="text-left">
           <p className="text-sm font-semibold leading-tight">Acme Co — Performance Report</p>
           <p className="text-[11px] text-white/70">Prepared by Your Agency · Last 28 days</p>
         </div>
-        <span className="ml-auto rounded-full bg-surface/15 px-2.5 py-1 text-[11px] font-medium">Live</span>
+        <span className="ml-auto rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-medium">Live</span>
       </div>
       <div className="grid grid-cols-2 gap-3 p-5 text-left sm:grid-cols-4">
         {[
@@ -749,10 +749,10 @@ function ReportMock() {
           { l: "Conversions", v: "486", d: "+22%" },
           { l: "Avg Position", v: "9.8", d: "+13%" },
         ].map((m) => (
-          <div key={m.l} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+          <div key={m.l} className="rounded-xl border border-ink-200 bg-surface-band p-3">
             <p className="text-[11px] text-ink-500">{m.l}</p>
-            <p className="mt-0.5 text-lg font-semibold text-brand-600">{m.v}</p>
-            <p className="text-[10px] font-medium text-emerald-600">▲ {m.d} vs prev.</p>
+            <p className="mt-0.5 text-lg font-semibold text-ink-900">{m.v}</p>
+            <p className="text-[10px] font-medium text-success-600">▲ {m.d} vs prev.</p>
           </div>
         ))}
       </div>

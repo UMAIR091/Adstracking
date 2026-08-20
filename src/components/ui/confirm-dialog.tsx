@@ -110,7 +110,7 @@ function ConfirmModal({ pending, onClose }: { pending: Pending; onClose: (ok: bo
         if (e.target === e.currentTarget) onClose(false);
       }}
     >
-      <div className="absolute inset-0 bg-ink-900/50 backdrop-blur-[2px] animate-fade-in" aria-hidden="true" />
+      <div className="absolute inset-0 bg-overlay/50 backdrop-blur-[2px] animate-fade-in" aria-hidden="true" />
       <div
         ref={dialogRef}
         role="alertdialog"

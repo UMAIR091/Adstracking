@@ -70,7 +70,7 @@ export function IntegrationSearch({ integrations }: { integrations: DataSourceCa
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search integrations — Google, Meta, TikTok, LinkedIn…"
           aria-label="Search integrations"
-          className="w-full rounded-lg border border-slate-200 bg-surface py-2.5 pl-9 pr-9 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
+          className="field w-full py-2.5 pl-9 pr-9"
         />
         {query && (
           <button
@@ -85,7 +85,7 @@ export function IntegrationSearch({ integrations }: { integrations: DataSourceCa
       </div>
 
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-ink-300 bg-surface-subtle px-6 py-12 text-center">
+        <div className="rounded-xl border border-dashed border-ink-200 bg-surface-subtle px-6 py-12 text-center">
           <p className="text-sm font-medium text-ink-800">No integrations match “{query}”</p>
           <p className="mt-1 text-sm text-ink-500">Try a platform name like Google, Meta, TikTok or Shopify.</p>
         </div>

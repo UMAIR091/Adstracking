@@ -29,7 +29,7 @@ function SummaryRow({
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-surface-muted"
+      className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-surface-subtle"
     >
       <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tint}`}>
         <Icon size={15} />
@@ -97,7 +97,7 @@ export default async function SettingsPage() {
           <SummaryRow
             href="/dashboard/integrations"
             icon={HeartPulse}
-            tint="bg-emerald-50 text-emerald-600"
+            tint="bg-success-50 text-success-600"
             label="Integrations"
             detail={
               health.total === 0
@@ -108,21 +108,21 @@ export default async function SettingsPage() {
           <SummaryRow
             href="/dashboard/settings/errors"
             icon={Activity}
-            tint="bg-amber-50 text-amber-600"
+            tint="bg-warning-50 text-warning-600"
             label="Sync health"
             detail="Recent sync, connection and report failures across your clients"
           />
           <SummaryRow
             href="/dashboard/settings/usage"
             icon={Gauge}
-            tint="bg-sky-50 text-sky-600"
+            tint="bg-info-50 text-info-600"
             label="Usage"
             detail="Reports generated, sync executions and AI usage for this workspace"
           />
           <SummaryRow
             href="/dashboard/settings/data"
             icon={ShieldCheck}
-            tint="bg-emerald-50 text-emerald-600"
+            tint="bg-success-50 text-success-600"
             label="Data & privacy"
             detail="Review connected sources, disconnect integrations, delete stored data"
           />

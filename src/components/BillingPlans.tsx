@@ -171,7 +171,7 @@ export function BillingPlans({
 
   return (
     <div>
-      <div className="flex items-center justify-center gap-1 rounded-full border border-slate-200 bg-surface p-1 text-sm" role="group" aria-label="Billing interval">
+      <div className="flex items-center justify-center gap-1 rounded-full border border-ink-200 bg-surface p-1 text-sm" role="group" aria-label="Billing interval">
         {(["monthly", "quarterly"] as const).map((iv) => (
           <button
             key={iv}
@@ -179,12 +179,12 @@ export function BillingPlans({
             aria-pressed={interval === iv}
             className={cn(
               "rounded-full px-4 py-1.5 font-medium transition-colors",
-              interval === iv ? "bg-brand-500 text-white" : "text-ink-500 hover:text-ink-800"
+              interval === iv ? "bg-brand-solid text-white" : "text-ink-500 hover:text-ink-800"
             )}
           >
             {INTERVAL_LABEL[iv]}
             {iv === "quarterly" && savingPct != null && savingPct > 0 && (
-              <span className={cn("ml-1.5 text-xs", interval === iv ? "text-white/80" : "text-emerald-600")}>
+              <span className={cn("ml-1.5 text-xs", interval === iv ? "text-white/80" : "text-success-600")}>
                 save {savingPct}%
               </span>
             )}
@@ -224,7 +224,7 @@ export function BillingPlans({
                 <ul className="mb-6 mt-5 flex-1 space-y-2.5 text-sm text-ink-700">
                   {p.features.map((f) => (
                     <li key={f} className="flex gap-2">
-                      <Check size={16} className="mt-0.5 shrink-0 text-emerald-500" aria-hidden /> {f}
+                      <Check size={16} className="mt-0.5 shrink-0 text-success-500" aria-hidden /> {f}
                     </li>
                   ))}
                 </ul>

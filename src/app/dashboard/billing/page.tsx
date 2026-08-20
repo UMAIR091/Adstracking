@@ -111,19 +111,19 @@ export default async function BillingPage({
       </div>
 
       {searchParams.checkout === "success" && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <div className="flex items-start gap-2.5 rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
           <CheckCircle2 size={17} className="mt-0.5 shrink-0" />
           <span>Payment received — thank you! Your subscription activates within a few seconds. Refresh if it doesn&apos;t appear yet.</span>
         </div>
       )}
       {searchParams.portal_error && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="flex items-start gap-2.5 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-800">
           <AlertTriangle size={17} className="mt-0.5 shrink-0" />
           <span>{searchParams.portal_error}</span>
         </div>
       )}
       {state.cancelAtPeriodEnd && state.hasAccess && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="flex items-start gap-2.5 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-800">
           <CalendarClock size={17} className="mt-0.5 shrink-0" />
           <span>
             Your subscription is scheduled to end on {fmtDate(state.endsAt ?? state.renewsAt)}. You keep full access until
@@ -132,18 +132,18 @@ export default async function BillingPage({
         </div>
       )}
       {(state.status === "past_due" || state.paymentFailed) && state.hasAccess && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4">
+        <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-4">
           <div className="flex items-start gap-2.5">
-            <AlertTriangle size={17} className="mt-0.5 shrink-0 text-amber-600" />
+            <AlertTriangle size={17} className="mt-0.5 shrink-0 text-warning-600" />
             <div className="flex-1">
-              <p className="font-semibold text-amber-900">Payment issue — action required</p>
-              <p className="mt-1 text-sm text-amber-800">
+              <p className="font-semibold text-warning-900">Payment issue — action required</p>
+              <p className="mt-1 text-sm text-warning-800">
                 Your last payment didn&apos;t go through. Paddle will retry automatically, but you may
                 need to update your card to avoid losing access. Your data and reports are untouched.
               </p>
               <a
                 href="/api/billing/portal"
-                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-amber-700"
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-warning-solid px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-warning-solid-hover"
               >
                 <CreditCard size={14} /> Update payment method
               </a>
@@ -152,7 +152,7 @@ export default async function BillingPage({
         </div>
       )}
       {!state.hasAccess && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="flex items-start gap-2.5 rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-800">
           <AlertTriangle size={17} className="mt-0.5 shrink-0" />
           <span>{state.blockedReason} Your clients, connections and existing reports are untouched.</span>
         </div>
@@ -227,7 +227,7 @@ export default async function BillingPage({
         <div>
           <h2 className="mb-3 text-sm font-medium text-ink-700">Invoices</h2>
           <Card>
-            <CardContent className="divide-y divide-slate-100 p-0">
+            <CardContent className="divide-y divide-ink-100 p-0">
               {invoices.map((inv) => (
                 <div key={inv.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 text-sm">
                   <span className="flex items-center gap-2.5 text-ink-700">

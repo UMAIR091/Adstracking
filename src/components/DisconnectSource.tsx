@@ -34,7 +34,7 @@ export function DisconnectSource({ dataSourceId, label }: { dataSourceId: string
 
   return (
     <Button variant="outline" size="sm" onClick={disconnect} disabled={busy}
-      className="text-red-600 hover:bg-red-50 hover:text-red-700">
+      className="text-danger-600 hover:bg-danger-50 hover:text-danger-700">
       <Trash2 size={14} /> {busy ? "Removing…" : "Disconnect & delete data"}
     </Button>
   );

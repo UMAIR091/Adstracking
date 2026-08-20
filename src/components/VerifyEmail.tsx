@@ -92,7 +92,7 @@ export function VerifyEmail({ email }: { email: string }) {
     return (
       <Shell>
         <div className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success-50 text-success-600">
             <CheckCircle2 size={24} />
           </div>
           <h1 className="text-xl font-semibold text-ink-900">Email verified</h1>
@@ -115,16 +115,16 @@ export function VerifyEmail({ email }: { email: string }) {
         </p>
       </div>
 
-      <div className="mt-5 flex items-center justify-center gap-2 rounded-lg bg-slate-50 py-2 text-xs text-ink-500">
+      <div className="mt-5 flex items-center justify-center gap-2 rounded-lg bg-ink-50 py-2 text-xs text-ink-500">
         <Loader2 size={13} className="animate-spin" /> Waiting for verification…
       </div>
 
-      {notice && <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-center text-xs text-ink-600">{notice}</p>}
+      {notice && <p className="mt-3 rounded-lg bg-ink-50 px-3 py-2 text-center text-xs text-ink-600">{notice}</p>}
 
       <button
         onClick={manualCheck}
         disabled={checking}
-        className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-600 disabled:opacity-50"
+        className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-brand-solid px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-solid-hover disabled:opacity-50"
       >
         {checking ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} I&apos;ve verified my email
       </button>
@@ -137,7 +137,7 @@ export function VerifyEmail({ email }: { email: string }) {
         </button>
       </div>
 
-      <div className="mt-6 rounded-xl border border-slate-100 bg-slate-50 p-3 text-left text-xs leading-relaxed text-ink-500">
+      <div className="mt-6 rounded-xl border border-ink-100 bg-ink-50 p-3 text-left text-xs leading-relaxed text-ink-500">
         <p className="font-medium text-ink-700">Not seeing it?</p>
         <ul className="mt-1 list-disc space-y-0.5 pl-4">
           <li>Check your spam or promotions folder.</li>
@@ -159,7 +159,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto w-full max-w-sm">
       <Link href="/" className="mb-8 flex justify-center"><Brand className="text-lg" /></Link>
-      <div className="rounded-2xl border border-slate-200 bg-surface p-7 shadow-sm">{children}</div>
+      <div className="rounded-2xl border border-ink-200 bg-surface p-7 shadow-sm">{children}</div>
     </div>
   );
 }

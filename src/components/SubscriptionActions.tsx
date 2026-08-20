@@ -74,7 +74,7 @@ export function SubscriptionActions({ cancelAtPeriodEnd, endsAtLabel }: {
             {busy === "resume" ? "Resuming…" : "Resume subscription"}
           </Button>
         ) : (
-          <Button variant="ghost" disabled={busy !== null} onClick={() => setShowCancel(true)} className="text-ink-500 hover:text-red-600">
+          <Button variant="ghost" disabled={busy !== null} onClick={() => setShowCancel(true)} className="text-ink-500 hover:text-danger-600">
             Cancel subscription
           </Button>
         )}

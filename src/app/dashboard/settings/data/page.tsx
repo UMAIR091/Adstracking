@@ -41,7 +41,7 @@ export default async function DataPrivacyPage() {
 
       <Card>
         <CardContent className="flex items-start gap-3 p-5">
-          <ShieldCheck size={18} className="mt-0.5 shrink-0 text-emerald-600" />
+          <ShieldCheck size={18} className="mt-0.5 shrink-0 text-success-600" />
           <p className="text-sm leading-relaxed text-ink-600">
             {DATA_PROMISE} Disconnecting a source below immediately deletes its stored connection tokens and all
             cached metric data. Read the full details in our{" "}

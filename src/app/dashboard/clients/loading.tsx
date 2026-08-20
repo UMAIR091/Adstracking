@@ -13,7 +13,7 @@ export default function ClientsLoading() {
       </div>
       <Skeleton className="h-10 w-full rounded-lg" />
       <Card>
-        <CardContent className="divide-y divide-slate-100 p-0">
+        <CardContent className="divide-y divide-ink-100 p-0">
           {[0, 1, 2, 3].map((i) => (
             <div key={i} className="flex items-center gap-3 p-4">
               <Skeleton className="h-9 w-9 rounded-lg" />

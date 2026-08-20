@@ -13,6 +13,14 @@
 // clicks, conversions and revenue are the same unit on every ad platform. That
 // aggregation lives in lib/integrations/blocks.ts (shared with the PDF and AI),
 // so this component adds no second data path.
+//
+// CONTROLS live in one sticky toolbar at the top: period, then metric group,
+// then individual source — outermost filter first. They stay reachable while a
+// long stack of charts scrolls beneath, which is the whole reason a client with
+// ten connected sources stopped being usable: changing the filter used to mean
+// scrolling all the way back up first. Period is a link (the server re-reads a
+// different cached snapshot); group and source are local state.
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ClientAnalytics } from "@/components/ClientAnalytics";
 import { aggregatePaidSnapshots, formatBlockValue } from "@/lib/integrations/blocks";
@@ -31,12 +39,31 @@ export type PerformanceSource = {
   snapshot: unknown;
 };
 
+/** One selectable cached window, resolved server-side into a link. */
+export type PerformancePeriodOption = {
+  days: number;
+  /** Full label, e.g. "Last 28 days" — used for the accessible name. */
+  label: string;
+  href: string;
+  active: boolean;
+};
+
 const ALL = "__all__";
 
 // Groups render in a consistent, meaningful order rather than connection order.
 const GROUP_ORDER: MetricGroup[] = ["paid", "seo", "analytics", "social", "commerce", "crm", "email", "calls", "other"];
 
-export function ClientPerformance({ sources }: { sources: PerformanceSource[] }) {
+export function ClientPerformance({
+  sources,
+  periods = [],
+  periodLabel,
+}: {
+  sources: PerformanceSource[];
+  /** Cached windows the user can switch between. Fewer than two hides the control. */
+  periods?: PerformancePeriodOption[];
+  /** The active window's label, for provenance lines inside the section. */
+  periodLabel?: string;
+}) {
   const [group, setGroup] = useState<MetricGroup | typeof ALL>(ALL);
   const [source, setSource] = useState<string>(ALL);
 
@@ -73,36 +100,81 @@ export function ClientPerformance({ sources }: { sources: PerformanceSource[] })
   // Groups to render as sections. A specific source selection collapses to its
   // own group only.
   const renderGroups = group === ALL ? groups : [group];
+  const windowLabel = periodLabel ? periodLabel.toLowerCase() : null;
 
   return (
     <div>
-      {/* Level 1 — metric group. Only shown when there's more than one. */}
-      {groups.length > 1 && (
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <Pill active={group === ALL} onClick={() => selectGroup(ALL)}>All</Pill>
-          {groups.map((g) => (
-            <Pill key={g} active={group === g} onClick={() => selectGroup(g)}>
-              {GROUP_LABELS[g]}
-              <span className="ml-1.5 opacity-60">{sources.filter((s) => s.group === g).length}</span>
-            </Pill>
-          ))}
-        </div>
-      )}
+      {/* ── Toolbar ────────────────────────────────────────────────────────
+          Sticky under the mobile app bar (h-14) and under nothing on desktop.
+          z-20 keeps it below the app bar's z-30. */}
+      <div className="sticky top-14 z-20 mb-6 border-b border-ink-100 bg-surface/95 py-3 backdrop-blur lg:top-0">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          {/* Level 1 — metric group. Only meaningful with more than one. */}
+          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto px-1 py-0.5">
+            {groups.length > 1 ? (
+              <>
+                <Pill active={group === ALL} onClick={() => selectGroup(ALL)}>All</Pill>
+                {groups.map((g) => (
+                  <Pill key={g} active={group === g} onClick={() => selectGroup(g)}>
+                    {GROUP_LABELS[g]}
+                    <span className="ml-1.5 opacity-60">{sources.filter((s) => s.group === g).length}</span>
+                  </Pill>
+                ))}
+              </>
+            ) : (
+              <p className="truncate text-sm font-medium text-ink-700">
+                {groups.length === 1 ? GROUP_LABELS[groups[0]] : "Performance"}
+              </p>
+            )}
+          </div>
 
-      {/* Level 2 — individual source within the current group. */}
-      {inGroup.length > 1 && (
-        <div className="mb-6 flex flex-wrap items-center gap-2">
-          <Pill small active={source === ALL} onClick={() => setSource(ALL)}>
-            {group === ALL ? "All sources" : `All ${GROUP_LABELS[group].toLowerCase()} sources`}
-          </Pill>
-          {inGroup.map((s) => (
-            <Pill key={s.id} small active={source === s.id} onClick={() => setSource(s.id)}>
-              {s.name}
-              {s.accountLabel ? <span className="ml-1.5 opacity-60">{s.accountLabel}</span> : null}
-            </Pill>
-          ))}
+          {/* Period — a real switch between the two cached windows every sync
+              stores. Nothing is recalculated; a different snapshot is read. */}
+          {periods.length > 1 && (
+            <div
+              role="group"
+              aria-label="Reporting period"
+              className="flex shrink-0 items-center gap-0.5 rounded-full border border-ink-200 bg-surface-subtle p-0.5"
+            >
+              {periods.map((p) => (
+                <Link
+                  key={p.days}
+                  href={p.href}
+                  scroll={false}
+                  aria-label={p.label}
+                  aria-current={p.active ? "true" : undefined}
+                  className={`rounded-full px-3 py-1 text-xs font-medium tabular-nums transition-colors ${
+                    p.active ? "bg-surface text-ink-900 shadow-xs" : "text-ink-500 hover:text-ink-800"
+                  }`}
+                >
+                  {/* Abbreviated on phones so the group pills keep their room;
+                      aria-label carries the full wording either way. */}
+                  <span className="sm:hidden">{p.days}d</span>
+                  <span className="hidden sm:inline">{p.days} days</span>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Level 2 — individual source within the current group. One scrolling
+            row rather than a wrapping block, so the toolbar keeps its height
+            however many sources a client has. */}
+        {inGroup.length > 1 && (
+          <div className="mt-2 flex items-center gap-2 overflow-x-auto px-1 py-0.5">
+            <span className="shrink-0 text-xs text-ink-400">Source</span>
+            <Pill small active={source === ALL} onClick={() => setSource(ALL)}>
+              {group === ALL ? "All" : `All ${GROUP_LABELS[group].toLowerCase()}`}
+            </Pill>
+            {inGroup.map((s) => (
+              <Pill key={s.id} small active={source === s.id} onClick={() => setSource(s.id)}>
+                {s.name}
+                {s.accountLabel ? <span className="ml-1.5 opacity-60">{s.accountLabel}</span> : null}
+              </Pill>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Cross-channel overview — only on "All", and only when more than one
           channel family is connected. Each figure keeps its own provenance;
@@ -110,10 +182,10 @@ export function ClientPerformance({ sources }: { sources: PerformanceSource[] })
       {group === ALL && source === ALL && groups.length > 1 && overview.length > 0 && (
         <div className="mb-8 rounded-xl border border-ink-200 bg-surface p-5">
           <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-            <h3 className="text-sm font-semibold text-ink-900">Overview</h3>
-            <p className="text-xs text-ink-500">Headline figures per channel · last 28 days</p>
+            <h3 className="text-sm font-semibold text-ink-900">Headline figures</h3>
+            <p className="text-xs text-ink-500">One top line per channel{windowLabel ? ` · ${windowLabel}` : ""}</p>
           </div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
             {overview.map((m) => (
               <div key={`${m.group}-${m.label}`}>
                 <p className="text-xs text-ink-500">{m.label}</p>
@@ -123,13 +195,13 @@ export function ClientPerformance({ sources }: { sources: PerformanceSource[] })
             ))}
           </div>
           <p className="mt-4 border-t border-ink-100 pt-3 text-xs text-ink-500">
-            Each figure comes from the channel named beneath it. Metrics from different channels measure different
-            things, so they are shown side by side rather than added together.
+            Each figure comes from the channel named beneath it. Different channels measure different things, so they
+            sit side by side rather than being added together.
           </p>
         </div>
       )}
 
-      <div className="space-y-12">
+      <div className="space-y-8">
         {renderGroups.map((g) => {
           const groupSources = visibleSources.filter((s) => s.group === g);
           if (groupSources.length === 0) return null;
@@ -138,14 +210,15 @@ export function ClientPerformance({ sources }: { sources: PerformanceSource[] })
             <section key={g}>
               {/* Group heading only earns its place when more than one group shows. */}
               {renderGroups.length > 1 && (
-                <h3 className="mb-4 text-xs font-semibold uppercase tracking-wide text-ink-500">
+                <h3 className="mb-4 flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-ink-500">
                   {GROUP_LABELS[g]}
+                  <span className="h-px flex-1 bg-ink-100" aria-hidden />
                 </h3>
               )}
 
               {/* Real cross-platform total — paid media only. */}
               {g === "paid" && paidAggregate && (
-                <div className="mb-6 rounded-xl border border-slate-200 bg-surface p-5">
+                <div className="mb-6 rounded-xl border border-ink-200 bg-surface p-5">
                   <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
                     <h4 className="text-sm font-semibold text-ink-900">Combined paid media</h4>
                     <p className="text-xs text-ink-500">{paidAggregate.sourceNames.join(" · ")}</p>
@@ -188,7 +261,7 @@ export function ClientPerformance({ sources }: { sources: PerformanceSource[] })
                 </p>
               )}
 
-              <div className="space-y-10">
+              <div className="space-y-8">
                 {groupSources.map((s) => (
                   <div key={s.id}>
                     <h4 className="mb-3 text-sm font-medium text-ink-700">
@@ -217,10 +290,10 @@ function Pill({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`rounded-full border transition-colors ${small ? "px-3 py-1 text-xs" : "px-3.5 py-1.5 text-sm"} ${
+      className={`shrink-0 whitespace-nowrap rounded-full border transition-colors ${small ? "px-3 py-1 text-xs" : "px-3.5 py-1.5 text-sm"} ${
         active
-          ? "border-brand-500 bg-brand-500 text-white"
-          : "border-slate-200 bg-surface text-ink-600 hover:border-slate-300 hover:text-ink-900"
+          ? "border-brand-solid bg-brand-solid text-white"
+          : "border-ink-200 bg-surface text-ink-600 hover:border-ink-300 hover:text-ink-900"
       }`}
     >
       {children}

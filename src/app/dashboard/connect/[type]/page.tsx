@@ -59,9 +59,9 @@ export default async function ConnectConsentPage({
             ))}
           </ul>
 
-          <div className="mt-6 space-y-3 border-t border-slate-100 pt-5 text-sm text-ink-600">
+          <div className="mt-6 space-y-3 border-t border-ink-100 pt-5 text-sm text-ink-600">
             <p className="flex items-start gap-2">
-              <ShieldCheck size={16} className="mt-0.5 shrink-0 text-emerald-600" />
+              <ShieldCheck size={16} className="mt-0.5 shrink-0 text-success-600" />
               <span>
                 Access is <strong>read-only</strong> — {COMPANY.product} can never change anything in your {def.name}{" "}
                 account. Connection tokens are encrypted (AES-256-GCM) before storage. {DATA_PROMISE}
@@ -101,7 +101,7 @@ export default async function ConnectConsentPage({
                       required
                       autoComplete="off"
                       placeholder={f.placeholder}
-                      className="h-10 w-full rounded-lg border border-ink-300 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                      className="field h-10 w-full"
                     />
                     {f.hint && <p className="text-xs text-ink-500">{f.hint}</p>}
                   </div>
@@ -129,7 +129,7 @@ export default async function ConnectConsentPage({
                   name={def.connectField.name}
                   required
                   placeholder={def.connectField.placeholder}
-                  className="h-10 w-full rounded-lg border border-ink-300 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  className="field h-10 w-full"
                 />
                 {def.connectField.hint && <p className="text-xs text-ink-500">{def.connectField.hint}</p>}
                 <div className="flex gap-2">

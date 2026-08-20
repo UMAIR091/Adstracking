@@ -109,7 +109,7 @@ export function OnboardingWizard({ agency }: { agency: Agency }) {
       <div className="mb-6 flex items-center gap-2">
         {STEPS.map((label, i) => (
           <div key={label} className="flex flex-1 items-center gap-2">
-            <div className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ${i < step ? "bg-brand-500 text-white" : i === step ? "bg-brand-100 text-brand-700 ring-2 ring-brand-500" : "bg-ink-100 text-ink-500"}`}>
+            <div className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ${i < step ? "bg-brand-solid text-white" : i === step ? "bg-brand-100 text-brand-700 ring-2 ring-brand-500" : "bg-ink-100 text-ink-500"}`}>
               {i < step ? <Check size={14} /> : i + 1}
             </div>
             {i < STEPS.length - 1 && <div className={`h-0.5 flex-1 rounded ${i < step ? "bg-brand-500" : "bg-ink-100"}`} />}
@@ -117,7 +117,7 @@ export function OnboardingWizard({ agency }: { agency: Agency }) {
         ))}
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-surface p-6 shadow-sm sm:p-8">
+      <div className="rounded-2xl border border-ink-200 bg-surface p-6 shadow-sm sm:p-8">
         {step === 0 && (
           <div className="space-y-5">
             <Header icon={Building2} title="Make it yours" subtitle="Your logo and colour appear on every report, email and PDF — clients see your agency, never ReportFlow." />
@@ -135,7 +135,7 @@ export function OnboardingWizard({ agency }: { agency: Agency }) {
                 {SWATCHES.map((s) => (
                   <button key={s} type="button" onClick={() => setColor(s)} aria-label={`Use ${s}`} className={`h-8 w-8 rounded-full ring-offset-2 transition ${color.toLowerCase() === s.toLowerCase() ? "ring-2 ring-ink-400" : ""}`} style={{ background: s }} />
                 ))}
-                <label className="flex items-center gap-2 rounded-lg border border-slate-300 px-2 py-1.5">
+                <label className="flex items-center gap-2 rounded-lg border border-ink-300 px-2 py-1.5">
                   <Palette size={15} className="text-ink-500" />
                   <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-6 w-8 cursor-pointer border-0 bg-transparent p-0" aria-label="Custom colour" />
                 </label>
@@ -163,14 +163,14 @@ export function OnboardingWizard({ agency }: { agency: Agency }) {
               </div>
               <div>
                 <Label htmlFor="ob-tz">Timezone</Label>
-                <select id="ob-tz" value={timezone} onChange={(e) => setTimezone(e.target.value)} className="h-10 w-full rounded-lg border border-slate-300 bg-surface px-3 text-sm text-ink-700 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100">
+                <select id="ob-tz" value={timezone} onChange={(e) => setTimezone(e.target.value)} className="field h-10 w-full">
                   {zones.map((z) => <option key={z} value={z}>{z}</option>)}
                 </select>
                 <p className="mt-1 text-xs text-ink-500">Used for scheduled delivery.</p>
               </div>
               <div>
                 <Label htmlFor="ob-lang">Report language</Label>
-                <select id="ob-lang" value={language} onChange={(e) => setLanguage(e.target.value)} className="h-10 w-full rounded-lg border border-slate-300 bg-surface px-3 text-sm text-ink-700 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100">
+                <select id="ob-lang" value={language} onChange={(e) => setLanguage(e.target.value)} className="field h-10 w-full">
                   {LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
                 </select>
                 <p className="mt-1 text-xs text-ink-500">Language for AI-written insights.</p>
@@ -190,12 +190,12 @@ export function OnboardingWizard({ agency }: { agency: Agency }) {
                 Your reports are now branded. Next: add a client and connect their Google Search Console, GA4 or Meta Ads — you&apos;ll have your first report in minutes.
               </p>
             </div>
-            <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-left">
+            <div className="rounded-xl border border-ink-100 bg-ink-50 p-4 text-left">
               <div className="flex items-center gap-2 text-sm font-medium text-ink-800"><Sparkles size={15} className="text-brand-500" /> What you get</div>
               <ul className="mt-2 space-y-1 text-sm text-ink-600">
-                <li className="flex items-center gap-2"><Check size={14} className="text-emerald-500" /> AI-written executive summaries from real data</li>
-                <li className="flex items-center gap-2"><Check size={14} className="text-emerald-500" /> Scheduled, branded delivery on autopilot</li>
-                <li className="flex items-center gap-2"><Check size={14} className="text-emerald-500" /> Shareable live links + PDF exports</li>
+                <li className="flex items-center gap-2"><Check size={14} className="text-success-500" /> AI-written executive summaries from real data</li>
+                <li className="flex items-center gap-2"><Check size={14} className="text-success-500" /> Scheduled, branded delivery on autopilot</li>
+                <li className="flex items-center gap-2"><Check size={14} className="text-success-500" /> Shareable live links + PDF exports</li>
               </ul>
             </div>
           </div>

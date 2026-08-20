@@ -34,11 +34,11 @@ const ICONS: Record<AttentionItem["icon"], LucideIcon> = {
 
 // Muted tints from the existing palette — no new colours.
 const TINTS: Record<AttentionItem["icon"], string> = {
-  reconnect: "bg-amber-50 text-amber-600",
-  account: "bg-sky-50 text-sky-600",
-  error: "bg-rose-50 text-rose-600",
+  reconnect: "bg-warning-50 text-warning-600",
+  account: "bg-info-50 text-info-600",
+  error: "bg-danger-50 text-danger-600",
   client: "bg-brand-50 text-brand-600",
-  email: "bg-amber-50 text-amber-600",
+  email: "bg-warning-50 text-warning-600",
 };
 
 export function NeedsAttention({ items }: { items: AttentionItem[] }) {
@@ -56,7 +56,7 @@ export function NeedsAttention({ items }: { items: AttentionItem[] }) {
               <li key={`${item.icon}-${item.label}`}>
                 <Link
                   href={item.href}
-                  className="group -mx-2 flex items-center gap-2.5 rounded-lg px-2 py-2 transition-colors hover:bg-surface-muted"
+                  className="group -mx-2 flex items-center gap-2.5 rounded-lg px-2 py-2 transition-colors hover:bg-surface-subtle"
                 >
                   <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${TINTS[item.icon]}`}>
                     <Icon size={14} aria-hidden />

@@ -62,6 +62,27 @@ export const PERIOD_PRESETS: { id: PeriodPreset; label: string; kind: PeriodKind
   { id: "custom", label: "Custom range", kind: "custom" },
 ];
 
+/**
+ * The rolling windows the sync keeps warm as cached snapshots (lib/sync.ts
+ * fetches exactly these, one row per window in each provider's snapshot table).
+ *
+ * Any other window is reconstructed from the daily series by lib/reports/derive
+ * — which is why the client Performance view, which reads snapshots directly
+ * rather than deriving, offers these two and nothing else.
+ */
+export const CACHED_PERIOD_DAYS = [28, 90] as const;
+
+export type CachedPeriodDays = (typeof CACHED_PERIOD_DAYS)[number];
+
+export function isCachedPeriodDays(v: unknown): v is CachedPeriodDays {
+  return CACHED_PERIOD_DAYS.some((d) => d === Number(v));
+}
+
+/** Same wording as the report period picker, so the two never diverge. */
+export function cachedPeriodLabel(days: CachedPeriodDays): string {
+  return PERIOD_PRESETS.find((p) => p.id === `last_${days}`)?.label ?? `Last ${days} days`;
+}
+
 const ROLLING_DAYS: Partial<Record<PeriodPreset, number>> = {
   last_7: 7, last_14: 14, last_28: 28, last_30: 30, last_90: 90,
 };

@@ -18,7 +18,7 @@ export function LegalShell({
 }) {
   return (
     <div className="flex min-h-screen flex-col bg-surface">
-      <header className="border-b border-slate-100">
+      <header className="border-b border-ink-100">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
           <Link href="/" aria-label="ReportFlow home"><Brand /></Link>
           <nav className="flex items-center gap-5 text-sm text-ink-500">
@@ -44,8 +44,8 @@ export function LegalShell({
             "[&_a]:font-medium [&_a]:text-brand-600 hover:[&_a]:underline",
             "[&_strong]:font-semibold [&_strong]:text-ink-800",
             "[&_table]:mt-4 [&_table]:w-full [&_table]:text-left [&_table]:text-sm",
-            "[&_th]:border-b [&_th]:border-slate-200 [&_th]:pb-2 [&_th]:pr-4 [&_th]:font-medium [&_th]:text-ink-700",
-            "[&_td]:border-b [&_td]:border-slate-100 [&_td]:py-2 [&_td]:pr-4 [&_td]:align-top [&_td]:text-ink-600",
+            "[&_th]:border-b [&_th]:border-ink-200 [&_th]:pb-2 [&_th]:pr-4 [&_th]:font-medium [&_th]:text-ink-700",
+            "[&_td]:border-b [&_td]:border-ink-100 [&_td]:py-2 [&_td]:pr-4 [&_td]:align-top [&_td]:text-ink-600",
           ].join(" ")}
         >
           {children}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   resolvePeriod, previousWindow, dayCount, addDays, isIsoDate, isPeriodPreset, latestSettledDay,
+  CACHED_PERIOD_DAYS, cachedPeriodLabel, isCachedPeriodDays,
   type PeriodPreset,
 } from "./periods";
 
@@ -169,5 +170,33 @@ describe("helpers", () => {
   it("recognises only known presets", () => {
     expect(isPeriodPreset("previous_month")).toBe(true);
     expect(isPeriodPreset("last_45")).toBe(false);
+  });
+});
+
+// The client Performance view reads cached snapshots directly instead of
+// deriving, so it may only offer windows the sync actually stores. These guard
+// the contract between lib/sync's PERIODS and that picker.
+describe("cached snapshot windows", () => {
+  it("every cached window has a matching rolling preset", () => {
+    for (const days of CACHED_PERIOD_DAYS) {
+      expect(isPeriodPreset(`last_${days}`)).toBe(true);
+      expect(ok(`last_${days}` as PeriodPreset).days).toBe(days);
+    }
+  });
+
+  it("labels a cached window exactly as the report picker does", () => {
+    expect(cachedPeriodLabel(28)).toBe("Last 28 days");
+    expect(cachedPeriodLabel(90)).toBe("Last 90 days");
+  });
+
+  it("accepts only the stored windows, from strings or numbers", () => {
+    expect(isCachedPeriodDays("28")).toBe(true);
+    expect(isCachedPeriodDays(90)).toBe(true);
+    // A window nothing is stored for must fall back, never silently render
+    // another period's numbers under its name.
+    expect(isCachedPeriodDays("30")).toBe(false);
+    expect(isCachedPeriodDays(undefined)).toBe(false);
+    expect(isCachedPeriodDays("")).toBe(false);
+    expect(isCachedPeriodDays("banana")).toBe(false);
   });
 });

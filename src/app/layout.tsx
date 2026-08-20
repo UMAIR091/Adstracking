@@ -22,14 +22,25 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  // Matches --surface-muted, so browser chrome blends with the page.
-  themeColor: "#f5f6f9",
+  // Matches --surface-muted in each theme, so browser chrome blends with the
+  // page rather than framing it in the wrong one.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F7F7F8" },
+    { media: "(prefers-color-scheme: dark)", color: "#09090B" },
+  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body className="font-sans antialiased">
+        {/* Applies the saved theme before the page paints. A plain classic
+            script, not next/script: beforeInteractive only emitted a preload
+            and never executed. Loaded from /public so it needs no per-request
+            nonce, which would have forced every static page to render
+            dynamically. The dashboard, whose CSP ignores 'self', inlines the
+            same snippet with its nonce instead. */}
+        <script src="/theme.js" />
         <GoogleAnalytics />
         <Suspense fallback={null}>
           <AnalyticsProvider>{children}</AnalyticsProvider>

@@ -19,7 +19,7 @@ export default function ClientDetailLoading() {
 
       {/* 1 — Performance leads the page. */}
       <div>
-        <div className="mb-4 flex items-end justify-between gap-3 border-b border-slate-100 pb-3">
+        <div className="mb-4 flex items-end justify-between gap-3 border-b border-ink-100 pb-3">
           <div className="space-y-2">
             <Skeleton className="h-5 w-32" />
             <Skeleton className="h-3.5 w-64" />
@@ -41,7 +41,7 @@ export default function ClientDetailLoading() {
 
       {/* 2 — Data sources: only the connected ones, so a short stack. */}
       <div>
-        <div className="mb-4 flex items-end justify-between gap-3 border-b border-slate-100 pb-3">
+        <div className="mb-4 flex items-end justify-between gap-3 border-b border-ink-100 pb-3">
           <div className="space-y-2">
             <Skeleton className="h-5 w-28" />
             <Skeleton className="h-3.5 w-48" />
@@ -68,7 +68,7 @@ export default function ClientDetailLoading() {
 
       {/* 3 — Reporting. */}
       <div>
-        <div className="mb-4 space-y-2 border-b border-slate-100 pb-3">
+        <div className="mb-4 space-y-2 border-b border-ink-100 pb-3">
           <Skeleton className="h-5 w-24" />
           <Skeleton className="h-3.5 w-56" />
         </div>

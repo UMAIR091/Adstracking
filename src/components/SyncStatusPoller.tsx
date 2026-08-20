@@ -63,7 +63,7 @@ export function SyncStatusPoller({ clientId, sourceCount, initialFailing }: { cl
       <Card>
         <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600 ring-1 ring-inset ring-red-100">
+            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-danger-50 text-danger-600 ring-1 ring-inset ring-danger-100">
               <AlertTriangle size={20} />
             </div>
             <div>
@@ -105,7 +105,7 @@ export function SyncStatusPoller({ clientId, sourceCount, initialFailing }: { cl
                 return (
                   <li key={label} className="flex items-center gap-2.5 text-sm">
                     {state === "done" ? (
-                      <CheckCircle2 size={16} className="text-emerald-500" />
+                      <CheckCircle2 size={16} className="text-success-500" />
                     ) : state === "active" ? (
                       <Loader2 size={16} className="animate-spin text-brand-500" />
                     ) : (

@@ -28,7 +28,7 @@ export function NextScheduled({ data }: { data: NextScheduledData | null }) {
       <Card className="h-full">
         <CardContent className="flex h-full flex-col p-5">
           <div className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-warning-50 text-warning-600">
               <CalendarClock size={17} aria-hidden />
             </span>
             <p className="text-sm font-medium text-ink-700">Next scheduled report</p>
@@ -53,7 +53,7 @@ export function NextScheduled({ data }: { data: NextScheduledData | null }) {
       <CardContent className="flex h-full flex-col p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-warning-50 text-warning-600">
               <CalendarClock size={17} aria-hidden />
             </span>
             <p className="text-sm font-medium text-ink-700">Next scheduled report</p>

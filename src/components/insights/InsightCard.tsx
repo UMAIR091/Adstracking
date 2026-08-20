@@ -20,9 +20,9 @@ const ICONS: Record<string, LucideIcon> = {
 // glance. Kept to tinted surfaces rather than saturated fills: a dashboard of
 // loud red cards reads as alarm, which is the opposite of trustworthy.
 const TONES = {
-  positive: { chip: "bg-emerald-50 text-emerald-600 ring-emerald-100", accent: "text-emerald-700", bar: "bg-emerald-400" },
-  negative: { chip: "bg-rose-50 text-rose-600 ring-rose-100", accent: "text-rose-700", bar: "bg-rose-400" },
-  opportunity: { chip: "bg-amber-50 text-amber-600 ring-amber-100", accent: "text-amber-700", bar: "bg-amber-400" },
+  positive: { chip: "bg-success-50 text-success-600 ring-success-100", accent: "text-success-700", bar: "bg-success-400" },
+  negative: { chip: "bg-danger-50 text-danger-600 ring-danger-100", accent: "text-danger-700", bar: "bg-danger-400" },
+  opportunity: { chip: "bg-warning-50 text-warning-600 ring-warning-100", accent: "text-warning-700", bar: "bg-warning-400" },
   neutral: { chip: "bg-brand-50 text-brand-600 ring-brand-100", accent: "text-brand-700", bar: "bg-brand-400" },
 } as const;
 
@@ -35,7 +35,7 @@ const CONFIDENCE_LABEL: Record<Confidence, string> = { high: "High confidence", 
 
 function ConfidenceMeter({ level, reason }: { level: Confidence; reason: string }) {
   const filled = CONFIDENCE_DOTS[level];
-  const color = level === "high" ? "bg-emerald-500" : level === "medium" ? "bg-amber-500" : "bg-ink-300";
+  const color = level === "high" ? "bg-success-500" : level === "medium" ? "bg-warning-500" : "bg-ink-300";
 
   return (
     <span className="inline-flex items-center gap-1.5">
@@ -63,7 +63,7 @@ export function InsightCard({ signal }: { signal: Signal }) {
   const Icon = ICONS[meta.icon] ?? Sparkles;
 
   return (
-    <article className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-ink-100 bg-surface p-4 shadow-xs transition-shadow hover:shadow-md">
+    <article className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-ink-100 bg-surface p-4 shadow-xs transition-colors hover:border-ink-300">
       {/* Tone accent — a quiet left edge rather than a coloured card. */}
       <span className={`absolute inset-y-0 left-0 w-0.5 ${tone.bar}`} aria-hidden />
 

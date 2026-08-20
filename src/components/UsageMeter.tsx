@@ -18,7 +18,7 @@ export function ClientUsageMeter({ used, limit, planName, isTrial }: { used: num
   const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 100;
   const atLimit = used >= limit;
   const near = pct >= 80 && !atLimit;
-  const barColor = atLimit ? "bg-red-500" : near ? "bg-amber-500" : "bg-brand-500";
+  const barColor = atLimit ? "bg-danger-500" : near ? "bg-warning-500" : "bg-brand-500";
 
   return (
     <div className="w-full max-w-xs">

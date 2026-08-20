@@ -129,14 +129,14 @@ export function BigQueryCard({
     router.refresh();
   }
 
-  const selectClass = "h-10 w-full rounded-lg border border-ink-300 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-ink-500";
+  const selectClass = "field h-10 w-full";
 
   return (
     <Card>
       <CardContent className="p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-info-50 text-info-600">
               <Database size={18} />
             </div>
             <div>
@@ -148,14 +148,14 @@ export function BigQueryCard({
             <Button variant="outline" size="sm" onClick={testConnection} disabled={busy}>
               <PlugZap size={15} /> Test connection
             </Button>
-            <button onClick={disconnect} disabled={busy} className="text-xs text-ink-500 transition-colors hover:text-red-600 disabled:opacity-50">
+            <button onClick={disconnect} disabled={busy} className="text-xs text-ink-500 transition-colors hover:text-danger-600 disabled:opacity-50">
               Disconnect
             </button>
           </div>
         </div>
 
         {needsReconnect && (
-          <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+          <div className="mt-4 flex items-start gap-2 rounded-lg border border-warning-300 bg-warning-50 px-3 py-2.5 text-xs text-warning-800">
             <AlertTriangle size={14} className="mt-0.5 shrink-0" />
             <span>
               <span className="font-semibold">Reconnection required.</span>{" "}
@@ -198,7 +198,7 @@ export function BigQueryCard({
         </div>
 
         {source.selectedAccountId && lastSyncError && !needsReconnect && (
-          <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-xs text-danger-700">
             <AlertTriangle size={14} className="mt-0.5 shrink-0" />
             <span>Last sync failed: {lastSyncError}. Click Refresh now to retry.</span>
           </div>

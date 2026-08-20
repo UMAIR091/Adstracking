@@ -132,7 +132,7 @@ export function TeamManager({
                   className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-100 bg-surface-muted/40 px-4 py-3"
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-500 text-sm font-semibold text-white">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-solid text-sm font-semibold text-white">
                       {(m.email[0] || "U").toUpperCase()}
                     </div>
                     <div className="min-w-0">
@@ -163,7 +163,7 @@ export function TeamManager({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Clock size={16} className="text-amber-500" aria-hidden /> Pending invitations
+              <Clock size={16} className="text-warning-500" aria-hidden /> Pending invitations
             </CardTitle>
             <CardDescription>Sent, but not accepted yet.</CardDescription>
           </CardHeader>
@@ -203,7 +203,7 @@ export function TeamManager({
           </CardHeader>
           <CardContent>
             {!emailReady && (
-              <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              <p className="mb-4 rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-sm text-warning-800">
                 Email isn&apos;t configured, so invitations can&apos;t be delivered yet. Set{" "}
                 <code>RESEND_API_KEY</code> and <code>EMAIL_FROM</code> to enable this.
               </p>
@@ -228,7 +228,7 @@ export function TeamManager({
                   value={role}
                   onChange={(e) => setRole(e.target.value === "admin" ? "admin" : "member")}
                   disabled={busy || !emailReady}
-                  className="h-10 rounded-xl border border-ink-200 bg-surface px-3 text-sm text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 disabled:opacity-50"
+                  className="field h-10"
                 >
                   <option value="member">Member</option>
                   <option value="admin">Admin</option>

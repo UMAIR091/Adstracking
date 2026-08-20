@@ -11,7 +11,7 @@ const fmtNum = (n: number) => n.toLocaleString(undefined, { maximumFractionDigit
 
 function Stat({ label, value, icon: Icon }: { label: string; value: string; icon: typeof Search }) {
   return (
-    <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+    <div className="rounded-xl border border-ink-100 bg-ink-50 p-4">
       <p className="flex items-center gap-1.5 text-xs text-ink-500">
         <Icon size={13} className="text-ink-500" /> {label}
       </p>
@@ -54,7 +54,7 @@ export function SeoAnalytics({ report }: { report: SeoReport }) {
               </thead>
               <tbody>
                 {report.topKeywords.map((k, i) => (
-                  <tr key={`${k.keyword}-${i}`} className="border-t border-slate-100">
+                  <tr key={`${k.keyword}-${i}`} className="border-t border-ink-100">
                     <td className="max-w-0 truncate py-2 pr-3 text-ink-800" title={k.keyword}>{k.keyword}</td>
                     <td className="py-2 text-right text-ink-600">{k.position > 0 ? k.position : "—"}</td>
                     <td className="py-2 text-right text-ink-600">{fmtNum(k.volume)}</td>

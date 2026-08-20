@@ -50,7 +50,7 @@ function MetricChart({
 }) {
   const id = `ads-grad-${dataKey}`;
   return (
-    <Card className="transition-shadow hover:shadow-md">
+    <Card className="transition-colors hover:border-ink-300">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm text-ink-500">
           <Icon size={15} style={{ color }} /> {title}
@@ -84,7 +84,7 @@ function MetricChart({
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+    <div className="rounded-xl border border-ink-100 bg-ink-50 p-4">
       <p className="text-xs text-ink-500">{label}</p>
       <p className="mt-1 text-xl font-semibold text-ink-900">{value}</p>
     </div>
@@ -141,7 +141,7 @@ export function AdsAnalytics({ report }: { report: AdsReportData }) {
               </thead>
               <tbody>
                 {report.topCampaigns.slice(0, 8).map((c) => (
-                  <tr key={c.name} className="border-t border-slate-100">
+                  <tr key={c.name} className="border-t border-ink-100">
                     <td className="max-w-0 truncate py-2 pr-3 text-ink-800" title={c.name}>{c.name}</td>
                     <td className="py-2 text-right text-ink-600">{money(c.spend, currency)}</td>
                     <td className="py-2 text-right text-ink-600">{fmtNum(c.impressions)}</td>

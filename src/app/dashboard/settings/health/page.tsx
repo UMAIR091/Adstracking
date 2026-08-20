@@ -22,10 +22,10 @@ function StatusBadge({ row }: { row: IntegrationHealth }) {
     row.health === "needs_account" ? Settings :
     AlertCircle;
   const cls =
-    p.variant === "success" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-    p.variant === "danger"  ? "bg-amber-50 text-amber-700 border-amber-200" :
-    p.variant === "info"    ? "bg-sky-50 text-sky-700 border-sky-200" :
-    "bg-red-50 text-red-700 border-red-200";
+    p.variant === "success" ? "bg-success-50 text-success-700 border-success-200" :
+    p.variant === "danger"  ? "bg-warning-50 text-warning-700 border-warning-200" :
+    p.variant === "info"    ? "bg-info-50 text-info-700 border-info-200" :
+    "bg-danger-50 text-danger-700 border-danger-200";
   return (
     <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${cls}`}>
       <Icon size={11} /> {p.short}
@@ -35,8 +35,8 @@ function StatusBadge({ row }: { row: IntegrationHealth }) {
 
 function TokenBadge({ token }: { token: IntegrationHealth["token"] }) {
   const cls =
-    token.state === "reconnect" ? "text-amber-700" :
-    token.state === "expiring" ? "text-amber-700" : "text-ink-500";
+    token.state === "reconnect" ? "text-warning-700" :
+    token.state === "expiring" ? "text-warning-700" : "text-ink-500";
   return (
     <span className={`inline-flex items-center gap-1 text-xs ${cls}`}>
       <KeyRound size={11} /> {token.label}
@@ -74,7 +74,7 @@ export default async function IntegrationHealthPage() {
         <ArrowLeft size={15} /> Back to settings
       </Link>
       <div className="mb-6 mt-3 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success-50 text-success-600">
           <HeartPulse size={18} />
         </div>
         <div>
@@ -84,17 +84,17 @@ export default async function IntegrationHealthPage() {
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <Summary label="Connected" value={s.connected} cls="bg-emerald-50 text-emerald-600" icon={CheckCircle2} />
-        <Summary label="Account needed" value={s.needsAccount} cls="bg-sky-50 text-sky-600" icon={Settings} />
-        <Summary label="Sync errors" value={s.errored} cls="bg-red-50 text-red-600" icon={AlertCircle} />
-        <Summary label="Need reconnect" value={s.needsReconnect} cls="bg-amber-50 text-amber-600" icon={PlugZap} />
-        <Summary label="Total sources" value={s.total} cls="bg-slate-100 text-ink-600" icon={Plug} />
+        <Summary label="Connected" value={s.connected} cls="bg-success-50 text-success-600" icon={CheckCircle2} />
+        <Summary label="Account needed" value={s.needsAccount} cls="bg-info-50 text-info-600" icon={Settings} />
+        <Summary label="Sync errors" value={s.errored} cls="bg-danger-50 text-danger-600" icon={AlertCircle} />
+        <Summary label="Need reconnect" value={s.needsReconnect} cls="bg-warning-50 text-warning-600" icon={PlugZap} />
+        <Summary label="Total sources" value={s.total} cls="bg-ink-100 text-ink-600" icon={Plug} />
       </div>
 
       {rows.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">
-            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-ink-500">
+            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-ink-100 text-ink-500">
               <Plug size={20} />
             </div>
             <p className="font-medium text-ink-900">No connected data sources yet</p>
@@ -116,7 +116,7 @@ export default async function IntegrationHealthPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100 text-left text-xs text-ink-500">
+                  <tr className="border-b border-ink-100 text-left text-xs text-ink-500">
                     <th className="px-4 py-3 font-medium">Source</th>
                     <th className="px-4 py-3 font-medium">Client</th>
                     <th className="px-4 py-3 font-medium">Status</th>
@@ -128,7 +128,7 @@ export default async function IntegrationHealthPage() {
                 </thead>
                 <tbody>
                   {rows.map((r) => (
-                    <tr key={r.id} className="border-b border-slate-50 align-top last:border-0">
+                    <tr key={r.id} className="border-b border-ink-50 align-top last:border-0">
                       <td className="whitespace-nowrap px-4 py-3 font-medium text-ink-800">{r.providerName}</td>
                       <td className="whitespace-nowrap px-4 py-3 text-ink-700">{r.clientName}</td>
                       <td className="whitespace-nowrap px-4 py-3"><StatusBadge row={r} /></td>

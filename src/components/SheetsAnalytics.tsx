@@ -19,7 +19,7 @@ export function SheetsAnalytics({ report }: { report: SheetTable }) {
       <CardHeader className="pb-2">
         <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <span className="flex items-center gap-2">
-            <FileSpreadsheet size={15} className="text-emerald-600" /> {report.title}
+            <FileSpreadsheet size={15} className="text-success-600" /> {report.title}
             <span className="font-normal text-ink-500">· {report.sheetTitle}</span>
           </span>
           {report.url && (
@@ -41,7 +41,7 @@ export function SheetsAnalytics({ report }: { report: SheetTable }) {
             </thead>
             <tbody>
               {rows.slice(0, SHOW_ROWS).map((r, ri) => (
-                <tr key={ri} className="border-t border-slate-100">
+                <tr key={ri} className="border-t border-ink-100">
                   {r.map((cell, ci) => (
                     <td key={ci} className="max-w-[16rem] truncate py-2 pr-4 text-ink-700" title={cell}>{cell}</td>
                   ))}

@@ -1,24 +1,37 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { AlertTriangle, ArrowRight } from "lucide-react";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
-import { Button } from "@/components/ui/button";
-import { ClientSection } from "@/components/ClientSection";
 import { ConnectAccountButton } from "@/components/ConnectAccountModal";
+import { ClientSection } from "@/components/ClientSection";
+import {
+  DataHealthPanel, PerformancePanel, ReportingPanel,
+  type AttentionSource, type PerformanceGlance,
+} from "@/components/ClientOverviewPanels";
 import { loadClientWorkspace } from "@/lib/clients/workspace";
-import { SOURCE_HEALTH } from "@/lib/integrations/status";
-import { format } from "date-fns";
+import { buildActivity } from "@/lib/dashboard/activity";
+import { buildOverview } from "@/lib/integrations/overview";
+import { cachedPeriodLabel } from "@/lib/reports/periods";
 
 export const dynamic = "force-dynamic";
 
-// Overview: where this client stands, and what needs doing.
+// Overview: four questions, one screen.
 //
-// Every figure and every alert here is already computed for the other tabs —
-// the connected count and health classification from the workspace loader, the
-// blocked reason it already derives, the schedule and report rows the Reports
-// and Automations tabs read. Nothing new is calculated and nothing is
-// estimated; a client with nothing connected says so rather than showing zeros
+//   1. How is this client performing?      → headline figure per channel
+//   2. Is anything broken?                 → source health + what it blocks
+//   3. How fresh is the data?              → last completed sync
+//   4. What happened most recently?        → the latest reporting event
+//
+// It deliberately stops there. The old page also carried a stat grid whose
+// numbers the panels below now state in context, and a row of cards linking to
+// Performance / Reports / Automations — which is exactly what the tab bar
+// directly above it does. Both were removed rather than restyled: the fastest
+// way to make a summary readable is to have less of it.
+//
+// Nothing here is calculated by this page. buildOverview is the same function
+// that produces the Performance tab's headline row, buildActivity the same one
+// behind the dashboard timeline, and the health states come from the workspace
+// loader — so Overview can never quote a figure the tab it summarises disagrees
+// with. A client with nothing connected says so rather than showing zeros
 // dressed as performance.
 export default async function ClientOverviewPage({ params }: { params: { id: string } }) {
   const { user, agency } = await getCurrentUserAndAgency();
@@ -32,136 +45,119 @@ export default async function ClientOverviewPage({ params }: { params: { id: str
     .maybeSingle();
   if (!client) notFound();
 
-  const ws = await loadClientWorkspace(supabase, client.id as string);
+  const clientId = client.id as string;
+  const ws = await loadClientWorkspace(supabase, clientId);
 
-  const [{ count: reportCount }, { data: schedule }] = await Promise.all([
-    supabase.from("reports").select("id", { count: "exact", head: true }).eq("client_id", client.id),
-    supabase
-      .from("report_schedules")
-      .select("frequency, enabled, next_run_at")
-      .eq("client_id", client.id)
-      .maybeSingle(),
-  ]);
+  const [{ count: reportCount }, { data: schedule }, { data: recentReports }, { data: recentEmails }] =
+    await Promise.all([
+      supabase.from("reports").select("id", { count: "exact", head: true }).eq("client_id", clientId),
+      supabase
+        .from("report_schedules")
+        .select("frequency, enabled, next_run_at")
+        .eq("client_id", clientId)
+        .maybeSingle(),
+      // Only what the latest-activity line needs. A handful, because an email
+      // can be newer than the report it delivered.
+      supabase
+        .from("reports")
+        .select("id, title, created_at")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false })
+        .limit(5),
+      // Same join the Automations tab uses to scope email_logs to one client.
+      supabase
+        .from("email_logs")
+        .select("report_id, to_email, status, sent_at, error, source, reports!inner(client_id)")
+        .eq("reports.client_id", clientId)
+        .order("sent_at", { ascending: false })
+        .limit(5),
+    ]);
 
+  // The freshest completed sync across every connected source.
   const lastSynced = ws.connectedIntegrations
     .map((i) => i.lastSyncedAt)
     .filter((d): d is string => Boolean(d))
     .sort()
     .at(-1);
 
-  const scheduleEnabled = Boolean(schedule?.enabled && schedule?.next_run_at);
-  const base = `/dashboard/clients/${client.id}`;
+  const glance: PerformanceGlance =
+    ws.vizSources.length > 0
+      ? { kind: "data", metrics: buildOverview(ws.performanceSources), sourceCount: ws.vizSources.length }
+      : ws.connectedIntegrations.length > 0
+        ? { kind: "awaiting", sourceCount: ws.connectedIntegrations.length }
+        : { kind: "none" };
 
-  const stats: { label: string; value: string; hint?: string; href: string }[] = [
+  const attention: AttentionSource[] = ws.needingAttention.map((i) => ({ name: i.def.name, health: i.health! }));
+
+  // Reporting activity only: source and client events are answered by the
+  // panels beside this one, so replaying them here would just be noise.
+  const [latestEvent] = buildActivity(
     {
-      label: "Data sources",
-      value: String(ws.connectedIntegrations.length),
-      hint: ws.connectedIntegrations.length === 0 ? "none connected" : `${ws.vizSources.length} with data`,
-      href: `${base}/data-sources`,
+      clients: [],
+      sources: [],
+      reports: (recentReports ?? []).map((r) => ({
+        id: r.id as string,
+        title: r.title as string,
+        created_at: r.created_at as string,
+        clientName: client.name as string,
+      })),
+      emails: (recentEmails ?? []) as unknown as {
+        report_id: string | null; to_email: string; status: string;
+        sent_at: string; error?: string | null; source?: string | null;
+      }[],
     },
-    {
-      label: "Needs attention",
-      value: String(ws.needingAttention.length),
-      hint: ws.needingAttention.length === 0 ? "all healthy" : "see data sources",
-      href: `${base}/data-sources`,
-    },
-    {
-      label: "Reports",
-      value: String(reportCount ?? 0),
-      hint: lastSynced ? `data synced ${format(new Date(lastSynced), "d MMM")}` : "no synced data yet",
-      href: `${base}/reports`,
-    },
-    {
-      label: "Scheduled delivery",
-      value: scheduleEnabled ? (schedule!.frequency as string) : "Off",
-      hint: scheduleEnabled ? `next ${format(new Date(schedule!.next_run_at as string), "d MMM")}` : "not scheduled",
-      href: `${base}/automations`,
-    },
-  ];
+    1,
+  );
+
+  const base = `/dashboard/clients/${clientId}`;
+  const scheduled =
+    schedule?.enabled && schedule?.next_run_at
+      ? { frequency: schedule.frequency as string, nextRunAt: schedule.next_run_at as string }
+      : null;
 
   return (
-    <div>
-      <ClientSection
-        title="Status"
-        description="Where this client stands right now."
-        action={<ConnectAccountButton clientId={client.id as string} integrations={ws.connectableIntegrations} label="Add data source" />}
-      >
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {stats.map((s) => (
-            <Link
-              key={s.label}
-              href={s.href}
-              className="rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:border-slate-300 hover:bg-surface-subtle"
-            >
-              <p className="text-xs text-ink-500">{s.label}</p>
-              <p className="mt-1 text-2xl font-semibold tracking-tight text-ink-900">{s.value}</p>
-              {s.hint ? <p className="mt-0.5 text-xs text-ink-500">{s.hint}</p> : null}
-            </Link>
-          ))}
+    <ClientSection
+      title="Overview"
+      description="Where this client stands, and anything that needs you."
+      action={
+        <ConnectAccountButton
+          clientId={clientId}
+          integrations={ws.connectableIntegrations}
+          label="Add data source"
+        />
+      }
+    >
+      {/* Performance leads and takes the width, because "how is this client
+          doing?" is the question the page exists to answer. Health and
+          reporting are the supporting rail; they stack beneath on smaller
+          screens rather than shrinking. */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <PerformancePanel
+            glance={glance}
+            periodLabel={cachedPeriodLabel(ws.periodDays)}
+            performanceHref={`${base}/performance`}
+            dataSourcesHref={`${base}/data-sources`}
+          />
         </div>
-      </ClientSection>
 
-      {/* Alerts, in the order they block work: a broken source first, then the
-          reason reporting is unavailable. Both are the same strings the other
-          tabs show, so the workspace never contradicts itself. */}
-      {(ws.needingAttention.length > 0 || ws.dataBlockedReason) && (
-        <ClientSection title="Needs your attention" description="Fix these and the rest of the workspace unblocks.">
-          <div className="space-y-3">
-            {ws.needingAttention.length > 0 && (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3 text-sm text-amber-900">
-                <span className="flex items-start gap-2">
-                  <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden />
-                  <span>
-                    <span className="font-semibold">
-                      {ws.needingAttention.length} source{ws.needingAttention.length === 1 ? "" : "s"} need attention:
-                    </span>{" "}
-                    {ws.needingAttention.map((i, n) => (
-                      <span key={i.def.id}>
-                        {n > 0 && ", "}
-                        {i.def.name} ({SOURCE_HEALTH[i.health!].short.toLowerCase()})
-                      </span>
-                    ))}
-                  </span>
-                </span>
-                <Button asChild variant="outline" size="sm">
-                  <Link href={`${base}/data-sources`}>Review sources</Link>
-                </Button>
-              </div>
-            )}
-
-            {ws.dataBlockedReason && (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-surface-subtle px-3.5 py-3 text-sm text-ink-700">
-                <span>{ws.dataBlockedReason}</span>
-                <Button asChild variant="outline" size="sm">
-                  <Link href={`${base}/data-sources`}>Go to data sources</Link>
-                </Button>
-              </div>
-            )}
-          </div>
-        </ClientSection>
-      )}
-
-      <ClientSection title="Continue" description="The rest of this client's workspace.">
-        <div className="grid gap-3 sm:grid-cols-3">
-          {[
-            { label: "Performance", copy: "Metrics from every connected source.", href: `${base}/performance` },
-            { label: "Reports", copy: "Generate a branded report, or revisit past ones.", href: `${base}/reports` },
-            { label: "Automations", copy: "Put delivery on a schedule.", href: `${base}/automations` },
-          ].map((c) => (
-            <Link
-              key={c.label}
-              href={c.href}
-              className="group rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:border-slate-300 hover:bg-surface-subtle"
-            >
-              <p className="flex items-center gap-1.5 text-sm font-medium text-ink-900">
-                {c.label}
-                <ArrowRight size={14} className="text-ink-400 transition-transform group-hover:translate-x-0.5" aria-hidden />
-              </p>
-              <p className="mt-1 text-sm leading-relaxed text-ink-500">{c.copy}</p>
-            </Link>
-          ))}
+        <div className="space-y-4">
+          <DataHealthPanel
+            connectedCount={ws.connectedIntegrations.length}
+            attention={attention}
+            lastSyncedAt={lastSynced ?? null}
+            blockedReason={ws.dataBlockedReason}
+            dataSourcesHref={`${base}/data-sources`}
+          />
+          <ReportingPanel
+            event={latestEvent ?? null}
+            reportCount={reportCount ?? 0}
+            schedule={scheduled}
+            reportsHref={`${base}/reports`}
+            automationsHref={`${base}/automations`}
+          />
         </div>
-      </ClientSection>
-    </div>
+      </div>
+    </ClientSection>
   );
 }

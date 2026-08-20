@@ -381,9 +381,9 @@ export default async function DashboardPage() {
 
   const quickActions = [
     { label: "Add client", href: "/dashboard/clients/new", icon: Plus, tint: "bg-brand-50 text-brand-600" },
-    { label: "Integrations", href: "/dashboard/integrations", icon: Cable, tint: "bg-emerald-50 text-emerald-600" },
-    { label: "Sample report", href: "/dashboard/reports/preview", icon: Eye, tint: "bg-amber-50 text-amber-600" },
-    { label: "Branding", href: "/dashboard/settings", icon: Palette, tint: "bg-sky-50 text-sky-600" },
+    { label: "Integrations", href: "/dashboard/integrations", icon: Cable, tint: "bg-success-50 text-success-600" },
+    { label: "Sample report", href: "/dashboard/reports/preview", icon: Eye, tint: "bg-warning-50 text-warning-600" },
+    { label: "Branding", href: "/dashboard/settings", icon: Palette, tint: "bg-info-50 text-info-600" },
   ];
 
   // ── Returning-user "welcome back" summary (journey audit P2-9) ──
@@ -488,7 +488,7 @@ export default async function DashboardPage() {
           <ul className="space-y-1">
             {reports.map((r) => (
               <li key={r.id}>
-                <Link href={`/dashboard/reports/${r.id}`} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-surface-muted">
+                <Link href={`/dashboard/reports/${r.id}`} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-surface-subtle">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
                     <FileBarChart2 size={15} aria-hidden />
                   </div>
@@ -541,7 +541,7 @@ export default async function DashboardPage() {
               const connected = (c.data_sources ?? []).length > 0;
               return (
                 <li key={c.id}>
-                  <Link href={`/dashboard/clients/${c.id}`} className="-mx-2 flex items-center justify-between gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-surface-muted">
+                  <Link href={`/dashboard/clients/${c.id}`} className="-mx-2 flex items-center justify-between gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-surface-subtle">
                     <span className="truncate text-sm font-medium text-ink-800">{c.name}</span>
                     {connected ? (
                       <Badge variant="success"><CheckCircle2 size={12} className="mr-1" aria-hidden /> Connected</Badge>
@@ -570,7 +570,7 @@ export default async function DashboardPage() {
           <Link
             href="/dashboard/settings"
             aria-label="Agency branding settings"
-            className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-ink-200/70 bg-surface shadow-sm transition-shadow hover:shadow-md"
+            className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-ink-200/70 bg-surface shadow-sm transition-colors hover:border-ink-300"
           >
             {agency.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -579,7 +579,7 @@ export default async function DashboardPage() {
               // Falls back to the product's own indigo (--brand-500) rather than
               // the retired violet, so an agency that hasn't picked a colour
               // still sees the new palette in its own chrome.
-              <span className="text-lg font-semibold" style={{ color: agency.brand_color || "#4e56b0" }}>
+              <span className="text-lg font-semibold" style={{ color: agency.brand_color || "#4F46E5" }}>
                 {(agency.name || "A").charAt(0).toUpperCase()}
               </span>
             )}
@@ -664,7 +664,7 @@ export default async function DashboardPage() {
               <ul className="space-y-1">
                 {topClients.map((c, i) => (
                   <li key={c.id}>
-                    <Link href={`/dashboard/clients/${c.id}`} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-surface-muted">
+                    <Link href={`/dashboard/clients/${c.id}`} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-surface-subtle">
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold tabular-nums text-brand-600">{i + 1}</span>
                       <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink-800">{c.name}</span>
                       <span className="shrink-0 text-sm font-semibold tabular-nums text-ink-900">{fmt(c.clicks)}</span>

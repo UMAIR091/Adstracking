@@ -201,7 +201,7 @@ export function EmailBrandingSettings({ agencyId, initial }: { agencyId: string;
         </div>
 
         {/* Effective state, stated plainly so there's no guessing. */}
-        <div className={`rounded-xl border px-4 py-3 text-sm ${whiteLabelActive ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-slate-50 text-ink-600"}`}>
+        <div className={`rounded-xl border px-4 py-3 text-sm ${whiteLabelActive ? "border-success-200 bg-success-50 text-success-800" : "border-ink-200 bg-ink-50 text-ink-600"}`}>
           {whiteLabelActive ? (
             <span className="flex items-center gap-2"><CheckCircle2 size={15} /> White-label active — clients see <span className="font-semibold">{v.email_sender_name || "your agency"} &lt;{v.email_sender_email}&gt;</span>.</span>
           ) : senderMismatch ? (
@@ -214,7 +214,7 @@ export function EmailBrandingSettings({ agencyId, initial }: { agencyId: string;
         </div>
 
         {/* Domain verification */}
-        <div className="border-t border-slate-100 pt-5">
+        <div className="border-t border-ink-100 pt-5">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <p className="flex items-center gap-2 text-sm font-medium text-ink-800"><Globe size={15} className="text-ink-500" /> Sending domain</p>
             {badge && <Badge variant={badge.variant} dot>{badge.label}</Badge>}
@@ -244,7 +244,7 @@ export function EmailBrandingSettings({ agencyId, initial }: { agencyId: string;
                   <Button size="sm" variant="outline" onClick={verifyDomain} disabled={busy !== null}>
                     {busy === "verify" ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} {verified ? "Re-verify" : "Verify DNS"}
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={removeDomain} disabled={busy !== null} className="text-ink-500 hover:text-red-600">
+                  <Button size="sm" variant="ghost" onClick={removeDomain} disabled={busy !== null} className="text-ink-500 hover:text-danger-600">
                     <Trash2 size={14} /> Remove
                   </Button>
                 </div>
@@ -259,10 +259,10 @@ export function EmailBrandingSettings({ agencyId, initial }: { agencyId: string;
               )}
 
               {domain.records.length > 0 && (
-                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <div className="overflow-x-auto rounded-xl border border-ink-200">
                   <table className="w-full min-w-[560px] text-left text-xs">
                     <thead>
-                      <tr className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-ink-500">
+                      <tr className="border-b border-ink-200 bg-ink-50 text-[11px] uppercase tracking-wide text-ink-500">
                         <th className="px-3 py-2 font-medium">Type</th>
                         <th className="px-3 py-2 font-medium">Name / host</th>
                         <th className="px-3 py-2 font-medium">Value</th>
@@ -270,7 +270,7 @@ export function EmailBrandingSettings({ agencyId, initial }: { agencyId: string;
                         <th className="px-3 py-2" />
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-ink-100">
                       {domain.records.map((r, i) => (
                         <tr key={i} className="align-top">
                           <td className="whitespace-nowrap px-3 py-2 font-medium text-ink-800">{r.type}{r.priority != null ? ` (prio ${r.priority})` : ""}</td>
@@ -294,7 +294,7 @@ export function EmailBrandingSettings({ agencyId, initial }: { agencyId: string;
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-4">
           <div>
             <Button variant="outline" onClick={sendTest} disabled={busy !== null}>
               {busy === "test" ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />} Send test email

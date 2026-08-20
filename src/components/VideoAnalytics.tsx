@@ -28,7 +28,7 @@ function MetricChart({
 }) {
   const id = `video-grad-${dataKey}`;
   return (
-    <Card className="transition-shadow hover:shadow-md">
+    <Card className="transition-colors hover:border-ink-300">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm text-ink-500">
           <Icon size={15} style={{ color }} /> {title}
@@ -62,7 +62,7 @@ function MetricChart({
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+    <div className="rounded-xl border border-ink-100 bg-ink-50 p-4">
       <p className="text-xs text-ink-500">{label}</p>
       <p className="mt-1 text-xl font-semibold text-ink-900">{value}</p>
     </div>
@@ -88,7 +88,7 @@ function Breakdown({ title, icon: Icon, items }: { title: string; icon: typeof P
               <span className="truncate text-ink-700" title={it.label}>{it.label}</span>
               <span className="tabular-nums text-ink-500">{fmtNum(it.views)}</span>
             </div>
-            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-ink-100">
               <div className="h-full rounded-full bg-brand-500" style={{ width: `${Math.max((it.views / max) * 100, 2)}%` }} />
             </div>
           </div>
@@ -134,7 +134,7 @@ export function VideoAnalytics({ report }: { report: VideoReport }) {
               </thead>
               <tbody>
                 {report.topVideos.map((v, i) => (
-                  <tr key={`${v.title}-${i}`} className="border-t border-slate-100">
+                  <tr key={`${v.title}-${i}`} className="border-t border-ink-100">
                     <td className="max-w-0 truncate py-2 pr-3 text-ink-800" title={v.title}>{v.title}</td>
                     <td className="py-2 text-right text-ink-600">{fmtNum(v.views)}</td>
                     <td className="py-2 text-right text-ink-600">{watchTime(v.watchTimeMinutes)}</td>

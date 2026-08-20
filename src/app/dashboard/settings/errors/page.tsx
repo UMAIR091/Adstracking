@@ -36,13 +36,13 @@ const CONTEXT_LABEL: Record<string, string> = {
 function retryBadge(status: string | null): { label: string; className: string; icon: typeof RefreshCw } {
   switch (status) {
     case "needs_reconnect":
-      return { label: "Needs reconnect", className: "bg-amber-50 text-amber-700 border-amber-200", icon: PlugZap };
+      return { label: "Needs reconnect", className: "bg-warning-50 text-warning-700 border-warning-200", icon: PlugZap };
     case "will_retry":
-      return { label: "Will retry", className: "bg-sky-50 text-sky-700 border-sky-200", icon: RefreshCw };
+      return { label: "Will retry", className: "bg-info-50 text-info-700 border-info-200", icon: RefreshCw };
     case "exhausted":
-      return { label: "Retries exhausted", className: "bg-red-50 text-red-700 border-red-200", icon: AlertTriangle };
+      return { label: "Retries exhausted", className: "bg-danger-50 text-danger-700 border-danger-200", icon: AlertTriangle };
     default:
-      return { label: "Logged", className: "bg-slate-50 text-ink-600 border-slate-200", icon: AlertTriangle };
+      return { label: "Logged", className: "bg-ink-50 text-ink-600 border-ink-200", icon: AlertTriangle };
   }
 }
 
@@ -75,7 +75,7 @@ export default async function SyncHealthPage() {
         <ArrowLeft size={15} /> Back to settings
       </Link>
       <div className="mb-6 mt-3 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-warning-50 text-warning-600">
           <Activity size={18} />
         </div>
         <div>
@@ -87,7 +87,7 @@ export default async function SyncHealthPage() {
       </div>
 
       {needsAttention > 0 && (
-        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-warning-300 bg-warning-50 px-3 py-2.5 text-sm text-warning-800">
           <PlugZap size={16} className="mt-0.5 shrink-0" />
           <span>
             <span className="font-semibold">{needsAttention}</span> connection{needsAttention === 1 ? "" : "s"} need reconnecting — open the client and click Reconnect. Everything else retries automatically.
@@ -98,7 +98,7 @@ export default async function SyncHealthPage() {
       {rows.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">
-            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-success-50 text-success-600">
               <Activity size={20} />
             </div>
             <p className="font-medium text-ink-900">No failures recorded</p>
@@ -111,7 +111,7 @@ export default async function SyncHealthPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100 text-left text-xs text-ink-500">
+                  <tr className="border-b border-ink-100 text-left text-xs text-ink-500">
                     <th className="px-4 py-3 font-medium">When</th>
                     <th className="px-4 py-3 font-medium">Source</th>
                     <th className="px-4 py-3 font-medium">Client</th>
@@ -125,13 +125,13 @@ export default async function SyncHealthPage() {
                     const badge = retryBadge(r.retry_status);
                     const providerName = r.provider ? getIntegration(r.provider)?.name ?? r.provider : CONTEXT_LABEL[r.context] ?? r.context;
                     return (
-                      <tr key={r.id} className="border-b border-slate-50 last:border-0 align-top">
+                      <tr key={r.id} className="border-b border-ink-50 last:border-0 align-top">
                         <td className="whitespace-nowrap px-4 py-3 text-ink-500" title={new Date(r.created_at).toLocaleString()}>
                           {formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
                           <span className="font-medium text-ink-800">{providerName}</span>
-                          <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-ink-500">{CONTEXT_LABEL[r.context] ?? r.context}</span>
+                          <span className="ml-1.5 rounded bg-ink-100 px-1.5 py-0.5 text-xs text-ink-500">{CONTEXT_LABEL[r.context] ?? r.context}</span>
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-ink-700">{clientName(r)}</td>
                         <td className="whitespace-nowrap px-4 py-3 text-ink-600">{r.error_type}</td>

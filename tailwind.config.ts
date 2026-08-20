@@ -39,9 +39,22 @@ const status = (name: string) => ({
   700: withAlpha(`--${name}-700`),
   800: withAlpha(`--${name}-700`),
   900: withAlpha(`--${name}-700`),
+  // `600` is the icon/text tone and flips light on the dark theme, which is
+  // right for the ~100 places that use it as a colour ON a tinted fill — and
+  // wrong for the handful that fill a button with it and put white text on
+  // top. Those read `solid`, which stays deep enough for white text in both
+  // themes. Falls back to the -600/-700 values where a status defines none, so
+  // nothing changes for the statuses that never fill anything.
+  solid: withAlpha(`--${name}-solid, var(--${name}-600)`),
+  "solid-hover": withAlpha(`--${name}-solid-hover, var(--${name}-700)`),
 });
 
 const brand = {
+  // Filled surfaces carrying white text. Split from `500` because the dark
+  // theme's accent is a touch light for white body text; everything that uses
+  // indigo AS A COLOUR (links, active nav, selection, icons) still reads `500`.
+  solid: withAlpha("--brand-solid"),
+  "solid-hover": withAlpha("--brand-solid-hover"),
   50: withAlpha("--brand-50"),
   100: withAlpha("--brand-100"),
   200: withAlpha("--brand-200"),
@@ -79,6 +92,18 @@ const config: Config = {
           DEFAULT: withAlpha("--surface"),
           muted: withAlpha("--surface-muted"),
           subtle: withAlpha("--surface-subtle"),
+          band: withAlpha("--surface-band"),
+        },
+        // The nav rail sits a step away from both the page and a card, so it
+        // gets its own token rather than borrowing one of theirs.
+        sidebar: withAlpha("--sidebar"),
+        // Fixed-polarity colours. The neutral ramp inverts between themes, so
+        // `ink-900/40` is a black scrim in light and a white one in dark —
+        // these stay dark-on-light and light-on-dark by definition.
+        overlay: withAlpha("--overlay"),
+        inverse: {
+          DEFAULT: withAlpha("--inverse"),
+          fg: withAlpha("--inverse-fg"),
         },
         // Semantic status tokens — prefer these in new code.
         success: status("success"),
@@ -126,14 +151,16 @@ const config: Config = {
         "2xl": "1rem",
       },
       boxShadow: {
-        // Shallow and layered. Elevation comes from borders and surface
-        // contrast first, shadow second — big soft shadows read as cheap.
-        xs: "0 1px 2px 0 rgb(16 24 40 / 0.04)",
-        sm: "0 1px 2px 0 rgb(16 24 40 / 0.05), 0 1px 3px 0 rgb(16 24 40 / 0.04)",
-        DEFAULT: "0 1px 2px 0 rgb(16 24 40 / 0.05), 0 1px 3px 0 rgb(16 24 40 / 0.04)",
-        md: "0 2px 6px -1px rgb(16 24 40 / 0.07), 0 1px 3px -1px rgb(16 24 40 / 0.05)",
-        lg: "0 8px 20px -6px rgb(16 24 40 / 0.10), 0 3px 8px -3px rgb(16 24 40 / 0.05)",
-        xl: "0 18px 36px -10px rgb(16 24 40 / 0.15)",
+        // Shallow and layered, cast in obsidian rather than a blue-black.
+        // Elevation comes from borders and surface contrast first, shadow
+        // second — big soft shadows read as cheap, and on the dark theme they
+        // are nearly invisible by design.
+        xs: "0 1px 2px 0 rgb(9 9 11 / 0.04)",
+        sm: "0 1px 2px 0 rgb(9 9 11 / 0.05), 0 1px 3px 0 rgb(9 9 11 / 0.04)",
+        DEFAULT: "0 1px 2px 0 rgb(9 9 11 / 0.05), 0 1px 3px 0 rgb(9 9 11 / 0.04)",
+        md: "0 2px 6px -1px rgb(9 9 11 / 0.07), 0 1px 3px -1px rgb(9 9 11 / 0.05)",
+        lg: "0 8px 20px -6px rgb(9 9 11 / 0.10), 0 3px 8px -3px rgb(9 9 11 / 0.05)",
+        xl: "0 18px 36px -10px rgb(9 9 11 / 0.15)",
       },
       keyframes: {
         "fade-in": {

@@ -94,11 +94,11 @@ export function ClientsList({ clients }: { clients: ClientRow[] }) {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-500" />
           <Input placeholder="Search clients…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
-        <div className="flex rounded-lg border border-slate-200 p-0.5 text-sm">
-          <button onClick={() => setShowArchived(false)} className={`rounded-md px-3 py-1.5 transition-colors ${!showArchived ? "bg-brand-500 text-white" : "text-ink-700"}`}>
+        <div className="flex rounded-lg border border-ink-200 p-0.5 text-sm">
+          <button onClick={() => setShowArchived(false)} className={`rounded-md px-3 py-1.5 transition-colors ${!showArchived ? "bg-brand-solid text-white" : "text-ink-700"}`}>
             Active ({activeCount})
           </button>
-          <button onClick={() => setShowArchived(true)} className={`rounded-md px-3 py-1.5 transition-colors ${showArchived ? "bg-brand-500 text-white" : "text-ink-700"}`}>
+          <button onClick={() => setShowArchived(true)} className={`rounded-md px-3 py-1.5 transition-colors ${showArchived ? "bg-brand-solid text-white" : "text-ink-700"}`}>
             Archived ({archivedCount})
           </button>
         </div>
@@ -106,7 +106,7 @@ export function ClientsList({ clients }: { clients: ClientRow[] }) {
 
       {visible.length === 0 ? (
         showArchived || search ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-surface p-10 text-center text-sm text-ink-500">
+          <div className="rounded-2xl border border-dashed border-ink-200 bg-surface p-10 text-center text-sm text-ink-500">
             {showArchived ? "No archived clients." : "No clients match your search."}
           </div>
         ) : (
@@ -125,25 +125,25 @@ export function ClientsList({ clients }: { clients: ClientRow[] }) {
             const status = c.archived ? "Archived" : sources.length ? "Active" : "Needs setup";
             const statusVariant = c.archived ? "muted" : sources.length ? "success" : "warning";
             return (
-              <Card key={c.id} className="group relative flex flex-col p-5 transition-all hover:-translate-y-0.5 hover:shadow-md">
+              <Card key={c.id} className="group relative flex flex-col p-5 transition-colors hover:border-ink-300">
                 {/* menu */}
                 <div className="absolute right-3 top-3" data-row-menu>
-                  <button onClick={() => setMenuId(menuId === c.id ? null : c.id)} aria-haspopup="menu" aria-expanded={menuId === c.id} aria-label="Client actions" className="rounded-md p-1.5 text-ink-500 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300" disabled={busyId === c.id}>
+                  <button onClick={() => setMenuId(menuId === c.id ? null : c.id)} aria-haspopup="menu" aria-expanded={menuId === c.id} aria-label="Client actions" className="rounded-md p-1.5 text-ink-500 hover:bg-ink-100 focus-ring" disabled={busyId === c.id}>
                     <MoreHorizontal size={16} />
                   </button>
                   {menuId === c.id && (
-                    <div role="menu" className="absolute right-0 z-10 mt-1 w-36 overflow-hidden rounded-lg border border-slate-200 bg-surface py-1 shadow-lg">
-                      <Link href={`/dashboard/clients/${c.id}/edit`} className="block px-3 py-1.5 text-sm text-ink-700 hover:bg-slate-50">Edit</Link>
-                      <button onClick={() => setArchived(c.id, !c.archived)} className="block w-full px-3 py-1.5 text-left text-sm text-ink-700 hover:bg-slate-50">
+                    <div role="menu" className="absolute right-0 z-10 mt-1 w-36 overflow-hidden rounded-lg border border-ink-200 bg-surface py-1 shadow-lg">
+                      <Link href={`/dashboard/clients/${c.id}/edit`} className="block px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50">Edit</Link>
+                      <button onClick={() => setArchived(c.id, !c.archived)} className="block w-full px-3 py-1.5 text-left text-sm text-ink-700 hover:bg-ink-50">
                         {c.archived ? "Unarchive" : "Archive"}
                       </button>
-                      <button onClick={() => remove(c.id, c.name)} className="block w-full px-3 py-1.5 text-left text-sm text-red-600 hover:bg-red-50">Delete</button>
+                      <button onClick={() => remove(c.id, c.name)} className="block w-full px-3 py-1.5 text-left text-sm text-danger-600 hover:bg-danger-50">Delete</button>
                     </div>
                   )}
                 </div>
 
                 <Link href={`/dashboard/clients/${c.id}`} className="flex items-center gap-3 pr-6">
-                  <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-ink-500">
+                  <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-ink-200 bg-ink-50 text-sm font-semibold text-ink-500">
                     {c.logo_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={c.logo_url} alt="" width={44} height={44} loading="lazy" decoding="async" className="h-full w-full object-cover" />
@@ -167,7 +167,7 @@ export function ClientsList({ clients }: { clients: ClientRow[] }) {
                   )}
                 </div>
 
-                <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
+                <div className="mt-4 flex items-center justify-between border-t border-ink-100 pt-3">
                   <span className="flex items-center gap-1 text-xs text-ink-500">
                     <Clock size={12} /> {lastSync ? `Synced ${format(new Date(lastSync), "MMM d")}` : "Never synced"}
                   </span>

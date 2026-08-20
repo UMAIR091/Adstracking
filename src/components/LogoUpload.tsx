@@ -41,7 +41,7 @@ export function LogoUpload({
   if (value) {
     return (
       <div className="flex items-center gap-4">
-        <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-surface">
+        <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border border-ink-200 bg-surface">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={value} alt="Logo" loading="lazy" decoding="async" className="max-h-full max-w-full object-contain" />
         </div>
@@ -49,7 +49,7 @@ export function LogoUpload({
           <button type="button" onClick={() => inputRef.current?.click()} className="text-sm font-medium text-brand-600 hover:underline">
             Replace
           </button>
-          <button type="button" onClick={() => onChange("")} className="flex items-center gap-1 text-sm text-ink-500 hover:text-red-600">
+          <button type="button" onClick={() => onChange("")} className="flex items-center gap-1 text-sm text-ink-500 hover:text-danger-600">
             <X size={14} /> Remove
           </button>
         </div>
@@ -66,7 +66,7 @@ export function LogoUpload({
       onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files?.[0]) handleFile(e.dataTransfer.files[0]); }}
       className={cn(
         "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors",
-        dragOver ? "border-brand-500 bg-brand-50" : "border-slate-300 bg-slate-50 hover:border-brand-400 hover:bg-slate-100/60"
+        dragOver ? "border-brand-500 bg-brand-50" : "border-ink-300 bg-ink-50 hover:border-brand-400 hover:bg-ink-100/60"
       )}
     >
       {uploading ? (

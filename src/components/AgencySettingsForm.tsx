@@ -76,7 +76,7 @@ export function AgencySettingsForm({ agencyId, initial }: { agencyId: string; in
             <div>
               <Label>Brand color</Label>
               <div className="flex items-center gap-2">
-                <input type="color" value={v.brand_color} onChange={(e) => set("brand_color", e.target.value)} className="h-10 w-12 cursor-pointer rounded-lg border border-slate-300" />
+                <input type="color" value={v.brand_color} onChange={(e) => set("brand_color", e.target.value)} className="h-10 w-12 cursor-pointer rounded-lg border border-ink-300" />
                 <Input value={v.brand_color} onChange={(e) => set("brand_color", e.target.value)} className="max-w-[160px]" />
               </div>
             </div>
@@ -149,7 +149,7 @@ function BrandingPreview({ values }: { values: Values }) {
       <div className="h-2 w-full" style={{ background: values.brand_color }} />
       <CardContent className="p-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-surface">
+          <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-ink-200 bg-surface">
             {values.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={values.logo_url} alt="" loading="lazy" decoding="async" className="max-h-full max-w-full object-contain" />
@@ -170,14 +170,14 @@ function BrandingPreview({ values }: { values: Values }) {
             { l: "Clicks", v: "1,284" },
             { l: "Impressions", v: "48.2k" },
           ].map((m) => (
-            <div key={m.l} className="rounded-lg bg-slate-50 p-3">
+            <div key={m.l} className="rounded-lg bg-ink-50 p-3">
               <p className="text-[11px] text-ink-500">{m.l}</p>
               <p className="text-lg font-semibold" style={{ color: values.brand_color }}>{m.v}</p>
             </div>
           ))}
         </div>
 
-        <p className="mt-5 border-t border-slate-100 pt-3 text-center text-[11px] text-ink-500">
+        <p className="mt-5 border-t border-ink-100 pt-3 text-center text-[11px] text-ink-500">
           {values.footer_text || `Prepared by ${values.name || "Your Agency"}`}
         </p>
       </CardContent>

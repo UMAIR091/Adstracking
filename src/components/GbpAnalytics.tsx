@@ -23,7 +23,7 @@ function MetricChart({
 }) {
   const id = `gbp-grad-${dataKey}`;
   return (
-    <Card className="transition-shadow hover:shadow-md">
+    <Card className="transition-colors hover:border-ink-300">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm text-ink-500">
           <Icon size={15} style={{ color }} /> {title}
@@ -57,7 +57,7 @@ function MetricChart({
 
 function Stat({ icon: Icon, label, value }: { icon: typeof Eye; label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+    <div className="rounded-xl border border-ink-100 bg-ink-50 p-4">
       <p className="flex items-center gap-1.5 text-xs text-ink-500"><Icon size={13} aria-hidden /> {label}</p>
       <p className="mt-1 text-xl font-semibold text-ink-900">{value}</p>
     </div>

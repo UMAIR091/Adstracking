@@ -50,9 +50,9 @@ export function CommandPalette() {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center px-4 pt-[12vh]" onClick={() => setOpen(false)}>
-      <div className="absolute inset-0 bg-ink-900/40 backdrop-blur-sm" />
-      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-surface shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-2 border-b border-slate-100 px-4">
+      <div className="absolute inset-0 bg-overlay/40 backdrop-blur-sm" />
+      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-ink-200 bg-surface shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2 border-b border-ink-100 px-4">
           <Search size={18} className="text-ink-500" />
           <input
             autoFocus
@@ -61,7 +61,7 @@ export function CommandPalette() {
             placeholder="Jump to…"
             className="h-12 flex-1 bg-transparent text-sm outline-none placeholder:text-ink-500"
           />
-          <kbd className="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] text-ink-500">ESC</kbd>
+          <kbd className="rounded border border-ink-200 px-1.5 py-0.5 text-[10px] text-ink-500">ESC</kbd>
         </div>
         <ul className="max-h-72 overflow-y-auto p-2">
           {items.length === 0 && <li className="px-3 py-6 text-center text-sm text-ink-500">No results</li>}
@@ -69,7 +69,7 @@ export function CommandPalette() {
             const Icon = i.icon;
             return (
               <li key={i.href}>
-                <button onClick={() => go(i.href)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-ink-700 hover:bg-slate-100">
+                <button onClick={() => go(i.href)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-ink-700 hover:bg-ink-100">
                   <Icon size={16} className="text-ink-500" />
                   {i.label}
                 </button>
@@ -86,11 +86,11 @@ export function CommandTrigger({ className = "" }: { className?: string }) {
   return (
     <button
       onClick={() => window.dispatchEvent(new Event("open-command"))}
-      className={`flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-ink-500 transition-colors hover:bg-slate-100 ${className}`}
+      className={`flex items-center gap-2 rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 text-sm text-ink-500 transition-colors hover:bg-ink-100 ${className}`}
     >
       <Search size={15} />
       <span className="flex-1 text-left">Search…</span>
-      <kbd className="rounded border border-slate-200 bg-surface px-1.5 py-0.5 text-[10px] font-medium text-ink-500">⌘K</kbd>
+      <kbd className="rounded border border-ink-200 bg-surface px-1.5 py-0.5 text-[10px] font-medium text-ink-500">⌘K</kbd>
     </button>
   );
 }

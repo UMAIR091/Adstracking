@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
-import { RefreshCw, AlertTriangle, Info, Search, BarChart3, Megaphone, MapPin, Facebook, Instagram, Linkedin, Music, Ghost, Twitter, Plug, ShoppingBag, FileSpreadsheet, Magnet } from "lucide-react";
+import { RefreshCw, AlertTriangle, Info } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { integrationIcon, integrationTint } from "@/components/integrationVisuals";
 import type { IntegrationDescriptor } from "@/lib/integrations/types";
 
 // Serializable, already-normalized connection passed from the server.
@@ -17,21 +18,6 @@ export type IntegrationSource = {
   accounts: { id: string; name: string }[];
   selectedAccountId: string | null;
 } | null;
-
-const ICONS: Record<string, typeof Search> = {
-  Search, BarChart3, Megaphone, MapPin, Facebook, Instagram, Linkedin, Music, Ghost, Twitter, ShoppingBag, FileSpreadsheet, Magnet,
-};
-
-// Full literal class strings so Tailwind keeps them.
-const TINTS: Record<string, string> = {
-  emerald: "bg-emerald-50 text-emerald-600",
-  amber: "bg-amber-50 text-amber-600",
-  sky: "bg-sky-50 text-sky-600",
-  rose: "bg-rose-50 text-rose-600",
-  blue: "bg-blue-50 text-blue-600",
-  cyan: "bg-cyan-50 text-cyan-600",
-  fuchsia: "bg-fuchsia-50 text-fuchsia-600",
-};
 
 // One card for every integration: handles Connect, Select account, Save, Refresh
 // (Sync), Disconnect, and Status. Behavior is identical across providers — only
@@ -56,8 +42,8 @@ export function IntegrationCard({
   const [busy, setBusy] = useState(false);
   const confirm = useConfirm();
 
-  const Icon = ICONS[descriptor.icon] ?? Plug;
-  const tint = TINTS[descriptor.accent] ?? "bg-ink-100 text-ink-600";
+  const Icon = integrationIcon(descriptor.icon);
+  const tint = integrationTint(descriptor.accent);
   const noun = descriptor.accountNoun;
   // A revoked/expired grant needs the user to re-authorize — reuse the existing
   // consent → OAuth connect flow. connectHref is the same route as first connect.
@@ -70,7 +56,7 @@ export function IntegrationCard({
 
   if (!source) {
     return (
-      <Card className="transition-shadow hover:shadow-md">
+      <Card className="transition-colors hover:border-ink-300">
         <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5">
           <div className="flex items-center gap-3">
             <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${tint}`}>
@@ -152,7 +138,7 @@ export function IntegrationCard({
                   the source cannot sync (P0-4). */}
               <p className="text-sm text-ink-500">
                 Connected as {source.display_name}
-                {needsAccount && <span className="text-sky-700"> — {noun} selection required</span>}
+                {needsAccount && <span className="text-info-700"> — {noun} selection required</span>}
               </p>
             </div>
           </div>
@@ -162,14 +148,14 @@ export function IntegrationCard({
                 <a href={connectHref}>Reconnect</a>
               </Button>
             )}
-            <button onClick={disconnect} disabled={busy} className="text-xs text-ink-500 transition-colors hover:text-red-600 disabled:opacity-50">
+            <button onClick={disconnect} disabled={busy} className="text-xs text-ink-500 transition-colors hover:text-danger-600 disabled:opacity-50">
               Disconnect
             </button>
           </div>
         </div>
 
         {needsReconnect && (
-          <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+          <div className="mt-4 flex items-start gap-2 rounded-lg border border-warning-300 bg-warning-50 px-3 py-2.5 text-xs text-warning-800">
             <AlertTriangle size={14} className="mt-0.5 shrink-0" />
             <span>
               <span className="font-semibold">Reconnection required.</span>{" "}
@@ -180,7 +166,7 @@ export function IntegrationCard({
         )}
 
         {needsAccount && (
-          <div className="mt-4 flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs text-sky-800">
+          <div className="mt-4 flex items-start gap-2 rounded-lg border border-info-200 bg-info-50 px-3 py-2.5 text-xs text-info-800">
             <Info size={14} className="mt-0.5 shrink-0" />
             <span>
               <span className="font-semibold">{noun.charAt(0).toUpperCase() + noun.slice(1)} selection required.</span>{" "}
@@ -209,7 +195,7 @@ export function IntegrationCard({
             <select
               value={account}
               onChange={(e) => setAccount(e.target.value)}
-              className="h-10 w-full rounded-lg border border-ink-300 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              className="field h-10 w-full"
             >
               <option value="">Select a {noun}…</option>
               {source.accounts.map((a) => (
@@ -226,7 +212,7 @@ export function IntegrationCard({
         </div>
 
         {source.selectedAccountId && lastSyncError && !needsReconnect && (
-          <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-xs text-danger-700">
             <AlertTriangle size={14} className="mt-0.5 shrink-0" />
             <span>
               Last sync failed: {lastSyncError}. Click Refresh now to retry, or{" "}

@@ -13,13 +13,13 @@ export function HelpHint({ children, label = "More information", side = "top" }:
       <button
         type="button"
         aria-label={label}
-        className="inline-flex rounded-full text-ink-400 transition-colors hover:text-ink-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+        className="inline-flex rounded-full text-ink-400 transition-colors hover:text-ink-600 focus-ring"
       >
         <HelpCircle size={14} />
       </button>
       <span
         role="tooltip"
-        className={`pointer-events-none absolute left-1/2 z-40 w-56 -translate-x-1/2 rounded-lg bg-ink-900 px-3 py-2 text-xs font-normal leading-relaxed text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 ${pos}`}
+        className={`pointer-events-none absolute left-1/2 z-40 w-56 -translate-x-1/2 rounded-lg bg-inverse px-3 py-2 text-xs font-normal leading-relaxed text-inverse-fg opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 ${pos}`}
       >
         {children}
       </span>

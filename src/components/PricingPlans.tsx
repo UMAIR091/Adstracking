@@ -99,7 +99,7 @@ export function PricingPlans({
                 type="button"
                 aria-pressed={active}
                 onClick={() => setInterval(opt.key)}
-                className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 ${
+                className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-150 focus-ring ${
                   active ? "bg-surface text-ink-900 shadow-sm" : "text-ink-500 hover:text-ink-800"
                 }`}
               >
@@ -163,7 +163,7 @@ export function PricingPlans({
               }`}
             >
               {featured && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-brand-500 px-3 py-1 text-xs font-semibold text-white">
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-brand-solid px-3 py-1 text-xs font-semibold text-white">
                   Most Popular
                 </span>
               )}
@@ -171,7 +171,7 @@ export function PricingPlans({
               <div className="flex items-center gap-2.5">
                 <div
                   className={`flex h-9 w-9 items-center justify-center rounded-lg ${
-                    featured ? "bg-brand-500 text-white" : "bg-brand-50 text-brand-600"
+                    featured ? "bg-brand-solid text-white" : "bg-brand-50 text-brand-600"
                   }`}
                 >
                   <Icon size={17} aria-hidden />
@@ -200,7 +200,7 @@ export function PricingPlans({
                     : "Billed monthly · Cancel anytime"}
                 </p>
                 {trialOffered && plan.trialAvailable && (
-                  <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                  <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-success-50 px-2.5 py-1 text-xs font-semibold text-success-700">
                     <Sparkles size={12} aria-hidden />
                     {trialDays}-day free trial
                   </p>
@@ -246,15 +246,15 @@ export function PricingPlans({
       <div className="mt-8 flex flex-col items-center gap-3">
         <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-ink-600">
           <span className="inline-flex items-center gap-1.5">
-            <Check size={15} className="text-emerald-500" aria-hidden /> Cancel anytime
+            <Check size={15} className="text-success-500" aria-hidden /> Cancel anytime
           </span>
           {trialOffered && (
             <span className="inline-flex items-center gap-1.5">
-              <Sparkles size={15} className="text-emerald-500" aria-hidden /> {trialDays}-day free trial
+              <Sparkles size={15} className="text-success-500" aria-hidden /> {trialDays}-day free trial
             </span>
           )}
           <span className="inline-flex items-center gap-1.5">
-            <ShieldCheck size={15} className="text-emerald-500" aria-hidden /> 100% money-back guarantee
+            <ShieldCheck size={15} className="text-success-500" aria-hidden /> 100% money-back guarantee
           </span>
         </div>
         <p className="max-w-xl text-center text-xs leading-relaxed text-ink-500">

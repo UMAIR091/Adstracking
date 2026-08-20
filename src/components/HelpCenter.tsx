@@ -39,7 +39,7 @@ export function HelpCenter({ articles }: { articles: HelpArticle[] }) {
           <p className="text-sm text-ink-500">{results.length} result{results.length === 1 ? "" : "s"}</p>
           {results.map((a) => <ArticleRow key={a.slug} a={a} />)}
           {results.length === 0 && (
-            <p className="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-ink-500">
+            <p className="rounded-lg border border-dashed border-ink-200 px-4 py-8 text-center text-sm text-ink-500">
               No articles match. Try different words, or contact support below.
             </p>
           )}
@@ -80,7 +80,7 @@ function ArticleRow({ a }: { a: HelpArticle }) {
   return (
     <Link
       href={`/help/${a.slug}`}
-      className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 px-4 py-3 transition-colors hover:border-slate-200 hover:bg-slate-50"
+      className="flex items-center justify-between gap-3 rounded-lg border border-ink-100 px-4 py-3 transition-colors hover:border-ink-200 hover:bg-ink-50"
     >
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-ink-900">{a.title}</p>

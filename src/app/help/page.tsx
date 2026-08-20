@@ -12,7 +12,7 @@ export const metadata = {
 export default function HelpPage() {
   return (
     <div className="min-h-screen bg-surface-muted">
-      <header className="border-b border-slate-200 bg-surface">
+      <header className="border-b border-ink-200 bg-surface">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-5 py-4">
           <Link href="/"><Brand /></Link>
           <Link href="/dashboard" className="text-sm font-medium text-brand-600 hover:underline">Go to dashboard</Link>

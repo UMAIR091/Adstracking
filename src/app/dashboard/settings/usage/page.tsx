@@ -50,7 +50,7 @@ export default async function UsagePage() {
         <ArrowLeft size={15} /> Back to settings
       </Link>
       <div className="mb-6 mt-3 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-info-50 text-info-600">
           <Gauge size={18} />
         </div>
         <div>

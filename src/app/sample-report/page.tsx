@@ -16,12 +16,12 @@ export const metadata: Metadata = {
 export default function SampleReportPage() {
   return (
     <div className="flex min-h-screen flex-col bg-surface-muted">
-      <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-surface/80 backdrop-blur">
+      <header className="sticky top-0 z-30 border-b border-ink-200/70 bg-surface/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5">
           <Link href="/" aria-label="ReportFlow home"><Brand className="text-lg" /></Link>
           <div className="flex items-center gap-3 text-sm">
             <Link href="/login" className="hidden text-ink-700 hover:text-ink-900 sm:inline">Sign in</Link>
-            <Link href="/signup" className="rounded-lg bg-brand-500 px-4 py-2 font-medium text-white hover:bg-brand-600">
+            <Link href="/signup" className="rounded-lg bg-brand-solid px-4 py-2 font-medium text-white hover:bg-brand-solid-hover">
               Start free
             </Link>
           </div>
@@ -49,21 +49,21 @@ export default function SampleReportPage() {
               // product's own indigo (--brand-500) so the sample matches the
               // site around it. Real reports are unaffected — they render the
               // agency's own saved colour.
-              brand_color: "#4e56b0",
+              brand_color: "#4F46E5",
               website: "northbeamdigital.example",
               footer_text: "Prepared for you by Northbeam Digital — questions? hello@northbeamdigital.example",
             }}
           />
         </div>
 
-        <div className="mt-10 rounded-2xl bg-surface p-8 text-center shadow-sm ring-1 ring-slate-200">
+        <div className="mt-10 rounded-2xl bg-surface p-8 text-center shadow-sm ring-1 ring-ink-200">
           <h2 className="text-xl font-semibold tracking-tight text-ink-900">Send one like this to your client today</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-ink-500">
             Connect a client&apos;s Search Console, GA4 or Meta Ads and generate your first branded report in about five minutes.
           </p>
           <Link
             href="/signup"
-            className="mt-5 inline-flex items-center gap-2 rounded-lg bg-brand-500 px-6 py-3 font-medium text-white transition hover:bg-brand-600"
+            className="mt-5 inline-flex items-center gap-2 rounded-lg bg-brand-solid px-6 py-3 font-medium text-white transition hover:bg-brand-solid-hover"
           >
             Start free — no card required <ArrowRight size={18} aria-hidden />
           </Link>

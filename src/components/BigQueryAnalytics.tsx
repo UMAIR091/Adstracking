@@ -18,7 +18,7 @@ function fmtBytes(bytes: number): string {
 
 function Stat({ label, value, icon: Icon }: { label: string; value: string; icon: typeof Rows3 }) {
   return (
-    <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+    <div className="rounded-xl border border-ink-100 bg-ink-50 p-4">
       <p className="flex items-center gap-1.5 text-xs text-ink-500">
         <Icon size={13} className="text-ink-500" /> {label}
       </p>
@@ -36,7 +36,7 @@ export function BigQueryAnalytics({ report }: { report: BigQueryReport }) {
         <p className="flex items-center gap-2 text-sm text-ink-500">
           <Database size={15} className="text-ink-500" />
           <span className="font-medium text-ink-700">{path || report.projectId}</span>
-          {report.tableType && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-ink-500">{report.tableType.toLowerCase()}</span>}
+          {report.tableType && <span className="rounded-full bg-ink-100 px-2 py-0.5 text-xs text-ink-500">{report.tableType.toLowerCase()}</span>}
         </p>
         <a href={report.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-brand-600 hover:underline">
           Open in BigQuery <ExternalLink size={12} />
@@ -61,7 +61,7 @@ export function BigQueryAnalytics({ report }: { report: BigQueryReport }) {
                 </thead>
                 <tbody>
                   {report.rows.map((row, i) => (
-                    <tr key={i} className="border-t border-slate-100">
+                    <tr key={i} className="border-t border-ink-100">
                       {row.map((cell, j) => <td key={j} className="py-2 pr-3 text-ink-700">{cell}</td>)}
                     </tr>
                   ))}
@@ -97,7 +97,7 @@ export function BigQueryAnalytics({ report }: { report: BigQueryReport }) {
                     </thead>
                     <tbody>
                       {report.schema.map((f) => (
-                        <tr key={f.name} className="border-t border-slate-100">
+                        <tr key={f.name} className="border-t border-ink-100">
                           <td className="py-2 pr-3 font-medium text-ink-800">{f.name}</td>
                           <td className="py-2 pr-3 text-ink-600">{f.type}</td>
                           <td className="py-2 text-ink-500">{f.mode}</td>
@@ -128,7 +128,7 @@ export function BigQueryAnalytics({ report }: { report: BigQueryReport }) {
                     </thead>
                     <tbody>
                       {report.rows.map((row, i) => (
-                        <tr key={i} className="border-t border-slate-100">
+                        <tr key={i} className="border-t border-ink-100">
                           {row.map((cell, j) => (
                             <td key={j} className="max-w-xs truncate py-2 pr-3 text-ink-700" title={cell}>{cell}</td>
                           ))}

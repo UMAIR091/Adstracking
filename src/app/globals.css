@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* ─────────────────────────────────────────────────────────────
-   ReportFlow design tokens — one theme, defined once.
+   ReportFlow design tokens — Obsidian · Indigo · Grey.
 
    Every colour in the app resolves to a variable here. The Tailwind
    config maps its scales onto these — including the built-in `slate`,
@@ -12,56 +12,90 @@
    whole interface follows. No component carries a literal hex.
 
    Channels are space-separated RGB so Tailwind's `<alpha-value>`
-   works: `border-ink-200/70` and `bg-ink-900/40` behave as expected.
+   works: `border-ink-200/70` and `bg-overlay/40` behave as expected.
 
-   Direction: charcoal + cool grey + white, with a deep, desaturated
-   indigo carrying primary actions. The old palette led with a bright
-   #4f46e5 violet; this one is markedly deeper and blue-leaning, so the
-   accent reads as considered rather than default-framework purple.
+   HOW THE TWO THEMES WORK
+   The light palette is declared on `:root, .theme-light`; the dark one
+   on `:root` alone inside the colour-scheme query. A `.theme-light`
+   element therefore keeps light values even in dark mode, because a
+   declaration on the element itself always beats one inherited from
+   the root. That is what keeps a rendered report — a document that
+   gets printed, PDF'd and sent to a client — on white paper whatever
+   the surrounding app is doing.
+
+   THE NEUTRAL RAMP INVERTS between themes: `ink-900` is the primary
+   text colour in both, so it is near-black in light and near-white in
+   dark. Anything that needs a fixed polarity has its own token —
+   `--overlay` for modal scrims, `--inverse` / `--inverse-fg` for
+   tooltips — because `ink-900` at 40% is a black scrim in one theme
+   and a white one in the other.
+
+   Direction: obsidian and cool grey carry the interface; indigo is
+   reserved for primary actions, active navigation, selection, links,
+   focus and genuine highlights. No gradients, no glow.
    ───────────────────────────────────────────────────────────── */
 
-:root {
-  /* ── Accent: deep refined indigo ──
-     500 carries primary buttons and active states (white label at
-     6.6:1). 600/700 are hover and accent text. Deliberately
-     desaturated and pulled toward blue — no neon, no magenta. */
-  --brand-50: 240 241 250;
-  --brand-100: 225 227 245;
-  --brand-200: 198 202 235;
-  --brand-300: 162 168 220;
-  --brand-400: 123 131 201;
-  --brand-500: 78 86 176;
-  --brand-600: 65 72 148;
-  --brand-700: 53 59 121;
-  --brand-800: 42 47 96;
+:root,
+.theme-light {
+  /* ── Accent: indigo ──
+     500 carries primary buttons and active states, 600 their hover and
+     accent text, 700 link text. 400 is the focus ring. */
+  --brand-50: 238 242 255;
+  --brand-100: 224 231 255;
+  --brand-200: 199 210 254;
+  --brand-300: 165 180 252;
+  --brand-400: 129 140 248;
+  --brand-500: 79 70 229;
+  --brand-600: 67 56 202;
+  --brand-700: 55 48 163;
+  --brand-800: 49 46 129;
+  /* Filled surfaces that carry white text. Identical to 500/600 here; the
+     dark theme needs a fractionally deeper indigo to clear AA, so the role
+     gets its own token rather than bending the accent for everything else. */
+  --brand-solid: 79 70 229;
+  --brand-solid-hover: 67 56 202;
 
-  /* Restrained blue-violet, for secondary accents and the chart ramp.
-     Present, never the loudest thing on screen. */
-  --accent-400: 141 128 214;
-  --accent-500: 109 95 199;
-  --accent-600: 92 79 172;
+  /* Restrained violet, for the chart ramp and secondary accents. Kept
+     distinct from brand so adjacent chart series stay separable. */
+  --accent-400: 167 139 250;
+  --accent-500: 139 92 246;
+  --accent-600: 124 58 237;
 
-  /* ── Neutrals: charcoal → cool grey ──
-     900 primary text, 500 secondary text, 200 borders, 100/50 fills.
-     900 is a deep charcoal, never pure black. */
-  --ink-50: 248 249 251;
-  --ink-100: 241 243 246;
-  --ink-200: 227 230 235;
-  --ink-300: 205 210 218;
-  --ink-400: 150 157 168;
-  --ink-500: 105 114 128;
-  --ink-600: 77 85 97;
-  --ink-700: 61 66 75;
-  --ink-800: 38 42 49;
-  --ink-900: 22 24 29;
+  /* ── Neutrals: obsidian → grey ──
+     900 main text, 500 secondary text, 400 muted text, 200 borders,
+     100/50 fills. */
+  --ink-50: 250 250 250;
+  --ink-100: 244 244 245;
+  --ink-200: 228 228 231;
+  --ink-300: 212 212 216;
+  --ink-400: 113 113 122;
+  --ink-500: 82 82 91;
+  --ink-600: 63 63 70;
+  --ink-700: 47 47 53;
+  --ink-800: 35 35 39;
+  --ink-900: 24 24 27;
 
-  /* ── Surfaces ── white cards on a very light cool-grey page. */
+  /* ── Surfaces ──
+     `surface` is a card, `surface-muted` the page behind it,
+     `surface-subtle` the hover/elevated step, `sidebar` the nav rail. */
   --surface: 255 255 255;
-  --surface-muted: 245 246 249;
-  --surface-subtle: 250 251 252;
+  --surface-muted: 247 247 248;
+  --surface-subtle: 250 250 250;
+  --sidebar: 240 240 242;
+  /* Alternating content band: one step off the page, so a long marketing
+     page has rhythm without a second card colour. Sits BETWEEN the page and
+     a card in both themes — darker than the page in light, lighter than it in
+     dark — so a white card always reads as the figure on top of it. */
+  --surface-band: 244 244 245;
+
+  /* Fixed-polarity tokens — see the note above. */
+  --overlay: 24 24 27;
+  --inverse: 24 24 27;
+  --inverse-fg: 255 255 255;
 
   /* ── Status: muted and professional ──
-     `-50` soft fill, `-500` dot/marker, `-700` text. */
+     `-50` soft fill, `-100` ring, `-500` dot/marker, `-600` icon and
+     filled button, `-700` text on the soft fill. */
   --success-50: 236 246 241;
   --success-100: 213 238 224;
   --success-500: 23 132 90;
@@ -73,12 +107,16 @@
   --warning-500: 176 118 26;
   --warning-600: 152 101 20;
   --warning-700: 122 82 18;
+  --warning-solid: 152 101 20;
+  --warning-solid-hover: 122 82 18;
 
   --danger-50: 251 238 236;
   --danger-100: 248 220 216;
   --danger-500: 192 57 47;
   --danger-600: 169 47 39;
   --danger-700: 139 40 33;
+  --danger-solid: 169 47 39;
+  --danger-solid-hover: 139 40 33;
 
   --info-50: 237 244 251;
   --info-100: 217 232 247;
@@ -89,15 +127,206 @@
   /* ── Charts ──
      Accent-led, then cool neutrals. Ordered so adjacent series are
      never neighbouring hues. */
-  --chart-1: 78 86 176;
+  --chart-1: 79 70 229;
   --chart-2: 44 110 168;
   --chart-3: 23 132 90;
   --chart-4: 176 118 26;
-  --chart-5: 109 95 199;
-  --chart-6: 105 114 128;
+  --chart-5: 139 92 246;
+  --chart-6: 113 113 122;
 
-  --ring: 123 131 201;
+  --ring: 99 102 241;
   color-scheme: light;
+}
+
+/* Dark palette, reachable two ways. The declarations are identical by
+   construction — if you edit one block, edit the other.
+
+   1. System preference, for anyone who has not chosen. Scoped with
+      :not([data-theme="light"]) so an explicit Light choice wins over a
+      dark OS, and so the palette still follows the system with JS disabled.
+   2. An explicit choice, written to <html data-theme> by the toggle.
+
+   `.theme-light` still wins inside either: it is declared ON the element,
+   and a matching declaration always beats an inherited one — which is what
+   keeps a rendered report on white paper. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    /* Indigo lightens on obsidian: 500 stays the primary fill, 600 is
+       the lighter hover the palette calls for, 700 carries link text. */
+    --brand-50: 30 30 46;
+    --brand-100: 40 40 60;
+    --brand-200: 55 55 85;
+    --brand-300: 79 82 160;
+    --brand-400: 129 140 248;
+    --brand-500: 99 102 241;
+    --brand-600: 129 140 248;
+    --brand-700: 165 180 252;
+    --brand-800: 199 210 254;
+    /* White on #6366F1 is 4.47:1 — a hair under AA for body text. The accent
+       keeps the specified value everywhere it is a colour (links, active nav,
+       selection, icons); only the filled-button surface deepens, to 4.86:1.
+       Hover deepens further rather than lightening: white on #818CF8 is 2.98:1. */
+    --brand-solid: 91 95 238;
+    --brand-solid-hover: 79 70 229;
+
+    --accent-400: 196 181 253;
+    --accent-500: 167 139 250;
+    --accent-600: 139 92 246;
+
+    /* The ramp inverts: 50 is now the darkest fill and 900 the
+       lightest text, so every `text-ink-900` / `border-ink-200` in the
+       app keeps meaning exactly what it meant before. */
+    --ink-50: 24 24 28;
+    --ink-100: 31 31 35;
+    --ink-200: 39 39 42;
+    --ink-300: 63 63 70;
+    --ink-400: 113 113 122;
+    --ink-500: 161 161 170;
+    --ink-600: 196 196 204;
+    --ink-700: 217 217 224;
+    --ink-800: 233 233 238;
+    --ink-900: 244 244 245;
+
+    --surface: 17 17 20;
+    --surface-muted: 9 9 11;
+    --surface-subtle: 24 24 28;
+    --sidebar: 12 12 15;
+    --surface-band: 13 13 16;
+
+    --overlay: 0 0 0;
+    --inverse: 233 233 238;
+    --inverse-fg: 24 24 27;
+
+    /* Status inverts with the neutrals: the soft fill goes very dark,
+       the text goes light. `-600` stays mid-tone because it is both an
+       icon on that dark fill and the fill of the destructive button. */
+    --success-50: 11 26 20;
+    --success-100: 20 48 36;
+    --success-500: 52 160 107;
+    --success-600: 110 214 160;
+    --success-700: 111 211 160;
+
+    --warning-50: 33 24 8;
+    --warning-100: 56 42 14;
+    --warning-500: 201 138 40;
+    --warning-600: 240 190 105;
+    --warning-700: 240 195 116;
+    --warning-solid: 146 96 16;
+    --warning-solid-hover: 122 82 18;
+
+    --danger-50: 36 16 14;
+    --danger-100: 62 26 22;
+    --danger-500: 209 74 64;
+    --danger-600: 240 133 122;
+    --danger-700: 244 155 147;
+    --danger-solid: 185 42 33;
+    --danger-solid-hover: 150 33 26;
+
+    --info-50: 10 24 38;
+    --info-100: 18 42 64;
+    --info-500: 74 152 214;
+    --info-600: 130 190 240;
+    --info-700: 148 199 240;
+
+    --chart-1: 99 102 241;
+    --chart-2: 74 152 214;
+    --chart-3: 52 160 107;
+    --chart-4: 201 138 40;
+    --chart-5: 167 139 250;
+    --chart-6: 161 161 170;
+
+    --ring: 129 140 248;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  /* Indigo lightens on obsidian: 500 stays the primary fill, 600 is
+     the lighter hover the palette calls for, 700 carries link text. */
+  --brand-50: 30 30 46;
+  --brand-100: 40 40 60;
+  --brand-200: 55 55 85;
+  --brand-300: 79 82 160;
+  --brand-400: 129 140 248;
+  --brand-500: 99 102 241;
+  --brand-600: 129 140 248;
+  --brand-700: 165 180 252;
+  --brand-800: 199 210 254;
+  /* White on #6366F1 is 4.47:1 — a hair under AA for body text. The accent
+     keeps the specified value everywhere it is a colour (links, active nav,
+     selection, icons); only the filled-button surface deepens, to 4.86:1.
+     Hover deepens further rather than lightening: white on #818CF8 is 2.98:1. */
+  --brand-solid: 91 95 238;
+  --brand-solid-hover: 79 70 229;
+
+  --accent-400: 196 181 253;
+  --accent-500: 167 139 250;
+  --accent-600: 139 92 246;
+
+  /* The ramp inverts: 50 is now the darkest fill and 900 the
+     lightest text, so every `text-ink-900` / `border-ink-200` in the
+     app keeps meaning exactly what it meant before. */
+  --ink-50: 24 24 28;
+  --ink-100: 31 31 35;
+  --ink-200: 39 39 42;
+  --ink-300: 63 63 70;
+  --ink-400: 113 113 122;
+  --ink-500: 161 161 170;
+  --ink-600: 196 196 204;
+  --ink-700: 217 217 224;
+  --ink-800: 233 233 238;
+  --ink-900: 244 244 245;
+
+  --surface: 17 17 20;
+  --surface-muted: 9 9 11;
+  --surface-subtle: 24 24 28;
+  --sidebar: 12 12 15;
+  --surface-band: 13 13 16;
+
+  --overlay: 0 0 0;
+  --inverse: 233 233 238;
+  --inverse-fg: 24 24 27;
+
+  /* Status inverts with the neutrals: the soft fill goes very dark,
+     the text goes light. `-600` stays mid-tone because it is both an
+     icon on that dark fill and the fill of the destructive button. */
+  --success-50: 11 26 20;
+  --success-100: 20 48 36;
+  --success-500: 52 160 107;
+  --success-600: 110 214 160;
+  --success-700: 111 211 160;
+
+  --warning-50: 33 24 8;
+  --warning-100: 56 42 14;
+  --warning-500: 201 138 40;
+  --warning-600: 240 190 105;
+  --warning-700: 240 195 116;
+  --warning-solid: 146 96 16;
+  --warning-solid-hover: 122 82 18;
+
+  --danger-50: 36 16 14;
+  --danger-100: 62 26 22;
+  --danger-500: 209 74 64;
+  --danger-600: 240 133 122;
+  --danger-700: 244 155 147;
+  --danger-solid: 185 42 33;
+  --danger-solid-hover: 150 33 26;
+
+  --info-50: 10 24 38;
+  --info-100: 18 42 64;
+  --info-500: 74 152 214;
+  --info-600: 130 190 240;
+  --info-700: 148 199 240;
+
+  --chart-1: 99 102 241;
+  --chart-2: 74 152 214;
+  --chart-3: 52 160 107;
+  --chart-4: 201 138 40;
+  --chart-5: 167 139 250;
+  --chart-6: 161 161 170;
+
+  --ring: 129 140 248;
+  color-scheme: dark;
 }
 
 html,
@@ -117,6 +346,47 @@ body {
 
 * {
   box-sizing: border-box;
+}
+
+/* Form controls follow the theme instead of the user agent. With
+   color-scheme: dark the browser paints its own grey (#3b3b3b) behind every
+   field, which is off-palette on obsidian. Element selectors, so any Tailwind
+   background utility on a specific field still wins. Checkboxes, radios and
+   the like are left to the UA, which draws them from the accent colour. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+select,
+textarea {
+  background-color: rgb(var(--surface));
+  color: rgb(var(--ink-900));
+}
+
+/* ── Shared control recipes ─────────────────────────────────────
+   Form fields were written inline in seventeen places and had drifted into
+   six variants: two heights, two radii, three border steps, and a focus ring
+   (brand-100) that is all but invisible on obsidian. One recipe here, applied
+   as a class, so every field in the product hovers, focuses and disables the
+   same way in both themes. Height and width stay at the call site, because
+   those are layout.
+
+   The focus ring is the accent at 30% rather than a fixed tint, so it reads
+   on white and on obsidian without needing a second value. */
+@layer components {
+  .field {
+    @apply rounded-lg border border-ink-200 bg-surface px-3 text-sm text-ink-900 shadow-xs transition-colors;
+    @apply placeholder:text-ink-400 hover:border-ink-300;
+    @apply focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30;
+    @apply disabled:cursor-not-allowed disabled:border-ink-200 disabled:bg-ink-50 disabled:text-ink-400 disabled:opacity-70;
+  }
+
+  /* Keyboard focus for anything that is not a field: an offset ring so it
+     reads against the control it surrounds rather than inside it. */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface;
+  }
+}
+::placeholder {
+  color: rgb(var(--ink-400));
+  opacity: 1;
 }
 
 /* Tighter tracking on headings — the single cheapest thing that makes a

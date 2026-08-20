@@ -5,9 +5,12 @@ import { classifyIntegrationError, reconnectMessage } from "@/lib/integrations/e
 import { logError } from "@/lib/errorLog";
 import { trackUsage } from "@/lib/usage";
 import { recordDailyMetrics } from "@/lib/metrics/history";
+import { CACHED_PERIOD_DAYS } from "@/lib/reports/periods";
 
 // Periods we keep warm in the cache (match the report/analytics date ranges).
-const PERIODS = [28, 90];
+// Declared once in lib/reports/periods so the client Performance view, which
+// reads these snapshots straight back, can offer exactly the windows that exist.
+const PERIODS = CACHED_PERIOD_DAYS;
 // The window mirrored into the historical archive — the widest we fetch, so
 // each sync contributes the most days and gaps close fastest after downtime.
 const WIDEST_PERIOD = Math.max(...PERIODS);

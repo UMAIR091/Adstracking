@@ -26,7 +26,7 @@ function MetricChart({
 }) {
   const id = `social-grad-${dataKey}`;
   return (
-    <Card className="transition-shadow hover:shadow-md">
+    <Card className="transition-colors hover:border-ink-300">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm text-ink-500">
           <Icon size={15} style={{ color }} /> {title}
@@ -60,7 +60,7 @@ function MetricChart({
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+    <div className="rounded-xl border border-ink-100 bg-ink-50 p-4">
       <p className="text-xs text-ink-500">{label}</p>
       <p className="mt-1 text-xl font-semibold text-ink-900">{value}</p>
     </div>
@@ -73,7 +73,7 @@ export function SocialAnalytics({ report, sample = false }: { report: SocialRepo
   return (
     <div className={`space-y-5 ${sample ? "relative" : ""}`}>
       {sample && (
-        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+        <div className="flex items-center gap-2 rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-xs font-medium text-warning-700">
           <Sparkles size={14} /> Sample data — connect Instagram above to see this client&apos;s real numbers.
         </div>
       )}
@@ -83,9 +83,9 @@ export function SocialAnalytics({ report, sample = false }: { report: SocialRepo
         <CardContent className="flex flex-wrap items-center gap-4 p-5">
           {profile.picture ? (
             // eslint-disable-next-line @next/next/no-img-element -- external CDN avatar, unknown host
-            <img src={profile.picture} alt="" width={48} height={48} loading="lazy" decoding="async" className="h-12 w-12 rounded-full border border-slate-200 object-cover" />
+            <img src={profile.picture} alt="" width={48} height={48} loading="lazy" decoding="async" className="h-12 w-12 rounded-full border border-ink-200 object-cover" />
           ) : (
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-fuchsia-50 text-lg font-semibold text-fuchsia-600" aria-hidden>
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-lg font-semibold text-brand-600" aria-hidden>
               {(profile.username || profile.name).charAt(0).toUpperCase()}
             </div>
           )}
@@ -150,9 +150,9 @@ export function SocialAnalytics({ report, sample = false }: { report: SocialRepo
               </thead>
               <tbody>
                 {topPosts.map((p) => (
-                  <tr key={p.id} className="border-t border-slate-100">
+                  <tr key={p.id} className="border-t border-ink-100">
                     <td className="max-w-0 truncate py-2 pr-3 text-ink-800">
-                      <span className={`mr-2 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${p.type === "reel" ? "bg-fuchsia-50 text-fuchsia-600" : "bg-slate-100 text-ink-500"}`}>
+                      <span className={`mr-2 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${p.type === "reel" ? "bg-brand-50 text-brand-600" : "bg-ink-100 text-ink-500"}`}>
                         {p.type === "reel" && <Film size={10} aria-hidden />}
                         {p.type === "reel" ? "Reel" : "Post"}
                       </span>

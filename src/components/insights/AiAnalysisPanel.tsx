@@ -71,7 +71,7 @@ export function AiAnalysisPanel({ data, compact = false }: { data: unknown; comp
             <ol className="space-y-2">
               {actions.map((a, i) => (
                 <li key={i} className="flex gap-2.5 rounded-xl border border-ink-100 bg-surface-muted/40 px-3.5 py-2.5">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[11px] font-semibold text-white">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-solid text-[11px] font-semibold text-white">
                     {i + 1}
                   </span>
                   <span className="text-sm leading-relaxed text-ink-700">{a}</span>

@@ -37,13 +37,13 @@ export function SetupProgress({ steps }: { steps: SetupStep[] }) {
       <ul className="mt-3 space-y-1">
         {steps.map((s) => (
           <li key={s.label}>
-            <Link href={s.href} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-slate-50">
+            <Link href={s.href} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-ink-50">
               {s.done
-                ? <CheckCircle2 size={15} className="flex-shrink-0 text-emerald-500" />
+                ? <CheckCircle2 size={15} className="flex-shrink-0 text-success-500" />
                 : <Circle size={15} className="flex-shrink-0 text-ink-300" />}
               <span className={`flex-1 text-sm ${s.done ? "text-ink-500 line-through" : "text-ink-700"}`}>{s.label}</span>
               {s === next && (
-                <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                <span className="rounded-full bg-brand-solid px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
                   Next
                 </span>
               )}
@@ -85,7 +85,7 @@ export function NoIntegrationsState({ hasClients, steps }: { hasClients: boolean
               </Button>
             </div>
           </div>
-          <div className="w-full border-t border-slate-100 pt-5 sm:w-64 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
+          <div className="w-full border-t border-ink-100 pt-5 sm:w-64 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
             <SetupProgress steps={steps} />
           </div>
         </div>
@@ -102,7 +102,7 @@ export function AwaitingSyncState({ sourceCount, failing }: { sourceCount: numbe
     <Card>
       <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 ring-1 ring-inset ring-amber-100">
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-warning-50 text-warning-600 ring-1 ring-inset ring-warning-100">
             <RefreshCw size={20} />
           </div>
           <div>
@@ -140,7 +140,7 @@ export function AwaitingSyncState({ sourceCount, failing }: { sourceCount: numbe
 // an insights list) that has no data yet.
 export function NoDataYet({ message, action }: { message: string; action?: React.ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center">
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-ink-200 px-4 py-8 text-center">
       <p className="max-w-xs text-sm text-ink-500">{message}</p>
       {action && <div className="mt-3">{action}</div>}
     </div>

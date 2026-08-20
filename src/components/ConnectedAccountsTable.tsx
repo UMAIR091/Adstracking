@@ -18,14 +18,14 @@ const ICONS: Record<string, typeof Search> = {
   Search, BarChart3, Megaphone, MapPin, Facebook, Instagram, Linkedin, Music, Twitter, Youtube, Ghost, ShoppingBag, FileSpreadsheet, Magnet,
 };
 const TINTS: Record<string, string> = {
-  emerald: "bg-emerald-50 text-emerald-600",
-  amber: "bg-amber-50 text-amber-600",
-  sky: "bg-sky-50 text-sky-600",
-  rose: "bg-rose-50 text-rose-600",
-  blue: "bg-blue-50 text-blue-600",
-  cyan: "bg-cyan-50 text-cyan-600",
-  fuchsia: "bg-fuchsia-50 text-fuchsia-600",
-  red: "bg-red-50 text-red-600",
+  emerald: "bg-success-50 text-success-600",
+  amber: "bg-warning-50 text-warning-600",
+  sky: "bg-info-50 text-info-600",
+  rose: "bg-danger-50 text-danger-600",
+  blue: "bg-info-50 text-info-600",
+  cyan: "bg-info-50 text-info-600",
+  fuchsia: "bg-brand-50 text-brand-600",
+  red: "bg-danger-50 text-danger-600",
   ink: "bg-ink-100 text-ink-700",
 };
 

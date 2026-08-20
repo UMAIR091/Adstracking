@@ -215,7 +215,7 @@ export default async function PricingPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(pricing)) }}
       />
 
-      <header className="border-b border-slate-100">
+      <header className="border-b border-ink-100">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
           <Link href="/" aria-label={`${COMPANY.product} home`}><Brand /></Link>
           <nav className="flex items-center gap-5 text-sm text-ink-500" aria-label="Main">
@@ -285,7 +285,7 @@ export default async function PricingPage() {
                       key={p.name}
                       scope="col"
                       className={`p-4 text-center ${
-                        p.featured ? "rounded-t-xl bg-brand-500 text-white" : "text-ink-700"
+                        p.featured ? "rounded-t-xl bg-brand-solid text-white" : "text-ink-700"
                       }`}
                     >
                       <span className="block font-semibold">{p.name}</span>
@@ -323,7 +323,7 @@ export default async function PricingPage() {
         </section>
 
         {/* ── Transparent pricing vs competitors ── */}
-        <section aria-labelledby="transparent-heading" className="bg-slate-50/60 py-16 sm:py-20">
+        <section aria-labelledby="transparent-heading" className="bg-ink-50/60 py-16 sm:py-20">
           <div className="mx-auto max-w-6xl px-5">
             <div className="mx-auto max-w-2xl text-center">
               <p className="text-sm font-semibold text-brand-600">Transparent by design</p>
@@ -365,7 +365,7 @@ export default async function PricingPage() {
                   className={`flex flex-col rounded-2xl p-6 text-center ${
                     c.highlight
                       ? "border-2 border-brand-500 bg-surface shadow-lg shadow-brand-500/10"
-                      : "border border-slate-200 bg-surface"
+                      : "border border-ink-200 bg-surface"
                   }`}
                 >
                   <p className={`text-sm font-semibold ${c.highlight ? "text-brand-600" : "text-ink-500"}`}>{c.name}</p>
@@ -379,7 +379,7 @@ export default async function PricingPage() {
             </div>
 
             <div className="mx-auto mt-8 flex max-w-3xl flex-col gap-4 rounded-2xl border border-brand-100 bg-brand-50/40 p-6 sm:flex-row sm:items-start sm:p-8">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500 text-white">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-solid text-white">
                 <TrendingUp size={19} aria-hidden />
               </div>
               <div>
@@ -405,7 +405,7 @@ export default async function PricingPage() {
               Billing questions, answered
             </h2>
           </div>
-          <div className="mt-8 divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-surface px-6">
+          <div className="mt-8 divide-y divide-ink-100 rounded-2xl border border-ink-200 bg-surface px-6">
             {FAQS.map((item) => (
               <details key={item.q} className="group py-4">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-medium text-ink-800 [&::-webkit-details-marker]:hidden">
@@ -444,7 +444,7 @@ export default async function PricingPage() {
 
         {/* ── Trust, security & payments ── */}
         <section aria-label="Trust, security and accepted payment methods" className="mx-auto max-w-6xl px-5 pb-16 sm:pb-20">
-          <div className="rounded-3xl border border-slate-200 bg-surface p-8 sm:p-12">
+          <div className="rounded-3xl border border-ink-200 bg-surface p-8 sm:p-12">
             <div className="mx-auto max-w-2xl text-center">
               <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600">
                 <ShieldCheck size={16} aria-hidden /> Trust &amp; security
@@ -474,7 +474,7 @@ export default async function PricingPage() {
             </div>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-2" aria-label="Accepted payment methods">
               {["Visa", "Mastercard", "American Express", "Discover", "PayPal"].map((m) => (
-                <span key={m} className="rounded-lg border border-slate-200 bg-surface-subtle px-3 py-1.5 text-xs font-medium text-ink-600">
+                <span key={m} className="rounded-lg border border-ink-200 bg-surface-subtle px-3 py-1.5 text-xs font-medium text-ink-600">
                   {m}
                 </span>
               ))}
@@ -487,7 +487,7 @@ export default async function PricingPage() {
         </section>
 
         {/* ── Final CTA ── */}
-        <section className="bg-slate-50/60 py-16 text-center sm:py-20">
+        <section className="bg-ink-50/60 py-16 text-center sm:py-20">
           <div className="mx-auto max-w-2xl px-5">
             <h2 className="text-2xl font-semibold tracking-tight text-ink-900 sm:text-3xl">
               Send your first white-label report today
@@ -518,21 +518,21 @@ function FeatureGroupRows({ group }: { group: { heading: string; rows: FeatureRo
         <th
           scope="colgroup"
           colSpan={PLAN_COLUMNS.length + 1}
-          className="border-b border-slate-200 px-4 pb-2 pt-6 text-left text-xs font-semibold uppercase tracking-wide text-ink-500"
+          className="border-b border-ink-200 px-4 pb-2 pt-6 text-left text-xs font-semibold uppercase tracking-wide text-ink-500"
         >
           {group.heading}
         </th>
       </tr>
       {group.rows.map((row) => (
         <tr key={row.label}>
-          <th scope="row" className="border-b border-slate-100 p-4 text-left font-medium text-ink-700">
+          <th scope="row" className="border-b border-ink-100 p-4 text-left font-medium text-ink-700">
             {row.label}
           </th>
           {PLAN_COLUMNS.map((p, i) => (
             <td
               key={p.name}
               className={`border-b p-4 text-center ${
-                p.featured ? "border-x border-brand-100 bg-brand-50/40" : "border-slate-100"
+                p.featured ? "border-x border-brand-100 bg-brand-50/40" : "border-ink-100"
               }`}
             >
               {row.values ? (

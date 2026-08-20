@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { LayoutDashboard, Users, FileBarChart2, Cable, Settings, LogOut, Menu, X, Search, ChevronUp } from "lucide-react";
 import { Brand } from "@/components/Brand";
 import { CommandTrigger } from "@/components/CommandPalette";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useDismissable } from "@/lib/useDismissable";
 import { cn } from "@/lib/utils";
 
@@ -57,6 +58,9 @@ function AccountMenu({ email, agencyName }: { email: string; agencyName: string 
   const ref = useDismissable<HTMLDivElement>(open, () => setOpen(false));
   const initials = (email[0] || "U").toUpperCase();
   return (
+    // The theme control sits directly above the account row, at the foot of the
+    // rail: present on every screen of the app, in both the desktop sidebar and
+    // the mobile drawer, without competing with navigation.
     <div ref={ref} className="relative border-t border-ink-200 p-3">
       {open && (
         <div role="menu" className="animate-fade-in absolute bottom-full left-3 right-3 mb-1.5 overflow-hidden rounded-xl border border-ink-200 bg-surface py-1 shadow-lg">
@@ -69,8 +73,10 @@ function AccountMenu({ email, agencyName }: { email: string; agencyName: string 
           </form>
         </div>
       )}
-      <button onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} className="flex w-full items-center gap-2.5 rounded-lg p-2 text-left transition-colors hover:bg-ink-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400">
-        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-brand-500 text-xs font-semibold text-white">{initials}</div>
+      <ThemeToggle className="mb-2 w-full" />
+
+      <button onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} className="flex w-full items-center gap-2.5 rounded-lg p-2 text-left transition-colors hover:bg-ink-100/70 focus-ring">
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-brand-solid text-xs font-semibold text-white">{initials}</div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-ink-800">{agencyName}</p>
           <p className="truncate text-xs text-ink-500">{email}</p>
@@ -89,7 +95,7 @@ export function Sidebar({ agencyName, userEmail }: { agencyName: string; userEma
     <>
       {/* The sidebar sits on the muted page tone rather than card white, so
           cards read as raised against it. */}
-      <aside className="no-print fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-ink-200 bg-surface-muted lg:flex">
+      <aside className="no-print fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-ink-200 bg-sidebar lg:flex">
         <div className="flex h-16 items-center justify-between gap-2 px-5">
           <Link href="/dashboard"><Brand /></Link>
         </div>
@@ -101,7 +107,7 @@ export function Sidebar({ agencyName, userEmail }: { agencyName: string; userEma
       </aside>
 
       {/* Mobile top bar */}
-      <header className="no-print sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-surface px-4 lg:hidden">
+      <header className="no-print sticky top-0 z-30 flex h-14 items-center justify-between border-b border-ink-200 bg-surface px-4 lg:hidden">
         <Link href="/dashboard"><Brand /></Link>
         <div className="flex items-center gap-1">
           <button onClick={() => window.dispatchEvent(new Event("open-command"))} aria-label="Search" className="rounded-lg p-2 text-ink-600 transition-colors hover:bg-ink-100 hover:text-ink-900">
@@ -116,11 +122,13 @@ export function Sidebar({ agencyName, userEmail }: { agencyName: string; userEma
       {/* Mobile drawer */}
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-ink-900/40" onClick={() => setOpen(false)} />
-          <div className="absolute inset-y-0 left-0 flex w-64 flex-col bg-surface shadow-xl">
+          <div className="absolute inset-0 bg-overlay/40" onClick={() => setOpen(false)} />
+          {/* The border, not the shadow, is what separates the drawer from the
+              scrim on the dark theme. */}
+          <div className="absolute inset-y-0 left-0 flex w-64 flex-col border-r border-ink-200 bg-sidebar shadow-xl">
             <div className="flex h-14 items-center justify-between px-5">
               <Brand />
-              <button onClick={() => setOpen(false)} aria-label="Close menu" className="rounded-lg p-2 text-ink-600 hover:bg-slate-100"><X size={20} /></button>
+              <button onClick={() => setOpen(false)} aria-label="Close menu" className="rounded-lg p-2 text-ink-600 hover:bg-ink-100"><X size={20} /></button>
             </div>
             <NavLinks pathname={pathname} onNavigate={() => setOpen(false)} />
             <AccountMenu email={userEmail} agencyName={agencyName} />

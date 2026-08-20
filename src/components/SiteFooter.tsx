@@ -6,7 +6,7 @@ import { COMPANY, DATA_PROMISE, FOOTER_LINKS } from "@/lib/company";
 // Used on the marketing page and every legal page (via LegalShell).
 export function SiteFooter() {
   return (
-    <footer className="border-t border-slate-100 bg-surface">
+    <footer className="border-t border-ink-100 bg-surface">
       <div className="mx-auto max-w-6xl px-5 py-12">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-5">
           <div className="lg:col-span-2">
@@ -29,7 +29,7 @@ export function SiteFooter() {
             </nav>
           ))}
         </div>
-        <div className="mt-10 flex flex-col items-start justify-between gap-2 border-t border-slate-100 pt-6 sm:flex-row sm:items-center">
+        <div className="mt-10 flex flex-col items-start justify-between gap-2 border-t border-ink-100 pt-6 sm:flex-row sm:items-center">
           <p className="text-sm text-ink-500">© {new Date().getFullYear()} {COMPANY.product}. All rights reserved.</p>
           <p className="text-xs text-ink-500">{COMPANY.legalName}</p>
         </div>

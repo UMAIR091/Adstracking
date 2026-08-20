@@ -60,10 +60,10 @@ const SORTS = [
 // with a colour-vision deficiency, and "ready" vs "failed" is exactly the
 // distinction that must never depend on hue.
 const STATUS: Record<string, { label: string; dot: string; text: string; icon: typeof CheckCircle2 }> = {
-  ready: { label: "Ready", dot: "bg-emerald-500", text: "text-emerald-700", icon: CheckCircle2 },
-  generating: { label: "Generating", dot: "bg-amber-500 animate-pulse", text: "text-amber-700", icon: Clock },
+  ready: { label: "Ready", dot: "bg-success-500", text: "text-success-700", icon: CheckCircle2 },
+  generating: { label: "Generating", dot: "bg-warning-500 animate-pulse", text: "text-warning-700", icon: Clock },
   draft: { label: "Draft", dot: "bg-ink-300", text: "text-ink-600", icon: Clock },
-  failed: { label: "Failed", dot: "bg-rose-500", text: "text-rose-700", icon: AlertCircle },
+  failed: { label: "Failed", dot: "bg-danger-500", text: "text-danger-700", icon: AlertCircle },
 };
 
 function StatusPill({ status }: { status: string }) {
@@ -231,7 +231,7 @@ export function ReportsBrowser({
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
             aria-label="Filter by client"
-            className="h-10 rounded-xl border border-ink-200 bg-surface px-3 text-sm text-ink-700 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            className="field h-10"
           >
             <option value="">All clients</option>
             {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -241,7 +241,7 @@ export function ReportsBrowser({
             value={status}
             onChange={(e) => setStatus(e.target.value)}
             aria-label="Filter by status"
-            className="h-10 rounded-xl border border-ink-200 bg-surface px-3 text-sm text-ink-700 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            className="field h-10"
           >
             <option value="">All statuses</option>
             <option value="ready">Ready</option>
@@ -256,7 +256,7 @@ export function ReportsBrowser({
               value={sort}
               onChange={(e) => setSort(e.target.value)}
               aria-label="Sort reports"
-              className="h-10 rounded-xl border border-ink-200 bg-surface pl-8 pr-3 text-sm text-ink-700 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              className="field h-10 pl-8 pr-3"
             >
               {SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
             </select>
@@ -409,7 +409,7 @@ function ReportItem({ r, onDelete }: { r: ReportRow; onDelete: () => void }) {
   }
 
   return (
-    <Card className="group transition-all hover:border-ink-200 hover:shadow-md">
+    <Card className="group transition-all hover:border-ink-200">
       <CardContent className="flex items-center justify-between gap-3 p-4">
         <Link href={`/dashboard/reports/${r.id}`} className="flex min-w-0 flex-1 items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
@@ -441,7 +441,7 @@ function ReportItem({ r, onDelete }: { r: ReportRow; onDelete: () => void }) {
           {/* Delivery at a glance — "was this actually sent?" is the second
               question after "is it ready?", and it used to need a page load. */}
           {(r.failedCount ?? 0) > 0 ? (
-            <span className="hidden items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 sm:inline-flex" title={`${r.failedCount} failed deliveries`}>
+            <span className="hidden items-center gap-1 rounded-full bg-danger-50 px-2 py-0.5 text-[11px] font-medium text-danger-700 sm:inline-flex" title={`${r.failedCount} failed deliveries`}>
               <AlertCircle size={11} aria-hidden /> {r.failedCount} failed
             </span>
           ) : (r.sentCount ?? 0) > 0 ? (
@@ -462,7 +462,7 @@ function ReportItem({ r, onDelete }: { r: ReportRow; onDelete: () => void }) {
               aria-label={`Actions for ${r.title}`}
               aria-haspopup="menu"
               aria-expanded={menu}
-              className="rounded-lg p-2 text-ink-500 hover:bg-ink-100 hover:text-ink-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+              className="rounded-lg p-2 text-ink-500 hover:bg-ink-100 hover:text-ink-700 focus-ring"
             >
               <MoreHorizontal size={18} aria-hidden />
             </button>
@@ -494,7 +494,7 @@ function ReportItem({ r, onDelete }: { r: ReportRow; onDelete: () => void }) {
                 <button
                   role="menuitem"
                   onClick={() => { setMenu(false); onDelete(); }}
-                  className="flex w-full items-center gap-2 border-t border-ink-100 px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50"
+                  className="flex w-full items-center gap-2 border-t border-ink-100 px-3 py-2 text-left text-sm text-danger-600 hover:bg-danger-50"
                 >
                   <Trash2 size={15} aria-hidden /> Delete
                 </button>
@@ -509,7 +509,7 @@ function ReportItem({ r, onDelete }: { r: ReportRow; onDelete: () => void }) {
 
 function MenuLink({ href, onClick, icon, children }: { href: string; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <Link role="menuitem" href={href} onClick={onClick} className="flex items-center gap-2 px-3 py-2 text-sm text-ink-700 hover:bg-surface-muted">
+    <Link role="menuitem" href={href} onClick={onClick} className="flex items-center gap-2 px-3 py-2 text-sm text-ink-700 hover:bg-surface-subtle">
       {icon} {children}
     </Link>
   );
@@ -517,7 +517,7 @@ function MenuLink({ href, onClick, icon, children }: { href: string; onClick: ()
 
 function MenuButton({ onClick, icon, children }: { onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <button role="menuitem" onClick={onClick} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink-700 hover:bg-surface-muted">
+    <button role="menuitem" onClick={onClick} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink-700 hover:bg-surface-subtle">
       {icon} {children}
     </button>
   );

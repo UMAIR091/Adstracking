@@ -88,7 +88,7 @@ export default async function InvitePage({ params }: { params: { token: string }
 
   return (
     <Shell>
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-danger-50 text-danger-600">
         <XCircle size={20} aria-hidden />
       </div>
       <h1 className="mt-4 text-xl font-semibold tracking-tight text-ink-900">This invitation can&apos;t be used</h1>

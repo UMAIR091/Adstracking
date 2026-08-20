@@ -19,7 +19,7 @@ export default function HelpArticlePage({ params }: { params: { slug: string } }
 
   return (
     <div className="min-h-screen bg-surface-muted">
-      <header className="border-b border-slate-200 bg-white">
+      <header className="border-b border-ink-200 bg-surface">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-5 py-4">
           <Link href="/"><Brand /></Link>
           <Link href="/help" className="text-sm font-medium text-brand-600 hover:underline">All articles</Link>
@@ -29,11 +29,11 @@ export default function HelpArticlePage({ params }: { params: { slug: string } }
         <Link href="/help" className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-700">
           <ArrowLeft size={15} /> Help Center
         </Link>
-        <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-brand-500">{article.category}</p>
+        <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-brand-600">{article.category}</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink-900">{article.title}</h1>
         <p className="mt-1 text-ink-500">{article.summary}</p>
 
-        <article className="mt-6 space-y-3 rounded-2xl border border-slate-200 bg-white p-6 text-[15px] leading-relaxed text-ink-700">
+        <article className="mt-6 space-y-3 rounded-2xl border border-ink-200 bg-surface p-6 text-[15px] leading-relaxed text-ink-700">
           {renderBody(article.body)}
         </article>
 

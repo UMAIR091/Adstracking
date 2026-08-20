@@ -28,7 +28,7 @@ export function OnboardingChecklist({ steps }: { steps: OnboardingStep[] }) {
           </div>
           <span className="whitespace-nowrap text-sm font-semibold text-brand-600">{doneCount} of {steps.length} steps completed</span>
         </div>
-        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-ink-100">
           <div
             className="h-full rounded-full bg-brand-500 transition-all"
             style={{ width: `${pct}%` }}
@@ -47,12 +47,12 @@ export function OnboardingChecklist({ steps }: { steps: OnboardingStep[] }) {
             <Link
               key={s.label}
               href={s.href}
-              className={`group flex gap-3 rounded-lg px-2 py-2.5 transition-colors ${isNext ? "items-start bg-brand-50 ring-1 ring-brand-100 hover:bg-brand-100" : "items-center hover:bg-slate-50"}`}
+              className={`group flex gap-3 rounded-lg px-2 py-2.5 transition-colors ${isNext ? "items-start bg-brand-50 ring-1 ring-brand-100 hover:bg-brand-100" : "items-center hover:bg-ink-50"}`}
             >
               {s.done ? (
-                <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-green-600" />
+                <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-success-600" />
               ) : (
-                <Circle className={`h-5 w-5 flex-shrink-0 ${isNext ? "mt-0.5 text-brand-500" : "text-slate-300"}`} />
+                <Circle className={`h-5 w-5 flex-shrink-0 ${isNext ? "mt-0.5 text-brand-500" : "text-ink-300"}`} />
               )}
               {/* The action sits inside the text column rather than beside it:
                   as a third flex child it held its width on a narrow screen and
@@ -63,7 +63,7 @@ export function OnboardingChecklist({ steps }: { steps: OnboardingStep[] }) {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={`text-sm ${s.done ? "text-ink-500 line-through" : isNext ? "font-medium text-ink-900" : "text-ink-800"}`}>{s.label}</span>
-                    {isNext && <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">Next</span>}
+                    {isNext && <span className="rounded-full bg-brand-solid px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">Next</span>}
                   </div>
                   {/* The description earns its space only on the step being asked
                       for right now — on the others it would be a wall of text
@@ -73,12 +73,12 @@ export function OnboardingChecklist({ steps }: { steps: OnboardingStep[] }) {
                   )}
                 </div>
                 {isNext && (
-                  <span className="mt-2 inline-flex flex-shrink-0 items-center gap-1 whitespace-nowrap rounded-lg bg-brand-500 px-2.5 py-1.5 text-xs font-medium text-white transition-colors group-hover:bg-brand-600 sm:mt-0">
+                  <span className="mt-2 inline-flex flex-shrink-0 items-center gap-1 whitespace-nowrap rounded-lg bg-brand-solid px-2.5 py-1.5 text-xs font-medium text-white transition-colors group-hover:bg-brand-solid-hover sm:mt-0">
                     {s.cta ?? s.label} <ArrowRight className="h-3.5 w-3.5" />
                   </span>
                 )}
               </div>
-              {!isNext && !s.done && <ArrowRight className="h-4 w-4 flex-shrink-0 text-slate-300 group-hover:text-brand-500" />}
+              {!isNext && !s.done && <ArrowRight className="h-4 w-4 flex-shrink-0 text-ink-300 group-hover:text-brand-500" />}
             </Link>
           );
         })}

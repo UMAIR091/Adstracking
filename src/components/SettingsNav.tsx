@@ -64,10 +64,15 @@ export function SettingsNav() {
                     <Link
                       href={item.href}
                       aria-current={active ? "page" : undefined}
+                      // Same selected treatment as the sidebar: a surface card
+                      // lifted off the page with a hairline ring, and the accent
+                      // carried by the label rather than a colour wash behind
+                      // it. Two vertical navigations in one product should not
+                      // express "you are here" two different ways.
                       className={`block whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors ${
                         active
-                          ? "bg-brand-50 font-medium text-brand-700"
-                          : "text-ink-600 hover:bg-surface-muted hover:text-ink-900"
+                          ? "bg-surface font-semibold text-brand-700 shadow-xs ring-1 ring-ink-200/70"
+                          : "font-medium text-ink-600 hover:bg-ink-100/70 hover:text-ink-900"
                       }`}
                     >
                       {item.label}

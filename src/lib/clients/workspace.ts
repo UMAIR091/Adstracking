@@ -19,6 +19,7 @@ import type { ConnectableIntegration } from "@/components/ConnectAccountModal";
 import { liveIntegrations, listIntegrations, isConnectable } from "@/lib/integrations/registry";
 import { hasAnalyticsView, groupForIntegration } from "@/lib/integrations/analyticsViews";
 import { sourceHealth } from "@/lib/integrations/status";
+import type { CachedPeriodDays } from "@/lib/reports/periods";
 import type { IntegrationDef } from "@/lib/integrations/types";
 
 export type WorkspaceIntegration = {
@@ -35,6 +36,8 @@ export type WorkspaceIntegration = {
 };
 
 export type ClientWorkspace = {
+  /** Which cached window every snapshot in this load came from. */
+  periodDays: CachedPeriodDays;
   integrations: WorkspaceIntegration[];
   /** Sources the user has actually connected. */
   connectedIntegrations: WorkspaceIntegration[];
@@ -66,8 +69,17 @@ type DsRow = {
 // needs_reconnect, in that order of how blocking they are.
 const ATTENTION_RANK: Record<string, number> = { needs_reconnect: 0, sync_error: 1, needs_account: 2, healthy: 3 };
 
-export async function loadClientWorkspace(supabase: SupabaseClient, clientId: string): Promise<ClientWorkspace> {
-  // Load this client's connections + cached 28-day snapshots WITHOUT an N+1:
+export async function loadClientWorkspace(
+  supabase: SupabaseClient,
+  clientId: string,
+  // Which cached snapshot window to read. Every sync stores one row per window
+  // in CACHED_PERIOD_DAYS, so this only ever selects between rows that already
+  // exist — no derivation, no provider call, no change to any figure. 28 stays
+  // the default, so every tab but Performance loads exactly as it did before.
+  periodDays: CachedPeriodDays = 28,
+): Promise<ClientWorkspace> {
+  // Load this client's connections + the cached snapshots for `periodDays`
+  // WITHOUT an N+1:
   // one query for all data_sources, then one query per snapshot table for the
   // connected sources (was: 2 queries × every live integration ≈ 60/page load).
   const { data: dsRows } = await supabase
@@ -94,7 +106,7 @@ export async function loadClientWorkspace(supabase: SupabaseClient, clientId: st
         .from(table)
         .select("data_source_id, data")
         .in("data_source_id", ids)
-        .eq("period_days", 28);
+        .eq("period_days", periodDays);
       for (const s of snaps ?? []) snapshotByDsId.set(s.data_source_id as string, (s.data as unknown) ?? null);
     }),
   );
@@ -181,6 +193,7 @@ export async function loadClientWorkspace(supabase: SupabaseClient, clientId: st
   }));
 
   return {
+    periodDays,
     integrations,
     connectedIntegrations,
     sortedConnected,

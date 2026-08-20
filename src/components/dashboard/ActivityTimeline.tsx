@@ -26,9 +26,9 @@ const ICONS: Record<string, LucideIcon> = {
 // for a success at a glance.
 const TONES: Record<ActivityTone, { dot: string; ring: string; text: string }> = {
   neutral: { dot: "bg-brand-50 text-brand-600", ring: "ring-brand-100", text: "text-ink-800" },
-  positive: { dot: "bg-emerald-50 text-emerald-600", ring: "ring-emerald-100", text: "text-ink-800" },
-  warning: { dot: "bg-amber-50 text-amber-600", ring: "ring-amber-100", text: "text-ink-800" },
-  danger: { dot: "bg-rose-50 text-rose-600", ring: "ring-rose-100", text: "text-rose-700" },
+  positive: { dot: "bg-success-50 text-success-600", ring: "ring-success-100", text: "text-ink-800" },
+  warning: { dot: "bg-warning-50 text-warning-600", ring: "ring-warning-100", text: "text-ink-800" },
+  danger: { dot: "bg-danger-50 text-danger-600", ring: "ring-danger-100", text: "text-danger-700" },
 };
 
 function Row({ event, last }: { event: ActivityEvent; last: boolean }) {
@@ -57,7 +57,7 @@ function Row({ event, last }: { event: ActivityEvent; last: boolean }) {
           </time>
         </div>
         {event.detail && (
-          <p className={`mt-0.5 truncate text-xs ${meta.tone === "danger" ? "text-rose-600" : "text-ink-500"}`}>
+          <p className={`mt-0.5 truncate text-xs ${meta.tone === "danger" ? "text-danger-600" : "text-ink-500"}`}>
             {event.detail}
           </p>
         )}
@@ -70,7 +70,7 @@ function Row({ event, last }: { event: ActivityEvent; last: boolean }) {
       {event.href ? (
         <Link
           href={event.href}
-          className="-mx-2 block rounded-lg px-2 py-1 transition-colors hover:bg-surface-muted focus-visible:bg-surface-muted"
+          className="-mx-2 block rounded-lg px-2 py-1 transition-colors hover:bg-surface-subtle focus-visible:bg-surface-subtle"
         >
           {body}
         </Link>

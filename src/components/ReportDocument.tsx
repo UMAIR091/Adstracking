@@ -294,7 +294,10 @@ export function ReportDocument({
   const next = () => (n += 1);
 
   return (
-    <div className="mx-auto max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm print:border-0 print:shadow-none">
+    // theme-light pins the whole document to the light palette: a report is a
+    // deliverable that gets printed, exported to PDF and opened by a client, so
+    // it stays on white paper regardless of the theme the app is being read in.
+    <div className="theme-light mx-auto max-w-3xl overflow-hidden rounded-2xl border border-ink-200 bg-white text-ink-900 shadow-sm print:border-0 print:shadow-none">
       {/* Cover */}
       <div className="px-6 py-10 text-white sm:px-10 sm:py-12" style={{ background: `linear-gradient(135deg, ${color}, ${shade(color)})` }}>
         <div className="flex items-center justify-between gap-3">
@@ -356,7 +359,7 @@ export function ReportDocument({
           )}
 
           {coverageNote && (
-            <p className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs leading-relaxed text-ink-600">
+            <p className="mt-4 rounded-lg border border-ink-200 bg-ink-50 px-3.5 py-2.5 text-xs leading-relaxed text-ink-600">
               {coverageNote}
             </p>
           )}
@@ -367,7 +370,7 @@ export function ReportDocument({
               recovered from daily totals. Saying so is the honest alternative
               to omitting them silently or estimating them. */}
           {unavailable.length > 0 && (
-            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-3">
+            <div className="mt-4 rounded-lg border border-ink-200 bg-ink-50 px-3.5 py-3">
               <p className="text-xs font-semibold text-ink-700">Not available for this period</p>
               <ul className="mt-1.5 space-y-1.5">
                 {unavailable.map((u) => (
@@ -388,7 +391,7 @@ export function ReportDocument({
               {ga4 && <KpiGroup label="Website engagement (GA4)" icon={BarChart3} color={color} kpis={ga4Kpis} />}
             </div>
             {gsc && ga4 && (
-              <p className="mt-4 rounded-lg bg-slate-50 px-4 py-3 text-xs text-ink-600">
+              <p className="mt-4 rounded-lg bg-ink-50 px-4 py-3 text-xs text-ink-600">
                 <span className="font-semibold text-ink-800">{fmt(gsc.totals.clicks)}</span> organic search clicks drove a site that saw{" "}
                 <span className="font-semibold text-ink-800">{fmt(ga4.totals.sessions)}</span> sessions at{" "}
                 <span className="font-semibold text-ink-800">{pct1(ga4.totals.engagementRate)}</span> engagement
@@ -468,7 +471,7 @@ export function ReportDocument({
                 </thead>
                 <tbody>
                   {landing.map((r) => (
-                    <tr key={r.path} className="border-t border-slate-100">
+                    <tr key={r.path} className="border-t border-ink-100">
                       <td className="max-w-0 truncate py-2 pr-3 text-ink-800" title={r.path}>{r.path}</td>
                       {gsc && <td className="py-2 text-right text-ink-700">{r.clicks != null ? fmt(r.clicks) : "—"}</td>}
                       {gsc && <td className="py-2 text-right text-ink-600">{r.impressions != null ? fmt(r.impressions) : "—"}</td>}
@@ -498,7 +501,7 @@ export function ReportDocument({
                 </thead>
                 <tbody>
                   {gsc.topQueries.slice(0, 8).map((q) => (
-                    <tr key={q.key} className="border-t border-slate-100">
+                    <tr key={q.key} className="border-t border-ink-100">
                       <td className="max-w-0 truncate py-2 pr-3 font-medium text-ink-800">{q.key}</td>
                       <td className="py-2 text-right text-ink-700">{fmt(q.clicks)}</td>
                       <td className="py-2 text-right text-ink-600">{fmt(q.impressions)}</td>
@@ -513,12 +516,12 @@ export function ReportDocument({
               <div className="mt-5 grid gap-6 lg:grid-cols-2">
                 {winners.length > 0 && (
                   <div>
-                    <p className="mb-2 text-xs font-semibold text-emerald-700">Winning keywords</p>
+                    <p className="mb-2 text-xs font-semibold text-success-700">Winning keywords</p>
                     <ul className="space-y-2">
                       {winners.map((k) => (
-                        <li key={k.key} className="flex items-center justify-between gap-3 rounded-lg border border-emerald-100 bg-emerald-50/60 px-3 py-2">
+                        <li key={k.key} className="flex items-center justify-between gap-3 rounded-lg border border-success-100 bg-success-50/60 px-3 py-2">
                           <span className="min-w-0 truncate text-sm font-medium text-ink-800">{k.key}</span>
-                          <span className="inline-flex flex-shrink-0 items-center gap-0.5 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700"><ArrowUpRight size={12} /> {Math.round(k.changePct)}%</span>
+                          <span className="inline-flex flex-shrink-0 items-center gap-0.5 rounded-full bg-success-100 px-2 py-0.5 text-xs font-semibold text-success-700"><ArrowUpRight size={12} /> {Math.round(k.changePct)}%</span>
                         </li>
                       ))}
                     </ul>
@@ -526,12 +529,12 @@ export function ReportDocument({
                 )}
                 {decliners.length > 0 && (
                   <div>
-                    <p className="mb-2 text-xs font-semibold text-rose-600">Declining keywords</p>
+                    <p className="mb-2 text-xs font-semibold text-danger-600">Declining keywords</p>
                     <ul className="space-y-2">
                       {decliners.map((k) => (
-                        <li key={k.key} className="flex items-center justify-between gap-3 rounded-lg border border-rose-100 bg-rose-50/60 px-3 py-2">
+                        <li key={k.key} className="flex items-center justify-between gap-3 rounded-lg border border-danger-100 bg-danger-50/60 px-3 py-2">
                           <span className="min-w-0 truncate text-sm font-medium text-ink-800">{k.key}</span>
-                          <span className="inline-flex flex-shrink-0 items-center gap-0.5 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-600"><ArrowDownRight size={12} /> {Math.abs(Math.round(k.changePct))}%</span>
+                          <span className="inline-flex flex-shrink-0 items-center gap-0.5 rounded-full bg-danger-100 px-2 py-0.5 text-xs font-semibold text-danger-600"><ArrowDownRight size={12} /> {Math.abs(Math.round(k.changePct))}%</span>
                         </li>
                       ))}
                     </ul>
@@ -578,8 +581,8 @@ export function ReportDocument({
             {ins && ins.growthOpportunities.length > 0 && (
               <ul className={`space-y-2 ${opportunities.length > 0 ? "mt-4" : ""}`}>
                 {ins.growthOpportunities.map((g, i) => (
-                  <li key={i} className="flex gap-2.5 rounded-lg border border-amber-100 bg-amber-50/40 px-3 py-2.5 text-sm text-ink-700">
-                    <Lightbulb size={15} className="mt-0.5 flex-shrink-0 text-amber-500" />
+                  <li key={i} className="flex gap-2.5 rounded-lg border border-warning-100 bg-warning-50/40 px-3 py-2.5 text-sm text-ink-700">
+                    <Lightbulb size={15} className="mt-0.5 flex-shrink-0 text-warning-500" />
                     <span>{g}</span>
                   </li>
                 ))}
@@ -626,13 +629,13 @@ export function ReportDocument({
                   const d = k.value === null || k.previous === null || k.previous === 0 ? null : (k.value - k.previous) / Math.abs(k.previous);
                   const good = d === null ? null : k.lowerBetter ? d < 0 : d > 0;
                   return (
-                    <div key={k.label} className="rounded-xl border border-slate-200 bg-white p-3">
+                    <div key={k.label} className="rounded-xl border border-ink-200 bg-white p-3">
                       <p className="text-xs text-ink-500">{k.label}</p>
                       <p className="mt-1 text-lg font-semibold text-ink-900">
                         {formatBlockValue(k.value, k.format, block.currency)}
                       </p>
                       {d !== null && (
-                        <p className={`mt-0.5 text-xs font-medium ${good ? "text-emerald-600" : "text-rose-600"}`}>
+                        <p className={`mt-0.5 text-xs font-medium ${good ? "text-success-600" : "text-danger-600"}`}>
                           {d > 0 ? "▲" : "▼"} {Math.abs(d * 100).toFixed(1)}%
                         </p>
                       )}
@@ -648,7 +651,7 @@ export function ReportDocument({
                   <p className="mb-2 text-xs font-medium text-ink-600">{table.title}</p>
                   <table className="w-full min-w-[420px] text-sm">
                     <thead>
-                      <tr className="border-b border-slate-200 text-left text-xs text-ink-500">
+                      <tr className="border-b border-ink-200 text-left text-xs text-ink-500">
                         {table.columns.map((c) => (
                           <th key={c.key} className="py-2 pr-3 font-medium">{c.label}</th>
                         ))}
@@ -656,7 +659,7 @@ export function ReportDocument({
                     </thead>
                     <tbody>
                       {table.rows.slice(0, 8).map((row, ri) => (
-                        <tr key={ri} className="border-b border-slate-100 last:border-0">
+                        <tr key={ri} className="border-b border-ink-100 last:border-0">
                           {table.columns.map((c) => (
                             <td key={c.key} className="py-2 pr-3 text-ink-700">
                               {typeof row[c.key] === "number"
@@ -689,11 +692,11 @@ export function ReportDocument({
           <Section n={next()} title="What stood out, and what it means" subtitle="Highlights from the period, and what they point to" color={color}>
             {ins && ins.keyWins.length > 0 && (
               <>
-                <p className="mb-2 text-xs font-semibold text-emerald-700">Key wins</p>
+                <p className="mb-2 text-xs font-semibold text-success-700">Key wins</p>
                 <ul className="space-y-2">
                   {ins.keyWins.map((w, i) => (
-                    <li key={i} className="flex gap-2.5 rounded-lg border border-emerald-100 bg-emerald-50/50 px-3 py-2.5 text-sm text-ink-700">
-                      <Trophy size={15} className="mt-0.5 flex-shrink-0 text-emerald-600" />
+                    <li key={i} className="flex gap-2.5 rounded-lg border border-success-100 bg-success-50/50 px-3 py-2.5 text-sm text-ink-700">
+                      <Trophy size={15} className="mt-0.5 flex-shrink-0 text-success-600" />
                       <span>{w}</span>
                     </li>
                   ))}
@@ -703,11 +706,11 @@ export function ReportDocument({
 
             {ins && ins.issuesDetected.length > 0 && (
               <>
-                <p className={`mb-2 text-xs font-semibold text-rose-600 ${ins.keyWins.length > 0 ? "mt-5" : ""}`}>Issues detected</p>
+                <p className={`mb-2 text-xs font-semibold text-danger-600 ${ins.keyWins.length > 0 ? "mt-5" : ""}`}>Issues detected</p>
                 <ul className="space-y-2">
                   {ins.issuesDetected.map((it, i) => (
-                    <li key={i} className="flex gap-2.5 rounded-lg border border-rose-100 bg-rose-50/50 px-3 py-2.5 text-sm text-ink-700">
-                      <AlertTriangle size={15} className="mt-0.5 flex-shrink-0 text-rose-500" />
+                    <li key={i} className="flex gap-2.5 rounded-lg border border-danger-100 bg-danger-50/50 px-3 py-2.5 text-sm text-ink-700">
+                      <AlertTriangle size={15} className="mt-0.5 flex-shrink-0 text-danger-500" />
                       <span>{it}</span>
                     </li>
                   ))}
@@ -721,7 +724,7 @@ export function ReportDocument({
                   <p className="text-xs font-semibold text-ink-600">What this means</p>
                 )}
                 {soWhat.map((w) => (
-                  <div key={w.observation} className="border-l-2 border-slate-200 pl-4">
+                  <div key={w.observation} className="border-l-2 border-ink-200 pl-4">
                     <p className="text-sm font-semibold text-ink-900">{w.observation}</p>
                     <p className="mt-1 text-sm leading-relaxed text-ink-700">{w.meaning}</p>
                     <p className="mt-1.5 text-xs text-ink-500">
@@ -744,7 +747,7 @@ export function ReportDocument({
             {/* Nothing measured cleared the bar. Said outright, because a
                 section that silently disappears reads as an omission. */}
             {evidenceActions.length === 0 && (
-              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-3 text-sm leading-relaxed text-ink-600">
+              <p className="rounded-lg border border-ink-200 bg-ink-50 px-3.5 py-3 text-sm leading-relaxed text-ink-600">
                 {NO_EVIDENCE_NOTE}
               </p>
             )}
@@ -752,12 +755,12 @@ export function ReportDocument({
             {evidenceActions.length > 0 && (
               <ul className="space-y-3">
                 {evidenceActions.map((a) => (
-                  <li key={a.action} className="flex gap-3 rounded-lg border border-slate-100 bg-white p-3">
+                  <li key={a.action} className="flex gap-3 rounded-lg border border-ink-100 bg-white p-3">
                     <span
                       className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                        a.priority === "High" ? "bg-amber-50 text-amber-700"
-                        : a.priority === "Medium" ? "bg-slate-100 text-ink-700"
-                        : "bg-slate-50 text-ink-500"
+                        a.priority === "High" ? "bg-warning-50 text-warning-700"
+                        : a.priority === "Medium" ? "bg-ink-100 text-ink-700"
+                        : "bg-ink-50 text-ink-500"
                       }`}
                     >
                       {a.priority}
@@ -776,7 +779,7 @@ export function ReportDocument({
                 <p className="mb-2 text-xs font-semibold text-ink-600">Further commentary</p>
                 <ol className="space-y-2">
                   {commentary.map((r, i) => (
-                    <li key={i} className="flex gap-3 rounded-lg border border-slate-100 bg-white p-3">
+                    <li key={i} className="flex gap-3 rounded-lg border border-ink-100 bg-white p-3">
                       <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white" style={{ background: color }}>{i + 1}</span>
                       <p className="text-sm text-ink-700">{r}</p>
                     </li>
@@ -793,7 +796,7 @@ export function ReportDocument({
             never said — in italics, under "A note from your team". */}
         {note && (
           <Section n={next()} title="Agency Notes" subtitle="A note from your team" color={color}>
-            <div className="flex gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-4">
+            <div className="flex gap-3 rounded-xl border border-dashed border-ink-200 bg-ink-50/50 p-4">
               <StickyNote size={18} className="mt-0.5 flex-shrink-0 text-ink-500" />
               <p className="text-sm italic leading-relaxed text-ink-600">{note}</p>
             </div>
@@ -801,7 +804,7 @@ export function ReportDocument({
         )}
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-slate-100 pt-5 text-xs text-ink-500">
+        <div className="flex items-center justify-between border-t border-ink-100 pt-5 text-xs text-ink-500">
           <span>Prepared by {branding.name || "Your Agency"}</span>
           {branding.website && <span>{branding.website}</span>}
         </div>
@@ -828,9 +831,9 @@ function Section({ n, title, subtitle, color, children }: { n: number; title: st
 
 function Callout({ tone, icon: Icon, title, text }: { tone: "emerald" | "rose" | "amber"; icon: typeof TrendingUp; title: string; text: string }) {
   const tones = {
-    emerald: "border-emerald-100 bg-emerald-50/60 text-emerald-700",
-    rose: "border-rose-100 bg-rose-50/60 text-rose-600",
-    amber: "border-amber-100 bg-amber-50/60 text-amber-700",
+    emerald: "border-success-100 bg-success-50/60 text-success-700",
+    rose: "border-danger-100 bg-danger-50/60 text-danger-600",
+    amber: "border-warning-100 bg-warning-50/60 text-warning-700",
   } as const;
   return (
     <div className={`rounded-lg border p-3 ${tones[tone]}`}>
@@ -846,11 +849,11 @@ function KpiGroup({ label, icon: Icon, color, kpis }: { label: string; icon: typ
       <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold" style={{ color }}><Icon size={13} /> {label}</p>
       <div className="grid grid-cols-2 gap-3">
         {kpis.map((m) => (
-          <div key={m.l} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+          <div key={m.l} className="rounded-xl border border-ink-100 bg-ink-50 p-4">
             <p className="text-xs text-ink-500">{m.l}</p>
             <p className="mt-1 text-xl font-semibold" style={{ color }}>{m.v}</p>
             {m.d && (
-              <p className={`mt-1 inline-flex items-center gap-0.5 text-xs font-medium ${m.d.good ? "text-emerald-600" : "text-rose-500"}`}>
+              <p className={`mt-1 inline-flex items-center gap-0.5 text-xs font-medium ${m.d.good ? "text-success-600" : "text-danger-500"}`}>
                 {m.d.pct >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
                 {Math.abs(m.d.pct).toFixed(0)}%
               </p>
@@ -864,7 +867,7 @@ function KpiGroup({ label, icon: Icon, color, kpis }: { label: string; icon: typ
 
 function MiniStat({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+    <div className="rounded-xl border border-ink-100 bg-ink-50 p-3">
       <p className="text-xs text-ink-500">{label}</p>
       <p className="mt-0.5 text-lg font-semibold" style={{ color }}>{value}</p>
     </div>
@@ -909,7 +912,7 @@ function DimTable({ rows, label, format = (k) => k }: { rows: { key: string; ses
       </thead>
       <tbody>
         {rows.slice(0, 6).map((r) => (
-          <tr key={r.key} className="border-t border-slate-100">
+          <tr key={r.key} className="border-t border-ink-100">
             <td className="max-w-0 truncate py-2 pr-3 text-ink-800">{format(r.key)}</td>
             <td className="py-2 text-right text-ink-600">{fmt(r.sessions)}</td>
             <td className="py-2 text-right text-ink-600">{fmt(r.users)}</td>

@@ -11,9 +11,9 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, Info, X } from "lucide-react";
 
 const STYLES = {
-  info: { bg: "bg-sky-50 border-sky-200 text-sky-800", Icon: Info },
-  warning: { bg: "bg-amber-50 border-amber-200 text-amber-900", Icon: AlertTriangle },
-  critical: { bg: "bg-red-50 border-red-200 text-red-800", Icon: AlertTriangle },
+  info: { bg: "bg-info-50 border-info-200 text-info-800", Icon: Info },
+  warning: { bg: "bg-warning-50 border-warning-200 text-warning-900", Icon: AlertTriangle },
+  critical: { bg: "bg-danger-50 border-danger-200 text-danger-800", Icon: AlertTriangle },
 } as const;
 
 export function IncidentBanner() {
@@ -36,7 +36,7 @@ export function IncidentBanner() {
           {message}
           {url && <> <a href={url} target="_blank" rel="noopener noreferrer" className="font-medium underline">Status page</a></>}
         </p>
-        <button onClick={() => setDismissed(true)} aria-label="Dismiss" className="rounded p-1 hover:bg-black/5"><X size={15} /></button>
+        <button onClick={() => setDismissed(true)} aria-label="Dismiss" className="rounded p-1 hover:bg-overlay/5"><X size={15} /></button>
       </div>
     </div>
   );

@@ -8,17 +8,17 @@ import { cn } from "@/lib/utils";
 // offset uses the surface colour so the focus halo reads correctly on cards and
 // on the page background.
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-150 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-150 active:translate-y-px focus-ring disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
         // Press feedback comes from the shared `active:translate-y-px`; a third
         // fill stop would just be another token to keep accessible.
-        default: "bg-brand-500 text-white shadow-sm hover:bg-brand-600",
+        default: "bg-brand-solid text-white shadow-sm hover:bg-brand-solid-hover",
         outline: "border border-ink-200 bg-surface text-ink-700 shadow-xs hover:border-ink-300 hover:bg-ink-50 hover:text-ink-900",
         secondary: "bg-ink-100 text-ink-800 hover:bg-ink-200",
         ghost: "text-ink-600 hover:bg-ink-100 hover:text-ink-900",
-        destructive: "bg-danger-600 text-white shadow-sm hover:bg-danger-700",
+        destructive: "bg-danger-solid text-white shadow-sm hover:bg-danger-solid-hover",
       },
       size: {
         default: "h-9 px-3.5 py-2",

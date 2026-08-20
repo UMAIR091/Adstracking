@@ -24,8 +24,8 @@ export function WelcomeBack({ data }: { data: WelcomeBackData }) {
 
   const stats = [
     { show: data.reportsSent > 0, icon: FileBarChart2, tint: "text-brand-600", label: `${data.reportsSent} report${data.reportsSent === 1 ? "" : "s"} generated` },
-    { show: data.syncedSources > 0, icon: RefreshCw, tint: "text-emerald-600", label: `${data.syncedSources} source${data.syncedSources === 1 ? "" : "s"} refreshed` },
-    { show: data.schedulesToday > 0, icon: CalendarClock, tint: "text-sky-600", label: `${data.schedulesToday} scheduled today` },
+    { show: data.syncedSources > 0, icon: RefreshCw, tint: "text-success-600", label: `${data.syncedSources} source${data.syncedSources === 1 ? "" : "s"} refreshed` },
+    { show: data.schedulesToday > 0, icon: CalendarClock, tint: "text-info-600", label: `${data.schedulesToday} scheduled today` },
   ].filter((s) => s.show);
 
   return (
@@ -51,8 +51,8 @@ export function WelcomeBack({ data }: { data: WelcomeBackData }) {
         </div>
 
         {data.failedSyncs > 0 && (
-          <Link href="/dashboard/settings/health" className="mt-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 hover:bg-amber-100">
-            <AlertTriangle size={15} className="flex-shrink-0 text-amber-600" />
+          <Link href="/dashboard/settings/health" className="mt-3 flex items-center gap-2 rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-sm text-warning-800 hover:bg-warning-100">
+            <AlertTriangle size={15} className="flex-shrink-0 text-warning-600" />
             {data.failedSyncs} source{data.failedSyncs === 1 ? "" : "s"} need{data.failedSyncs === 1 ? "s" : ""} attention — reconnect to keep reports accurate →
           </Link>
         )}

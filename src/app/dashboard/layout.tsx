@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Toaster } from "sonner";
 import { getCurrentUserAndAgency } from "@/lib/agency";
@@ -10,6 +11,7 @@ import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import { AnalyticsIdentify } from "@/components/AnalyticsIdentify";
 import { IncidentBanner } from "@/components/IncidentBanner";
 import { FeedbackWidget } from "@/components/FeedbackWidget";
+import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, agency } = await getCurrentUserAndAgency();
@@ -21,8 +23,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const billing = agency ? await getSubscriptionState(createClient(), agency.id) : null;
 
+  // The dashboard CSP carries 'strict-dynamic', which makes the browser
+  // ignore the 'self' that lets /theme.js run on the marketing pages — so the
+  // same snippet is inlined here with the request nonce. This layout is already
+  // dynamic (it awaits the session), so reading the header costs nothing.
+  const nonce = headers().get("x-nonce") ?? undefined;
+
   return (
     <ConfirmProvider>
+      <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       <AnalyticsIdentify userId={user.id} email={user.email ?? null} agencyName={agency?.name ?? null} />
       <IncidentBanner />
       <FeedbackWidget />

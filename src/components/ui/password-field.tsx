@@ -10,15 +10,15 @@ import { passwordChecks, type PasswordChecks } from "@/lib/password";
 export { passwordChecks, type PasswordChecks };
 
 const STRENGTH = [
-  { label: "Too short", color: "bg-red-400", text: "text-red-600" },
-  { label: "Weak", color: "bg-red-400", text: "text-red-600" },
-  { label: "Fair", color: "bg-amber-400", text: "text-amber-600" },
-  { label: "Good", color: "bg-emerald-400", text: "text-emerald-600" },
-  { label: "Strong", color: "bg-emerald-500", text: "text-emerald-600" },
+  { label: "Too short", color: "bg-danger-400", text: "text-danger-600" },
+  { label: "Weak", color: "bg-danger-400", text: "text-danger-600" },
+  { label: "Fair", color: "bg-warning-400", text: "text-warning-600" },
+  { label: "Good", color: "bg-success-400", text: "text-success-600" },
+  { label: "Strong", color: "bg-success-500", text: "text-success-600" },
 ];
 
 const inputClass =
-  "w-full rounded-lg border border-slate-300 px-3 py-2 pr-10 text-sm text-ink-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100";
+  "field w-full py-2 pr-10";
 
 export function PasswordField({
   value,
@@ -65,7 +65,7 @@ export function PasswordField({
           onClick={() => setShow((s) => !s)}
           aria-label={show ? "Hide password" : "Show password"}
           aria-pressed={show}
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-ink-500 hover:bg-slate-100 hover:text-ink-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-ink-500 hover:bg-ink-100 hover:text-ink-700 focus-ring"
         >
           {show ? <EyeOff size={16} /> : <Eye size={16} />}
         </button>
@@ -97,7 +97,7 @@ export function PasswordField({
 
 function Req({ ok, children }: { ok: boolean; children: React.ReactNode }) {
   return (
-    <li className={`flex items-center gap-1.5 text-xs ${ok ? "text-emerald-600" : "text-ink-500"}`}>
+    <li className={`flex items-center gap-1.5 text-xs ${ok ? "text-success-600" : "text-ink-500"}`}>
       {ok ? <Check size={13} className="shrink-0" /> : <X size={13} className="shrink-0 text-ink-400" />}
       {children}
     </li>

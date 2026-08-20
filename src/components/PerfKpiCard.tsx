@@ -56,7 +56,7 @@ export function PerfKpiCard({
   const up = (deltaPct ?? 0) >= 0;
 
   return (
-    <Card className="h-full transition-shadow hover:shadow-md">
+    <Card className="h-full transition-colors hover:border-ink-300">
       <CardContent className="flex h-full flex-col p-5">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -71,7 +71,7 @@ export function PerfKpiCard({
           {deltaPct !== null && (
             <span
               className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums ${
-                good ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-600"
+                good ? "bg-success-50 text-success-700" : "bg-danger-50 text-danger-600"
               }`}
             >
               {up ? <ArrowUpRight size={12} aria-hidden /> : <ArrowDownRight size={12} aria-hidden />}

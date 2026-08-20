@@ -84,7 +84,9 @@ export function ReportPreview({ branding }: { branding: Branding }) {
   const color = branding.brand_color || "#4f46e5";
 
   return (
-    <div className="mx-auto max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    // Same rule as ReportDocument: the preview shows the deliverable, so it
+    // keeps the light palette whatever the surrounding app is set to.
+    <div className="theme-light mx-auto max-w-3xl overflow-hidden rounded-2xl border border-ink-200 bg-white text-ink-900 shadow-sm">
       {/* ── Cover ── */}
       <div className="px-6 py-10 text-white sm:px-10 sm:py-12" style={{ background: `linear-gradient(135deg, ${color}, ${shade(color)})` }}>
         <div className="flex items-center justify-between gap-3">
@@ -110,8 +112,8 @@ export function ReportPreview({ branding }: { branding: Branding }) {
         <Section n={1} title="Executive Summary" subtitle="Performance at a glance" color={color}>
           <p className="text-sm leading-relaxed text-ink-700">
             Organic search had a <span className="font-semibold text-ink-900">strong month</span>. Clicks grew{" "}
-            <span className="font-semibold text-emerald-600">+18.4%</span> and impressions{" "}
-            <span className="font-semibold text-emerald-600">+12.1%</span>, while average position improved from 11.4 to{" "}
+            <span className="font-semibold text-success-600">+18.4%</span> and impressions{" "}
+            <span className="font-semibold text-success-600">+12.1%</span>, while average position improved from 11.4 to{" "}
             <span className="font-semibold text-ink-900">9.8</span>. Growth was led by high-intent product terms — “carbon plate running shoes” more than doubled its traffic — though a few budget-oriented keywords softened.
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -125,10 +127,10 @@ export function ReportPreview({ branding }: { branding: Branding }) {
         <Section n={2} title="KPI Overview" subtitle="Period-over-period vs. the prior 28 days" color={color}>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {kpis.map((m) => (
-              <div key={m.label} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+              <div key={m.label} className="rounded-xl border border-ink-100 bg-ink-50 p-4">
                 <p className="text-xs text-ink-500">{m.label}</p>
                 <p className="mt-1 text-2xl font-semibold" style={{ color }}>{m.value}</p>
-                <p className={`mt-1 inline-flex items-center gap-0.5 text-xs font-medium ${m.good ? "text-emerald-600" : "text-rose-500"}`}>
+                <p className={`mt-1 inline-flex items-center gap-0.5 text-xs font-medium ${m.good ? "text-success-600" : "text-danger-500"}`}>
                   {m.delta >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
                   {Math.abs(m.delta).toFixed(1)}%
                 </p>
@@ -193,7 +195,7 @@ export function ReportPreview({ branding }: { branding: Branding }) {
               </thead>
               <tbody>
                 {topQueries.map((q) => (
-                  <tr key={q.q} className="border-t border-slate-100">
+                  <tr key={q.q} className="border-t border-ink-100">
                     <td className="max-w-0 truncate py-2 pr-3 font-medium text-ink-800">{q.q}</td>
                     <td className="py-2 text-right text-ink-700">{fmt(q.clicks)}</td>
                     <td className="py-2 text-right text-ink-600">{fmt(q.impr)}</td>
@@ -211,12 +213,12 @@ export function ReportPreview({ branding }: { branding: Branding }) {
           <Section n={5} title="Winning Keywords" subtitle="Strongest growth this period" color={color}>
             <ul className="space-y-2">
               {winners.map((k) => (
-                <li key={k.q} className="flex items-center justify-between gap-3 rounded-lg border border-emerald-100 bg-emerald-50/60 px-3 py-2">
+                <li key={k.q} className="flex items-center justify-between gap-3 rounded-lg border border-success-100 bg-success-50/60 px-3 py-2">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-ink-800">{k.q}</p>
                     <p className="text-[11px] text-ink-500">Position {k.from} → {k.pos}</p>
                   </div>
-                  <span className="inline-flex flex-shrink-0 items-center gap-0.5 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700"><ArrowUpRight size={12} /> {k.growth}%</span>
+                  <span className="inline-flex flex-shrink-0 items-center gap-0.5 rounded-full bg-success-100 px-2 py-0.5 text-xs font-semibold text-success-700"><ArrowUpRight size={12} /> {k.growth}%</span>
                 </li>
               ))}
             </ul>
@@ -225,12 +227,12 @@ export function ReportPreview({ branding }: { branding: Branding }) {
           <Section n={6} title="Declining Keywords" subtitle="Losing traffic or rankings" color={color}>
             <ul className="space-y-2">
               {decliners.map((k) => (
-                <li key={k.q} className="flex items-center justify-between gap-3 rounded-lg border border-rose-100 bg-rose-50/60 px-3 py-2">
+                <li key={k.q} className="flex items-center justify-between gap-3 rounded-lg border border-danger-100 bg-danger-50/60 px-3 py-2">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-ink-800">{k.q}</p>
                     <p className="text-[11px] text-ink-500">Position {k.from} → {k.pos}</p>
                   </div>
-                  <span className="inline-flex flex-shrink-0 items-center gap-0.5 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-600"><ArrowDownRight size={12} /> {k.drop}%</span>
+                  <span className="inline-flex flex-shrink-0 items-center gap-0.5 rounded-full bg-danger-100 px-2 py-0.5 text-xs font-semibold text-danger-600"><ArrowDownRight size={12} /> {k.drop}%</span>
                 </li>
               ))}
             </ul>
@@ -251,9 +253,9 @@ export function ReportPreview({ branding }: { branding: Branding }) {
           </div>
           <ul className="mt-2 grid gap-2 sm:grid-cols-2">
             {opportunities.map((o) => (
-              <li key={o.q} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
+              <li key={o.q} className="flex items-center justify-between rounded-lg bg-ink-50 px-3 py-2 text-sm">
                 <span className="truncate text-ink-700">{o.q}</span>
-                <span className="flex-shrink-0 text-xs font-medium text-amber-600">pos {o.pos}</span>
+                <span className="flex-shrink-0 text-xs font-medium text-warning-600">pos {o.pos}</span>
               </li>
             ))}
           </ul>
@@ -275,10 +277,10 @@ export function ReportPreview({ branding }: { branding: Branding }) {
         <Section n={9} title="Recommended Actions" subtitle="Prioritised for impact" color={color}>
           <ol className="space-y-2">
             {recommendations.map((r, i) => (
-              <li key={i} className="flex gap-3 rounded-lg border border-slate-100 bg-white p-3">
+              <li key={i} className="flex gap-3 rounded-lg border border-ink-100 bg-white p-3">
                 <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white" style={{ background: color }}>{i + 1}</span>
                 <div className="min-w-0">
-                  <span className={`mb-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${r.priority === "High" ? "bg-rose-50 text-rose-600" : "bg-amber-50 text-amber-600"}`}>{r.priority} priority</span>
+                  <span className={`mb-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${r.priority === "High" ? "bg-danger-50 text-danger-600" : "bg-warning-50 text-warning-600"}`}>{r.priority} priority</span>
                   <p className="text-sm text-ink-700">{r.text}</p>
                 </div>
               </li>
@@ -290,7 +292,7 @@ export function ReportPreview({ branding }: { branding: Branding }) {
         <Section n={10} title="Next Month Action Plan" subtitle="What we'll execute next" color={color}>
           <ul className="space-y-2">
             {actionPlan.map((a, i) => (
-              <li key={i} className="flex items-start gap-3 rounded-lg bg-slate-50 px-3 py-2.5">
+              <li key={i} className="flex items-start gap-3 rounded-lg bg-ink-50 px-3 py-2.5">
                 <CheckCircle2 size={16} className="mt-0.5 flex-shrink-0" style={{ color }} />
                 <span className="text-sm text-ink-700">{a}</span>
               </li>
@@ -300,7 +302,7 @@ export function ReportPreview({ branding }: { branding: Branding }) {
 
         {/* 11 ── Agency Notes ── */}
         <Section n={11} title="Agency Notes" subtitle="A personal note from your team" color={color}>
-          <div className="flex gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-4">
+          <div className="flex gap-3 rounded-xl border border-dashed border-ink-200 bg-ink-50/50 p-4">
             <StickyNote size={18} className="mt-0.5 flex-shrink-0 text-ink-500" />
             <p className="text-sm italic leading-relaxed text-ink-600">
               “Great momentum this month, team. We&apos;re especially pleased with the carbon-plate category breaking into the top five — that aligns directly with the Q3 product push. Next month we&apos;ll focus on the beginner audience to widen the funnel. As always, reach out any time with questions.”
@@ -309,7 +311,7 @@ export function ReportPreview({ branding }: { branding: Branding }) {
         </Section>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-slate-100 pt-5 text-xs text-ink-500">
+        <div className="flex items-center justify-between border-t border-ink-100 pt-5 text-xs text-ink-500">
           <span>{branding.footer_text || `Prepared by ${branding.name || "Your Agency"}`}</span>
           {branding.website && <span>{branding.website}</span>}
         </div>
@@ -336,9 +338,9 @@ function Section({ n, title, subtitle, color, children }: { n: number; title: st
 
 function Callout({ tone, icon: Icon, title, text }: { tone: "emerald" | "rose" | "amber"; icon: typeof TrendingUp; title: string; text: string }) {
   const tones = {
-    emerald: "border-emerald-100 bg-emerald-50/60 text-emerald-700",
-    rose: "border-rose-100 bg-rose-50/60 text-rose-600",
-    amber: "border-amber-100 bg-amber-50/60 text-amber-700",
+    emerald: "border-success-100 bg-success-50/60 text-success-700",
+    rose: "border-danger-100 bg-danger-50/60 text-danger-600",
+    amber: "border-warning-100 bg-warning-50/60 text-warning-700",
   } as const;
   return (
     <div className={`rounded-lg border p-3 ${tones[tone]}`}>

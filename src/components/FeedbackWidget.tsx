@@ -54,21 +54,21 @@ export function FeedbackWidget() {
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label="Send feedback"
-        className="no-print fixed bottom-5 right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-brand-500 text-white shadow-lg transition-transform hover:scale-105 hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-2"
+        className="no-print fixed bottom-5 right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-brand-solid text-white shadow-lg transition-transform hover:scale-105 hover:bg-brand-solid-hover focus-ring"
       >
         <MessageSquarePlus size={20} />
       </button>
 
       {open && typeof document !== "undefined" && createPortal(
-        <div className="no-print fixed bottom-20 right-5 z-50 w-[min(360px,calc(100vw-2.5rem))] rounded-2xl border border-slate-200 bg-surface shadow-xl">
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+        <div className="no-print fixed bottom-20 right-5 z-50 w-[min(360px,calc(100vw-2.5rem))] rounded-2xl border border-ink-200 bg-surface shadow-xl">
+          <div className="flex items-center justify-between border-b border-ink-100 px-4 py-3">
             <p className="text-sm font-semibold text-ink-900">How can we help?</p>
-            <button onClick={() => setOpen(false)} aria-label="Close" className="rounded-md p-1 text-ink-400 hover:bg-slate-100 hover:text-ink-600"><X size={16} /></button>
+            <button onClick={() => setOpen(false)} aria-label="Close" className="rounded-md p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-600"><X size={16} /></button>
           </div>
 
           {done ? (
             <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
-              <CheckCircle2 size={28} className="text-emerald-500" />
+              <CheckCircle2 size={28} className="text-success-500" />
               <p className="text-sm font-medium text-ink-900">Thanks — we got it!</p>
               <p className="text-xs text-ink-500">We read every message.</p>
             </div>
@@ -79,7 +79,7 @@ export function FeedbackWidget() {
                   <button
                     key={k.id}
                     onClick={() => setKind(k.id)}
-                    className={`flex flex-col items-center gap-1 rounded-lg border py-2 text-xs transition-colors ${kind === k.id ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-ink-600 hover:bg-slate-50"}`}
+                    className={`flex flex-col items-center gap-1 rounded-lg border py-2 text-xs transition-colors ${kind === k.id ? "border-brand-500 bg-brand-50 text-brand-700" : "border-ink-200 text-ink-600 hover:bg-ink-50"}`}
                   >
                     <k.icon size={16} /> {k.label}
                   </button>
@@ -91,7 +91,7 @@ export function FeedbackWidget() {
                 rows={4}
                 autoFocus
                 placeholder={kind === "bug" ? "What happened, and what did you expect?" : kind === "feature" ? "What would you love ReportFlow to do?" : "Tell us what's on your mind…"}
-                className="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm text-ink-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                className="field w-full resize-none py-2"
               />
               <div className="flex items-center justify-between">
                 <Link href="/help" className="inline-flex items-center gap-1 text-xs text-ink-500 hover:text-ink-700">

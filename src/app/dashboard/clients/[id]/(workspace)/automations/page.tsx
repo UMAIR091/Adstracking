@@ -8,12 +8,17 @@ import { loadClientWorkspace } from "@/lib/clients/workspace";
 
 export const dynamic = "force-dynamic";
 
-// Automations — scheduled delivery and what has actually gone out.
+// Automations — what is scheduled, and what has actually gone out.
 //
-// Both components are the ones the client page already rendered, with the same
-// props. Delivery history shows its empty state here: on a tab named for
-// automated delivery, "nothing sent yet" is the answer to the question the tab
-// asks, not the noise it was at the foot of a long page.
+// ReportSchedule now leads with the schedule itself — status, cadence, next
+// delivery and recipients — and keeps the form behind an explicit Edit, so
+// reading the automation and changing it are no longer the same screen. Same
+// component, same props, same routes behind every button.
+//
+// Delivery history renders bare here because the section above it is already
+// titled; on a report page it keeps its own card. It selects `source` so a
+// scheduled send is distinguishable from a manual one — on the automations tab
+// that difference is the whole point.
 export default async function ClientAutomationsPage({ params }: { params: { id: string } }) {
   const { user, agency } = await getCurrentUserAndAgency();
   if (!user || !agency) redirect("/login");
@@ -36,11 +41,13 @@ export default async function ClientAutomationsPage({ params }: { params: { id: 
       .maybeSingle(),
     supabase
       .from("email_logs")
-      .select("id, to_email, subject, status, sent_at, attempts, error, reports!inner(client_id)")
+      .select("id, to_email, subject, status, sent_at, attempts, error, source, reports!inner(client_id)")
       .eq("reports.client_id", client.id)
       .order("sent_at", { ascending: false })
       .limit(8),
   ]);
+
+  const logs = (deliveryLogs as unknown as DeliveryLog[]) ?? [];
 
   return (
     <div>
@@ -55,8 +62,15 @@ export default async function ClientAutomationsPage({ params }: { params: { id: 
         />
       </ClientSection>
 
-      <ClientSection title="Delivery history" description="Every report emailed to this client.">
-        <DeliveryHistory logs={(deliveryLogs as unknown as DeliveryLog[]) ?? []} />
+      <ClientSection
+        title="Delivery history"
+        description={
+          logs.length === 0
+            ? "Every report emailed to this client will be listed here."
+            : `The last ${logs.length} email${logs.length === 1 ? "" : "s"} sent to this client.`
+        }
+      >
+        <DeliveryHistory logs={logs} bare />
       </ClientSection>
     </div>
   );

@@ -49,7 +49,7 @@ function MetricChart({
 }) {
   const id = `grad-${dataKey}`;
   return (
-    <Card className="transition-shadow hover:shadow-md">
+    <Card className="transition-colors hover:border-ink-300">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-sm text-ink-500">
@@ -125,7 +125,7 @@ function DimensionTable({
           </thead>
           <tbody>
             {rows.slice(0, limit).map((r) => (
-              <tr key={r.key} className="border-t border-slate-100">
+              <tr key={r.key} className="border-t border-ink-100">
                 <td className="max-w-0 truncate py-2 pr-3 text-ink-800" title={format(r.key)}>{format(r.key)}</td>
                 <td className="py-2 text-right text-ink-600">{fmtNum(r.clicks)}</td>
                 <td className="py-2 text-right text-ink-600">{fmtNum(r.impressions)}</td>
@@ -149,7 +149,7 @@ export function GscAnalytics({ report, sample = false }: { report: GscReportData
   return (
     <div className={`space-y-5 ${sample ? "relative" : ""}`}>
       {sample && (
-        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+        <div className="flex items-center gap-2 rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-xs font-medium text-warning-700">
           <Sparkles size={14} /> Sample data — connect Google Search Console above to see this client&apos;s real numbers.
         </div>
       )}

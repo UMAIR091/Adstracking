@@ -29,7 +29,7 @@ export function ClientTabs({ clientId }: { clientId: string }) {
   const base = `/dashboard/clients/${clientId}`;
 
   return (
-    <nav aria-label="Client sections" className="-mb-px border-b border-slate-200">
+    <nav aria-label="Client sections" className="-mb-px border-b border-ink-200">
       <ul className="flex gap-1 overflow-x-auto pb-px">
         {TABS.map((tab) => {
           const href = tab.segment ? `${base}/${tab.segment}` : base;
@@ -43,7 +43,7 @@ export function ClientTabs({ clientId }: { clientId: string }) {
                 className={`block whitespace-nowrap border-b-2 px-3 py-2.5 text-sm transition-colors ${
                   active
                     ? "border-brand-600 font-medium text-brand-700"
-                    : "border-transparent text-ink-600 hover:border-slate-300 hover:text-ink-900"
+                    : "border-transparent text-ink-600 hover:border-ink-300 hover:text-ink-900"
                 }`}
               >
                 {tab.label}

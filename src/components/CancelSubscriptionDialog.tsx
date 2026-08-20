@@ -48,11 +48,11 @@ export function CancelSubscriptionDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onKeep(); }}>
-      <div className="absolute inset-0 bg-ink-900/40 animate-fade-in" aria-hidden="true" />
-      <div role="dialog" aria-modal="true" aria-labelledby="cancel-title" className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-surface p-6 shadow-xl">
+      <div className="absolute inset-0 bg-overlay/40 animate-fade-in" aria-hidden="true" />
+      <div role="dialog" aria-modal="true" aria-labelledby="cancel-title" className="relative w-full max-w-md rounded-2xl border border-ink-200 bg-surface p-6 shadow-xl">
         <h2 id="cancel-title" className="text-lg font-semibold text-ink-900">Before you go</h2>
 
-        <div className="mt-3 flex items-start gap-2.5 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5 text-sm text-ink-600">
+        <div className="mt-3 flex items-start gap-2.5 rounded-lg border border-ink-100 bg-ink-50 px-3 py-2.5 text-sm text-ink-600">
           <CalendarClock size={16} className="mt-0.5 flex-shrink-0 text-ink-400" />
           <span>
             You&apos;ll keep full access{endsAtLabel ? <> until <span className="font-medium text-ink-800">{endsAtLabel}</span></> : " until the end of your current billing period"} — your
@@ -68,7 +68,7 @@ export function CancelSubscriptionDialog({
                 key={r}
                 type="button"
                 onClick={() => setReason(r)}
-                className={`rounded-lg border px-3 py-2 text-left text-sm transition-colors ${reason === r ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-ink-600 hover:bg-slate-50"}`}
+                className={`rounded-lg border px-3 py-2 text-left text-sm transition-colors ${reason === r ? "border-brand-500 bg-brand-50 text-brand-700" : "border-ink-200 text-ink-600 hover:bg-ink-50"}`}
               >
                 {r}
               </button>
@@ -79,7 +79,7 @@ export function CancelSubscriptionDialog({
             onChange={(e) => setComment(e.target.value)}
             placeholder="Anything else you'd like us to know?"
             rows={2}
-            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-ink-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            className="field mt-2 w-full py-2"
           />
         </div>
 

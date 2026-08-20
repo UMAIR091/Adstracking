@@ -107,7 +107,7 @@ export default async function ReportsPage() {
           <CardContent className="p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
               <p className="flex items-center gap-2 text-sm font-semibold text-ink-800">
-                <CalendarClock size={15} className="text-amber-500" aria-hidden /> Scheduled deliveries
+                <CalendarClock size={15} className="text-warning-500" aria-hidden /> Scheduled deliveries
               </p>
               <Badge variant="muted">{schedules.length} active</Badge>
             </div>
@@ -116,7 +116,7 @@ export default async function ReportsPage() {
                 <li key={s.id}>
                   <Link
                     href={s.client_id ? `/dashboard/clients/${s.client_id}` : "/dashboard/clients"}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-ink-100 bg-surface-muted/40 px-3.5 py-2.5 transition-colors hover:bg-surface-muted"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-ink-100 bg-surface-muted/40 px-3.5 py-2.5 transition-colors hover:bg-surface-subtle"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-ink-800">{nameOf(s.clients)}</p>
