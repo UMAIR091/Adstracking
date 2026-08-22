@@ -4,7 +4,7 @@ import {
   Check, Sparkles, Palette, Zap, Clock, Users, FileBarChart2, Plug,
   ArrowRight, ShieldCheck, Search, BarChart3, Facebook, Linkedin, Music,
   Megaphone, MapPin, Twitter, Youtube, CalendarClock, Send, Lock, EyeOff,
-  Star, MailCheck, LineChart, Wrench, Instagram, Image as ImageIcon,
+  Star, MailCheck, LineChart, Instagram, Image as ImageIcon,
 } from "lucide-react";
 import { isLive } from "@/lib/integrations/registry";
 import { Brand } from "@/components/Brand";
@@ -166,16 +166,6 @@ export default async function LandingPage() {
           style={{ background: "radial-gradient(closest-side, rgb(var(--ink-300)), transparent)" }}
         />
         <div className="relative mx-auto max-w-6xl px-5 pb-14 pt-16 text-center sm:pt-24">
-          {/* ── Development notice ── */}
-          <div role="status" className="mb-5 flex justify-center">
-            <span className="inline-flex max-w-2xl flex-wrap items-center justify-center gap-x-2 gap-y-0.5 rounded-full bg-brand-solid px-4 py-1.5 text-xs text-white shadow-xs sm:text-sm">
-              <span className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wide">
-                <Wrench size={12} aria-hidden /> In development
-              </span>
-              <span className="text-white/90">Going fully live in the next few days.</span>
-            </span>
-          </div>
-
           <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-100 bg-surface px-3 py-1 text-xs font-medium text-brand-700 shadow-xs">
             <Sparkles size={13} aria-hidden /> The reporting tool for agencies that hate reporting
           </span>
