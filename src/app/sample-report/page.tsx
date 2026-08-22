@@ -65,7 +65,7 @@ export default function SampleReportPage() {
             href="/signup"
             className="mt-5 inline-flex items-center gap-2 rounded-lg bg-brand-solid px-6 py-3 font-medium text-white transition hover:bg-brand-solid-hover"
           >
-            Start free — no card required <ArrowRight size={18} aria-hidden />
+            Start your free trial <ArrowRight size={18} aria-hidden />
           </Link>
         </div>
       </main>

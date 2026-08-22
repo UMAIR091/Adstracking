@@ -90,7 +90,7 @@ function faqs(pricing: PlanPricing[], savingPct: number | null) {
   },
   {
     q: "Can I cancel anytime?",
-    a: "Yes. The trial needs no card, and paid plans can be cancelled in one click — you keep access until the end of the period you've paid for.",
+    a: "Yes. Paid plans can be cancelled in one click — you keep access until the end of the period you've paid for.",
   },
   ];
 }
@@ -174,7 +174,7 @@ export default async function LandingPage() {
             <span className="text-brand-600"> sent in minutes.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-ink-500">
-            Connect a client&apos;s <span className="font-medium text-ink-700">Search Console, GA4 or Meta Ads</span> once.
+            Connect a client&apos;s <span className="font-medium text-ink-700">marketing accounts</span> once.
             ReportFlow pulls the data, writes the insights with AI, and delivers a beautiful report under{" "}
             <span className="font-medium text-ink-700">your brand</span> — on schedule, every time.
           </p>
@@ -183,7 +183,7 @@ export default async function LandingPage() {
               href="/signup"
               className="inline-flex items-center gap-2 rounded-lg bg-brand-solid px-7 py-3.5 font-medium text-white shadow-md transition hover:bg-brand-solid-hover"
             >
-              Start free — no card required <ArrowRight size={18} aria-hidden />
+              Start your free trial <ArrowRight size={18} aria-hidden />
             </Link>
             <Link
               href="/sample-report"
@@ -193,7 +193,7 @@ export default async function LandingPage() {
             </Link>
           </div>
           <p className="mt-4 text-xs text-ink-500">
-            7-day free trial · Every feature on every plan · Live in 5 minutes · Cancel anytime
+            {PAID_TRIAL_DAYS}-day free trial · Every feature on every plan · Live in 5 minutes · Cancel anytime
           </p>
 
           {/* Hero product mock: report in a browser frame + floating proof chips */}
@@ -587,7 +587,7 @@ export default async function LandingPage() {
           <SectionHeading
             eyebrow="Pricing"
             title="Every plan includes every feature."
-            subtitle={`Upgrade only when you need more active clients.${savingPct ? ` Save up to ${savingPct}% by paying every 3 months.` : ""} New accounts start with a free trial, no card required.`}
+            subtitle={`Upgrade only when you need more active clients.${savingPct ? ` Save up to ${savingPct}% by paying every 3 months.` : ""} New accounts start with a ${PAID_TRIAL_DAYS}-day free trial.`}
           />
           <div className="mx-auto mt-14 grid max-w-5xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
             {pricing.map((plan) => ({
@@ -670,7 +670,7 @@ export default async function LandingPage() {
             Your next client report could send itself
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-white/80">
-            Free for 7 days, no card required. Connect a client, and have a fully branded, AI-written report in your
+            Free for {PAID_TRIAL_DAYS} days. Connect a client, and have a fully branded, AI-written report in your
             hands before your coffee goes cold.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -681,7 +681,7 @@ export default async function LandingPage() {
               View a sample report
             </Link>
           </div>
-          <p className="mt-6 text-xs text-white/60">Every feature on every plan · 7-day free trial · Cancel anytime</p>
+          <p className="mt-6 text-xs text-white/60">Every feature on every plan · {PAID_TRIAL_DAYS}-day free trial · Cancel anytime</p>
         </div>
       </section>
 

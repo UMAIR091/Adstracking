@@ -132,7 +132,7 @@ Until a domain is verified, reports send from the default platform sender. You c
     title: "Billing, plans & your free trial",
     summary: "How the trial, plans, upgrades and cancellation work.",
     keywords: ["billing", "trial", "upgrade", "cancel", "plan", "invoice", "paddle", "refund"],
-    body: `Every account starts with a free trial — full access, no card required. If you do nothing, the trial simply ends and you're never charged.
+    body: `Choosing a plan starts a 3-day free trial with full access. Cancel before it ends and you won't be charged.
 
 Plans:
 
@@ -157,7 +157,7 @@ Cancelling:
 Yes. Connections are read-only, tokens are encrypted (AES-256), and each agency's data is isolated. You can disconnect a source and delete its data in one click.
 
 Do I need a credit card to try it?
-No. The free trial needs no card, and you're never charged automatically.
+Your payment method is taken when you choose a plan, and the first charge lands when the 3-day trial ends. Cancel before then and you won't be billed.
 
 Can clients see ReportFlow?
 No. Reports, emails and PDFs carry your branding only — ReportFlow never appears.

@@ -136,7 +136,7 @@ export function PricingPlans({
           <div>
             <p className="font-semibold text-ink-900">{freeTrialDays}-Day Free Trial</p>
             <p className="mt-0.5 text-sm text-ink-600">
-              Try every feature free for {freeTrialDays} days — no card required. Pick a plan whenever you&apos;re ready.
+              Try every feature free for {freeTrialDays} days. Cancel before it ends and you won&apos;t be charged.
             </p>
           </div>
         </div>

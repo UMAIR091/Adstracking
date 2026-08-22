@@ -19,7 +19,7 @@ import { COMPANY } from "@/lib/company";
 
 const PAGE_TITLE = `Pricing — ${COMPANY.product}`;
 const PAGE_DESCRIPTION =
-  "Simple, transparent pricing for white-label client reporting. Every plan includes every feature — upgrade only when you need more active clients. New accounts begin with a 7-day free trial, no card required.";
+  "Simple, transparent pricing for white-label client reporting. Every plan includes every feature — upgrade only when you need more active clients. New accounts begin with a 3-day free trial.";
 
 export const metadata: Metadata = {
   title: PAGE_TITLE,
@@ -107,8 +107,8 @@ const FEATURE_GROUPS: { heading: string; rows: FeatureRow[] }[] = [
 
 const FAQS: { q: string; a: string }[] = [
   {
-    q: "How does the 7-day free trial work?",
-    a: "New accounts begin with 7 days of full access — every feature, no card required. Choose a plan whenever you're ready to continue. If you do nothing, the trial simply ends; you're never charged automatically.",
+    q: "How does the free trial work?",
+    a: "Choose a plan and you get 3 days of full access to every feature before the first charge. Cancel any time inside those 3 days and you won't be billed.",
   },
   {
     q: "What counts as an active client?",
@@ -255,7 +255,7 @@ export default async function PricingPage() {
               }))}
               headlineSavingPct={saving}
               trialDays={trialOffered ? PAID_TRIAL_DAYS : 0}
-              freeTrialDays={TRIAL_DAYS}
+              freeTrialDays={PAID_TRIAL_DAYS}
             />
           </div>
         </section>
@@ -493,13 +493,13 @@ export default async function PricingPage() {
               Send your first white-label report today
             </h2>
             <p className="mt-3 text-ink-500">
-              Start free for 7 days with every feature unlocked. If it doesn&apos;t save you a reporting weekend, walk
-              away — no card, no commitment.
+              Start free for 3 days with every feature unlocked. If it doesn&apos;t save you a reporting weekend, walk
+              away — cancel in one click.
             </p>
             <div className="mt-6">
               <Button asChild size="lg"><Link href="/signup">Start Your 7-Day Free Trial</Link></Button>
             </div>
-            <p className="mt-3 text-sm text-ink-500">No card required · Every feature on every plan · Cancel anytime</p>
+            <p className="mt-3 text-sm text-ink-500">3-day free trial · Every feature on every plan · Cancel anytime</p>
           </div>
         </section>
       </main>
