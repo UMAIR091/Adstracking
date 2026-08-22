@@ -63,14 +63,6 @@ export type PlanLimits = {
   maxReports: Limit; // lifetime report cap (only the trial sets one)
 };
 
-// ── Free trial ───────────────────────────────────────────────
-export const TRIAL_DAYS = 7;
-export const TRIAL_LIMITS: PlanLimits = {
-  maxClients: 1,
-  maxIntegrationsPerClient: 3,
-  maxReports: 1,
-};
-
 // ── Trial ────────────────────────────────────────────────────
 // Paid plans can carry a short trial. Paddle attaches trials to the *price*,
 // not to the checkout, so a trial requires a second price per plan/interval
@@ -78,6 +70,20 @@ export const TRIAL_LIMITS: PlanLimits = {
 // have never consumed one (see lib/billing/trial.ts), which is what keeps the
 // offer strictly once-per-customer.
 export const PAID_TRIAL_DAYS = 3;
+
+// ── Free trial ───────────────────────────────────────────────
+// The app-level window a brand-new agency gets before it must choose a plan.
+// Paddle knows nothing about this one — it runs from agency.created_at with no
+// card and no subscription row (see subscription.ts appTrial).
+//
+// Held at the same length as the trial attached to the paid prices, so the
+// product offers ONE trial of one duration however a user arrives at it.
+export const TRIAL_DAYS = PAID_TRIAL_DAYS;
+export const TRIAL_LIMITS: PlanLimits = {
+  maxClients: 1,
+  maxIntegrationsPerClient: 3,
+  maxReports: 1,
+};
 
 // ── Paid plans (identical features; differ only by client cap + price) ──
 // NOTE: amounts deliberately live in Paddle, not here. Anything that displays
