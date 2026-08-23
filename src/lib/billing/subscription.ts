@@ -102,15 +102,19 @@ export function resolveState(sub: SubscriptionRow | null, agencyCreatedAt: strin
     };
   }
 
-  // No subscription row: app-level free trial from agency creation.
+  // No subscription row: the app-level trial from agency creation, and after it
+  // the free plan. The trial ending is no longer a lockout — the account keeps
+  // working on FREE_LIMITS (one client, two sources, one report a month, no
+  // scheduling, no AI). What it can still do is enforced by lib/billing/limits
+  // and featuresForPlan, not by hasAccess.
   const trial = appTrial(agencyCreatedAt, now);
   return {
     plan: trial.active ? "trial" : "free",
     planName: trial.active ? "Free trial" : "Free",
-    status: trial.active ? "trial" : "expired",
+    status: trial.active ? "trial" : "free",
     interval: null,
-    hasAccess: trial.active,
-    blockedReason: trial.active ? null : `Your ${TRIAL_DAYS}-day free trial has ended. Choose a plan to keep using ReportFlow.`,
+    hasAccess: true,
+    blockedReason: null,
     renewsAt: null,
     endsAt: null,
     trialEndsAt: trial.endsAt,

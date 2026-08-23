@@ -85,6 +85,37 @@ export const TRIAL_LIMITS: PlanLimits = {
   maxReports: 1,
 };
 
+// ── Free plan ────────────────────────────────────────────────
+// What an account keeps once the trial ends, instead of being locked out.
+// Deliberately usable but not a substitute for paying: one client, two
+// sources, and one report a month.
+//
+// `maxReports` is the only limit in the system counted per CALENDAR MONTH
+// rather than for the lifetime of the account — see checkReportLimit.
+export const FREE_LIMITS: PlanLimits = {
+  maxClients: 1,
+  maxIntegrationsPerClient: 2,
+  maxReports: 1,
+};
+
+// The capabilities that separate free from everything else. This is NOT a
+// per-paid-plan feature matrix — the rule that every paid plan carries every
+// feature still holds. It draws one line, between paying and not.
+export type PlanFeatures = {
+  /** Automated scheduled delivery of reports. */
+  scheduledDelivery: boolean;
+  /** AI-written insights on a generated report. */
+  aiInsights: boolean;
+};
+
+const FREE_FEATURES: PlanFeatures = { scheduledDelivery: false, aiInsights: false };
+const FULL_FEATURES: PlanFeatures = { scheduledDelivery: true, aiInsights: true };
+
+/** Free gets the reduced set; the trial and every paid plan get everything. */
+export function featuresForPlan(plan: string | null | undefined): PlanFeatures {
+  return plan === "free" ? FREE_FEATURES : FULL_FEATURES;
+}
+
 // ── Paid plans (identical features; differ only by client cap + price) ──
 // NOTE: amounts deliberately live in Paddle, not here. Anything that displays
 // a price reads it from lib/billing/prices.ts, so the app can never advertise

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { isLive } from "@/lib/integrations/registry";
 import { Brand } from "@/components/Brand";
+import { FreePlanCard } from "@/components/FreePlanCard";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { getPlanPricing, headlineSavingPct, type PlanPricing } from "@/lib/billing/prices";
 import { PAID_TRIAL_DAYS } from "@/lib/billing/config";
@@ -637,6 +638,7 @@ export default async function LandingPage() {
               </div>
             ))}
           </div>
+          <FreePlanCard className="mt-6" />
           <p className="mt-6 text-center text-sm text-ink-500">
             AgencyAnalytics at 20 clients ≈ $240/mo. Whatagraph from ~$249/mo. ReportFlow at 20 clients: $149/mo —
             every feature included. <Link href="/pricing" className="font-medium text-brand-600 hover:underline">See full pricing →</Link>

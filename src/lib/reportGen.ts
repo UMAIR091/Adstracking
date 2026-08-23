@@ -6,6 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateReportInsightsCached } from "@/lib/ai";
 import { trackUsage } from "@/lib/usage";
 import { checkReportLimit } from "@/lib/billing/limits";
+import { featuresForPlan } from "@/lib/billing/config";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import { snapshotsToBlocks, type ReportBlock } from "@/lib/integrations/blocks";
 import { resolvePeriod, isPeriodPreset, type PeriodPreset, type ResolveResult } from "@/lib/reports/periods";
@@ -272,11 +273,17 @@ export async function createClientReport(
   };
 
   const unified = assembleReport(gscData, ga4Data, null, blocks, meta);
+  // AI insights are a paid capability. The report still generates on the Free
+  // plan — charts, tables and totals — it just carries no written analysis, and
+  // the model is never called, so it costs nothing to serve.
+  const aiAllowed = featuresForPlan(reportLimit.plan).aiInsights;
   // The AI is told the real window, not a generic "last N days" phrase, so its
   // prose can't describe a period the report doesn't cover.
-  const { insights, cached } = await generateReportInsightsCached(
-    toInsightsInput(unified, client.name, `${period.label} — ${period.start} to ${period.end} (${period.days} days)`)
-  );
+  const { insights, cached } = aiAllowed
+    ? await generateReportInsightsCached(
+        toInsightsInput(unified, client.name, `${period.label} — ${period.start} to ${period.end} (${period.days} days)`)
+      )
+    : { insights: null, cached: false };
   // Meter AI usage only when the model actually ran (a cache hit costs nothing).
   if (insights && !cached) await trackUsage(agencyId, "ai_summaries");
   const data = assembleReport(gscData, ga4Data, insights, blocks, meta);

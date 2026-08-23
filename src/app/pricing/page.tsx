@@ -14,6 +14,7 @@ import { PLAN_DISPLAY, PAID_TRIAL_DAYS, TRIAL_DAYS } from "@/lib/billing/config"
 import { getPlanPricing, headlineSavingPct, type PlanPricing } from "@/lib/billing/prices";
 import { SiteFooter } from "@/components/SiteFooter";
 import { PricingPlans } from "@/components/PricingPlans";
+import { FreePlanCard } from "@/components/FreePlanCard";
 import { Button } from "@/components/ui/button";
 import { COMPANY } from "@/lib/company";
 
@@ -258,6 +259,8 @@ export default async function PricingPage() {
               freeTrialDays={PAID_TRIAL_DAYS}
             />
           </div>
+
+          <FreePlanCard className="mx-auto mt-6 max-w-5xl" />
         </section>
 
         {/* ── Feature comparison table ── */}
