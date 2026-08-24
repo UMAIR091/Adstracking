@@ -58,6 +58,23 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: true, batch: scheduleBatchSize(), heartbeat, ...result });
   } catch (err) {
     const message = await logRouteError("cron", err);
+
+    // Record the FAILURE as a heartbeat too, for the same reason the success
+    // path awaits one: this is the only durable evidence the run leaves.
+    // logRouteError reaches the console only when the event has no agency — and
+    // a batch-level crash here never resolves one — while the platform keeps
+    // runtime logs for about an hour. So a daily failure at 08:00 is
+    // unreadable by the time anyone looks at it, and /api/health simply omits
+    // the job rather than showing it as broken. This row closes that gap.
+    //
+    // Swallowed on its own account: a heartbeat write must never replace or
+    // mask the error it exists to report.
+    try {
+      await admin.rpc("record_heartbeat", { p_job: "reports", p_ok: false, p_detail: message });
+    } catch {
+      /* the 500 below is still the answer */
+    }
+
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
