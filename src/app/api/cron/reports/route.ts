@@ -21,14 +21,41 @@ export async function GET(req: Request) {
   try {
     const result = await runScheduledReports(admin, scheduleBatchSize());
 
-    // Heartbeat (uptime monitoring) + housekeeping (best-effort; never blocks).
-    admin.rpc("record_heartbeat", { p_job: "reports", p_ok: true, p_detail: `sent ${result.sent} failed ${result.failed}` }).then(() => {}, () => {});
+    // Heartbeat — AWAITED, deliberately.
+    //
+    // This used to be fire-and-forget. On a serverless runtime the instance can
+    // be frozen the moment the response is returned, so an un-awaited write is
+    // not guaranteed to reach the database — and this row is the only evidence
+    // that this cron ran at all. When there are no due schedules the run has no
+    // other side effect whatsoever, so a dropped heartbeat is indistinguishable
+    // from the cron never having been invoked. That ambiguity is exactly what
+    // made this job's execution unverifiable, so the write now blocks the
+    // response.
+    //
+    // A heartbeat failure must NOT fail the cron: the run itself already
+    // succeeded, and reporting 500 would make a healthy run look broken (and,
+    // on some schedulers, trigger a retry of work already done). The error is
+    // swallowed here and surfaced in the response body instead.
+    let heartbeat: "ok" | "failed" = "ok";
+    try {
+      const { error } = await admin.rpc("record_heartbeat", {
+        p_job: "reports",
+        p_ok: true,
+        p_detail: `sent ${result.sent} failed ${result.failed}`,
+      });
+      if (error) heartbeat = "failed";
+    } catch {
+      heartbeat = "failed";
+    }
+
+    // Housekeeping stays best-effort and non-blocking — it is not evidence of
+    // anything, and a slow purge should never delay the cron response.
     admin.rpc("purge_old_metrics", { p_days: Number(process.env.METRIC_RETENTION_DAYS) || 400 }).then(
       () => {},
       () => {}
     );
 
-    return NextResponse.json({ ok: true, batch: scheduleBatchSize(), ...result });
+    return NextResponse.json({ ok: true, batch: scheduleBatchSize(), heartbeat, ...result });
   } catch (err) {
     const message = await logRouteError("cron", err);
     return NextResponse.json({ error: message }, { status: 500 });
