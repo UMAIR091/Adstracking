@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { isLive } from "@/lib/integrations/registry";
 import { Brand } from "@/components/Brand";
-import { FreePlanCard } from "@/components/FreePlanCard";
+import { PricingPlans } from "@/components/PricingPlans";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { getPlanPricing, headlineSavingPct, type PlanPricing } from "@/lib/billing/prices";
 import { PAID_TRIAL_DAYS } from "@/lib/billing/config";
@@ -583,63 +583,34 @@ export default async function LandingPage() {
       </section>
 
       {/* ── 12. Pricing ── */}
+      {/* Wider than the other sections: the grid carries five cards, Free
+          included. The cards themselves are the same component /pricing uses,
+          which is in turn shaped like the signed-in billing page — so the
+          layout a visitor compares prices in is the one they keep after they
+          sign up. */}
       <section id="pricing" className="scroll-mt-20 border-y border-ink-200 bg-surface-band py-24">
-        <div className="mx-auto max-w-5xl px-5">
+        <div className="mx-auto max-w-7xl px-5">
           <SectionHeading
             eyebrow="Pricing"
             title="Every plan includes every feature."
             subtitle={`Upgrade only when you need more active clients.${savingPct ? ` Save up to ${savingPct}% by paying every 3 months.` : ""} New accounts start with a ${PAID_TRIAL_DAYS}-day free trial.`}
           />
-          <div className="mx-auto mt-14 grid max-w-5xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
-            {pricing.map((plan) => ({
-              name: plan.name,
-              price: plan.monthly?.formatted ?? "—",
-              quarterlyPerMonth: plan.quarterlyPerMonth?.formatted ?? null,
-              clients: `Up to ${plan.maxClients} active client${plan.maxClients === 1 ? "" : "s"}`,
-              featured: plan.id === "pro",
-              trialAvailable: plan.trialAvailable,
-            })).map((p) => (
-              <div
-                key={p.name}
-                className={`relative flex flex-col rounded-2xl bg-surface p-6 ${
-                  p.featured ? "border-2 border-brand-500 shadow-lg" : "border border-ink-200"
-                }`}
-              >
-                {p.featured && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-brand-solid px-3 py-1 text-xs font-semibold text-white">
-                    Most Popular
-                  </span>
-                )}
-                <p className="text-sm font-medium text-ink-500">{p.name}</p>
-                <p className="mt-2 text-4xl font-semibold">
-                  {p.price}<span className="text-base font-normal text-ink-500">/mo</span>
-                </p>
-                {p.quarterlyPerMonth && (
-                  <p className="mt-1 text-xs text-ink-500">or {p.quarterlyPerMonth}/mo billed every 3 months</p>
-                )}
-                <p className="mt-4 flex items-center gap-2 text-sm font-semibold text-ink-800">
-                  <Users size={15} className="shrink-0 text-ink-400" aria-hidden /> {p.clients}
-                </p>
-                <p className="mt-2 flex items-center gap-2 text-sm text-ink-600">
-                  <Check size={15} className="shrink-0 text-ink-400" aria-hidden /> Every feature included
-                </p>
-                <Link
-                  href="/signup"
-                  className={`mt-6 block rounded-lg px-5 py-3 text-center font-medium transition ${
-                    p.featured
-                      ? "bg-brand-solid text-white hover:bg-brand-solid-hover"
-                      : "border border-ink-200 text-ink-700 hover:bg-ink-50"
-                  }`}
-                >
-                  {/* Paid plans carry the Paddle-backed trial; the length is
-                      claimed only when the trial price actually exists. */}
-                  {p.trialAvailable ? `Start ${PAID_TRIAL_DAYS}-day free trial` : `Choose ${p.name}`}
-                </Link>
-              </div>
-            ))}
+          <div className="mt-14">
+            <PricingPlans
+              plans={pricing.map((p) => ({
+                id: p.id,
+                name: p.name,
+                maxClients: p.maxClients,
+                monthly: p.monthly?.formatted ?? null,
+                quarterly: p.quarterly?.formatted ?? null,
+                trialAvailable: p.trialAvailable,
+              }))}
+              headlineSavingPct={savingPct}
+              trialDays={PAID_TRIAL_DAYS}
+              showAssurances={false}
+            />
           </div>
-          <FreePlanCard className="mt-6" />
-          <p className="mt-6 text-center text-sm text-ink-500">
+          <p className="mt-8 text-center text-sm text-ink-500">
             AgencyAnalytics at 20 clients ≈ $240/mo. Whatagraph from ~$249/mo. ReportFlow at 20 clients: $149/mo —
             every feature included. <Link href="/pricing" className="font-medium text-brand-600 hover:underline">See full pricing →</Link>
           </p>

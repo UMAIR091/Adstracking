@@ -10,11 +10,10 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { Brand } from "@/components/Brand";
-import { PLAN_DISPLAY, PAID_TRIAL_DAYS, TRIAL_DAYS } from "@/lib/billing/config";
+import { PLAN_DISPLAY, PAID_TRIAL_DAYS } from "@/lib/billing/config";
 import { getPlanPricing, headlineSavingPct, type PlanPricing } from "@/lib/billing/prices";
 import { SiteFooter } from "@/components/SiteFooter";
 import { PricingPlans } from "@/components/PricingPlans";
-import { FreePlanCard } from "@/components/FreePlanCard";
 import { Button } from "@/components/ui/button";
 import { COMPANY } from "@/lib/company";
 
@@ -229,7 +228,9 @@ export default async function PricingPage() {
 
       <main className="w-full flex-1">
         {/* ── Hero ── */}
-        <section className="mx-auto max-w-6xl px-5 pt-14 sm:pt-20">
+        {/* Wider than the rest of the page: the grid carries five cards now
+            that Free is one of them. */}
+        <section className="mx-auto max-w-7xl px-5 pt-14 sm:pt-20">
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-sm font-semibold text-brand-600">Pricing</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink-900 sm:text-4xl">
@@ -250,17 +251,12 @@ export default async function PricingPage() {
                 maxClients: p.maxClients,
                 monthly: p.monthly?.formatted ?? null,
                 quarterly: p.quarterly?.formatted ?? null,
-                quarterlyPerMonth: p.quarterlyPerMonth?.formatted ?? null,
-                quarterlySavingPct: p.quarterlySavingPct,
                 trialAvailable: p.trialAvailable,
               }))}
               headlineSavingPct={saving}
               trialDays={trialOffered ? PAID_TRIAL_DAYS : 0}
-              freeTrialDays={PAID_TRIAL_DAYS}
             />
           </div>
-
-          <FreePlanCard className="mx-auto mt-6 max-w-5xl" />
         </section>
 
         {/* ── Feature comparison table ── */}

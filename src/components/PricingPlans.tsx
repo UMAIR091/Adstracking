@@ -1,6 +1,16 @@
 "use client";
 
-// Public pricing plans with a monthly / every-3-months billing toggle.
+// The public pricing grid — used by both the marketing landing section
+// (#pricing) and /pricing.
+//
+// Deliberately mirrors the signed-in billing page (components/BillingPlans):
+// one interval toggle drives every card, the price is quoted per the cycle that
+// is actually charged (/month or /quarter) rather than a per-month equivalent
+// with a "billed every 3 months" caveat underneath, and the Free plan sits in
+// the grid as a first-class card instead of a footnote band. A visitor
+// comparing this page with the billing page they land on after signing up
+// should recognise the same layout and the same numbers.
+//
 // Signed-in visitors are routed to the dashboard billing page with their pick
 // preserved (Paddle checkout runs there as an overlay); everyone else lands on
 // /signup with the same plan choice carried through.
@@ -10,51 +20,61 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, Zap, Rocket, Building2, Users, Sparkles, ShieldCheck } from "lucide-react";
+import { Check, X, Sparkles, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PAID_FEATURES } from "@/lib/billing/config";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { FREE_LIMITS, PAID_FEATURES } from "@/lib/billing/config";
+import { cn } from "@/lib/utils";
 
 // Serializable pricing prepared by the server (see lib/billing/prices.ts).
 export type PlanPricingView = {
   id: string;
   name: string;
   maxClients: number;
-  monthly: string | null;           // formatted, e.g. "$49"
-  quarterly: string | null;         // formatted 3-month total, e.g. "$132.30"
-  quarterlyPerMonth: string | null; // formatted, e.g. "$44"
-  quarterlySavingPct: number | null;
+  monthly: string | null; // formatted 1-month price, e.g. "$49"
+  quarterly: string | null; // formatted 3-month total, e.g. "$132.30"
   trialAvailable: boolean;
 };
 
-const ICONS: Record<string, typeof Zap> = { pro: Zap, pro_plus: Rocket, growth: Building2, agency: Building2 };
+const INTERVAL_LABEL = { monthly: "Monthly", quarterly: "Every 3 months" } as const;
+/** The unit a price is quoted per, e.g. "$132.30/quarter" — same as billing. */
+const INTERVAL_UNIT = { monthly: "month", quarterly: "quarter" } as const;
 
-// Identical on purpose — the only difference between plans is client count + price.
+// Identical on purpose — the only difference between paid plans is client
+// count + price.
 const IN_EVERY_PLAN = PAID_FEATURES;
+
+// The Free plan's allowances come from FREE_LIMITS, the same constant
+// lib/billing/limits enforces, so the page cannot advertise an allowance the
+// app doesn't actually give. The two crosses are the line between free and
+// paying — stating them is what keeps the card honest now that it sits in the
+// grid looking exactly like the plans beside it.
+const FREE_INCLUDED = [
+  `${FREE_LIMITS.maxClients} active client`,
+  `${FREE_LIMITS.maxIntegrationsPerClient} data sources`,
+  `${FREE_LIMITS.maxReports} report a month`,
+  "Full white-label branding",
+];
+const FREE_MISSING = ["Automated delivery", "AI-written insights"];
 
 export function PricingPlans({
   plans,
   headlineSavingPct,
   trialDays,
-  freeTrialDays,
+  showAssurances = true,
 }: {
   plans: PlanPricingView[];
   headlineSavingPct: number | null;
   /** Paid-plan trial length; 0 when no trial prices are configured. */
   trialDays: number;
-  /** The separate no-card free trial offered on signup. */
-  freeTrialDays: number;
+  /** The landing page carries its own footnotes, so it hides these. */
+  showAssurances?: boolean;
 }) {
   const [interval, setInterval] = useState<"monthly" | "quarterly">("monthly");
   const [busy, setBusy] = useState<string | null>(null);
-  const quarterly = interval === "quarterly";
+  const unit = INTERVAL_UNIT[interval];
   const trialOffered = trialDays > 0 && plans.some((p) => p.trialAvailable);
-
-  const PRICING_PLANS = plans.map((p) => ({
-    ...p,
-    icon: ICONS[p.id] ?? Zap,
-    clients: `Up to ${p.maxClients} active client${p.maxClients === 1 ? "" : "s"}`,
-    featured: p.id === "pro",
-  }));
 
   // Paddle checkout runs as an overlay on the dashboard billing page, so this
   // marketing page only needs to route the visitor to the right place with
@@ -80,189 +100,149 @@ export function PricingPlans({
   return (
     <div>
       {/* Billing interval toggle */}
-      <div className="flex flex-col items-center gap-2">
-        <div
-          role="group"
-          aria-label="Billing period"
-          className="inline-flex items-center rounded-full border border-ink-200 bg-surface-muted p-1"
-        >
-          {(
-            [
-              { key: "monthly", label: "Monthly" },
-              { key: "quarterly", label: "Every 3 months" },
-            ] as const
-          ).map((opt) => {
-            const active = interval === opt.key;
-            return (
-              <button
-                key={opt.key}
-                type="button"
-                aria-pressed={active}
-                onClick={() => setInterval(opt.key)}
-                className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-150 focus-ring ${
-                  active ? "bg-surface text-ink-900 shadow-sm" : "text-ink-500 hover:text-ink-800"
-                }`}
-              >
-                {opt.label}
-                {opt.key === "quarterly" && headlineSavingPct != null && (
-                  <span
-                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                      active ? "bg-brand-50 text-brand-700" : "bg-ink-200/60 text-ink-600"
-                    }`}
-                  >
-                    −{headlineSavingPct}%
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-        {headlineSavingPct != null && (
-          <p className="text-xs text-ink-500" aria-live="polite">
-            {quarterly
-              ? `Billed once every 3 months — save up to ${headlineSavingPct}%.`
-              : `Switch to 3-month billing and save up to ${headlineSavingPct}%.`}
-          </p>
-        )}
+      <div
+        role="group"
+        aria-label="Billing interval"
+        className="mx-auto flex w-fit items-center justify-center gap-1 rounded-full border border-ink-200 bg-surface p-1 text-sm"
+      >
+        {(["monthly", "quarterly"] as const).map((iv) => (
+          <button
+            key={iv}
+            type="button"
+            onClick={() => setInterval(iv)}
+            aria-pressed={interval === iv}
+            className={cn(
+              "focus-ring rounded-full px-4 py-1.5 font-medium transition-colors",
+              interval === iv ? "bg-brand-solid text-white" : "text-ink-500 hover:text-ink-800"
+            )}
+          >
+            {INTERVAL_LABEL[iv]}
+            {iv === "quarterly" && headlineSavingPct != null && headlineSavingPct > 0 && (
+              <span className={cn("ml-1.5 text-xs", interval === iv ? "text-white/80" : "text-success-600")}>
+                save {headlineSavingPct}%
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
-      {/* The no-card free trial available on signup, distinct from the paid
-          plans' short trial advertised on each card below. */}
-      <div className="mt-10 flex flex-col items-center justify-between gap-4 rounded-2xl border border-brand-100 bg-brand-50/50 px-6 py-5 sm:flex-row">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface text-brand-600 ring-1 ring-inset ring-brand-100">
-            <Sparkles size={18} aria-hidden />
-          </div>
-          <div>
-            <p className="font-semibold text-ink-900">{freeTrialDays}-Day Free Trial</p>
-            <p className="mt-0.5 text-sm text-ink-600">
-              Try every feature free for {freeTrialDays} days. Cancel before it ends and you won&apos;t be charged.
+      {/* Plan cards. Free leads: it is the offer that asks for nothing, so it
+          is the first thing a visitor should be able to say yes to. */}
+      <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        {/* Free */}
+        <Card className="flex flex-col">
+          <CardContent className="flex flex-1 flex-col p-6">
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-semibold text-ink-900">Free</p>
+              <Badge variant="muted">No card</Badge>
+            </div>
+            {/* Free is free on either cycle, so it is always quoted per month —
+                "$0/quarter" would only make the toggle look broken. */}
+            <p className="mt-3">
+              <span className="text-3xl font-semibold text-ink-900">$0</span>{" "}
+              <span className="text-sm text-ink-500">/month</span>
             </p>
-          </div>
-        </div>
-        <Button asChild size="lg" variant="outline" className="w-full shrink-0 sm:w-auto">
-          <Link href="/signup">Start free trial</Link>
-        </Button>
-      </div>
+            <p className="mt-1 text-sm text-ink-500">
+              Up to {FREE_LIMITS.maxClients} active client — no card, no time limit.
+            </p>
+            <ul className="mb-6 mt-5 flex-1 space-y-2.5 text-sm text-ink-700">
+              {FREE_INCLUDED.map((f) => (
+                <li key={f} className="flex gap-2">
+                  <Check size={16} className="mt-0.5 shrink-0 text-success-500" aria-hidden /> {f}
+                </li>
+              ))}
+              {FREE_MISSING.map((f) => (
+                <li key={f} className="flex gap-2 text-ink-400">
+                  <X size={16} className="mt-0.5 shrink-0" aria-hidden /> {f}
+                </li>
+              ))}
+            </ul>
+            <Button variant="outline" asChild>
+              <Link href="/signup">Start on Free</Link>
+            </Button>
+            <p className="mt-2 text-center text-xs text-ink-500">Free forever. Upgrade whenever you need more.</p>
+          </CardContent>
+        </Card>
 
-      {/* Plan cards */}
-      <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
-        {PRICING_PLANS.map((plan) => {
-          const Icon = plan.icon;
-          const featured = "featured" in plan && plan.featured;
-          // Both figures come straight from Paddle; "—" when the catalog
-          // couldn't be reached, never a guessed or stale number.
-          const price = quarterly ? plan.quarterlyPerMonth : plan.monthly;
+        {/* Paid plans */}
+        {plans.map((plan) => {
+          // Comes straight from Paddle; a dash when the catalog couldn't be
+          // reached, never a guessed or stale number.
+          const price = interval === "quarterly" ? plan.quarterly : plan.monthly;
+          const featured = plan.id === "pro";
+          const showTrial = trialOffered && plan.trialAvailable;
+
           return (
-            <div
-              key={plan.id}
-              className={`relative flex flex-col rounded-2xl bg-surface p-6 ${
-                featured
-                  ? "border-2 border-brand-500 shadow-lg shadow-brand-500/10"
-                  : "border border-ink-200 shadow-sm"
-              }`}
-            >
-              {featured && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-brand-solid px-3 py-1 text-xs font-semibold text-white">
-                  Most Popular
-                </span>
-              )}
-
-              <div className="flex items-center gap-2.5">
-                <div
-                  className={`flex h-9 w-9 items-center justify-center rounded-lg ${
-                    featured ? "bg-brand-solid text-white" : "bg-brand-50 text-brand-600"
-                  }`}
-                >
-                  <Icon size={17} aria-hidden />
+            <Card key={plan.id} className={cn("flex flex-col", featured && "border-2 border-brand-500 shadow-md")}>
+              <CardContent className="flex flex-1 flex-col p-6">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-semibold text-ink-900">{plan.name}</p>
+                  {featured && <Badge>Most popular</Badge>}
                 </div>
-                <p className="font-semibold text-ink-900">{plan.name}</p>
-              </div>
-              <p className="mt-2.5 text-sm leading-relaxed text-ink-500">Same complete toolkit — {plan.clients.toLowerCase()}.</p>
+                <p className="mt-3" aria-live="polite">
+                  <span className="text-3xl font-semibold text-ink-900">{price ?? "—"}</span>{" "}
+                  <span className="text-sm text-ink-500">/{unit}</span>
+                </p>
+                <p className="mt-1 text-sm text-ink-500">
+                  Up to {plan.maxClients} active client{plan.maxClients === 1 ? "" : "s"} — every feature included.
+                </p>
+                <ul className="mb-6 mt-5 flex-1 space-y-2.5 text-sm text-ink-700">
+                  {IN_EVERY_PLAN.map((f) => (
+                    <li key={f} className="flex gap-2">
+                      <Check size={16} className="mt-0.5 shrink-0 text-success-500" aria-hidden /> {f}
+                    </li>
+                  ))}
+                </ul>
 
-              <div className="mt-5" aria-live="polite">
-                <p className="flex items-baseline gap-1.5">
-                  {quarterly && plan.monthly && (
-                    <span className="text-lg font-medium text-ink-300 line-through" aria-hidden>
-                      {plan.monthly}
-                    </span>
-                  )}
-                  <span className="text-4xl font-semibold tracking-tight text-ink-900">{price ?? "—"}</span>
-                  <span className="text-sm text-ink-500">/mo</span>
-                </p>
-                <p className="mt-1 text-xs text-ink-500">
-                  {/* The exact Paddle 3-month total, not the rounded per-month
-                      figure multiplied out — those disagree by a few dollars. */}
-                  {quarterly
-                    ? plan.quarterly
-                      ? `Billed every 3 months — ${plan.quarterly}/quarter${plan.quarterlySavingPct ? ` · save ${plan.quarterlySavingPct}%` : ""}`
-                      : "Billed every 3 months"
-                    : "Billed monthly · Cancel anytime"}
-                </p>
-                {trialOffered && plan.trialAvailable && (
-                  <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-success-50 px-2.5 py-1 text-xs font-semibold text-success-700">
-                    <Sparkles size={12} aria-hidden />
-                    {trialDays}-day free trial
+                <Button
+                  variant={featured ? "default" : "outline"}
+                  disabled={busy !== null}
+                  onClick={() => startCheckout(plan.id)}
+                  aria-label={`Choose the ${plan.name} plan`}
+                >
+                  {busy === plan.id
+                    ? "Opening checkout…"
+                    : showTrial
+                      ? `Start ${trialDays}-day free trial`
+                      : `Choose ${plan.name}`}
+                </Button>
+                {showTrial && (
+                  <p className="mt-2 text-center text-xs text-ink-500">
+                    Free for {trialDays} days, then {price ?? "—"}/{unit}. Cancel before it ends and you won&apos;t be
+                    charged.
                   </p>
                 )}
-              </div>
-
-              <p
-                className={`mt-4 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${
-                  featured ? "bg-brand-50 text-brand-700" : "bg-surface-muted text-ink-800"
-                }`}
-              >
-                <Users size={15} className="shrink-0" aria-hidden />
-                {plan.clients}
-              </p>
-
-              <Button
-                size="lg"
-                variant={featured ? "default" : "outline"}
-                className="mt-5 w-full"
-                disabled={busy !== null}
-                onClick={() => startCheckout(plan.id)}
-                aria-label={`Choose the ${plan.name} plan`}
-              >
-                {busy === plan.id ? "Opening checkout…" : `Choose ${plan.name}`}
-              </Button>
-
-              <ul className="mt-5 space-y-2 border-t border-ink-100 pt-5">
-                {IN_EVERY_PLAN.map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-sm text-ink-600">
-                    <Check size={15} className="mt-0.5 shrink-0 text-brand-500" aria-hidden />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-            </div>
+              </CardContent>
+            </Card>
           );
         })}
       </div>
 
       {/* Assurances. The guarantee is stated with its actual scope — 3 days
-          from the FIRST payment — so it can't be read as an open-ended
-          refund window or as applying to renewals. */}
-      <div className="mt-8 flex flex-col items-center gap-3">
-        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-ink-600">
-          <span className="inline-flex items-center gap-1.5">
-            <Check size={15} className="text-success-500" aria-hidden /> Cancel anytime
-          </span>
-          {trialOffered && (
+          from the FIRST payment — so it cannot be read as an open-ended refund
+          window or as applying to renewals. */}
+      {showAssurances && (
+        <div className="mt-8 flex flex-col items-center gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-ink-600">
             <span className="inline-flex items-center gap-1.5">
-              <Sparkles size={15} className="text-success-500" aria-hidden /> {trialDays}-day free trial
+              <Check size={15} className="text-success-500" aria-hidden /> Cancel anytime
             </span>
-          )}
-          <span className="inline-flex items-center gap-1.5">
-            <ShieldCheck size={15} className="text-success-500" aria-hidden /> 100% money-back guarantee
-          </span>
+            {trialOffered && (
+              <span className="inline-flex items-center gap-1.5">
+                <Sparkles size={15} className="text-success-500" aria-hidden /> {trialDays}-day free trial
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1.5">
+              <ShieldCheck size={15} className="text-success-500" aria-hidden /> 100% money-back guarantee
+            </span>
+          </div>
+          <p className="max-w-xl text-center text-xs leading-relaxed text-ink-500">
+            Prices in USD, billed by Paddle. The money-back guarantee covers your{" "}
+            <span className="font-medium text-ink-500">first payment only</span>, refundable in full if you ask within 3
+            days of that charge. Cancelling later stops future renewals but does not refund past ones.
+          </p>
         </div>
-        <p className="max-w-xl text-center text-xs leading-relaxed text-ink-500">
-          Prices in USD, billed by Paddle. The money-back guarantee covers your{" "}
-          <span className="font-medium text-ink-500">first payment only</span>, refundable in full if you ask within 3
-          days of that charge. Cancelling later stops future renewals but does not refund past ones.
-        </p>
-      </div>
+      )}
     </div>
   );
 }
