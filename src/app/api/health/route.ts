@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const startedAt = Date.now();
   let dbOk = false;
-  let crons: Record<string, { lastRunAt: string | null; stale: boolean }> = {};
+  let crons: Record<string, { lastRunAt: string | null; stale: boolean; ok: boolean; detail: string | null }> = {};
   try {
     const admin = createAdminClient();
     // HEAD count on a tiny system-owned table — fast and independent of tenants.
@@ -21,11 +21,24 @@ export async function GET() {
 
     // Cron freshness for uptime monitoring: flag a job that hasn't run within its
     // window (default 30h — covers a daily cron + slack; tighten on Pro/frequent).
+    //
+    // `ok`/`detail` are reported alongside the timestamp because staleness alone
+    // can't tell "ran and failed" from "ran fine": a job that fails every day on
+    // schedule keeps a fresh last_run_at. The detail carries the failing run's
+    // error message, which is otherwise console-only and gone with the hour of
+    // runtime-log retention. Note this is reported, not scored — `status` still
+    // turns on database reachability and staleness, so an uptime monitor's
+    // paging behaviour is unchanged.
     const staleMs = (Number(process.env.CRON_STALE_HOURS) || 30) * 3600_000;
-    const { data: hb } = await admin.from("ops_heartbeats").select("job, last_run_at");
-    for (const h of (hb ?? []) as { job: string; last_run_at: string }[]) {
+    const { data: hb } = await admin.from("ops_heartbeats").select("job, last_run_at, ok, detail");
+    for (const h of (hb ?? []) as { job: string; last_run_at: string; ok: boolean | null; detail: string | null }[]) {
       const last = h.last_run_at ? new Date(h.last_run_at).getTime() : 0;
-      crons[h.job] = { lastRunAt: h.last_run_at ?? null, stale: Date.now() - last > staleMs };
+      crons[h.job] = {
+        lastRunAt: h.last_run_at ?? null,
+        stale: Date.now() - last > staleMs,
+        ok: h.ok ?? true,
+        detail: h.detail ?? null,
+      };
     }
   } catch {
     dbOk = false;
