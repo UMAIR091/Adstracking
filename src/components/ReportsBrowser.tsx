@@ -417,7 +417,7 @@ function ReportItem({ r, onDelete }: { r: ReportRow; onDelete: () => void }) {
           </div>
           <div className="min-w-0">
             {/* The title keeps its period suffix here. This list is exactly
-                where identical titles hurt — four "Umair Ali — SEO Report"
+                where identical titles hurt — four "Acme Ltd — SEO Report"
                 rows told the reader nothing — so the coarse month range earns
                 its place in the scannable heading even though the exact dates
                 repeat it beneath at finer granularity. */}

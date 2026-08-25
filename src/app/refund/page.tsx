@@ -16,8 +16,8 @@ export default function RefundPage() {
       lastUpdated={LEGAL_LAST_UPDATED}
     >
       <p>
-        This policy explains how billing, cancellations, and refunds work for {COMPANY.product}, operated by{" "}
-        {COMPANY.legalName}. It forms part of our <Link href="/terms">Terms of Service</Link>.
+        This policy explains how billing, cancellations, and refunds work for {COMPANY.product}. It forms part of our{" "}
+        <Link href="/terms">Terms of Service</Link>.
       </p>
 
       <h2>1. Free trial</h2>

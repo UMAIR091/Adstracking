@@ -39,8 +39,8 @@ export default function AboutPage() {
 
       <h2>The company</h2>
       <p>
-        {COMPANY.product} is built by {COMPANY.legalName}. Questions or ideas? We&apos;d love to hear from you —{" "}
-        <Link href="/contact">get in touch</Link>.
+        {COMPANY.product} is an independently built and operated product. Questions or ideas? We&apos;d love to hear
+        from you — <Link href="/contact">get in touch</Link>.
       </p>
     </LegalShell>
   );

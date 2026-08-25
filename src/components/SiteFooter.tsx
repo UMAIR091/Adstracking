@@ -31,7 +31,6 @@ export function SiteFooter() {
         </div>
         <div className="mt-10 flex flex-col items-start justify-between gap-2 border-t border-ink-100 pt-6 sm:flex-row sm:items-center">
           <p className="text-sm text-ink-500">© {new Date().getFullYear()} {COMPANY.product}. All rights reserved.</p>
-          <p className="text-xs text-ink-500">{COMPANY.legalName}</p>
         </div>
       </div>
     </footer>

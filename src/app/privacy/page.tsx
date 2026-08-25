@@ -16,9 +16,9 @@ export default function PrivacyPage() {
       lastUpdated={LEGAL_LAST_UPDATED}
     >
       <p>
-        This Privacy Policy explains how {COMPANY.legalName} (&quot;{COMPANY.product}&quot;, &quot;we&quot;,
-        &quot;us&quot;) collects, uses, stores, and protects information when you use {COMPANY.product} — a
-        white-label client-reporting platform for marketing agencies. By using the service you agree to this policy.
+        This Privacy Policy explains how {COMPANY.product} (&quot;we&quot;, &quot;us&quot;) collects, uses, stores,
+        and protects information when you use our white-label client-reporting platform for marketing agencies. By
+        using the service you agree to this policy.
       </p>
 
       <h2>1. Information we collect</h2>
@@ -133,8 +133,7 @@ export default function PrivacyPage() {
 
       <h2>11. Contact</h2>
       <p>
-        {COMPANY.legalName}, {COMPANY.address}. Privacy questions:{" "}
-        <a href={`mailto:${COMPANY.privacyEmail}`}>{COMPANY.privacyEmail}</a> · General support:{" "}
+        Privacy questions: <a href={`mailto:${COMPANY.privacyEmail}`}>{COMPANY.privacyEmail}</a> · General support:{" "}
         <a href={`mailto:${COMPANY.supportEmail}`}>{COMPANY.supportEmail}</a>.
       </p>
     </LegalShell>

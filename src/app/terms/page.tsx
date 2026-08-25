@@ -16,9 +16,9 @@ export default function TermsPage() {
       lastUpdated={LEGAL_LAST_UPDATED}
     >
       <p>
-        These Terms of Service (&quot;Terms&quot;) govern your use of {COMPANY.product}, operated by{" "}
-        {COMPANY.legalName} (&quot;we&quot;, &quot;us&quot;). By creating an account or using the service you agree to
-        these Terms and to our <Link href="/privacy">Privacy Policy</Link>.
+        These Terms of Service (&quot;Terms&quot;) govern your use of {COMPANY.product} (&quot;we&quot;,
+        &quot;us&quot;). By creating an account or using the service you agree to these Terms and to our{" "}
+        <Link href="/privacy">Privacy Policy</Link>.
       </p>
 
       <h2>1. The service</h2>
@@ -103,7 +103,7 @@ export default function TermsPage() {
 
       <h2>13. Contact</h2>
       <p>
-        {COMPANY.legalName}, {COMPANY.address} · <a href={`mailto:${COMPANY.supportEmail}`}>{COMPANY.supportEmail}</a>
+        {COMPANY.product} · <a href={`mailto:${COMPANY.supportEmail}`}>{COMPANY.supportEmail}</a>
       </p>
     </LegalShell>
   );
