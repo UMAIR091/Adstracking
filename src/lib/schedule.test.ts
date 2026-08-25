@@ -1,15 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { nextRunAt, isFrequency, periodForFrequency } from "./schedule";
+import { nextRunAt, isFrequency, periodForFrequency, periodForSchedule, isSchedulePeriod, SCHEDULE_PERIODS } from "./schedule";
 import { resolvePeriod } from "./reports/periods";
 
 describe("isFrequency", () => {
   it("accepts valid cadences", () => {
+    expect(isFrequency("daily")).toBe(true);
     expect(isFrequency("weekly")).toBe(true);
     expect(isFrequency("monthly")).toBe(true);
     expect(isFrequency("quarterly")).toBe(true);
   });
   it("rejects anything else", () => {
-    expect(isFrequency("daily")).toBe(false);
+    expect(isFrequency("hourly")).toBe(false);
     expect(isFrequency("")).toBe(false);
     expect(isFrequency(null)).toBe(false);
   });
@@ -109,5 +110,72 @@ describe("biweekly scheduling", () => {
   it("still returns a time strictly after `from`", () => {
     const from = new Date("2026-01-01T00:00:00Z");
     expect(new Date(nextRunAt("biweekly", from, 1, 8)).getTime()).toBeGreaterThan(from.getTime());
+  });
+});
+
+describe("daily scheduling", () => {
+  it("is a recognised cadence", () => {
+    expect(isFrequency("daily")).toBe(true);
+  });
+
+  it("lands on the next occurrence of the chosen hour", () => {
+    const from = new Date("2026-09-01T06:00:00Z");
+    const next = new Date(nextRunAt("daily", from, null, 11));
+    expect(next.toISOString()).toBe("2026-09-01T11:00:00.000Z");
+  });
+
+  it("rolls to tomorrow once today's hour has passed", () => {
+    const from = new Date("2026-09-01T12:00:00Z");
+    const next = new Date(nextRunAt("daily", from, null, 11));
+    expect(next.toISOString()).toBe("2026-09-02T11:00:00.000Z");
+  });
+
+  it("advances exactly one day, not one week", () => {
+    const from = new Date("2026-09-01T00:00:00Z");
+    const first = new Date(nextRunAt("daily", from, null, 8));
+    const second = new Date(nextRunAt("daily", first, null, 8));
+    expect(second.getTime() - first.getTime()).toBe(24 * 60 * 60 * 1000);
+  });
+
+  it("ignores sendDay — every day is the day", () => {
+    const from = new Date("2026-09-01T00:00:00Z");
+    expect(nextRunAt("daily", from, 5, 8)).toBe(nextRunAt("daily", from, null, 8));
+  });
+
+  it("defaults to the trailing week, not a single thin day", () => {
+    expect(periodForFrequency("daily")).toBe("last_7");
+  });
+});
+
+// The cadence picks a default window; the schedule may override it. Null means
+// "match the frequency", which is what every schedule created before the picker
+// existed stores.
+describe("periodForSchedule", () => {
+  it("falls back to the cadence default when nothing is pinned", () => {
+    expect(periodForSchedule("monthly", null)).toBe("previous_month");
+    expect(periodForSchedule("daily", null)).toBe("last_7");
+    expect(periodForSchedule("quarterly", undefined)).toBe("previous_quarter");
+  });
+
+  it("honours an explicit window over the cadence default", () => {
+    expect(periodForSchedule("daily", "previous_month")).toBe("previous_month");
+    expect(periodForSchedule("monthly", "last_7")).toBe("last_7");
+  });
+
+  it("ignores anything that isn't a usable preset", () => {
+    expect(periodForSchedule("weekly", "nonsense")).toBe("last_7");
+    expect(periodForSchedule("monthly", "")).toBe("previous_month");
+    expect(periodForSchedule("monthly", 7)).toBe("previous_month");
+  });
+
+  it("refuses custom — a frozen date range cannot recur", () => {
+    expect(isSchedulePeriod("custom")).toBe(false);
+    expect(periodForSchedule("monthly", "custom")).toBe("previous_month");
+    expect(SCHEDULE_PERIODS.some((p) => p.id === "custom")).toBe(false);
+  });
+
+  it("offers every non-custom preset to pick from", () => {
+    expect(SCHEDULE_PERIODS.length).toBeGreaterThan(0);
+    for (const p of SCHEDULE_PERIODS) expect(isSchedulePeriod(p.id)).toBe(true);
   });
 });

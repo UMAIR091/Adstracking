@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { HelpHint } from "@/components/ui/help-hint";
 import { track, ANALYTICS } from "@/lib/analytics";
-import { FREQUENCIES, type Frequency } from "@/lib/schedule";
+import { FREQUENCIES, SCHEDULE_PERIODS, periodForSchedule, type Frequency } from "@/lib/schedule";
 
 export type ScheduleData = {
   frequency: Frequency;
@@ -34,18 +34,32 @@ export type ScheduleData = {
   send_hour: number | null;
   subject: string | null;
   message: string | null;
+  /** Pinned reporting window; null = match the frequency. */
+  period: string | null;
 } | null;
 
-const FREQ_LABEL: Record<Frequency, string> = { weekly: "Weekly", biweekly: "Every 2 weeks", monthly: "Monthly", quarterly: "Quarterly" };
-
-// What each cadence actually reports on, so the user can see that a monthly
-// schedule sends a calendar month rather than 28 rolling days.
-const FREQ_PERIOD: Record<Frequency, string> = {
-  weekly: "Covers the previous 7 days",
-  biweekly: "Covers the previous 14 days",
-  monthly: "Covers the previous calendar month",
-  quarterly: "Covers the previous calendar quarter",
+const FREQ_LABEL: Record<Frequency, string> = {
+  daily: "Daily",
+  weekly: "Weekly",
+  biweekly: "Every 2 weeks",
+  monthly: "Monthly",
+  quarterly: "Quarterly",
 };
+
+// Daily is the one cadence with no day to choose — every day is the day.
+const HAS_SEND_DAY = (f: Frequency) => f !== "daily";
+const IS_WEEKDAY_CADENCE = (f: Frequency) => f === "weekly" || f === "biweekly";
+
+// What the schedule actually reports on, resolved the same way the cron
+// resolves it — so the note can never claim a window the delivery won't use.
+// Reads the preset's own label rather than a second copy of the wording, which
+// is how "monthly" once came to advertise a calendar month while sending 28
+// rolling days.
+function periodNote(frequency: Frequency, period: string | null): string {
+  const id = periodForSchedule(frequency, period);
+  const label = SCHEDULE_PERIODS.find((p) => p.id === id)?.label ?? id;
+  return `Covers ${label.toLowerCase()}`;
+}
 const DOW = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -85,6 +99,8 @@ export function ReportSchedule({
   const [frequency, setFrequency] = useState<Frequency>(schedule?.frequency ?? "monthly");
   const [sendDay, setSendDay] = useState<number>(schedule?.send_day ?? (schedule?.frequency === "weekly" ? 1 : 1));
   const [sendHour, setSendHour] = useState<number>(schedule?.send_hour ?? 8);
+  // "" is the stored null: match the frequency.
+  const [period, setPeriod] = useState<string>(schedule?.period ?? "");
   const [recipients, setRecipients] = useState(
     (schedule?.recipients?.length ? schedule.recipients : clientEmail ? [clientEmail] : []).join(", ")
   );
@@ -106,7 +122,7 @@ export function ReportSchedule({
       const res = await fetch("/api/schedules", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, frequency, sendDay, sendHour, recipients: recipientList(), subject: subject || null, message: message || null, enabled }),
+        body: JSON.stringify({ clientId, frequency, period: period || null, sendDay, sendHour, recipients: recipientList(), subject: subject || null, message: message || null, enabled }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return toast.error(data.error ?? "Couldn't save the schedule");
@@ -203,7 +219,7 @@ export function ReportSchedule({
             <div>
               <dt className="text-xs text-ink-500">Cadence</dt>
               <dd className="mt-0.5 text-sm font-medium text-ink-800">{FREQ_LABEL[schedule.frequency]}</dd>
-              <dd className="mt-0.5 text-xs text-ink-500">{FREQ_PERIOD[schedule.frequency]}</dd>
+              <dd className="mt-0.5 text-xs text-ink-500">{periodNote(schedule.frequency, schedule.period)}</dd>
             </div>
             <div>
               <dt className="text-xs text-ink-500">Next delivery</dt>
@@ -299,24 +315,28 @@ export function ReportSchedule({
 
         {editing && (
           <div className={exists ? "mt-5 border-t border-ink-100 pt-5" : "mt-5"}>
-            <div className="grid gap-3 sm:grid-cols-3">
+            {/* Four controls, three when the cadence is daily. Two columns on a
+                phone, four across once there's room, so dropping the day field
+                reflows instead of leaving a hole. */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Frequency">
                 <select value={frequency} onChange={(e) => setFrequency(e.target.value as Frequency)} className={selectCls}>
                   {FREQUENCIES.map((f) => <option key={f} value={f}>{FREQ_LABEL[f]}</option>)}
                 </select>
-                <p className="mt-1 text-xs text-ink-500">{FREQ_PERIOD[frequency]}</p>
               </Field>
-              <Field label={frequency === "weekly" || frequency === "biweekly" ? "Day of week" : "Day of month"}>
-                {frequency === "weekly" || frequency === "biweekly" ? (
-                  <select value={sendDay} onChange={(e) => setSendDay(Number(e.target.value))} className={selectCls}>
-                    {DOW.map((d, i) => <option key={i} value={i}>{d}</option>)}
-                  </select>
-                ) : (
-                  <select value={sendDay} onChange={(e) => setSendDay(Number(e.target.value))} className={selectCls}>
-                    {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                )}
-              </Field>
+              {HAS_SEND_DAY(frequency) && (
+                <Field label={IS_WEEKDAY_CADENCE(frequency) ? "Day of week" : "Day of month"}>
+                  {IS_WEEKDAY_CADENCE(frequency) ? (
+                    <select value={sendDay} onChange={(e) => setSendDay(Number(e.target.value))} className={selectCls}>
+                      {DOW.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                    </select>
+                  ) : (
+                    <select value={sendDay} onChange={(e) => setSendDay(Number(e.target.value))} className={selectCls}>
+                      {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  )}
+                </Field>
+              )}
               <Field label="Time (UTC)">
                 <select value={sendHour} onChange={(e) => setSendHour(Number(e.target.value))} className={selectCls}>
                   {Array.from({ length: 24 }, (_, h) => h).map((h) => (
@@ -324,7 +344,17 @@ export function ReportSchedule({
                   ))}
                 </select>
               </Field>
+              {/* The cadence sets a sensible default window, but the two are
+                  separate choices — a daily email of the trailing month is a
+                  perfectly reasonable thing to want. */}
+              <Field label="Reporting period">
+                <select value={period} onChange={(e) => setPeriod(e.target.value)} className={selectCls}>
+                  <option value="">Match the frequency</option>
+                  {SCHEDULE_PERIODS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+                </select>
+              </Field>
             </div>
+            <p className="mt-1.5 text-xs text-ink-500">{periodNote(frequency, period || null)}</p>
 
             <div className="mt-3">
               <Field label="Recipients (comma-separated)">

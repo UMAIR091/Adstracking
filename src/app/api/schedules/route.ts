@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { requireActiveAccess, getSubscriptionState } from "@/lib/billing/subscription";
 import { featuresForPlan } from "@/lib/billing/config";
-import { isFrequency, nextRunAt } from "@/lib/schedule";
+import { isFrequency, isSchedulePeriod, nextRunAt } from "@/lib/schedule";
 
 export const runtime = "nodejs";
 
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   const clientId: string | undefined = body?.clientId;
   const frequency = body?.frequency;
   if (!clientId || !isFrequency(frequency)) {
-    return NextResponse.json({ error: "clientId and a valid frequency (weekly/biweekly/monthly/quarterly) are required." }, { status: 400 });
+    return NextResponse.json({ error: "clientId and a valid frequency (daily/weekly/biweekly/monthly/quarterly) are required." }, { status: 400 });
   }
 
   const recipients: string[] = Array.isArray(body?.recipients)
@@ -30,11 +30,19 @@ export async function POST(req: Request) {
   const subject = typeof body?.subject === "string" ? body.subject.trim().slice(0, 200) || null : null;
   const message = typeof body?.message === "string" ? body.message.trim().slice(0, 2000) || null : null;
   // Clamp to what nextRunAt understands: hour 0-23 UTC; day = weekday 0-6 for
-  // weekly, day-of-month 1-28 for monthly/quarterly.
+  // weekly, day-of-month 1-28 for monthly/quarterly. Daily has no day to pick,
+  // so it is stored as null rather than a number that would mean nothing.
   const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.trunc(n)));
   const dayRange: [number, number] = frequency === "weekly" || frequency === "biweekly" ? [0, 6] : [1, 28];
-  const sendDay = Number.isFinite(body?.sendDay) ? clamp(Number(body.sendDay), dayRange[0], dayRange[1]) : null;
+  const sendDay =
+    frequency === "daily" ? null
+      : Number.isFinite(body?.sendDay) ? clamp(Number(body.sendDay), dayRange[0], dayRange[1])
+      : null;
   const sendHour = Number.isFinite(body?.sendHour) ? clamp(Number(body.sendHour), 0, 23) : 8;
+  // The window this schedule reports on. Anything unrecognised — including
+  // "custom", which cannot recur — falls back to null, meaning "match the
+  // frequency" (lib/schedule.ts periodForSchedule).
+  const period = isSchedulePeriod(body?.period) ? body.period : null;
 
   const supabase = createClient();
   const blocked = await requireActiveAccess(supabase, agency.id);
@@ -60,6 +68,7 @@ export async function POST(req: Request) {
     client_id: clientId,
     template_key: templateKey,
     frequency,
+    period,
     send_day: sendDay,
     send_hour: sendHour,
     next_run_at: nextRunAt(frequency, new Date(), sendDay, sendHour),

@@ -36,7 +36,7 @@ export default async function ClientAutomationsPage({ params }: { params: { id: 
   const [{ data: schedule }, { data: deliveryLogs }] = await Promise.all([
     supabase
       .from("report_schedules")
-      .select("frequency, recipients, enabled, next_run_at, send_day, send_hour, subject, message")
+      .select("frequency, recipients, enabled, next_run_at, send_day, send_hour, subject, message, period")
       .eq("client_id", client.id)
       .maybeSingle(),
     supabase

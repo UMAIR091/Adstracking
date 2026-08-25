@@ -1,6 +1,8 @@
 // Pure scheduling helpers shared by the schedules API and the delivery cron.
 
-export const FREQUENCIES = ["weekly", "biweekly", "monthly", "quarterly"] as const;
+import { PERIOD_PRESETS, isPeriodPreset, type PeriodPreset } from "@/lib/reports/periods";
+
+export const FREQUENCIES = ["daily", "weekly", "biweekly", "monthly", "quarterly"] as const;
 export type Frequency = (typeof FREQUENCIES)[number];
 
 export function isFrequency(v: unknown): v is Frequency {
@@ -8,7 +10,8 @@ export function isFrequency(v: unknown): v is Frequency {
 }
 
 /**
- * The reporting period each cadence should cover.
+ * The reporting period each cadence covers by DEFAULT, when the schedule
+ * doesn't name one (see periodForSchedule).
  *
  * Every scheduled report used to be generated with the default 28-day window
  * regardless of frequency, so a monthly delivery reported 28 rolling days
@@ -22,9 +25,16 @@ export function isFrequency(v: unknown): v is Frequency {
  *
  * Monthly and quarterly are deliberately calendar, not rolling: "your August
  * report" has to mean August.
+ *
+ * Daily is the one exception to "the block that just finished". A single day is
+ * too thin to report on — weekends read as dead, and paid media has not
+ * finished attributing yesterday by the time a morning send goes out — so a
+ * daily send defaults to the trailing week. An agency that wants a true
+ * one-day pulse can say so explicitly with the period picker.
  */
-export function periodForFrequency(f: Frequency): "last_7" | "last_14" | "previous_month" | "previous_quarter" {
+export function periodForFrequency(f: Frequency): PeriodPreset {
   switch (f) {
+    case "daily": return "last_7";
     case "weekly": return "last_7";
     case "biweekly": return "last_14";
     case "quarterly": return "previous_quarter";
@@ -33,9 +43,35 @@ export function periodForFrequency(f: Frequency): "last_7" | "last_14" | "previo
   }
 }
 
+/**
+ * The windows a schedule may be pinned to.
+ *
+ * "custom" is excluded deliberately: a fixed start/end pair on a RECURRING
+ * schedule would email the same frozen date range every time, which is never
+ * what someone means by scheduling a report.
+ */
+export const SCHEDULE_PERIODS = PERIOD_PRESETS.filter((p) => p.id !== "custom");
+
+export function isSchedulePeriod(v: unknown): v is PeriodPreset {
+  return isPeriodPreset(v) && v !== "custom";
+}
+
+/**
+ * The window a scheduled delivery reports on: the agency's explicit choice when
+ * there is one, otherwise the cadence default.
+ *
+ * Stored as NULL for "match the frequency", so every schedule created before
+ * the picker existed keeps behaving exactly as it did — and so a later change
+ * to a cadence's default reaches the schedules that never opted out.
+ */
+export function periodForSchedule(frequency: Frequency, period: unknown): PeriodPreset {
+  return isSchedulePeriod(period) ? period : periodForFrequency(frequency);
+}
+
 // Next delivery time strictly after `from`, honoring the chosen day and hour
 // (UTC). For weekly, sendDay is 0–6 (Sun–Sat); for monthly/quarterly it's the
-// day of month (clamped 1–28 so it exists in every month). sendHour is 0–23.
+// day of month (clamped 1–28 so it exists in every month). Daily ignores
+// sendDay entirely — every day is the day. sendHour is 0–23.
 export function nextRunAt(
   frequency: Frequency,
   from: Date = new Date(),
@@ -43,6 +79,13 @@ export function nextRunAt(
   sendHour?: number | null
 ): string {
   const hour = clamp(sendHour ?? 8, 0, 23);
+
+  if (frequency === "daily") {
+    const d = new Date(from);
+    d.setUTCHours(hour, 0, 0, 0);
+    if (d <= from) d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString();
+  }
 
   if (frequency === "weekly" || frequency === "biweekly") {
     const targetDow = clamp(sendDay ?? 1, 0, 6);
@@ -75,7 +118,8 @@ function clamp(n: number, lo: number, hi: number): number {
 }
 
 export function frequencyLabel(f: Frequency): string {
-  return f === "weekly" ? "Every week"
+  return f === "daily" ? "Every day"
+    : f === "weekly" ? "Every week"
     : f === "biweekly" ? "Every 2 weeks"
     : f === "quarterly" ? "Every quarter"
     : "Every month";

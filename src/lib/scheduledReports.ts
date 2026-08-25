@@ -21,7 +21,7 @@ import { getSubscriptionState } from "@/lib/billing/subscription";
 import { createClientReport } from "@/lib/reportGen";
 import { deliverReport } from "@/lib/delivery";
 import { emailConfigured } from "@/lib/email";
-import { nextRunAt, isFrequency, periodForFrequency } from "@/lib/schedule";
+import { nextRunAt, isFrequency, periodForSchedule } from "@/lib/schedule";
 import { logError } from "@/lib/errorLog";
 
 const MAX_ATTEMPTS = 3;
@@ -47,6 +47,8 @@ type DeliveryJob = {
   subject: string | null;
   message: string | null;
   occurrence_at: string;
+  /** The window this schedule pins itself to; null = match the frequency. */
+  period: string | null;
   attempts?: number;
 };
 
@@ -90,15 +92,16 @@ async function processJob(admin: SupabaseClient, job: DeliveryJob, allowed: bool
     // period at all, so a QUARTERLY schedule delivered a 28-day report — the
     // default — three months apart, leaving two thirds of the quarter unreported.
     //
-    // Weekly reports the previous 7 days, biweekly the previous 14, monthly the
-    // previous CALENDAR month and quarterly the previous CALENDAR quarter — so
-    // "your August report" covers August, not 28 rolling days ending mid-month.
-    // Windows other than the cached 28/90 are rebuilt from the 90-day daily
-    // series inside createClientReport.
+    // The schedule's own window when it pins one, otherwise the cadence
+    // default: weekly the previous 7 days, biweekly the previous 14, monthly
+    // the previous CALENDAR month and quarterly the previous CALENDAR quarter —
+    // so "your August report" covers August, not 28 rolling days ending
+    // mid-month. Windows other than the cached 28/90 are rebuilt from the
+    // 90-day daily series inside createClientReport.
     const freq = isFrequency(job.frequency) ? job.frequency : "monthly";
     gen = await createClientReport(admin, job.agency_id, job.client_id, {
       templateKey: job.template_key ?? undefined,
-      period: periodForFrequency(freq),
+      period: periodForSchedule(freq, job.period),
     });
   } catch (err) {
     await finalize(admin, job.delivery_id, { status: "failed", error: (err as Error).message.slice(0, 500) });

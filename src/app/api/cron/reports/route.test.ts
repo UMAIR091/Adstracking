@@ -109,7 +109,38 @@ describe("reports cron heartbeat", () => {
     const failed = await GET(req());
     expect(failed.status).toBe(500);
     expect(logRouteError).toHaveBeenCalledWith("cron", expect.any(Error));
-    // No heartbeat is written for a run that did not succeed.
-    expect(rpc).not.toHaveBeenCalledWith("record_heartbeat", expect.anything());
+  });
+
+  // This used to assert the opposite — that a failed run writes no heartbeat.
+  // That silence is exactly what hid a cron failing every day for weeks:
+  // logRouteError only reaches the console when the event carries no agency,
+  // and a batch-level crash here never resolves one, so the message was gone
+  // with the hour of runtime-log retention. The failure now leaves a row.
+  it("records the failure as a heartbeat, carrying the error message", async () => {
+    runScheduledReports.mockRejectedValue(new Error("claim failed"));
+    logRouteError.mockResolvedValue("claim failed");
+
+    const res = await GET(req());
+
+    expect(res.status).toBe(500);
+    expect(rpc).toHaveBeenCalledWith("record_heartbeat", {
+      p_job: "reports",
+      p_ok: false,
+      p_detail: "claim failed",
+    });
+  });
+
+  it("still returns the original error when the failure heartbeat itself throws", async () => {
+    runScheduledReports.mockRejectedValue(new Error("claim failed"));
+    logRouteError.mockResolvedValue("claim failed");
+    rpc.mockImplementation(async (fn: string) => {
+      if (fn === "record_heartbeat") throw new Error("network down");
+      return { error: null };
+    });
+
+    const res = await GET(req());
+
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toMatchObject({ error: "claim failed" });
   });
 });
