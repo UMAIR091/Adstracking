@@ -57,13 +57,6 @@ export default function ContactPage() {
         <li>Report data looks stale? Use <strong>Refresh now</strong> on the data source — automatic syncs run every few hours.</li>
         <li>Managing your stored data? See <Link href="/dashboard/settings/data">Settings → Data &amp; privacy</Link>.</li>
       </ul>
-
-      <h2>Company details</h2>
-      <p>
-        {COMPANY.legalName}
-        <br />
-        {COMPANY.address}
-      </p>
     </LegalShell>
   );
 }
