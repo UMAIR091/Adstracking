@@ -114,6 +114,14 @@ async function tokenRequest(body: Record<string, string>): Promise<TokenSet> {
 
 export const microsoftAdsOAuth: OAuthProvider = {
   id: "microsoft",
+  // A Google-signed-in connection was minted by the shared Google OAuth app, so
+  // it sits on the same grant as that account's Search Console, GA4 and the
+  // rest — and would die with them if one of those were revoked. Reported here
+  // so disconnect counts it as a sibling. Microsoft-authenticated connections
+  // have their own grant and return null. This provider defines no `revoke`, so
+  // the key only ever makes it a sibling, never a revoker.
+  grantKey: ({ display_name, config }) =>
+    config?.identity_provider === PROVIDER_GOOGLE && display_name ? `google:${display_name}` : null,
   authUrl(state) {
     // Google-sign-in users authenticate through the shared Google OAuth app,
     // which redirects to the already-registered /api/google/callback; the

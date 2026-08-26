@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/crypto";
 import { oauthForType } from "@/lib/integrations/registry";
+import type { GrantOwner } from "@/lib/integrations/types";
 import { revalidateIntegrationHealth } from "@/lib/integrationHealth";
 
 export const runtime = "nodejs";
@@ -25,14 +26,37 @@ export async function POST(req: Request) {
   // side) so we can revoke; they never leave this route.
   const { data: ds } = await supabase
     .from("data_sources")
-    .select("id, type, agency_id, access_token, refresh_token")
+    .select("id, type, agency_id, access_token, refresh_token, display_name, config")
     .eq("id", dataSourceId)
     .maybeSingle();
   if (!ds) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  const provider = oauthForType(ds.type as string | null);
+
+  // Does another connection sit on the same provider-side grant?
+  //
+  // Google issues ONE grant per (OAuth client, Google account) and revoking is
+  // grant-wide, so revoking here would also kill that account's other Google
+  // connections — Search Console, GA4, Google Ads, Business Profile, Sheets,
+  // BigQuery, YouTube, and a Google-signed-in Microsoft Ads. Disconnecting one
+  // integration must not silently break the rest, so the grant is revoked only
+  // when this is the last connection on it. The row is deleted either way.
+  const grantKey = provider?.grantKey?.(ds as GrantOwner) ?? null;
+  let sharesGrant = false;
+  if (grantKey) {
+    const { data: siblings } = await supabase
+      .from("data_sources")
+      .select("id, type, display_name, config")
+      .eq("agency_id", ds.agency_id as string)
+      .neq("id", dataSourceId);
+    sharesGrant = (siblings ?? []).some(
+      (s) => oauthForType(s.type as string | null)?.grantKey?.(s as GrantOwner) === grantKey
+    );
+  }
+
   // Best-effort provider revocation. Never blocks disconnect — a provider that's
   // down or a token that's already dead must not trap the user's data here.
-  const revoke = oauthForType(ds.type as string | null)?.revoke;
+  const revoke = sharesGrant ? undefined : provider?.revoke;
   if (revoke) {
     try {
       await revoke({

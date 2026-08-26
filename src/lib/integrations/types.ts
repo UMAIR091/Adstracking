@@ -14,6 +14,9 @@ export type AuthContext = { provider?: string };
 
 // A pluggable OAuth backend, shared by every integration that authenticates
 // through the same provider (e.g. all Google sources share one).
+/** The stored columns a provider needs to identify which grant a row sits on. */
+export type GrantOwner = { display_name: string | null; config: Record<string, unknown> | null };
+
 export type OAuthProvider = {
   id: string;
   authUrl(state: string): string;
@@ -24,6 +27,23 @@ export type OAuthProvider = {
   // only providers with an official revoke endpoint implement it. Never blocks
   // disconnect — callers treat a thrown error as non-fatal.
   revoke?(tokens: { accessToken: string | null; refreshToken: string | null }): Promise<void>;
+  // Identifies the PROVIDER-SIDE GRANT a connection belongs to, when several
+  // connections can share one.
+  //
+  // Google issues a single grant per (OAuth client, Google account), and
+  // `include_granted_scopes` accumulates every product's scopes into it — so
+  // Search Console, GA4, Google Ads, Business Profile, Sheets, BigQuery,
+  // YouTube and a Google-signed-in Microsoft Ads connection can all sit on one
+  // grant. Revocation is grant-wide, so revoking on one disconnect silently
+  // kills the others. Disconnect therefore revokes only when no sibling
+  // connection returns the same key (see api/google/disconnect).
+  //
+  // Return null when the grant can't be identified — the caller then falls back
+  // to revoking, which is the safer default: a grant that outlives a disconnect
+  // is a hygiene problem, but revoking a shared one destroys working
+  // integrations. Undefined (the default) means each connection has its own
+  // grant and disconnect can always revoke.
+  grantKey?(row: GrantOwner): string | null;
   // Where the provider redirects back to (must match the OAuth app config).
   callbackPath: string;
 };

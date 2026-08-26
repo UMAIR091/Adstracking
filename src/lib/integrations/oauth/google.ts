@@ -21,6 +21,10 @@ function googleVariant(id: string, extraScopes: string[]): OAuthProvider {
       const token = refreshToken ?? accessToken;
       return token ? revokeGoogleToken(token) : Promise.resolve();
     },
+    // Every Google variant runs on the same OAuth client, so all connections
+    // made by one Google account share a single grant — and revoking is
+    // grant-wide. The account email is what identity() stored as display_name.
+    grantKey: ({ display_name }) => (display_name ? `google:${display_name}` : null),
     // Registered in Google Cloud Console — do not change without updating it there.
     callbackPath: "/api/google/callback",
   };
