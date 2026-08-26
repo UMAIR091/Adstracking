@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveGsc, deriveGa4, deriveBlock, covers, seriesCoverage, coverageWithin } from "./derive";
+import { deriveGsc, deriveGa4, deriveBlock, covers, seriesCoverage, coverageWithin, distinctDaysWithin, MIN_PERIOD_COVERAGE } from "./derive";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import type { ReportBlock } from "@/lib/integrations/blocks";
 
@@ -173,5 +173,38 @@ describe("coverage", () => {
     expect(c.covered).toBe(2);
     expect(c.requested).toBe(31);
     expect(c.range).toEqual({ start: "2026-08-01", end: "2026-08-02" });
+  });
+
+  // What gates report generation, so the row-vs-day distinction matters: the
+  // input is every source's dates concatenated, and several sources reporting
+  // the same date cover ONE day between them.
+  describe("distinctDaysWithin", () => {
+    const AUG = { start: "2026-08-01", end: "2026-08-31" };
+
+    it("counts a date once however many sources reported it", () => {
+      const threeSourcesSameTwoDays = [
+        "2026-08-01", "2026-08-02",
+        "2026-08-01", "2026-08-02",
+        "2026-08-01", "2026-08-02",
+      ];
+      expect(distinctDaysWithin(threeSourcesSameTwoDays, AUG)).toBe(2);
+      // The un-deduped count would be 6 — enough to make three sources holding
+      // two days each look like a fifth of the month.
+      expect(coverageWithin(threeSourcesSameTwoDays, AUG).covered).toBe(6);
+    });
+
+    it("ignores dates outside the window", () => {
+      expect(distinctDaysWithin(["2026-07-31", "2026-08-05", "2026-09-01"], AUG)).toBe(1);
+    });
+
+    it("is zero for no dates at all", () => {
+      expect(distinctDaysWithin([], AUG)).toBe(0);
+    });
+  });
+
+  it("sets the materiality bar at half the requested period", () => {
+    // Pinned because report generation refuses below it — a silent change here
+    // would change which reports exist.
+    expect(MIN_PERIOD_COVERAGE).toBe(0.5);
   });
 });

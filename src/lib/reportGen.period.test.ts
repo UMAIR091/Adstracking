@@ -155,13 +155,86 @@ describe("windows older than the rolling cache come from the archive", () => {
     expect((inserted.data as { gsc: { totals: { clicks: number } } }).gsc.totals.clicks).toBe(91);
   });
 
-  it("still refuses when the archive doesn't cover the window either", async () => {
-    // Archive holds only half the quarter.
-    const stub = stubSupabase({ gscByDate: gscDays(30), archive: archiveRows("2026-05-15", "2026-06-30") });
+  it("still refuses when the archive covers too little of the window", async () => {
+    // June only — 30 of Q2's 91 days, a third.
+    const stub = stubSupabase({ gscByDate: gscDays(30), archive: archiveRows("2026-06-01", "2026-06-30") });
     const { res } = await generate({ period: "previous_quarter" }, stub);
     expect(res.ok).toBe(false);
     expect(res.ok === false && res.error).toMatch(/stored history/i);
     expect(stub.inserted).toHaveLength(0);
+  });
+});
+
+// A period whose data stops a few days short used to be refused outright, so a
+// paused ad account or a provider that reports nothing for a day cost the whole
+// report. The derive functions already clip to the window and the report
+// already carries `requested` vs `coverage` — rendered as "Data is available
+// for N of the M days in this period" — so a majority-covered window is
+// generated and the shortfall disclosed instead.
+describe("partial coverage of the requested period", () => {
+  // Q2 2026 is 91 days, so the 50% bar is 46.
+  const QUARTER_DAYS = 91;
+  const BAR = Math.ceil(QUARTER_DAYS * 0.5);
+
+  it("generates when most of the period has data, keeping the REQUESTED window", async () => {
+    // May + June = 61 of 91 days (67%).
+    const stub = stubSupabase({ gscByDate: gscDays(30), archive: archiveRows("2026-05-01", "2026-06-30") });
+    const { res, inserted } = await generate({ period: "previous_quarter" }, stub);
+
+    expect(res.ok).toBe(true);
+    // The period is NOT narrowed to the data: the report still says Q2.
+    expect(inserted.period_start).toBe("2026-04-01");
+    expect(inserted.period_end).toBe("2026-06-30");
+
+    const meta = (inserted.data as { meta: { requested: { start: string; end: string }; coverage: { start: string; end: string } } }).meta;
+    expect(meta.requested).toEqual({ start: "2026-04-01", end: "2026-06-30" });
+    // Coverage tells the truth about which days were measured — this is what
+    // the web report and PDF render as "N of the M days".
+    expect(meta.coverage).toEqual({ start: "2026-05-01", end: "2026-06-30" });
+
+    // 1 click/day, so the total is the days actually measured — never padded
+    // out to the full 91 with invented zeros.
+    expect((inserted.data as { gsc: { totals: { clicks: number } } }).gsc.totals.clicks).toBe(61);
+  });
+
+  it("generates at exactly the threshold", async () => {
+    // 16 May–30 Jun = 46 days = the bar exactly.
+    const stub = stubSupabase({ gscByDate: gscDays(30), archive: archiveRows("2026-05-16", "2026-06-30") });
+    const { res, inserted } = await generate({ period: "previous_quarter" }, stub);
+    expect(BAR).toBe(46);
+    expect(res.ok).toBe(true);
+    expect((inserted.data as { gsc: { totals: { clicks: number } } }).gsc.totals.clicks).toBe(BAR);
+  });
+
+  it("refuses one day below the threshold", async () => {
+    // 17 May–30 Jun = 45 days, one short.
+    const stub = stubSupabase({ gscByDate: gscDays(30), archive: archiveRows("2026-05-17", "2026-06-30") });
+    const { res } = await generate({ period: "previous_quarter" }, stub);
+    expect(res.ok).toBe(false);
+    expect(stub.inserted).toHaveLength(0);
+  });
+
+  it("refuses — and stores nothing — when no day of the window has data", async () => {
+    // 30 days of September history, asked for Q2: zero overlap. This must not
+    // slip through as an empty stored report.
+    const stub = stubSupabase({ gscByDate: gscDays(30) });
+    const { res } = await generate({ period: "previous_quarter" }, stub);
+    expect(res.ok).toBe(false);
+    expect(stub.inserted).toHaveLength(0);
+  });
+
+  it("a short tail no longer costs the whole report", async () => {
+    // The production failure this fixes: a 14-day window whose sources stop two
+    // days early. 12 of 14 days is comfortably over the bar.
+    const stub = stubSupabase({ gscByDate: gscDays(90).filter((d) => d.date <= "2026-09-12") });
+    const { res, inserted } = await generate({ period: "last_14" }, stub);
+
+    expect(res.ok).toBe(true);
+    expect(inserted.period_start).toBe("2026-09-01");
+    expect(inserted.period_end).toBe("2026-09-14");
+    const meta = (inserted.data as { meta: { coverage: { end: string } } }).meta;
+    expect(meta.coverage.end).toBe("2026-09-12");
+    expect((inserted.data as { gsc: { totals: { clicks: number } } }).gsc.totals.clicks).toBe(12);
   });
 });
 

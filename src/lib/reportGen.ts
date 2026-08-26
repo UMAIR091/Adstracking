@@ -10,7 +10,7 @@ import { featuresForPlan } from "@/lib/billing/config";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import { snapshotsToBlocks, type ReportBlock } from "@/lib/integrations/blocks";
 import { resolvePeriod, isPeriodPreset, type PeriodPreset, type ResolveResult } from "@/lib/reports/periods";
-import { deriveGsc, deriveGa4, deriveBlock, seriesCoverage, covers, archiveToGscByDate, archiveToGa4ByDate, archiveToBlockSeries, type Unavailable } from "@/lib/reports/derive";
+import { deriveGsc, deriveGa4, deriveBlock, seriesCoverage, covers, distinctDaysWithin, MIN_PERIOD_COVERAGE, archiveToGscByDate, archiveToGa4ByDate, archiveToBlockSeries, type Unavailable } from "@/lib/reports/derive";
 import { fetchHistory } from "@/lib/metrics/history";
 import { inferReportType, isReportType, suggestReportTitle, type ReportType } from "@/lib/reports/types";
 import { hasCalculableKpis } from "@/lib/reports/summary";
@@ -142,10 +142,21 @@ export async function createClientReport(
   }
 
   // ── Rebuild the requested window from the cached daily series ─────────────
-  // Only for windows that don't match a cached snapshot. The guard below is
-  // what stops a selected period silently producing another period's numbers:
-  // if the cache doesn't span the window, generation fails with an explanation
-  // instead of returning whatever it happens to hold.
+  // Only for windows that don't match a cached snapshot.
+  //
+  // This used to demand that the stored series span the window COMPLETELY, and
+  // refuse otherwise. That was stricter than the data warranted: the derive
+  // functions below already clip to `inWindow`, so they cannot produce another
+  // period's numbers however short the series is, and the report already
+  // carries `requested` vs `coverage` — rendered on the web report and in the
+  // PDF as "Data is available for N of the M days in this period". A quiet ad
+  // account or a provider that reports nothing for a day or two is ordinary,
+  // and it was refusing whole reports over it.
+  //
+  // So the window is now allowed through when a MAJORITY of its days have data,
+  // and the shortfall is disclosed rather than hidden. Below that the original
+  // refusal stands: at some point the headline totals stop describing the
+  // period they are named after, which is what the guard was really for.
   const unavailable: Unavailable[] = [];
   if (derived) {
     const allDates = [
@@ -154,6 +165,10 @@ export async function createClientReport(
       ...blocks.flatMap((b) => b.series.flatMap((s) => s.points.map((p) => p.date))),
     ];
     let cached = seriesCoverage(allDates);
+    // Distinct days, not rows: several sources each reporting the same date
+    // cover one day between them, and counting rows would let three sources
+    // with a third of the window each look like full coverage.
+    let coveredDays = distinctDaysWithin(allDates, period);
 
     // Outside the rolling 90-day cache — a previous quarter almost always is —
     // fall back to the durable metric_daily archive every sync writes to. No
@@ -165,7 +180,12 @@ export async function createClientReport(
 
       const archiveDates = history.map((r) => r.date);
       const archived = seriesCoverage(archiveDates);
-      if (covers(archived, period)) {
+      // Re-seat whenever the archive knows MORE of this window than the
+      // snapshot does, not only when it spans the whole thing. A previous
+      // quarter is typically absent from the rolling cache entirely, so the
+      // old full-coverage condition threw away a nearly complete archive
+      // whenever it was a day short.
+      if (distinctDaysWithin(archiveDates, period) > coveredDays) {
         // Re-seat each source's daily series on the archived rows, then let the
         // same derive functions below do the arithmetic.
         if (gscData) {
@@ -184,10 +204,20 @@ export async function createClientReport(
           })
           .filter((b): b is ReportBlock => b !== null);
         cached = archived;
+        coveredDays = distinctDaysWithin(archiveDates, period);
       }
     }
 
-    if (!covers(cached, period)) {
+    // Below the materiality bar — including zero days in the window — the
+    // original refusal stands, unchanged.
+    //
+    // Zero deliberately refuses HERE rather than falling through to the
+    // isReportEmpty path: that check runs before this block, against the
+    // snapshot's own unclipped series, so a client with 30 days of August data
+    // asking for Q2 sails past it and would end up storing an empty report.
+    // Its message ("click Refresh now") would also be wrong — the data isn't
+    // missing, the window is.
+    if (coveredDays < Math.ceil(period.days * MIN_PERIOD_COVERAGE)) {
       return {
         ok: false,
         status: 400,

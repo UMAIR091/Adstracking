@@ -68,6 +68,34 @@ export function coverageWithin(dates: string[], w: Window): { covered: number; r
   };
 }
 
+/**
+ * Distinct days inside `w` that carry data — a date counts once however many
+ * sources reported it.
+ *
+ * `coverageWithin` counts ROWS, which is right for one series and wrong across
+ * several: three sources each holding a third of the window would otherwise
+ * add up to "full coverage" while two thirds of the days had nothing.
+ */
+export function distinctDaysWithin(dates: string[], w: Window): number {
+  return coverageWithin(Array.from(new Set(dates)), w).covered;
+}
+
+/**
+ * How much of a requested period must carry data before a report is worth
+ * generating, as a fraction of its days.
+ *
+ * Above this, the totals still describe the majority of the window they are
+ * named after, and the shortfall is disclosed by `meta.coverage` — the web
+ * report and the PDF both render "Data is available for N of the M days in this
+ * period". Below it, a report keeps the period's name while mostly measuring
+ * its absence, which is what refusing is actually for.
+ *
+ * A fraction rather than a day count because the same rule covers 7-, 14-, 28-
+ * and 90-day windows: "missing at most 2 days" would be trivial for a quarter
+ * and severe for a week.
+ */
+export const MIN_PERIOD_COVERAGE = 0.5;
+
 // ── Rebuilding daily series from the durable archive ────────────────────────
 //
 // The snapshot tables are a rolling 90-day cache, so a previous QUARTER is
