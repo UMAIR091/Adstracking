@@ -3,6 +3,7 @@
 // Root error boundary — catches unexpected errors on any route outside the
 // dashboard (marketing, auth, public report pages) so they get a branded,
 // recoverable screen instead of a raw crash.
+import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
@@ -11,6 +12,12 @@ import { Button } from "@/components/ui/button";
 export default function RootError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error("[app-error]", error.digest ?? "", error.message);
+    // Reported here, not left to global-error.tsx: that boundary only catches
+    // errors in the ROOT LAYOUT, and this one catches everything before it — so
+    // relying on it would have meant client errors on the marketing, auth and
+    // public report pages never leaving the browser console. No-op until a DSN
+    // is configured.
+    Sentry.captureException(error);
   }, [error]);
 
   return (

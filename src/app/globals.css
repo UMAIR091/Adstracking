@@ -68,20 +68,24 @@
   --ink-100: 244 244 245;
   --ink-200: 228 228 231;
   --ink-300: 212 212 216;
-  --ink-400: 113 113 122;
-  --ink-500: 82 82 91;
-  --ink-600: 63 63 70;
-  --ink-700: 47 47 53;
-  --ink-800: 35 35 39;
+  --ink-400: 82 82 91;
+  --ink-500: 66 66 74;
+  --ink-600: 52 52 58;
+  --ink-700: 42 42 47;
+  --ink-800: 33 33 37;
   --ink-900: 24 24 27;
 
   /* ── Surfaces ──
      `surface` is a card, `surface-muted` the page behind it,
      `surface-subtle` the hover/elevated step, `sidebar` the nav rail. */
+  /* The page canvas. Split from --surface-muted, which doubles as the fill for
+     chips and inset rows inside white cards — recolouring that one would turn
+     every badge into a grey blob. */
+  --canvas: 179 177 177;
   --surface: 255 255 255;
   --surface-muted: 247 247 248;
   --surface-subtle: 250 250 250;
-  --sidebar: 240 240 242;
+  --sidebar: 168 166 166;
   /* Alternating content band: one step off the page, so a long marketing
      page has rhythm without a second card colour. Sits BETWEEN the page and
      a card in both themes — darker than the page in light, lighter than it in
@@ -187,6 +191,7 @@
     --ink-800: 233 233 238;
     --ink-900: 244 244 245;
 
+    --canvas: 9 9 11;
     --surface: 17 17 20;
     --surface-muted: 9 9 11;
     --surface-subtle: 24 24 28;
@@ -336,7 +341,7 @@ body {
 }
 
 body {
-  background: rgb(var(--surface-muted));
+  background: rgb(var(--canvas));
   color: rgb(var(--ink-900));
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

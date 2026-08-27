@@ -15,7 +15,7 @@ export default async function OnboardingPage() {
   if (agency.onboarding_completed_at) redirect("/dashboard");
 
   return (
-    <main className="min-h-screen bg-surface-muted px-4 py-10">
+    <main className="min-h-screen bg-canvas px-4 py-10">
       <div className="mb-8 flex justify-center">
         <Brand className="text-lg" />
       </div>

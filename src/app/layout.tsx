@@ -25,7 +25,7 @@ export const viewport: Viewport = {
   // Matches --surface-muted in each theme, so browser chrome blends with the
   // page rather than framing it in the wrong one.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#F7F7F8" },
+    { media: "(prefers-color-scheme: light)", color: "#B3B1B1" },
     { media: "(prefers-color-scheme: dark)", color: "#09090B" },
   ],
 };

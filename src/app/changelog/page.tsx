@@ -17,7 +17,7 @@ const BADGE: Record<ChangeType, { label: string; cls: string; Icon: typeof Spark
 
 export default function ChangelogPage() {
   return (
-    <div className="min-h-screen bg-surface-muted">
+    <div className="min-h-screen bg-canvas">
       <header className="border-b border-ink-200 bg-surface">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-5 py-4">
           <Link href="/"><Brand /></Link>

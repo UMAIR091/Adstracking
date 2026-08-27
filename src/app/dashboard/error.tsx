@@ -3,6 +3,7 @@
 // Error boundary for the dashboard. A thrown server/client error inside any
 // dashboard route renders this instead of a raw crash page — a friendly,
 // recoverable state with a one-click retry (reset re-runs the failed segment).
+import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
@@ -13,6 +14,10 @@ export default function DashboardError({ error, reset }: { error: Error & { dige
     // Surfaced in the browser console + any client APM. The digest correlates
     // to the full server-side stack in the platform logs.
     console.error("[dashboard-error]", error.digest ?? "", error.message);
+    // This boundary catches dashboard errors before global-error.tsx can, and
+    // that one only fires for root-layout failures — so without this, the whole
+    // signed-in surface reported nothing. No-op until a DSN is configured.
+    Sentry.captureException(error);
   }, [error]);
 
   return (
