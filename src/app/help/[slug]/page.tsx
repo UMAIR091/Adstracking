@@ -22,14 +22,14 @@ export default function HelpArticlePage({ params }: { params: { slug: string } }
       <header className="border-b border-ink-200 bg-surface">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-5 py-4">
           <Link href="/"><Brand /></Link>
-          <Link href="/help" className="text-sm font-medium text-brand-600 hover:underline">All articles</Link>
+          <Link href="/help" className="text-sm font-medium text-brand-700 hover:underline">All articles</Link>
         </div>
       </header>
       <main className="mx-auto max-w-2xl px-5 py-10">
         <Link href="/help" className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-700">
           <ArrowLeft size={15} /> Help Center
         </Link>
-        <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-brand-600">{article.category}</p>
+        <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-brand-700">{article.category}</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink-900">{article.title}</h1>
         <p className="mt-1 text-ink-500">{article.summary}</p>
 
@@ -37,7 +37,7 @@ export default function HelpArticlePage({ params }: { params: { slug: string } }
           {renderBody(article.body)}
         </article>
 
-        <Link href="/contact" className="mt-6 flex items-center gap-2 text-sm font-medium text-brand-600 hover:underline">
+        <Link href="/contact" className="mt-6 flex items-center gap-2 text-sm font-medium text-brand-700 hover:underline">
           <LifeBuoy size={16} /> Still stuck? Contact support
         </Link>
       </main>

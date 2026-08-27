@@ -94,6 +94,8 @@ const config: Config = {
           subtle: withAlpha("--surface-subtle"),
           band: withAlpha("--surface-band"),
         },
+        // The page canvas, distinct from the chip fill that --surface-muted also serves.
+        canvas: withAlpha("--canvas"),
         // The nav rail sits a step away from both the page and a card, so it
         // gets its own token rather than borrowing one of theirs.
         sidebar: withAlpha("--sidebar"),

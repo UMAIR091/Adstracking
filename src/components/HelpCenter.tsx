@@ -51,7 +51,10 @@ export function HelpCenter({ articles }: { articles: HelpArticle[] }) {
             if (list.length === 0) return null;
             return (
               <div key={cat}>
-                <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-400">{cat}</h2>
+                {/* Secondary tier, not muted: this heading sits directly on the
+                    page canvas, where the muted tone doesn't clear AA. Muted is
+                    for text on a card. */}
+                <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-500">{cat}</h2>
                 <div className="space-y-2">{list.map((a) => <ArticleRow key={a.slug} a={a} />)}</div>
               </div>
             );
