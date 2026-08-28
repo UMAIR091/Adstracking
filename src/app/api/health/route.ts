@@ -26,9 +26,8 @@ export async function GET() {
     // can't tell "ran and failed" from "ran fine": a job that fails every day on
     // schedule keeps a fresh last_run_at. The detail carries the failing run's
     // error message, which is otherwise console-only and gone with the hour of
-    // runtime-log retention. Note this is reported, not scored — `status` still
-    // turns on database reachability and staleness, so an uptime monitor's
-    // paging behaviour is unchanged.
+    // runtime-log retention. `ok` is scored into `status` below, so a job that
+    // runs and fails can no longer read as healthy.
     const staleMs = (Number(process.env.CRON_STALE_HOURS) || 30) * 3600_000;
     const { data: hb } = await admin.from("ops_heartbeats").select("job, last_run_at, ok, detail");
     for (const h of (hb ?? []) as { job: string; last_run_at: string; ok: boolean | null; detail: string | null }[]) {
@@ -44,9 +43,14 @@ export async function GET() {
     dbOk = false;
   }
 
+  // A job that RAN AND FAILED is degraded, not healthy. Staleness alone missed
+  // this: a cron failing on schedule every day keeps a fresh last_run_at, so the
+  // reports job reported "ok" overall for weeks while it had never once
+  // succeeded. Failure is now scored the same way staleness is.
   const cronStale = Object.values(crons).some((c) => c.stale);
+  const cronFailing = Object.values(crons).some((c) => !c.ok);
   const body = {
-    status: dbOk ? (cronStale ? "degraded" : "ok") : "degraded",
+    status: dbOk ? (cronStale || cronFailing ? "degraded" : "ok") : "degraded",
     checks: { database: dbOk ? "ok" : "fail", crons },
     monitoring: monitoringConfigured() ? "configured" : "console-only",
     latencyMs: Date.now() - startedAt,
