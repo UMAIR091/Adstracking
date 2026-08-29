@@ -13,6 +13,7 @@ import { MailCheck, RefreshCw, Loader2, ArrowLeft, CheckCircle2 } from "lucide-r
 import { createClient } from "@/lib/supabase/client";
 import { Brand } from "@/components/Brand";
 import { track, ANALYTICS } from "@/lib/analytics";
+import { authCallbackUrl } from "@/lib/authRedirect";
 
 const RESEND_COOLDOWN = 45; // seconds
 
@@ -81,7 +82,10 @@ export function VerifyEmail({ email }: { email: string }) {
     const { error } = await supabase.auth.resend({
       type: "signup",
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard` },
+      // Same canonical host as the original signup link — a resend that pointed
+      // at a different origin would fail the PKCE exchange exactly as the first
+      // one did (see lib/authRedirect).
+      options: { emailRedirectTo: authCallbackUrl("/dashboard") },
     });
     setResending(false);
     setCooldown(RESEND_COOLDOWN);

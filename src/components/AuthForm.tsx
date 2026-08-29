@@ -7,22 +7,34 @@ import { createClient } from "@/lib/supabase/client";
 import { Brand } from "@/components/Brand";
 import { PasswordField, passwordChecks } from "@/components/ui/password-field";
 import { track, ANALYTICS } from "@/lib/analytics";
+import { authCallbackUrl } from "@/lib/authRedirect";
 
 const inputClass =
   "field w-full py-2";
 
-export function AuthForm({ mode, next = "/dashboard" }: { mode: "login" | "signup"; next?: string }) {
+export function AuthForm({
+  mode,
+  next = "/dashboard",
+  initialError = null,
+}: {
+  mode: "login" | "signup";
+  next?: string;
+  /** Reason a redirect back to this page failed — e.g. a dead confirmation
+   *  link. /auth/callback sends it as ?error=, and it went unrendered until
+   *  now, so a failed confirmation showed a bare login form. */
+  initialError?: string | null;
+}) {
   const router = useRouter();
   const supabase = createClient();
   const isSignup = mode === "signup";
   // Post-auth destination — flows through every path (password, email
-  // confirmation, Google OAuth) via /auth/callback?next=.
-  const callbackUrl = () =>
-    `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+  // confirmation, Google OAuth) via /auth/callback?next=. Pinned to the
+  // canonical host; see lib/authRedirect for why that matters.
+  const callbackUrl = () => authCallbackUrl(next);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 

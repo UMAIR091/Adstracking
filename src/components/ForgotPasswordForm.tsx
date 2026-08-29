@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, MailCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Brand } from "@/components/Brand";
+import { authCallbackUrl } from "@/lib/authRedirect";
 
 const inputClass =
   "field w-full py-2";
@@ -22,7 +23,9 @@ export function ForgotPasswordForm() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const redirectTo = `${window.location.origin}/auth/callback?next=/reset-password`;
+    // Canonical host, for the same reason signup uses it: a reset link that
+    // returns to the other origin loses the PKCE verifier cookie and dies.
+    const redirectTo = authCallbackUrl("/reset-password");
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
     setLoading(false);
     // Always show success — never reveal whether an email is registered.
