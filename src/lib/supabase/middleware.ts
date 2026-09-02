@@ -170,7 +170,15 @@ export async function updateSession(request: NextRequest) {
       return redirect;
     }
 
-    if (user && (path === "/login" || path === "/signup")) {
+    // Signed-in visitors have no use for the auth pages — except when they were
+    // sent there BY a failure. /auth/callback redirects to /login?error=… when a
+    // confirmation link can't be claimed, and bouncing that to the dashboard
+    // threw the reason away and silently dropped the user into whichever
+    // account this browser already held. Someone confirming a second account
+    // from a mailbox open in another profile hit exactly that: the wrong
+    // dashboard, no explanation, and the original tab still waiting.
+    const carriesError = request.nextUrl.searchParams.has("error");
+    if (user && !carriesError && (path === "/login" || path === "/signup")) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
       const redirect = NextResponse.redirect(url);
