@@ -398,3 +398,70 @@ export function Bullets({ s, items }: { s: S; items: string[] }) {
   );
 }
 
+
+// ── Verdict panel ────────────────────────────────────────────────────────────
+//
+// The thirty-second answer, set above every numbered section of the PDF.
+//
+// This is the block a client reads standing in a queue on a phone, and often
+// the only one. It therefore has to settle three things without help: is this
+// working, did it improve, and is there anything to do. Everything else in the
+// document is the evidence behind these lines.
+//
+// The colour is a claim about performance, so a verdict built without a
+// baseline renders neutral rather than green — an unearned tick at the top of
+// a report is exactly the dishonesty the interpretation layer exists to avoid.
+export function VerdictPanel({ s, color, v }: {
+  s: S;
+  color: string;
+  v: {
+    tone: "good" | "mixed" | "attention" | "neutral";
+    headline: string;
+    lines: string[];
+    comparison: string | null;
+    comparisonGood: boolean | null;
+    action: string | null;
+  };
+}) {
+  const TONES: Record<string, Tone> = {
+    good: { fg: "#047857", bg: "#ecfdf5", border: "#10b981" },
+    attention: { fg: "#be123c", bg: "#fff1f2", border: "#f43f5e" },
+    mixed: { fg: "#b45309", bg: "#fffbeb", border: "#f59e0b" },
+    neutral: { fg: ink[900], bg: ink.bgSoft, border: ink.line },
+  };
+  const t = TONES[v.tone] ?? TONES.neutral;
+
+  return (
+    <View
+      style={[s.verdictPanel, { backgroundColor: t.bg, borderLeft: `3pt solid ${t.border}` }]}
+      wrap={false}
+    >
+      <Text style={[s.verdictHead, { color: t.fg }]}>{v.headline}</Text>
+
+      {/* The money sentence carries the most weight on the page. */}
+      {v.lines[0] ? <Text style={s.verdictLead}>{v.lines[0]}</Text> : null}
+      {v.lines.slice(1).map((l) => (
+        <Text key={l} style={s.verdictLine}>{l}</Text>
+      ))}
+
+      {v.comparison ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 9 }}>
+          <TrendArrow dir={v.comparisonGood ? "up" : "down"} color={v.comparisonGood ? up : down} />
+          <Text style={[s.verdictChip, { color: v.comparisonGood ? up : down, marginTop: 0 }]}>
+            {v.comparison}
+          </Text>
+        </View>
+      ) : null}
+
+      {v.action ? (
+        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 5, ...(s.verdictAction as object) }}>
+          <Icon name="target" size={9} color={color} />
+          <Text style={{ fontSize: 8.2, lineHeight: 1.5, color: ink[700], flex: 1 }}>
+            <Text style={{ fontFamily: "Helvetica-Bold", color: ink[900] }}>Next: </Text>
+            {v.action}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}

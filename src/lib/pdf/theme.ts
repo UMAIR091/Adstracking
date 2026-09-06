@@ -110,6 +110,17 @@ export function makeStyles(color: string) {
     para: { fontSize: 9.5, lineHeight: 1.65, color: ink[700] },
     summaryPanel: { backgroundColor: ink.bgSoft, border: `1pt solid ${ink.line}`, borderRadius: 9, padding: 15 },
 
+    // The verdict — the thirty-second answer, set above every numbered
+    // section. Sized larger than the body deliberately: the client who reads
+    // only this block is the normal case, so it carries the money sentence at
+    // a weight nothing else on the page competes with.
+    verdictPanel: { borderRadius: 9, padding: 14, marginBottom: 16 },
+    verdictHead: { fontSize: 13, fontFamily: "Helvetica-Bold", marginBottom: 5, letterSpacing: -0.2 },
+    verdictLead: { fontSize: 10.5, lineHeight: 1.55, color: ink[900] },
+    verdictLine: { fontSize: 8.8, lineHeight: 1.55, color: ink[700], marginTop: 3 },
+    verdictChip: { fontSize: 7.8, fontFamily: "Helvetica-Bold", marginTop: 9 },
+    verdictAction: { fontSize: 8.2, lineHeight: 1.5, color: ink[700], marginTop: 10, paddingTop: 8, borderTop: `1pt solid ${ink.line}` },
+
     // "What this means" — the observation reads as the claim, the meaning as
     // the interpretation, the evidence line as the receipt underneath.
     soWhatRow: { borderLeft: `2pt solid ${ink.line}`, paddingLeft: 11, marginBottom: 11 },

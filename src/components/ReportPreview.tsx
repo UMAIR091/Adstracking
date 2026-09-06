@@ -9,6 +9,10 @@ import {
   Sparkles, CheckCircle2, StickyNote,
 } from "lucide-react";
 
+import { buildVerdict } from "@/lib/reports/verdict";
+import { VerdictPanel } from "@/components/VerdictPanel";
+import type { GscReportFull } from "@/lib/google";
+
 type Branding = { name: string; logo_url: string | null; brand_color: string; website: string | null; footer_text: string | null };
 
 const fmt = (n: number) => n.toLocaleString();
@@ -80,8 +84,31 @@ const actionPlan = [
   "Audit declining keywords and ship fixes for the top 2.",
 ];
 
+// The sample verdict is produced by the real builder rather than written by
+// hand, so the marketing page can never advertise a panel the product does not
+// actually generate. Fed from the same sample totals the rest of this preview
+// renders, with the previous period implied by the +18.4% shown on the KPI row.
+const sampleGsc = {
+  totals: { clicks: totalClicks, impressions: totalImpr, ctr: 0.047, position: 9.8 },
+  previousTotals: {
+    clicks: Math.round(totalClicks / 1.184),
+    impressions: Math.round(totalImpr / 1.121),
+    ctr: 0.0445,
+    position: 11.3,
+  },
+  topQueries: [], topPages: [], topCountries: [], topDevices: [], byDate: [], movers: null,
+} as unknown as GscReportFull;
+
 export function ReportPreview({ branding }: { branding: Branding }) {
   const color = branding.brand_color || "#4f46e5";
+
+  // "Last 28 days" is not a calendar month, so the headline correctly reads
+  // "This period" rather than naming one.
+  const verdict = buildVerdict({
+    period: { start: "", end: "" },
+    gsc: sampleGsc, ga4: null, blocks: [],
+    watch: { action: actionPlan[0], because: "" },
+  });
 
   return (
     // Same rule as ReportDocument: the preview shows the deliverable, so it
@@ -108,6 +135,9 @@ export function ReportPreview({ branding }: { branding: Branding }) {
       </div>
 
       <div className="space-y-10 p-6 sm:p-10">
+        {/* The thirty-second answer, above every numbered section. */}
+        {verdict && <VerdictPanel v={verdict} color={color} />}
+
         {/* 1 ── Executive Summary ── */}
         <Section n={1} title="Executive Summary" subtitle="Performance at a glance" color={color}>
           <p className="text-sm leading-relaxed text-ink-700">

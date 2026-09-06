@@ -13,6 +13,8 @@ import { formatBlockValue } from "@/lib/integrations/blocks";
 import { detectSignals } from "@/lib/insights/signals";
 import { allSoWhat, allActions, NO_EVIDENCE_NOTE } from "@/lib/reports/soWhat";
 import { buildExecutiveSummary, blockHasComparison, hasCalculableKpis, periodSubtitle } from "@/lib/reports/summary";
+import { buildVerdict } from "@/lib/reports/verdict";
+import { VerdictPanel } from "@/components/VerdictPanel";
 import { agencyNote, cleanBullets, cleanCommentary } from "@/lib/reports/commentary";
 import { badgeRepeatsTitle, coverBadgeLabel } from "@/lib/reports/types";
 import { MAX_CHANNEL_KPIS, MIN_BREAKDOWN_ROWS, MIN_TREND_POINTS, shortPeriodNote } from "@/lib/reports/composition";
@@ -254,6 +256,16 @@ export function ReportDocument({
   });
   const summaryText = ins?.executiveSummary || summary.text;
 
+  // The verdict panel. Deliberately built from the same measured figures as the
+  // summary rather than from the AI text: this is the one part of the report a
+  // client is guaranteed to read, so it states only what the snapshot proves.
+  // Null when nothing measurable came back, in which case the panel is omitted
+  // rather than rendering a cheerful headline over an empty report.
+  const verdict = buildVerdict({
+    period, gsc, ga4, blocks: channelBlocks,
+    watch: evidenceActions[0] ? { action: evidenceActions[0].action, because: evidenceActions[0].because } : null,
+  });
+
   // Commentary the AI wrote that the evidence-backed steps don't already cover.
   // Empty after cleaning means the section does not render.
   const commentary = cleanCommentary(ins?.recommendedActions, evidenceActions.map((a) => a.action));
@@ -340,6 +352,12 @@ export function ReportDocument({
       </div>
 
       <div className="space-y-10 p-6 sm:p-10">
+        {/* The verdict. Unnumbered and above everything, because it is not a
+            section of the report so much as the answer the report exists to
+            give. A client who reads only this should still know whether the
+            money is working, whether it improved, and what happens next. */}
+        {verdict && <VerdictPanel v={verdict} color={color} />}
+
         {/* Executive Summary.
             Every callout must be backed by a measured fact. The slots used to
             be filled unconditionally, so a report with almost no data told the

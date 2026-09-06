@@ -14,12 +14,13 @@ import { safeFetch } from "@/lib/ssrf";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import { makeStyles, safeColor, tint, tones, seriesColors, ink, up, down, type Tone } from "./theme";
 import { fmt, pct1, fmtDate, deltaPct, deltaLabel, pagePathOf } from "./format";
-import { CoverPage, PageChrome, Section, KpiCard, DataTable, HighlightChips, ChartCard, Bullets, GaugePanel, DashTile, InsightCards, ActionCard, type Branding, type Highlight, type Col } from "./components";
+import { CoverPage, PageChrome, Section, VerdictPanel, KpiCard, DataTable, HighlightChips, ChartCard, Bullets, GaugePanel, DashTile, InsightCards, ActionCard, type Branding, type Highlight, type Col } from "./components";
 import { LineChart, BarList, ShareBar } from "./charts";
 import { Icon, TrendArrow } from "./icons";
 import { detectSignals } from "@/lib/insights/signals";
 import { allSoWhat, allActions, NO_EVIDENCE_NOTE } from "@/lib/reports/soWhat";
 import { buildExecutiveSummary, blockHasComparison, hasCalculableKpis, hasComparison, periodSubtitle } from "@/lib/reports/summary";
+import { buildVerdict } from "@/lib/reports/verdict";
 import { agencyNote, cleanBullets, cleanCommentary } from "@/lib/reports/commentary";
 import { badgeRepeatsTitle, coverBadgeLabel } from "@/lib/reports/types";
 import { assessComposition, MAX_CHANNEL_KPIS, MIN_BREAKDOWN_ROWS, MIN_DAYS_FOR_PROJECTION, MIN_TREND_POINTS, shortPeriodNote } from "@/lib/reports/composition";
@@ -358,6 +359,15 @@ function ReportPdfDoc({ data, branding, logoSrc, clientLogoSrc, clientName, titl
   });
   const summaryText = executiveSummary || summary.text;
 
+  // The verdict. Built from the snapshot rather than the AI paragraph: this is
+  // the block a client is guaranteed to read, so it states only what the
+  // figures prove. Null when nothing measurable came back, in which case the
+  // panel is omitted rather than heading an empty report with a cheerful line.
+  const verdict = buildVerdict({
+    period, gsc, ga4, blocks: channelBlocks,
+    watch: evidenceActions[0] ? { action: evidenceActions[0].action, because: evidenceActions[0].because } : null,
+  });
+
   // Commentary the AI wrote that isn't already covered by the evidence-backed
   // steps. Empty after cleaning means the section does not render at all.
   const commentary = cleanCommentary(
@@ -537,11 +547,14 @@ function ReportPdfDoc({ data, branding, logoSrc, clientLogoSrc, clientName, titl
   // therefore shipping with no written summary at all. Rendered at the top of
   // the first channel page instead, where it opens the document.
   const renderStandaloneSummary = () => (
+    <>
+    {verdict ? <VerdictPanel s={s} color={color} v={verdict} /> : null}
     <Section s={s} num={num()} title="Executive Summary" subtitle={`${fmtDate(period.start)} – ${fmtDate(period.end)}`}>
       <View style={s.summaryPanel}>
         <Text style={s.para}>{summaryText}</Text>
       </View>
     </Section>
+    </>
   );
 
   return (
@@ -552,6 +565,8 @@ function ReportPdfDoc({ data, branding, logoSrc, clientLogoSrc, clientName, titl
       {(gsc || ga4) ? (
         <Page size="A4" style={s.page}>
           <PageChrome {...chrome} />
+          {/* The thirty-second answer, above every numbered section. */}
+          {verdict ? <VerdictPanel s={s} color={color} v={verdict} /> : null}
           <Section s={s} num={num()} title="Executive Dashboard" subtitle={`${fmtDate(period.start)} – ${fmtDate(period.end)}`}>
             {/* Score gauge + AI summary */}
             <View style={s.dashRow}>
