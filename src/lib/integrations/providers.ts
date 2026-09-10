@@ -25,7 +25,7 @@ import { listSpreadsheets, fetchSheetTable } from "./oauth/sheets";
 import { listHubspotAccounts, fetchHubspotReport, hubspotConfigured } from "./oauth/hubspot";
 import { listLinkedinAdAccounts, fetchLinkedinAdsReport, linkedinConfigured } from "./oauth/linkedin";
 import { listTiktokAdvertisers, fetchTiktokAdsReport, tiktokConfigured } from "./oauth/tiktok";
-import { listPinterestAdAccounts, fetchPinterestAdsReport, pinterestConfigured } from "./oauth/pinterest";
+import { listPinterestAdAccounts, fetchPinterestAdsReport } from "./oauth/pinterest";
 import { listSnapchatAdAccounts, fetchSnapchatAdsReport, snapchatConfigured } from "./oauth/snapchat";
 import { listRedditAdAccounts, fetchRedditAdsReport, redditConfigured } from "./oauth/reddit";
 import { listAmazonProfiles, fetchAmazonAdsReport, amazonConfigured } from "./oauth/amazon";
@@ -652,7 +652,12 @@ export const pinterestAdsDef: IntegrationDef = {
   description: "Spend, impressions, clicks & conversions",
   icon: "Megaphone",
   accent: "rose",
-  status: gated(pinterestConfigured()),
+  // Held back as "coming soon" on purpose, whatever credentials are set. The
+  // Pinterest app is configured in production, but the integration is not ready
+  // to offer to customers yet, so it must not show "Live" on the marketing page
+  // or be connectable from the app. soon also drops it from syncableTypes().
+  // Restore gated(pinterestConfigured()) to launch it.
+  status: "soon",
   oauthProviderId: "pinterest",
   connectPath: "/api/pinterest/connect",
   accountNoun: "ad account",
