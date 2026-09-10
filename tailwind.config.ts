@@ -16,6 +16,10 @@ const ink = {
   100: withAlpha("--ink-100"),
   200: withAlpha("--ink-200"),
   300: withAlpha("--ink-300"),
+  // The fourth text tier — placeholder and disabled copy. Named rather than
+  // numbered because 300 is a border token and could not be darkened into a
+  // text tone without redrawing borders across the app.
+  subtle: withAlpha("--ink-subtle"),
   400: withAlpha("--ink-400"),
   500: withAlpha("--ink-500"),
   600: withAlpha("--ink-600"),

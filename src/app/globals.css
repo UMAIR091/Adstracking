@@ -62,18 +62,30 @@
   --accent-600: 124 58 237;
 
   /* ── Neutrals: obsidian → grey ──
-     900 main text, 500 secondary text, 400 muted text, 200 borders,
-     100/50 fills. */
+     900 main text, 500 secondary/body text, 400 muted/helper text,
+     `subtle` placeholder & disabled text, 300/200 borders, 100/50 fills.
+
+     The text stops used to sit between #52525B and #18181B — six tones
+     inside one narrow band, so a heading and the paragraph under it read
+     as almost the same colour and the page had no hierarchy. They are now
+     spaced across the full range, which is what gives 500 (the body
+     workhorse, ~420 usages) visible separation from 900.
+
+     300 deliberately keeps its old value: it is a BORDER token first
+     (~28 borders, 5 fills) and only incidentally used for a few icons, so
+     darkening it to a text tone would redraw borders across the app. The
+     fourth text tier lives in `--ink-subtle` instead. */
   --ink-50: 250 250 250;
   --ink-100: 244 244 245;
   --ink-200: 228 228 231;
   --ink-300: 212 212 216;
-  --ink-400: 82 82 91;
-  --ink-500: 66 66 74;
-  --ink-600: 52 52 58;
-  --ink-700: 42 42 47;
-  --ink-800: 33 33 37;
-  --ink-900: 24 24 27;
+  --ink-subtle: 161 161 170; /* #A1A1AA — placeholder, disabled */
+  --ink-400: 113 113 122; /* #71717A — muted / helper */
+  --ink-500: 82 82 91; /* #52525B — secondary / body */
+  --ink-600: 63 63 70; /* #3F3F46 */
+  --ink-700: 51 51 58; /* #33333A */
+  --ink-800: 39 39 42; /* #27272A */
+  --ink-900: 24 24 27; /* #18181B — primary */
 
   /* ── Surfaces ──
      `surface` is a card, `surface-muted` the page behind it,
@@ -184,6 +196,7 @@
     --ink-100: 31 31 35;
     --ink-200: 39 39 42;
     --ink-300: 63 63 70;
+    --ink-subtle: 90 90 99; /* dimmest readable text on the dark surface */
     --ink-400: 113 113 122;
     --ink-500: 161 161 170;
     --ink-600: 196 196 204;
@@ -275,6 +288,7 @@
   --ink-100: 31 31 35;
   --ink-200: 39 39 42;
   --ink-300: 63 63 70;
+  --ink-subtle: 90 90 99; /* dimmest readable text on the dark surface */
   --ink-400: 113 113 122;
   --ink-500: 161 161 170;
   --ink-600: 196 196 204;
@@ -378,9 +392,9 @@ textarea {
 @layer components {
   .field {
     @apply rounded-lg border border-ink-200 bg-surface px-3 text-sm text-ink-900 shadow-xs transition-colors;
-    @apply placeholder:text-ink-400 hover:border-ink-300;
+    @apply placeholder:text-ink-subtle hover:border-ink-300;
     @apply focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30;
-    @apply disabled:cursor-not-allowed disabled:border-ink-200 disabled:bg-ink-50 disabled:text-ink-400 disabled:opacity-70;
+    @apply disabled:cursor-not-allowed disabled:border-ink-200 disabled:bg-ink-50 disabled:text-ink-subtle disabled:opacity-70;
   }
 
   /* Keyboard focus for anything that is not a field: an offset ring so it
