@@ -135,7 +135,7 @@ export default async function LandingPage() {
   const savingPct = headlineSavingPct(pricing);
   const liveMarketingCount = MARKETING_INTEGRATIONS.filter((i) => isLive(i.id)).length;
   return (
-    <div className="min-h-screen bg-surface text-ink-900">
+    <div className="min-h-screen bg-surface-page text-ink-900">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(pricing, savingPct)) }} />
 
       {/* ── Nav ── */}
@@ -161,7 +161,7 @@ export default async function LandingPage() {
 
       {/* ── 1. Hero ── */}
       <section className="relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-[560px] bg-gradient-to-b from-ink-100 via-ink-50 to-surface" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[560px] bg-gradient-to-b from-ink-100 via-ink-50 to-surface-page" />
         <div
           className="pointer-events-none absolute left-1/2 top-24 h-[420px] w-[720px] -translate-x-1/2 rounded-full opacity-30 blur-3xl"
           style={{ background: "radial-gradient(closest-side, rgb(var(--ink-300)), transparent)" }}
@@ -225,7 +225,7 @@ export default async function LandingPage() {
       </section>
 
       {/* ── 2. Stat strip ── */}
-      <section aria-label="Highlights" className="border-y border-ink-200 bg-surface-band">
+      <section aria-label="Highlights" className="border-y border-surface-band-edge bg-surface-band">
         <div className="mx-auto grid max-w-5xl grid-cols-2 gap-6 px-5 py-8 text-center sm:grid-cols-4">
           {[
             { v: "5 min", l: "from signup to first report" },
@@ -286,7 +286,7 @@ export default async function LandingPage() {
       </section>
 
       {/* ── 4. Benefits ── */}
-      <section id="features" className="scroll-mt-20 border-y border-ink-200 bg-surface-band py-24">
+      <section id="features" className="scroll-mt-20 border-y border-surface-band-edge bg-surface-band py-24">
         <div className="mx-auto max-w-6xl px-5">
           <SectionHeading
             eyebrow="Why agencies switch"
@@ -366,7 +366,7 @@ export default async function LandingPage() {
       </section>
 
       {/* ── 6. Product tour: autopilot ── */}
-      <section className="border-y border-ink-200 bg-surface-band py-24">
+      <section className="border-y border-surface-band-edge bg-surface-band py-24">
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 lg:grid-cols-2">
           <div className="order-2 lg:order-1">
             <div className="rounded-2xl border border-ink-200 bg-surface p-6 shadow-sm">
@@ -479,7 +479,7 @@ export default async function LandingPage() {
       </section>
 
       {/* ── 8. Integrations ── */}
-      <section id="integrations" className="scroll-mt-20 border-y border-ink-200 bg-surface-band py-24">
+      <section id="integrations" className="scroll-mt-20 border-y border-surface-band-edge bg-surface-band py-24">
         <div className="mx-auto max-w-6xl px-5">
           <SectionHeading
             eyebrow="Integrations"
@@ -516,7 +516,7 @@ export default async function LandingPage() {
       </section>
 
       {/* ── 10. Testimonials ── */}
-      <section className="border-b border-ink-200 bg-surface-band py-24">
+      <section className="border-b border-surface-band-edge bg-surface-band py-24">
         <div className="mx-auto max-w-6xl px-5">
           <SectionHeading eyebrow="Built for lean agencies" title="More billable hours, fewer reporting weekends" />
           <div className="mt-14 grid gap-6 md:grid-cols-3">
@@ -588,7 +588,7 @@ export default async function LandingPage() {
           which is in turn shaped like the signed-in billing page — so the
           layout a visitor compares prices in is the one they keep after they
           sign up. */}
-      <section id="pricing" className="scroll-mt-20 border-y border-ink-200 bg-surface-band py-24">
+      <section id="pricing" className="scroll-mt-20 border-y border-surface-band-edge bg-surface-band py-24">
         <div className="mx-auto max-w-7xl px-5">
           <SectionHeading
             eyebrow="Pricing"

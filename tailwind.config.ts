@@ -97,6 +97,11 @@ const config: Config = {
           muted: withAlpha("--surface-muted"),
           subtle: withAlpha("--surface-subtle"),
           band: withAlpha("--surface-band"),
+          // The public site page, and the hairline along the edge of a band.
+          // Light-only changes: in dark both resolve to exactly what those spots
+          // used before (`surface` and `ink-200`), so the dark theme is untouched.
+          page: withAlpha("--surface-page"),
+          "band-edge": withAlpha("--surface-band-edge"),
         },
         // The page canvas, distinct from the chip fill that --surface-muted also serves.
         canvas: withAlpha("--canvas"),

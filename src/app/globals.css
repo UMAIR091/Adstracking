@@ -103,6 +103,17 @@
      a card in both themes — darker than the page in light, lighter than it in
      dark — so a white card always reads as the figure on top of it. */
   --surface-band: 244 244 245;
+  /* The public site page: what the landing sections and their cards sit on.
+     A hair off white, so a white card lifts off it by tone as well as by its
+     border, and the step down to a band is half the step it was from pure
+     white. Its own token because the page and its cards both used
+     `surface`. Not --canvas, which is the signed-in app backdrop. */
+  --surface-page: 250 250 251; /* #FAFAFB */
+  /* The hairline along the top and bottom of a band. Light takes the very
+     subtle divider tone, which is also the band fill, so a band reads by
+     tone alone instead of ruling a hard line across the full width. Dark
+     keeps its visible hairline. */
+  --surface-band-edge: 244 244 245; /* #F4F4F5 */
 
   /* Fixed-polarity tokens — see the note above. */
   --overlay: 24 24 27;
@@ -210,6 +221,8 @@
     --surface-subtle: 24 24 28;
     --sidebar: 12 12 15;
     --surface-band: 13 13 16;
+    --surface-page: 17 17 20; /* = --surface: the dark page is unchanged */
+    --surface-band-edge: 39 39 42; /* = --ink-200: the hairline it had */
 
     --overlay: 0 0 0;
     --inverse: 233 233 238;
@@ -301,6 +314,8 @@
   --surface-subtle: 24 24 28;
   --sidebar: 12 12 15;
   --surface-band: 13 13 16;
+  --surface-page: 17 17 20; /* = --surface: the dark page is unchanged */
+  --surface-band-edge: 39 39 42; /* = --ink-200: the hairline it had */
 
   --overlay: 0 0 0;
   --inverse: 233 233 238;
