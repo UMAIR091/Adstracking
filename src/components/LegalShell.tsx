@@ -17,7 +17,7 @@ export function LegalShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen flex-col bg-surface">
+    <div className="flex min-h-screen flex-col bg-surface-page">
       <header className="border-b border-ink-100">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
           <Link href="/" aria-label="ReportFlow home"><Brand /></Link>

@@ -208,7 +208,7 @@ export default async function PricingPage() {
   const priceById = new Map<string, PlanPricing>(pricing.map((p) => [p.id as string, p]));
   const trialOffered = pricing.some((p) => p.trialAvailable);
   return (
-    <div className="flex min-h-screen flex-col bg-surface">
+    <div className="flex min-h-screen flex-col bg-surface-page">
       <script
         type="application/ld+json"
         // Structured data is static, server-rendered content — safe to inline.
@@ -322,7 +322,7 @@ export default async function PricingPage() {
         </section>
 
         {/* ── Transparent pricing vs competitors ── */}
-        <section aria-labelledby="transparent-heading" className="bg-ink-50/60 py-16 sm:py-20">
+        <section aria-labelledby="transparent-heading" className="bg-surface-alt py-16 sm:py-20">
           <div className="mx-auto max-w-6xl px-5">
             <div className="mx-auto max-w-2xl text-center">
               <p className="text-sm font-semibold text-brand-600">Transparent by design</p>
@@ -486,7 +486,7 @@ export default async function PricingPage() {
         </section>
 
         {/* ── Final CTA ── */}
-        <section className="bg-ink-50/60 py-16 text-center sm:py-20">
+        <section className="bg-surface-alt py-16 text-center sm:py-20">
           <div className="mx-auto max-w-2xl px-5">
             <h2 className="text-2xl font-semibold tracking-tight text-ink-900 sm:text-3xl">
               Send your first white-label report today

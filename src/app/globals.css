@@ -93,27 +93,41 @@
   /* The page canvas. Split from --surface-muted, which doubles as the fill for
      chips and inset rows inside white cards — recolouring that one would turn
      every badge into a grey blob. */
-  --canvas: 179 177 177;
+  --canvas: 250 250 251; /* #FAFAFB, also the body and overscroll colour */
+  /* A card that sits directly on the canvas: the Help Center article rows.
+     White with a border in light, like every other card. In dark those rows
+     have always been outlines on the canvas, so there the fill is the canvas
+     itself and the border keeps the ink-100 value. */
+  --canvas-card: 255 255 255;
+  --canvas-card-border: 228 228 231; /* #E4E4E7 */
   --surface: 255 255 255;
   --surface-muted: 247 247 248;
   --surface-subtle: 250 250 250;
-  --sidebar: 168 166 166;
+  --sidebar: 244 244 245; /* #F4F4F5 */
+  /* Row hover on the rail. The rail is now the ink-100 tone the hover used,
+     so light steps up to the page tone instead: rail, then hover, then the
+     white selected row. Dark keeps exactly what the hover rendered before. */
+  --sidebar-hover: 250 250 251; /* #FAFAFB */
   /* Alternating content band: one step off the page, so a long marketing
      page has rhythm without a second card colour. Sits BETWEEN the page and
      a card in both themes — darker than the page in light, lighter than it in
      dark — so a white card always reads as the figure on top of it. */
   --surface-band: 244 244 245;
-  /* The public site page: what the landing sections and their cards sit on.
+  /* The public site page: what the marketing pages and their cards sit on.
      A hair off white, so a white card lifts off it by tone as well as by its
      border, and the step down to a band is half the step it was from pure
      white. Its own token because the page and its cards both used
-     `surface`. Not --canvas, which is the signed-in app backdrop. */
+     `surface`. The same value as --canvas in light; the two differ in dark. */
   --surface-page: 250 250 251; /* #FAFAFB */
   /* The hairline along the top and bottom of a band. Light takes the very
      subtle divider tone, which is also the band fill, so a band reads by
      tone alone instead of ruling a hard line across the full width. Dark
      keeps its visible hairline. */
   --surface-band-edge: 244 244 245; /* #F4F4F5 */
+  /* The alternating sections on /pricing. The same #F4F4F5 as a band in
+     light, so they stay distinct from the #FAFAFB page; dark keeps the tone
+     they had (ink-50 at 60% over the page, precomputed). */
+  --surface-alt: 244 244 245; /* #F4F4F5 */
 
   /* Fixed-polarity tokens — see the note above. */
   --overlay: 24 24 27;
@@ -216,13 +230,17 @@
     --ink-900: 244 244 245;
 
     --canvas: 9 9 11;
+    --canvas-card: 9 9 11; /* = --canvas: the rows stay outlines */
+    --canvas-card-border: 31 31 35; /* = --ink-100: the border they had */
     --surface: 17 17 20;
     --surface-muted: 9 9 11;
     --surface-subtle: 24 24 28;
     --sidebar: 12 12 15;
+    --sidebar-hover: 25 25 29; /* = ink-100 at 70% over the rail */
     --surface-band: 13 13 16;
     --surface-page: 17 17 20; /* = --surface: the dark page is unchanged */
     --surface-band-edge: 39 39 42; /* = --ink-200: the hairline it had */
+    --surface-alt: 21 21 25; /* = ink-50 at 60% over the page */
 
     --overlay: 0 0 0;
     --inverse: 233 233 238;
@@ -309,13 +327,18 @@
   --ink-800: 233 233 238;
   --ink-900: 244 244 245;
 
+  --canvas: 9 9 11;
+  --canvas-card: 9 9 11; /* = --canvas: the rows stay outlines */
+  --canvas-card-border: 31 31 35; /* = --ink-100: the border they had */
   --surface: 17 17 20;
   --surface-muted: 9 9 11;
   --surface-subtle: 24 24 28;
   --sidebar: 12 12 15;
+  --sidebar-hover: 25 25 29; /* = ink-100 at 70% over the rail */
   --surface-band: 13 13 16;
   --surface-page: 17 17 20; /* = --surface: the dark page is unchanged */
   --surface-band-edge: 39 39 42; /* = --ink-200: the hairline it had */
+  --surface-alt: 21 21 25; /* = ink-50 at 60% over the page */
 
   --overlay: 0 0 0;
   --inverse: 233 233 238;

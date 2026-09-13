@@ -83,7 +83,7 @@ function ArticleRow({ a }: { a: HelpArticle }) {
   return (
     <Link
       href={`/help/${a.slug}`}
-      className="flex items-center justify-between gap-3 rounded-lg border border-ink-100 px-4 py-3 transition-colors hover:border-ink-200 hover:bg-ink-50"
+      className="flex items-center justify-between gap-3 rounded-lg border border-canvas-card-border bg-canvas-card px-4 py-3 transition-colors hover:border-ink-200 hover:bg-ink-50"
     >
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-ink-900">{a.title}</p>

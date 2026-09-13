@@ -102,12 +102,24 @@ const config: Config = {
           // used before (`surface` and `ink-200`), so the dark theme is untouched.
           page: withAlpha("--surface-page"),
           "band-edge": withAlpha("--surface-band-edge"),
+          // Alternating sections on /pricing: #F4F4F5 in light, their old tone in dark.
+          alt: withAlpha("--surface-alt"),
         },
         // The page canvas, distinct from the chip fill that --surface-muted also serves.
-        canvas: withAlpha("--canvas"),
+        canvas: {
+          DEFAULT: withAlpha("--canvas"),
+          // A card that sits directly on the canvas (the Help Center rows):
+          // white with a border in light, the outline it always was in dark.
+          card: withAlpha("--canvas-card"),
+          "card-border": withAlpha("--canvas-card-border"),
+        },
         // The nav rail sits a step away from both the page and a card, so it
         // gets its own token rather than borrowing one of theirs.
-        sidebar: withAlpha("--sidebar"),
+        sidebar: {
+          DEFAULT: withAlpha("--sidebar"),
+          // Row hover on the rail. A light-only change: dark renders as before.
+          hover: withAlpha("--sidebar-hover"),
+        },
         // Fixed-polarity colours. The neutral ramp inverts between themes, so
         // `ink-900/40` is a black scrim in light and a white one in dark —
         // these stay dark-on-light and light-on-dark by definition.

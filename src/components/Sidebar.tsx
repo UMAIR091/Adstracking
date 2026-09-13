@@ -37,7 +37,7 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
               "group relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-all duration-150",
               active
                 ? "bg-surface font-semibold text-ink-900 shadow-xs ring-1 ring-ink-200/70"
-                : "font-medium text-ink-600 hover:bg-ink-100/70 hover:text-ink-900"
+                : "font-medium text-ink-600 hover:bg-sidebar-hover hover:text-ink-900"
             )}
           >
             <Icon
@@ -75,7 +75,7 @@ function AccountMenu({ email, agencyName }: { email: string; agencyName: string 
       )}
       <ThemeToggle className="mb-2 w-full" />
 
-      <button onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} className="flex w-full items-center gap-2.5 rounded-lg p-2 text-left transition-colors hover:bg-ink-100/70 focus-ring">
+      <button onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} className="flex w-full items-center gap-2.5 rounded-lg p-2 text-left transition-colors hover:bg-sidebar-hover focus-ring">
         <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-brand-solid text-xs font-semibold text-white">{initials}</div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-ink-800">{agencyName}</p>
