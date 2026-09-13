@@ -21,6 +21,9 @@ const ink = {
   // text tone without redrawing borders across the app.
   subtle: withAlpha("--ink-subtle"),
   400: withAlpha("--ink-400"),
+  // Muted metadata text (the Changelog entry date): ink-400 in light, lifted
+  // in dark so it clears AA on a card.
+  meta: withAlpha("--ink-meta"),
   500: withAlpha("--ink-500"),
   600: withAlpha("--ink-600"),
   700: withAlpha("--ink-700"),

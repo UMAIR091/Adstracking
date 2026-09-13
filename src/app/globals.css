@@ -81,6 +81,10 @@
   --ink-300: 212 212 216;
   --ink-subtle: 161 161 170; /* #A1A1AA — placeholder, disabled */
   --ink-400: 113 113 122; /* #71717A — muted / helper */
+  /* Muted metadata text: the Changelog entry date. The same as ink-400 in
+     light. In dark, ink-400 on a card measures 3.90:1, under AA for small
+     text, so this lifts to 5.37:1 while staying the quietest text there. */
+  --ink-meta: 113 113 122; /* = --ink-400 */
   --ink-500: 82 82 91; /* #52525B — secondary / body */
   --ink-600: 63 63 70; /* #3F3F46 */
   --ink-700: 51 51 58; /* #33333A */
@@ -223,6 +227,7 @@
     --ink-300: 63 63 70;
     --ink-subtle: 90 90 99; /* dimmest readable text on the dark surface */
     --ink-400: 113 113 122;
+    --ink-meta: 136 136 145; /* 5.37:1 on the card (surface) */
     --ink-500: 161 161 170;
     --ink-600: 196 196 204;
     --ink-700: 217 217 224;
@@ -321,6 +326,7 @@
   --ink-300: 63 63 70;
   --ink-subtle: 90 90 99; /* dimmest readable text on the dark surface */
   --ink-400: 113 113 122;
+  --ink-meta: 136 136 145; /* 5.37:1 on the card (surface) */
   --ink-500: 161 161 170;
   --ink-600: 196 196 204;
   --ink-700: 217 217 224;

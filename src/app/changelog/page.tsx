@@ -37,7 +37,7 @@ export default function ChangelogPage() {
             {CHANGELOG.map((entry) => (
               <div key={entry.date} className="rounded-2xl border border-ink-200 bg-surface p-6">
                 <div className="flex items-center gap-3">
-                  <time className="text-xs font-medium text-ink-400">{format(new Date(entry.date), "MMMM d, yyyy")}</time>
+                  <time className="text-xs font-medium text-ink-meta">{format(new Date(entry.date), "MMMM d, yyyy")}</time>
                   {entry.version && <span className="rounded-full bg-ink-100 px-2 py-0.5 text-xs text-ink-500">{entry.version}</span>}
                 </div>
                 <h2 className="mt-1 text-lg font-semibold text-ink-900">{entry.title}</h2>
