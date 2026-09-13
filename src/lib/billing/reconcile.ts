@@ -19,15 +19,18 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * are transient and must not revoke access. Status becomes `inactive` because
  * that is the truth: there is no subscription. Never throws; a failed
  * reconciliation must not turn into a second error on top of the first.
+ *
+ * `admin` must be the service-role client: tenants can read their subscription
+ * but not write it (migration 0038).
  */
 export async function reconcileMissingSubscription(
-  supabase: SupabaseClient,
+  admin: SupabaseClient,
   agencyId: string,
   reason: string
 ): Promise<void> {
   console.error(`Reconciling agency ${agencyId}: provider subscription missing (${reason}). Clearing stale ids.`);
 
-  const { error } = await supabase
+  const { error } = await admin
     .from("subscriptions")
     .update({
       status: "inactive",

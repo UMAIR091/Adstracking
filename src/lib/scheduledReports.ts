@@ -18,6 +18,7 @@
 //     failure or timeout is retried on the next run rather than lost.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSubscriptionState } from "@/lib/billing/subscription";
+import { featuresForPlan } from "@/lib/billing/config";
 import { createClientReport } from "@/lib/reportGen";
 import { deliverReport } from "@/lib/delivery";
 import { emailConfigured } from "@/lib/email";
@@ -79,10 +80,11 @@ async function advanceSchedule(admin: SupabaseClient, job: DeliveryJob, now: Dat
 }
 
 // Generates + emails one claimed occurrence and records the outcome on its
-// ledger row. Never throws.
-async function processJob(admin: SupabaseClient, job: DeliveryJob, allowed: boolean): Promise<"sent" | "failed" | "skipped"> {
-  if (!allowed) {
-    await finalize(admin, job.delivery_id, { status: "skipped", error: "subscription inactive" });
+// ledger row. Never throws. `blocked` is why the agency may not receive it, or
+// null when it may.
+async function processJob(admin: SupabaseClient, job: DeliveryJob, blocked: string | null): Promise<"sent" | "failed" | "skipped"> {
+  if (blocked) {
+    await finalize(admin, job.delivery_id, { status: "skipped", error: blocked });
     return "skipped";
   }
 
@@ -185,18 +187,25 @@ export async function runScheduledReports(admin: SupabaseClient, limit = schedul
   // schedule, so they are not advanced again.
   await Promise.all(freshJobs.map((job) => advanceSchedule(admin, job, now)));
 
-  const accessCache = new Map<string, boolean>();
-  const access = async (agencyId: string): Promise<boolean> => {
-    const cached = accessCache.get(agencyId);
-    if (cached !== undefined) return cached;
-    const allowed = (await getSubscriptionState(admin, agencyId)).hasAccess;
-    accessCache.set(agencyId, allowed);
-    return allowed;
+  // The plan is checked here, at delivery, not only when the schedule was
+  // saved: an agency that has since dropped to Free keeps its schedule rows,
+  // and a schedule row on its own must never be enough to get paid delivery.
+  const blockedCache = new Map<string, string | null>();
+  const blockedReason = async (agencyId: string): Promise<string | null> => {
+    if (blockedCache.has(agencyId)) return blockedCache.get(agencyId) ?? null;
+    const state = await getSubscriptionState(admin, agencyId);
+    const reason = !state.hasAccess
+      ? "subscription inactive"
+      : featuresForPlan(state.plan).scheduledDelivery
+        ? null
+        : "plan excludes scheduled delivery";
+    blockedCache.set(agencyId, reason);
+    return reason;
   };
 
   for (const job of [...freshJobs, ...stuckJobs]) {
     result.processed++;
-    const outcome = await processJob(admin, job, await access(job.agency_id));
+    const outcome = await processJob(admin, job, await blockedReason(job.agency_id));
     result[outcome]++;
   }
 

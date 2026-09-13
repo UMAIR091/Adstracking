@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { requireActiveAccess, getSubscriptionState } from "@/lib/billing/subscription";
 import { featuresForPlan } from "@/lib/billing/config";
@@ -8,7 +9,8 @@ import { isFrequency, isSchedulePeriod, nextRunAt } from "@/lib/schedule";
 export const runtime = "nodejs";
 
 // Creates or replaces the automated-delivery schedule for a client (one per
-// client). RLS scopes the writes to the signed-in user's agency.
+// client). Tenants can read and delete schedules but not create or edit them
+// (migration 0038), so the plan check below is the only way to get one.
 export async function POST(req: Request) {
   const { user, agency } = await getCurrentUserAndAgency();
   if (!user || !agency) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -58,12 +60,16 @@ export async function POST(req: Request) {
     );
   }
 
-  const { data: client } = await supabase.from("clients").select("id").eq("id", clientId).maybeSingle();
+  // Scoped to the current agency explicitly, not just by RLS: the writes below
+  // use the service role, and a user in two workspaces must not be able to
+  // attach this agency's schedule to the other one's client.
+  const { data: client } = await supabase.from("clients").select("id").eq("id", clientId).eq("agency_id", agency.id).maybeSingle();
   if (!client) return NextResponse.json({ error: "Client not found" }, { status: 404 });
 
   // One schedule per client — replace any existing.
-  await supabase.from("report_schedules").delete().eq("client_id", clientId);
-  const { error } = await supabase.from("report_schedules").insert({
+  const admin = createAdminClient();
+  await admin.from("report_schedules").delete().eq("client_id", clientId).eq("agency_id", agency.id);
+  const { error } = await admin.from("report_schedules").insert({
     agency_id: agency.id,
     client_id: clientId,
     template_key: templateKey,

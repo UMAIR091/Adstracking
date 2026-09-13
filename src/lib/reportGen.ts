@@ -97,8 +97,11 @@ export async function createClientReport(
   // GA4 keep their own snapshot tables and bespoke rich sections; every other
   // integration is read from integration_snapshots and projected into neutral
   // blocks, so adding an integration needs no change here.
+  // Filtered by agency as well as client. The client lookup above already
+  // refuses a client from another agency, but the cron runs this with the
+  // service role, where RLS isn't there to catch a mismatched pair.
   const { data: sources } = await supabase
-    .from("data_sources").select("id, type, config").eq("client_id", clientId);
+    .from("data_sources").select("id, type, config").eq("client_id", clientId).eq("agency_id", agencyId);
   const gscDs = sources?.find((s) => s.type === "gsc");
   const ga4Ds = sources?.find((s) => s.type === "ga4");
   const gscReady = Boolean((gscDs?.config as { site_url?: string } | undefined)?.site_url);

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { findPrice, getPlan, planForPrice, planRank, BILLING_INTERVALS, normalizeInterval, type BillingInterval, type PlanId } from "@/lib/billing/config";
 import { reconcileMissingSubscription } from "@/lib/billing/reconcile";
@@ -42,6 +44,9 @@ export async function POST(req: Request) {
   }
 
   const supabase = createClient();
+  // Reads use the caller's session. Writes to subscriptions need the service
+  // role: tenants only have read access to that table (migration 0038).
+  const admin = createAdminClient();
   const { data: sub } = await supabase
     .from("subscriptions")
     .select("provider, provider_subscription_id, price_id, plan, status")
@@ -56,7 +61,7 @@ export async function POST(req: Request) {
   try {
     if (action === "cancel") {
       const updated = await cancelSubscription(subscriptionId);
-      await persist(supabase, agency.id, updated);
+      await persist(admin, agency.id, updated);
       // Capture churn reason (best-effort; never blocks the cancellation).
       const reason = typeof body?.reason === "string" ? body.reason.slice(0, 120) : null;
       const comment = typeof body?.comment === "string" ? body.comment.slice(0, 1000) : null;
@@ -68,7 +73,7 @@ export async function POST(req: Request) {
 
     if (action === "resume") {
       const updated = await resumeSubscription(subscriptionId);
-      await persist(supabase, agency.id, updated);
+      await persist(admin, agency.id, updated);
       return NextResponse.json({ ok: true, message: "Your subscription has been resumed." });
     }
 
@@ -91,7 +96,7 @@ export async function POST(req: Request) {
     const isUpgrade = planRank(plan) >= planRank(currentPlan);
 
     const updated = await changeSubscriptionPrice({ subscriptionId, priceId, immediate: isUpgrade });
-    await persist(supabase, agency.id, updated);
+    await persist(admin, agency.id, updated);
 
     return NextResponse.json({
       ok: true,
@@ -107,7 +112,7 @@ export async function POST(req: Request) {
     // cancel, resume or change. Clear the stale row rather than repeating the
     // same 404 on every click, and tell the customer what actually happened.
     if (e.notFound) {
-      await reconcileMissingSubscription(supabase, agency.id, `subscription ${action}: not found`);
+      await reconcileMissingSubscription(admin, agency.id, `subscription ${action}: not found`);
       return NextResponse.json(
         {
           ok: true,
@@ -128,7 +133,7 @@ export async function POST(req: Request) {
 // Mirrors Paddle's response into our row so the UI reflects the change on the
 // next render, without waiting for the webhook.
 async function persist(
-  supabase: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   agencyId: string,
   subscription: Parameters<typeof readSubscription>[0]
 ): Promise<void> {
@@ -148,6 +153,7 @@ async function persist(
     row.billing_interval = mapped.interval;
   }
 
-  // RLS scopes this to the caller's own agency.
-  await supabase.from("subscriptions").update(row).eq("agency_id", agencyId);
+  // Service role, scoped to the agency resolved from the session — never an id
+  // taken from the request.
+  await admin.from("subscriptions").update(row).eq("agency_id", agencyId);
 }

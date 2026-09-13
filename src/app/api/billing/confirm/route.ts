@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { getTransactionFacts, getSubscription, readSubscription, PaddleError } from "@/lib/billing/paddle";
 import { planForPrice } from "@/lib/billing/config";
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
       row.billing_interval = mapped.interval;
     }
 
-    // RLS scopes this to the caller's own agency.
+    // Scoped to the caller's own agency, resolved from the session above.
     const { error } = await supabaseUpdate(agency.id, row);
     if (error) {
       console.error(`Confirm failed to persist for agency ${agency.id}: ${error}`);
@@ -83,17 +83,21 @@ export async function POST(req: Request) {
 
 // Upsert rather than update: an agency that has never had a subscription row
 // (or whose row was cleared by reconciliation) still needs one written.
+//
+// Service role: tenants can read their subscription but not write it
+// (migration 0038), or a browser could grant itself any plan. The agency id
+// comes from the session, never from the request body.
 async function supabaseUpdate(agencyId: string, row: Record<string, unknown>): Promise<{ error: string | null }> {
-  const supabase = createClient();
-  const { data: existing } = await supabase
+  const admin = createAdminClient();
+  const { data: existing } = await admin
     .from("subscriptions")
     .select("id")
     .eq("agency_id", agencyId)
     .maybeSingle();
 
   const { error } = existing
-    ? await supabase.from("subscriptions").update(row).eq("agency_id", agencyId)
-    : await supabase.from("subscriptions").insert({ agency_id: agencyId, ...row });
+    ? await admin.from("subscriptions").update(row).eq("agency_id", agencyId)
+    : await admin.from("subscriptions").insert({ agency_id: agencyId, ...row });
 
   return { error: error?.message ?? null };
 }

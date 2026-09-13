@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createPortalUrl, PaddleError } from "@/lib/billing/paddle";
 import { reconcileMissingSubscription } from "@/lib/billing/reconcile";
@@ -34,9 +35,10 @@ export async function GET(req: Request) {
     const e = err as PaddleError;
     // A 404 means the stored ids are stale. Clear them so the page stops
     // offering "Manage billing" for a subscription that doesn't exist, and so
-    // a fresh checkout isn't blocked by the same dead customer id.
+    // a fresh checkout isn't blocked by the same dead customer id. Written with
+    // the service role: tenants can only read subscriptions.
     if (e.notFound) {
-      await reconcileMissingSubscription(supabase, agency.id, "portal: customer not found");
+      await reconcileMissingSubscription(createAdminClient(), agency.id, "portal: customer not found");
       return back("That subscription no longer exists with our payment provider, so we've reset your billing details. Choose a plan below to subscribe again.");
     }
     return back(e.message);

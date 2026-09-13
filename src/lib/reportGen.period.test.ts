@@ -46,6 +46,7 @@ function archiveRows(from: string, to: string) {
 
 function stubSupabase(opts: { gscByDate?: ReturnType<typeof gscDays>; archive?: ReturnType<typeof archiveRows> } = {}) {
   const inserted: Insert[] = [];
+  const dataSourceFilters: [string, unknown][] = [];
   const byDate = opts.gscByDate ?? gscDays();
   const archive = opts.archive ?? [];
 
@@ -67,11 +68,21 @@ function stubSupabase(opts: { gscByDate?: ReturnType<typeof gscDays>; archive?: 
       insert: (row: Insert) => { inserted.push(row); return api; },
       update: self,
     });
-    // data_sources returns the connected list directly from the builder.
+    // data_sources is awaited straight off its filter chain, so the stub is
+    // thenable. Filters are recorded: which agency's sources a report may read
+    // is under test too.
     if (name === "data_sources") {
-      Object.assign(api, {
-        select: () => ({ eq: async () => ({ data: [{ id: "ds1", type: "gsc", config: { site_url: "sc-domain:x" } }] }) }),
+      const q: Record<string, unknown> = {};
+      Object.assign(q, {
+        select: () => q,
+        eq: (col: string, val: unknown) => {
+          dataSourceFilters.push([col, val]);
+          return q;
+        },
+        then: (resolve: (v: { data: unknown[] }) => void) =>
+          resolve({ data: [{ id: "ds1", type: "gsc", config: { site_url: "sc-domain:x" } }] }),
       });
+      return q;
     }
     // metric_daily: fetchHistory chains select/eq/gte/lte/order/range and then
     // AWAITS the builder itself, so the stub has to be thenable.
@@ -96,13 +107,24 @@ function stubSupabase(opts: { gscByDate?: ReturnType<typeof gscDays>; archive?: 
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return { client: { from: (n: string) => table(n) } as any, inserted };
+  return { client: { from: (n: string) => table(n) } as any, inserted, dataSourceFilters };
 }
 
 const generate = async (opts: Record<string, unknown>, stub = stubSupabase()) => {
   const res = await createClientReport(stub.client, "a1", "c1", { now: NOW, ...opts });
   return { res, inserted: stub.inserted[0] };
 };
+
+describe("tenant scoping", () => {
+  it("reads the client's data sources from the report's own agency only", async () => {
+    // The cron generates with the service role, where RLS can't catch a client
+    // id paired with the wrong agency; the query has to carry both.
+    const stub = stubSupabase();
+    await createClientReport(stub.client, "a1", "c1", { now: NOW, period: "last_28" });
+
+    expect(stub.dataSourceFilters).toEqual(expect.arrayContaining([["client_id", "c1"], ["agency_id", "a1"]]));
+  });
+});
 
 describe("the stored period always matches the selected period", () => {
   it.each([

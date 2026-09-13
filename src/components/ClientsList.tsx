@@ -7,6 +7,7 @@ import { Users, Search, Globe, Plug, Clock, MoreHorizontal } from "lucide-react"
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
+import { setClientArchivedAction } from "@/app/dashboard/clients/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -71,8 +72,17 @@ export function ClientsList({ clients }: { clients: ClientRow[] }) {
   async function setArchived(id: string, archived: boolean) {
     setBusyId(id);
     setMenuId(null);
-    await supabase.from("clients").update({ archived }).eq("id", id);
+    // Through the server: restoring a client counts against the plan limit.
+    const res = await setClientArchivedAction(id, archived);
     setBusyId(null);
+    if (!res.ok) {
+      if (res.upgrade) {
+        toast.error(res.error, { action: { label: "Upgrade", onClick: () => router.push("/dashboard/billing") } });
+      } else {
+        toast.error(res.error);
+      }
+      return;
+    }
     toast.success(archived ? "Client archived" : "Client restored");
     router.refresh();
   }
