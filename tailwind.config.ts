@@ -123,6 +123,15 @@ const config: Config = {
           // Row hover on the rail. A light-only change: dark renders as before.
           hover: withAlpha("--sidebar-hover"),
         },
+        // Every keyboard focus indicator: #4F46E5 in light, the indigo it always
+        // was in dark.
+        focus: withAlpha("--ring"),
+        // Quiet text on a brand fill (the CTA footnote, the mock caption). Mapped
+        // without <alpha-value> because the dark values carry their own alpha.
+        "on-brand": {
+          muted: "rgb(var(--on-brand-muted))",
+          subtle: "rgb(var(--on-brand-subtle))",
+        },
         // Fixed-polarity colours. The neutral ramp inverts between themes, so
         // `ink-900/40` is a black scrim in light and a white one in dark —
         // these stay dark-on-light and light-on-dark by definition.

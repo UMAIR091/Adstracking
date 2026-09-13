@@ -654,7 +654,7 @@ export default async function LandingPage() {
               View a sample report
             </Link>
           </div>
-          <p className="mt-6 text-xs text-white/60">Every feature on every plan · {PAID_TRIAL_DAYS}-day free trial · Cancel anytime</p>
+          <p className="mt-6 text-xs text-on-brand-subtle">Every feature on every plan · {PAID_TRIAL_DAYS}-day free trial · Cancel anytime</p>
         </div>
       </section>
 
@@ -705,7 +705,7 @@ function ReportMock() {
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-sm font-bold text-brand-solid">A</div>
         <div className="text-left">
           <p className="text-sm font-semibold leading-tight">Acme Co — Performance Report</p>
-          <p className="text-[11px] text-white/70">Prepared by Your Agency · Last 28 days</p>
+          <p className="text-[11px] text-on-brand-muted">Prepared by Your Agency · Last 28 days</p>
         </div>
         <span className="ml-auto rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-medium">Live</span>
       </div>

@@ -38,22 +38,33 @@
 :root,
 .theme-light {
   /* ── Accent: indigo ──
-     500 carries primary buttons and active states, 600 their hover and
-     accent text, 700 link text. 400 is the focus ring. */
+     Light uses the four-colour brand system: 500 and 600 are the primary
+     purple #4F46E5 (buttons, active states, accent text, links), 700 is
+     hover and pressed #4338CA (also text on a purple tint), 50 is the tint
+     #EEF2FF, and 100/200 the purple border #C7D2FE. 300, 400 and 800 are
+     outside it and barely used. Focus indicators read --ring. */
   --brand-50: 238 242 255;
-  --brand-100: 224 231 255;
+  --brand-100: 199 210 254; /* #C7D2FE, the purple border (= 200) */
   --brand-200: 199 210 254;
   --brand-300: 165 180 252;
   --brand-400: 129 140 248;
   --brand-500: 79 70 229;
-  --brand-600: 67 56 202;
-  --brand-700: 55 48 163;
+  --brand-600: 79 70 229; /* #4F46E5 (= 500): accent text and links */
+  --brand-700: 67 56 202; /* #4338CA: hover, pressed, text on a tint */
   --brand-800: 49 46 129;
-  /* Filled surfaces that carry white text. Identical to 500/600 here; the
+  /* Filled surfaces that carry white text. Identical to 500/700 here; the
      dark theme needs a fractionally deeper indigo to clear AA, so the role
      gets its own token rather than bending the accent for everything else. */
   --brand-solid: 79 70 229;
   --brand-solid-hover: 67 56 202;
+  /* Quiet text on a brand fill: the footnote in the landing CTA band and the
+     caption in the hero report mock. Translucent white measured 3.3 to 3.9:1
+     on #4F46E5, under AA at their sizes, so light uses a solid #E0E7FF
+     (5.10:1). Dark keeps the translucent whites these spots always used, so
+     the dark values carry their own alpha and Tailwind maps these tokens
+     without an opacity modifier. */
+  --on-brand-muted: 224 231 255;
+  --on-brand-subtle: 224 231 255;
 
   /* Restrained violet, for the chart ramp and secondary accents. Kept
      distinct from brand so adjacent chart series stay separable. */
@@ -179,7 +190,7 @@
   --chart-5: 139 92 246;
   --chart-6: 113 113 122;
 
-  --ring: 99 102 241;
+  --ring: 79 70 229; /* #4F46E5: every focus indicator, 6.03:1 on #FAFAFB */
   color-scheme: light;
 }
 
@@ -213,6 +224,8 @@
        Hover deepens further rather than lightening: white on #818CF8 is 2.98:1. */
     --brand-solid: 91 95 238;
     --brand-solid-hover: 79 70 229;
+    --on-brand-muted: 255 255 255 / 0.7; /* = text-white/70 */
+    --on-brand-subtle: 255 255 255 / 0.6; /* = text-white/60 */
 
     --accent-400: 196 181 253;
     --accent-500: 167 139 250;
@@ -312,6 +325,8 @@
      Hover deepens further rather than lightening: white on #818CF8 is 2.98:1. */
   --brand-solid: 91 95 238;
   --brand-solid-hover: 79 70 229;
+  --on-brand-muted: 255 255 255 / 0.7; /* = text-white/70 */
+  --on-brand-subtle: 255 255 255 / 0.6; /* = text-white/60 */
 
   --accent-400: 196 181 253;
   --accent-500: 167 139 250;
@@ -444,7 +459,7 @@ textarea {
   /* Keyboard focus for anything that is not a field: an offset ring so it
      reads against the control it surrounds rather than inside it. */
   .focus-ring {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface;
   }
 }
 ::placeholder {
