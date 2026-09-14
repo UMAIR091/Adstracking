@@ -1,13 +1,18 @@
 // Sender resolution: decides, per send, whether an email goes out white-label
 // (from the agency's own verified domain) or from the platform default.
 //
-// This is the enforcement point for domain security. The agency-editable
-// settings (email_sender_email etc.) are treated as a request only — the
-// stored value is re-validated against the agency's *verified* email_domains
-// row on every send. White-label applies iff:
+// This is the enforcement point for domain security. White-label applies iff:
 //
-//   1. the agency has an email_domains row whose status is 'verified', and
-//   2. the configured sender email is on exactly that domain.
+//   1. the agency has an email_domains row whose status is 'verified',
+//   2. the configured sender email is on exactly that domain, and
+//   3. that domain is not the platform's own sending domain.
+//
+// The verification state can be trusted because tenants can't write it: every
+// column of email_domains is written only by the domain routes, with the
+// service role, from what Resend reports (migration 0039). Members can read and
+// delete their row, nothing more. The agency-editable sender settings
+// (email_sender_email etc.) are still only a request, re-checked against that
+// row on every send.
 //
 // Everything else — no domain, unverified domain, sender on a different
 // domain — falls back to the platform sender. Reports always deliver; only
@@ -30,6 +35,19 @@ const EMAIL_RE = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
 export function domainOfEmail(email: string): string | null {
   const at = email.lastIndexOf("@");
   return at === -1 ? null : email.slice(at + 1).trim().toLowerCase();
+}
+
+// The platform's own sending domain (and its subdomains) is never an agency's.
+// The provider accepts any address on it, so treating it as white-label would
+// let one agency send as the platform, e.g. billing@tryreportflow.com. The
+// domain route refuses to register these, and the send path refuses them again
+// whatever the table says.
+export function isReservedSendingDomain(domain: string): boolean {
+  const raw = process.env.EMAIL_FROM ?? "";
+  const platform = domainOfEmail(raw.match(/<([^>]+)>/)?.[1] ?? raw);
+  const reserved = [platform, "reportflow.com", "tryreportflow.com"].filter(Boolean) as string[];
+  const d = domain.trim().toLowerCase();
+  return reserved.some((r) => d === r || d.endsWith(`.${r}`));
 }
 
 // Display names go into an RFC 5322 quoted-string; strip the characters that
@@ -82,7 +100,12 @@ export async function resolveSender(supabase: SupabaseClient, agencyId: string):
     undefined;
 
   const senderEmail = (agency?.email_sender_email as string | null)?.trim().toLowerCase() ?? "";
-  const verifiedDomain = domainRow?.status === "verified" ? (domainRow.domain as string).toLowerCase() : null;
+  // Verified per the row, which only the server writes from Resend's answer,
+  // and never the platform's own domain, whatever the row says.
+  const verifiedDomain =
+    domainRow?.status === "verified" && !isReservedSendingDomain(domainRow.domain as string)
+      ? (domainRow.domain as string).toLowerCase()
+      : null;
 
   // The white-label gate: valid address, on the agency's own verified domain.
   if (verifiedDomain && EMAIL_RE.test(senderEmail) && domainOfEmail(senderEmail) === verifiedDomain) {

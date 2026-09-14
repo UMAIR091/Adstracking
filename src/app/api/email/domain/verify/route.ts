@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { emailProvider } from "@/lib/email";
 
@@ -31,7 +32,10 @@ export async function POST() {
       region: fresh.region ?? row.region,
       last_checked_at: new Date().toISOString(),
     };
-    await supabase.from("email_domains").update(patch).eq("agency_id", agency.id);
+    // Service role: this is the only way a domain becomes verified. Tenants
+    // can't write email_domains (migration 0039), and the status stored is
+    // exactly what Resend just reported.
+    await createAdminClient().from("email_domains").update(patch).eq("agency_id", agency.id);
 
     return NextResponse.json({
       domain: {

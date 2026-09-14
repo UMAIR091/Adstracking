@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserAndAgency } from "@/lib/agency";
-import { emailProvider, domainOfEmail, type SendingDomain } from "@/lib/email";
+import { emailProvider, isReservedSendingDomain, type SendingDomain } from "@/lib/email";
 
 export const runtime = "nodejs";
 
@@ -10,8 +11,12 @@ export const runtime = "nodejs";
 //   POST    { domain } — register a new sending domain
 //   DELETE  remove the domain (provider + our record)
 //
-// One domain per agency (unique constraint). All reads/writes go through the
-// RLS client, so an agency can only ever touch its own row.
+// One domain per agency, and one agency per domain (unique constraints).
+// Reads and the delete use the RLS client, so an agency only ever sees or
+// removes its own row. Writes that store domain state use the service role:
+// the row's status is what lib/email/sender.ts trusts to send as that domain,
+// so tenants may not write it (migration 0039), and what is written comes from
+// Resend, never from the request.
 
 const HOSTNAME_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
 
@@ -19,14 +24,6 @@ function normalizeDomain(input: string): string | null {
   const d = input.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "").replace(/\.$/, "");
   if (!d || d.length > 253 || !HOSTNAME_RE.test(d)) return null;
   return d;
-}
-
-// The platform's own sending domain (and its subdomains) can never be claimed
-// by a tenant — that would let one agency send as the platform or as others.
-function isReservedDomain(domain: string): boolean {
-  const platform = domainOfEmail((process.env.EMAIL_FROM ?? "").match(/<([^>]+)>/)?.[1] ?? process.env.EMAIL_FROM ?? "");
-  const reserved = [platform, "reportflow.com", "tryreportflow.com"].filter(Boolean) as string[];
-  return reserved.some((r) => domain === r || domain.endsWith(`.${r}`));
 }
 
 type DomainView = {
@@ -69,7 +66,7 @@ export async function GET() {
       region: fresh.region ?? row.region,
       last_checked_at: new Date().toISOString(),
     };
-    await supabase.from("email_domains").update(patch).eq("agency_id", agency.id);
+    await createAdminClient().from("email_domains").update(patch).eq("agency_id", agency.id);
     return NextResponse.json({ domain: view({ ...row, ...patch }) });
   } catch {
     return NextResponse.json({ domain: view(row), stale: true });
@@ -86,12 +83,23 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as { domain?: string } | null;
   const domain = body?.domain ? normalizeDomain(body.domain) : null;
   if (!domain) return NextResponse.json({ error: "Enter a valid domain, e.g. agency.com" }, { status: 400 });
-  if (isReservedDomain(domain)) return NextResponse.json({ error: "That domain can't be used." }, { status: 400 });
+  // The platform's own sending domain (and its subdomains) can never be claimed
+  // by a tenant — that would let one agency send as the platform or as others.
+  if (isReservedSendingDomain(domain)) return NextResponse.json({ error: "That domain can't be used." }, { status: 400 });
 
   const supabase = createClient();
   const { data: existing } = await supabase.from("email_domains").select("id").eq("agency_id", agency.id).maybeSingle();
   if (existing) {
     return NextResponse.json({ error: "A sending domain is already configured. Remove it first to change domains." }, { status: 409 });
+  }
+
+  // One workspace per domain, checked across every agency (the RLS client only
+  // sees this one) and before Resend is called, so a domain another workspace
+  // registered is never looked up or handed over on this agency's behalf.
+  const admin = createAdminClient();
+  const { data: taken } = await admin.from("email_domains").select("id").eq("domain", domain).limit(1);
+  if (taken?.length) {
+    return NextResponse.json({ error: "That domain is already connected to another workspace." }, { status: 409 });
   }
 
   try {
@@ -105,8 +113,13 @@ export async function POST(req: Request) {
       region: created.region ?? null,
       last_checked_at: new Date().toISOString(),
     };
-    const { error } = await supabase.from("email_domains").insert(rowData);
+    const { error } = await admin.from("email_domains").insert(rowData);
     if (error) {
+      if (error.code === "23505") {
+        // Lost a race for this domain. Leave the provider domain alone: it may
+        // be the one the winning request just registered.
+        return NextResponse.json({ error: "That domain is already connected to a workspace." }, { status: 409 });
+      }
       // Roll back the provider-side domain so a DB failure doesn't leak one.
       await emailProvider().deleteDomain(created.id).catch(() => undefined);
       throw new Error(error.message);
