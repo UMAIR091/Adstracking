@@ -106,7 +106,8 @@ export async function processSources(admin: SupabaseClient, sources: SyncableSou
       runPool(list, limitFor(group), async (ds) => {
         const result = await syncDataSource(admin, ds);
         if (result.ok) synced++;
-        else failed++;
+        // An archived client's source is paused, not failing.
+        else if (!result.skipped) failed++;
       })
     )
   );

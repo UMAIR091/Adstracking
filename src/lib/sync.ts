@@ -6,6 +6,7 @@ import { logError } from "@/lib/errorLog";
 import { trackUsage } from "@/lib/usage";
 import { recordDailyMetrics } from "@/lib/metrics/history";
 import { CACHED_PERIOD_DAYS } from "@/lib/reports/periods";
+import { ARCHIVED_CLIENT_ERROR, isSourceClientPaused } from "@/lib/archivedClients";
 
 // Periods we keep warm in the cache (match the report/analytics date ranges).
 // Declared once in lib/reports/periods so the client Performance view, which
@@ -44,8 +45,25 @@ export type SyncableSource = {
 export async function syncDataSource(
   supabase: SupabaseClient,
   ds: SyncableSource
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; skipped?: boolean }> {
   const attemptedAt = new Date().toISOString();
+
+  // Archived clients are paused (lib/archivedClients.ts): no token refresh, no
+  // provider calls, no usage, and nothing written onto the source but the
+  // attempt stamp, so a restore picks up exactly where it left off. State that
+  // can't be read fails closed as an ordinary failure.
+  let paused: boolean;
+  try {
+    paused = await isSourceClientPaused(supabase, ds.id);
+  } catch (err) {
+    await supabase.from("data_sources").update({ last_sync_attempt_at: attemptedAt }).eq("id", ds.id);
+    return { ok: false, error: (err as Error).message };
+  }
+  if (paused) {
+    await supabase.from("data_sources").update({ last_sync_attempt_at: attemptedAt }).eq("id", ds.id);
+    return { ok: false, skipped: true, error: ARCHIVED_CLIENT_ERROR };
+  }
+
   const def = getIntegration(ds.type);
   if (!def || !def.fetchSnapshot || !def.snapshotTable || !def.readSelected) {
     await supabase.from("data_sources").update({ last_sync_attempt_at: attemptedAt }).eq("id", ds.id);

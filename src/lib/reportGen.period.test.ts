@@ -56,7 +56,7 @@ function stubSupabase(opts: { gscByDate?: ReturnType<typeof gscDays>; archive?: 
     Object.assign(api, {
       select: self, eq: self, in: self, is: self, order: self,
       maybeSingle: async () => {
-        if (name === "clients") return { data: { id: "c1", name: "Acme" } };
+        if (name === "clients") return { data: { id: "c1", name: "Acme", archived: false } };
         if (name === "gsc_snapshots") {
           return { data: { data: { totals: { clicks: 0, impressions: 0, ctr: 0, position: 0 }, byDate, topQueries: [{ key: "q" }], topPages: [], topCountries: [], topDevices: [], previousTotals: null, movers: null } } };
         }

@@ -19,6 +19,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSubscriptionState } from "@/lib/billing/subscription";
 import { featuresForPlan } from "@/lib/billing/config";
+import { pausedClientIds } from "@/lib/archivedClients";
 import { createClientReport } from "@/lib/reportGen";
 import { deliverReport } from "@/lib/delivery";
 import { emailConfigured } from "@/lib/email";
@@ -181,6 +182,13 @@ export async function runScheduledReports(admin: SupabaseClient, limit = schedul
 
   const freshJobs = (fresh ?? []) as DeliveryJob[];
   const stuckJobs = (stuck ?? []) as DeliveryJob[];
+  const jobs = [...freshJobs, ...stuckJobs];
+
+  // Archived clients are paused (lib/archivedClients.ts), so their deliveries
+  // are skipped. Read once for the whole batch, before any schedule is
+  // advanced: if the state can't be read, the run fails loudly (the cron
+  // records it) instead of delivering for a client that may be archived.
+  const pausedClients = await pausedClientIds(admin, jobs.map((job) => job.client_id));
 
   // Advance schedules for the freshly-claimed occurrences up front (before any
   // send) so scheduling can't stall. Stuck retries reuse an already-advanced
@@ -190,22 +198,23 @@ export async function runScheduledReports(admin: SupabaseClient, limit = schedul
   // The plan is checked here, at delivery, not only when the schedule was
   // saved: an agency that has since dropped to Free keeps its schedule rows,
   // and a schedule row on its own must never be enough to get paid delivery.
-  const blockedCache = new Map<string, string | null>();
-  const blockedReason = async (agencyId: string): Promise<string | null> => {
-    if (blockedCache.has(agencyId)) return blockedCache.get(agencyId) ?? null;
-    const state = await getSubscriptionState(admin, agencyId);
+  const planCache = new Map<string, string | null>();
+  const blockedReason = async (job: DeliveryJob): Promise<string | null> => {
+    if (pausedClients.has(job.client_id)) return "client archived";
+    if (planCache.has(job.agency_id)) return planCache.get(job.agency_id) ?? null;
+    const state = await getSubscriptionState(admin, job.agency_id);
     const reason = !state.hasAccess
       ? "subscription inactive"
       : featuresForPlan(state.plan).scheduledDelivery
         ? null
         : "plan excludes scheduled delivery";
-    blockedCache.set(agencyId, reason);
+    planCache.set(job.agency_id, reason);
     return reason;
   };
 
-  for (const job of [...freshJobs, ...stuckJobs]) {
+  for (const job of jobs) {
     result.processed++;
-    const outcome = await processJob(admin, job, await blockedReason(job.agency_id));
+    const outcome = await processJob(admin, job, await blockedReason(job));
     result[outcome]++;
   }
 

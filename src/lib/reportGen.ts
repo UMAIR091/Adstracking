@@ -7,6 +7,7 @@ import { generateReportInsightsCached } from "@/lib/ai";
 import { trackUsage } from "@/lib/usage";
 import { checkReportLimit } from "@/lib/billing/limits";
 import { featuresForPlan } from "@/lib/billing/config";
+import { ARCHIVED_CLIENT_ERROR } from "@/lib/archivedClients";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import { snapshotsToBlocks, type ReportBlock } from "@/lib/integrations/blocks";
 import { resolvePeriod, isPeriodPreset, type PeriodPreset, type ResolveResult } from "@/lib/reports/periods";
@@ -86,8 +87,11 @@ export async function createClientReport(
   const derived = period.preset !== "last_28" && period.preset !== "last_90";
 
   const { data: client } = await supabase
-    .from("clients").select("id, name").eq("id", clientId).eq("agency_id", agencyId).maybeSingle();
+    .from("clients").select("id, name, archived").eq("id", clientId).eq("agency_id", agencyId).maybeSingle();
   if (!client) return { ok: false, status: 404, error: "Client not found" };
+  // Archived clients are paused: no new reports until a restore, which
+  // re-checks the plan's client limit (lib/archivedClients.ts).
+  if (client.archived !== false) return { ok: false, status: 409, error: ARCHIVED_CLIENT_ERROR };
 
   // Report cap (only the trial sets one — paid plans return allowed immediately).
   const reportLimit = await checkReportLimit(supabase, agencyId);
