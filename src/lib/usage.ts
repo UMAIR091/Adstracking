@@ -1,10 +1,17 @@
-// SaaS usage tracking. Two halves:
+// SaaS usage tracking. Three parts:
 //
-//   trackUsage()        — records a cumulative event (a report generated, a sync
-//                         executed, an AI summary produced) by atomically bumping
-//                         the current month's counter via the increment_usage
-//                         RPC. Best-effort: it uses the service-role client and
-//                         never throws, so metering can't break the path it meters.
+//   trackUsage()        — records a cumulative event (a sync executed, an AI
+//                         summary produced) by atomically bumping the current
+//                         month's counter via the increment_usage RPC.
+//                         Best-effort: it uses the service-role client and never
+//                         throws, so metering can't break the path it meters.
+//
+//   reserveReportGeneration() / releaseReportGeneration() / reportsGenerated()
+//                       — report generations, which the Free and trial report
+//                         allowances are counted from. A generation is counted
+//                         as a report is produced, atomically against the plan's
+//                         cap (migration 0040), and stays counted when the saved
+//                         report is later deleted.
 //
 //   getWorkspaceUsage() — reads a workspace's current-month usage for the admin
 //                         view AND as the shape a future limit check would read:
@@ -31,6 +38,72 @@ export async function trackUsage(agencyId: string | null | undefined, metric: Us
   } catch {
     // Best-effort: a missing table/RPC (migration not applied) or a transient DB
     // error must not affect the request being metered.
+  }
+}
+
+// Reports an agency has generated, read from the generation counter: in one
+// month (the Free allowance) or ever (the trial's). Deleting a saved report
+// doesn't touch this count. Members can read their own counters, so `supabase`
+// may be the caller's RLS client. A failed read counts as zero; the atomic
+// reservation below is what actually enforces the cap.
+export async function reportsGenerated(
+  supabase: SupabaseClient,
+  agencyId: string,
+  periodMonth: string | null
+): Promise<number> {
+  let query = supabase
+    .from("usage_counters")
+    .select("count")
+    .eq("agency_id", agencyId)
+    .eq("metric", "reports_generated");
+  if (periodMonth) query = query.eq("period_month", periodMonth);
+  const { data } = await query;
+  return ((data ?? []) as { count: number | string }[]).reduce((sum, row) => sum + (Number(row.count) || 0), 0);
+}
+
+export type ReportReservation =
+  /** `periodMonth` is the month the generation was counted in; null when it went unmetered. */
+  | { ok: true; periodMonth: string | null }
+  | { ok: false; reason: "limit" | "unavailable" };
+
+// Counts one report generation against the agency's allowance, atomically.
+// reserve_report_generation() (migration 0040) locks the agency, sums what it
+// has generated (this month, or ever when `lifetime`) and increments only if
+// that is below `limit`, so two requests racing for the last slot can't both
+// get it. `limit` null means unlimited: counted, never refused.
+//
+// An allowance that can't be checked isn't granted. Unlimited plans have no cap
+// to protect, so a metering failure never blocks them.
+export async function reserveReportGeneration(
+  agencyId: string,
+  cap: { limit: number | null; lifetime: boolean }
+): Promise<ReportReservation> {
+  try {
+    const { data, error } = await createAdminClient().rpc("reserve_report_generation", {
+      p_agency: agencyId,
+      p_limit: cap.limit,
+      p_lifetime: cap.lifetime,
+    });
+    if (error) throw new Error(error.message);
+    if (typeof data === "string") return { ok: true, periodMonth: data };
+    return cap.limit === null ? { ok: true, periodMonth: null } : { ok: false, reason: "limit" };
+  } catch (err) {
+    if (cap.limit === null) return { ok: true, periodMonth: null };
+    console.error(`Report allowance check failed for agency ${agencyId}: ${(err as Error).message}`);
+    return { ok: false, reason: "unavailable" };
+  }
+}
+
+// Hands back a reservation whose report was never stored. Only the generation
+// path calls this, when its own insert failed; deleting a saved report never
+// does. Best-effort: a failed release costs the agency one generation, it can
+// never grant one.
+export async function releaseReportGeneration(agencyId: string, periodMonth: string | null): Promise<void> {
+  if (!periodMonth) return;
+  try {
+    await createAdminClient().rpc("release_report_generation", { p_agency: agencyId, p_period_month: periodMonth });
+  } catch {
+    // See above.
   }
 }
 

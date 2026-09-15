@@ -5,6 +5,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSubscriptionState } from "./subscription";
 import { TRIAL_LIMITS, FREE_LIMITS, limitsForPlan, type PlanLimits } from "./config";
+import { currentPeriodMonth, reportsGenerated } from "@/lib/usage";
 
 export type LimitKind = "clients" | "integrations" | "reports";
 
@@ -26,13 +27,6 @@ function activeLimits(plan: string): PlanLimits {
   if (plan === "trial") return TRIAL_LIMITS;
   if (plan === "free") return FREE_LIMITS;
   return limitsForPlan(plan);
-}
-
-// The free plan's report allowance renews every calendar month; every other cap
-// in the system counts for the lifetime of the account. UTC, to match how
-// reports.created_at is stored.
-function monthStartIso(now = new Date()): string {
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
 }
 
 async function count(supabase: SupabaseClient, table: string, filters: [string, string | boolean][]): Promise<number> {
@@ -77,7 +71,13 @@ export async function checkIntegrationLimit(supabase: SupabaseClient, agencyId: 
   );
 }
 
-// Can this agency generate another report? (Only the trial caps this.)
+// Can this agency generate another report? (Only the trial and Free cap this.)
+//
+// Counted from report GENERATIONS (usage_counters.reports_generated), never
+// from saved reports: a saved report can be deleted, and deleting one must not
+// hand the allowance back. This is the early, read-only check; the cap is
+// enforced atomically as the report is produced (reserveReportGeneration, in
+// createClientReport).
 export async function checkReportLimit(supabase: SupabaseClient, agencyId: string): Promise<LimitCheck> {
   const state = await getSubscriptionState(supabase, agencyId);
   if (!state.hasAccess) return noAccess(state.plan, state.planName);
@@ -85,11 +85,10 @@ export async function checkReportLimit(supabase: SupabaseClient, agencyId: strin
   const limit = activeLimits(state.plan).maxReports; // null on paid plans
   if (limit === null) return { allowed: true, current: 0, limit: null, plan: state.plan, planName: state.planName, isTrial, hasAccess: true, reason: null };
 
-  // Free renews monthly; the trial's single report is for the whole trial.
+  // Free renews every calendar month (UTC, the counter's own buckets); the
+  // trial's single report is for the whole trial.
   const monthly = state.plan === "free";
-  let q = supabase.from("reports").select("id", { count: "exact", head: true }).eq("agency_id", agencyId);
-  if (monthly) q = q.gte("created_at", monthStartIso());
-  const current = (await q).count ?? 0;
+  const current = await reportsGenerated(supabase, agencyId, monthly ? currentPeriodMonth() : null);
 
   if (current < limit) return { allowed: true, current, limit, plan: state.plan, planName: state.planName, isTrial, hasAccess: true, reason: null };
   return blocked(

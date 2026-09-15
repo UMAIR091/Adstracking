@@ -12,7 +12,11 @@ import { createClientReport } from "./reportGen";
 vi.mock("@/lib/ai", () => ({
   generateReportInsightsCached: async () => ({ insights: null, cached: true }),
 }));
-vi.mock("@/lib/usage", () => ({ trackUsage: async () => {} }));
+vi.mock("@/lib/usage", () => ({
+  trackUsage: async () => {},
+  reserveReportGeneration: async () => ({ ok: true, periodMonth: "2026-09-01" }),
+  releaseReportGeneration: async () => {},
+}));
 vi.mock("@/lib/billing/limits", () => ({ checkReportLimit: async () => ({ allowed: true }) }));
 
 const NOW = Date.parse("2026-09-16T12:00:00Z");

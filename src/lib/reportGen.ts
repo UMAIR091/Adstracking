@@ -4,7 +4,7 @@
 import crypto from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateReportInsightsCached } from "@/lib/ai";
-import { trackUsage } from "@/lib/usage";
+import { trackUsage, reserveReportGeneration, releaseReportGeneration } from "@/lib/usage";
 import { checkReportLimit } from "@/lib/billing/limits";
 import { featuresForPlan } from "@/lib/billing/config";
 import { ARCHIVED_CLIENT_ERROR } from "@/lib/archivedClients";
@@ -309,6 +309,26 @@ export async function createClientReport(
     unavailable: unavailable.length ? unavailable : undefined,
   };
 
+  // ── The report is produced from here on, so this is where it is counted ──
+  // Everything above only reads. The plan's report allowance is taken now,
+  // atomically (reserve_report_generation, migration 0040): the agency is
+  // locked, its generations counted, and the counter bumped only if there is
+  // room, so two requests racing for the last slot can't both get it. The count
+  // lives in usage_counters, which tenants can't write and which deleting a
+  // saved report never touches. checkReportLimit above only spares loading data
+  // for a request that is plainly over the limit.
+  const reservation = await reserveReportGeneration(agencyId, {
+    limit: reportLimit.limit ?? null,
+    lifetime: reportLimit.plan !== "free",
+  });
+  if (!reservation.ok) {
+    if (reservation.reason === "unavailable") {
+      return { ok: false, status: 503, error: "Couldn't check your report allowance. Please try again in a moment." };
+    }
+    const latest = await checkReportLimit(supabase, agencyId);
+    return { ok: false, status: 402, error: latest.reason ?? "Report limit reached." };
+  }
+
   const unified = assembleReport(gscData, ga4Data, null, blocks, meta);
   // AI insights are a paid capability. The report still generates on the Free
   // plan — charts, tables and totals — it just carries no written analysis, and
@@ -349,10 +369,13 @@ export async function createClientReport(
     })
     .select("id, share_token")
     .single();
-  if (error) return { ok: false, status: 400, error: error.message };
-
-  // Meter the generated report (covers both the manual route and the cron).
-  await trackUsage(agencyId, "reports_generated");
+  if (error) {
+    // Nothing was stored, so nothing was generated: give the allowance back.
+    // Once a report is stored its generation stays counted, whatever later
+    // happens to the report.
+    await releaseReportGeneration(agencyId, reservation.periodMonth);
+    return { ok: false, status: 400, error: error.message };
+  }
 
   return { ok: true, id: report.id, shareToken: report.share_token, title, data, period };
 }
