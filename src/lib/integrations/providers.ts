@@ -7,7 +7,7 @@ import {
 } from "@/lib/google";
 import { listMetaAdAccounts, fetchMetaAdsReport, metaConfigured } from "./oauth/meta";
 import { listInstagramAccounts, fetchInstagramReport } from "./oauth/instagram";
-import { listGoogleAdsAccounts, fetchGoogleAdsReport, googleAdsConfigured } from "./oauth/googleAds";
+import { listGoogleAdsAccounts, fetchGoogleAdsReport } from "./oauth/googleAds";
 import { listGbpLocations, fetchGbpReport } from "./oauth/gbp";
 import { fetchShopifyReport, shopifyConfigured } from "./oauth/shopify";
 import { fetchWooReport } from "./oauth/woocommerce";
@@ -165,7 +165,9 @@ export const googleAdsDef: IntegrationDef = {
   description: "Spend, clicks, conversions & ROAS",
   icon: "Megaphone",
   accent: "sky",
-  status: gated(googleAdsConfigured()),
+  // Rides on the shared Google OAuth app like GSC/GA4: since developer tokens
+  // were sunset, nothing Ads-specific needs configuring.
+  status: "live",
   oauthProviderId: "google_ads",
   connectPath: "/api/google/connect",
   accountNoun: "ad account",
