@@ -8,6 +8,11 @@ import { publicError } from "@/lib/errors";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
+// AI insight generation runs inside createClientReport and takes ~15s. Without
+// this, the route uses Vercel's 10s default and is killed mid-call before the
+// report is stored, so a configured AI never lands on a manually generated
+// report. Matches the scheduled/send/pdf routes (launch audit B3).
+export const maxDuration = 60;
 
 // Generates a unified report from cached GSC + GA4 data. No live Google calls.
 export async function POST(req: Request) {
