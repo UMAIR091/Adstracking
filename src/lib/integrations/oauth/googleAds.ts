@@ -147,11 +147,15 @@ export async function listGoogleAdsAccounts(accessToken: string): Promise<Integr
 
   // A few at a time: a user can hold dozens of accounts directly.
   const queue = [...roots];
+  const failures: unknown[] = [];
   await Promise.all(
     Array.from({ length: Math.min(5, queue.length) }, async () => {
-      for (let root = queue.shift(); root; root = queue.shift()) await expand(root).catch(() => {});
+      for (let root = queue.shift(); root; root = queue.shift()) await expand(root).catch((err) => failures.push(err));
     })
   );
+  // One unreadable account is normal, but when none can be read an empty list
+  // would read as "you have no ad accounts" and hide the real reason.
+  if (roots.length && failures.length === roots.length) throw failures[0];
 
   return Array.from(found.values(), (f) => f.account).sort((a, b) => a.name.localeCompare(b.name));
 }

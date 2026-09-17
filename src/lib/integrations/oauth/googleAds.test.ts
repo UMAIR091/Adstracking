@@ -92,6 +92,25 @@ describe("listGoogleAdsAccounts", () => {
     expect(calls.every((c) => c.url.startsWith("https://googleads.googleapis.com/v25/"))).toBe(true);
   });
 
+  it("returns an empty list for a login that only holds empty manager accounts", async () => {
+    fakeApi(({ url, body }) => {
+      if (url.endsWith("/customers:listAccessibleCustomers")) return json(200, { resourceNames: ["customers/6479121847"] });
+      if (body?.query?.includes("FROM customer LIMIT 1")) {
+        return json(200, { results: [{ customer: { id: "6479121847", descriptiveName: "Umair Ali", manager: true } }] });
+      }
+      return json(200, { results: [{ customerClient: { id: "6479121847", descriptiveName: "Umair Ali", manager: true, status: "ENABLED" } }] });
+    });
+    await expect(listGoogleAdsAccounts("token")).resolves.toEqual([]);
+  });
+
+  it("fails with Google's reason when no account at all can be read", async () => {
+    fakeApi(({ url }) => {
+      if (url.endsWith("/customers:listAccessibleCustomers")) return json(200, { resourceNames: ["customers/1111111111", "customers/2222222222"] });
+      return adsFailure(403, { authorizationError: "USER_PERMISSION_DENIED" }, "User doesn't have permission to access customer.");
+    });
+    await expect(listGoogleAdsAccounts("token")).rejects.toThrow("Google Ads API error 403 USER_PERMISSION_DENIED");
+  });
+
   it("returns no accounts for a Google account without Google Ads", async () => {
     fakeApi(() => adsFailure(403, { authenticationError: "NOT_ADS_USER" }, "The login email is not associated with any Google Ads account."));
     await expect(listGoogleAdsAccounts("token")).resolves.toEqual([]);

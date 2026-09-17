@@ -98,16 +98,23 @@ export function IntegrationCard({
     router.refresh();
   }
 
+  // With no account chosen there is nothing to sync yet, so "Refresh now" asks
+  // the provider for its account list again instead. That is what the empty
+  // state tells people to do, and the list is otherwise only read at connect.
   async function refreshNow() {
     setBusy(true);
-    const res = await fetch("/api/google/sync", {
+    const relist = !source!.selectedAccountId;
+    const res = await fetch(relist ? "/api/google/accounts" : "/api/google/sync", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ dataSourceId: source!.id }),
     });
     setBusy(false);
-    if (!res.ok) return toast.error((await res.json()).error ?? "Failed to refresh data");
-    toast.success("Analytics refreshed");
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) return toast.error(json.error ?? (relist ? `Couldn’t fetch your ${noun} list` : "Failed to refresh data"));
+    if (!relist) toast.success("Analytics refreshed");
+    else if (json.accounts > 0) toast.success(`Found ${json.accounts} ${noun}${json.accounts === 1 ? "" : "s"}`);
+    else toast.warning(`Still no ${noun} found for ${source!.display_name ?? "this connection"}`);
     router.refresh();
   }
 
@@ -206,7 +213,7 @@ export function IntegrationCard({
           <Button variant="outline" onClick={saveAccount} disabled={busy || !account || account === source.selectedAccountId}>
             Save
           </Button>
-          <Button onClick={refreshNow} disabled={busy || !source.selectedAccountId}>
+          <Button onClick={refreshNow} disabled={busy}>
             <RefreshCw size={16} className={busy ? "animate-spin" : ""} /> {busy ? "Refreshing…" : "Refresh now"}
           </Button>
         </div>
