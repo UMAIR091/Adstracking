@@ -20,7 +20,8 @@ export default function AboutPage() {
       <p>
         {COMPANY.product} takes the opposite approach: <strong>every feature on every plan, simple pricing, zero setup</strong>.
         Connect a client&apos;s data sources once, and beautiful white-label reports — with AI-written executive
-        summaries — go out on schedule, under your brand, from your domain. Your clients never see our name.
+        summaries — go out on schedule under your brand: your logo and colours on every report and PDF, sent from your
+        own verified domain.
       </p>
 
       <h2>What it does</h2>

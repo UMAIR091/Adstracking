@@ -218,9 +218,10 @@ export function PricingPlans({
         })}
       </div>
 
-      {/* Assurances. The guarantee is stated with its actual scope — 3 days
-          from the FIRST payment — so it cannot be read as an open-ended refund
-          window or as applying to renewals. */}
+      {/* Assurances. The guarantee is stated with its actual scope — the
+          14-day money-back window on the FIRST payment (see /refund) — so it
+          cannot be read as an open-ended refund window or as applying to
+          renewals. */}
       {showAssurances && (
         <div className="mt-8 flex flex-col items-center gap-3">
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-ink-600">
@@ -238,7 +239,7 @@ export function PricingPlans({
           </div>
           <p className="max-w-xl text-center text-xs leading-relaxed text-ink-500">
             Prices in USD, billed by Paddle. The money-back guarantee covers your{" "}
-            <span className="font-medium text-ink-500">first payment only</span>, refundable in full if you ask within 3
+            <span className="font-medium text-ink-500">first payment only</span>, refundable in full if you ask within 14
             days of that charge. Cancelling later stops future renewals but does not refund past ones.
           </p>
         </div>

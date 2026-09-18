@@ -160,7 +160,7 @@ Do I need a credit card to try it?
 Your payment method is taken when you choose a plan, and the first charge lands when the 3-day trial ends. Cancel before then and you won't be billed.
 
 Can clients see ReportFlow?
-No. Reports, emails and PDFs carry your branding only — ReportFlow never appears.
+Your reports, PDFs and shared report pages carry your branding only, and once you verify your own sending domain, emails come from your address too — so what your clients receive shows your brand, not ReportFlow.
 
 What happens when I hit my client limit?
 Existing clients and reports keep working. To add more active clients, upgrade — or archive a client you no longer report on to free up a slot.

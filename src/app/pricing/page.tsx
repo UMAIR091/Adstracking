@@ -136,7 +136,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Do you offer refunds?",
-    a: "Because every account starts with a free trial, we encourage you to test everything before paying. For billing mistakes or exceptional cases, see our Refund & Cancellation Policy — we handle requests case by case and aim to be fair.",
+    a: "Yes — a 14-day money-back guarantee on your first payment. If you're not satisfied, request a refund within 14 days of that charge and we'll refund it in full. See our Refund & Cancellation Policy for details.",
   },
   {
     q: "How does 3-month billing work?",
@@ -419,12 +419,12 @@ export default async function PricingPage() {
                 <p className="mt-2 pr-10 text-sm leading-relaxed text-ink-500">
                   {item.q === "Do you offer refunds?" ? (
                     <>
-                      Because every account starts with a free trial, we encourage you to test everything before paying.
-                      For billing mistakes or exceptional cases, see our{" "}
+                      Yes — a 14-day money-back guarantee on your first payment. If you&apos;re not satisfied, request a
+                      refund within 14 days of that charge and we&apos;ll refund it in full. See our{" "}
                       <Link href="/refund" className="font-medium text-brand-600 hover:underline">
                         Refund &amp; Cancellation Policy
                       </Link>{" "}
-                      — we handle requests case by case and aim to be fair.
+                      for details.
                     </>
                   ) : (
                     item.a
@@ -496,7 +496,7 @@ export default async function PricingPage() {
               away — cancel in one click.
             </p>
             <div className="mt-6">
-              <Button asChild size="lg"><Link href="/signup">Start Your 7-Day Free Trial</Link></Button>
+              <Button asChild size="lg"><Link href="/signup">Start Your {PAID_TRIAL_DAYS}-Day Free Trial</Link></Button>
             </div>
             <p className="mt-3 text-sm text-ink-500">3-day free trial · Every feature on every plan · Cancel anytime</p>
           </div>

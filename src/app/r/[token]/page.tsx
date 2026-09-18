@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ReportDocument } from "@/components/ReportDocument";
@@ -7,11 +8,25 @@ import { loadReportForRender } from "@/lib/reports/branding";
 
 export const dynamic = "force-dynamic";
 
-// Shared client reports must never be indexed: the share token is the only
-// access control, so search engines indexing it would leak private client data.
-export const metadata = {
-  robots: { index: false, follow: false },
-};
+// White-label the shared report's own metadata. Without this the page inherits
+// the root layout's ReportFlow marketing title/OG, so a client opening the link
+// (or a link preview of it) would see "ReportFlow" in the tab and social card.
+// The report already carries the agency's branding, so the tab/OG show the
+// agency's name instead — never ReportFlow. Still noindex: the share token is
+// the only access control, so search engines must not index it.
+export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
+  const report = await loadReportForRender(createAdminClient(), { shareToken: params.token });
+  const agency = report?.branding?.name?.trim();
+  const title = agency ? `${agency} — Performance Report` : "Performance Report";
+  const description = agency ? `Performance report prepared by ${agency}.` : "Performance report.";
+  return {
+    title,
+    description,
+    robots: { index: false, follow: false },
+    openGraph: { title, description, siteName: agency || undefined, type: "article" },
+    twitter: { card: "summary", title, description },
+  };
+}
 
 // Public, unauthenticated report — accessed via an unguessable share token.
 export default async function PublicReportPage({ params }: { params: { token: string } }) {

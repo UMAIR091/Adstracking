@@ -71,11 +71,11 @@ function faqs(pricing: PlanPricing[], savingPct: number | null) {
   },
   {
     q: "Which data sources are live today?",
-    a: "Google Search Console, Google Analytics 4, and Meta Ads (Facebook & Instagram) are live now. Google Ads, Google Business Profile, LinkedIn Ads, Microsoft Ads, TikTok Ads, X and YouTube are on the roadmap — and every plan includes every integration as it ships.",
+    a: "The Integrations section shows exactly what you can connect right now — availability is expanding as each source clears provider review. Every plan includes every integration as it ships, at no extra cost.",
   },
   {
     q: "Is it actually white-label?",
-    a: "Yes. Your logo, brand colour and footer appear on every report and email, and reports send from your own verified domain. Your clients never see the ReportFlow name.",
+    a: "Yes. Your logo, brand colour and footer appear on every report, PDF and email, and once you verify your own sending domain, email comes from your address too. Reports and PDFs carry your brand, not ours.",
   },
   {
     q: "Can reports go out automatically?",
@@ -457,9 +457,9 @@ export default async function LandingPage() {
           <Eyebrow icon={Palette}>White-label</Eyebrow>
           <h2 className="mt-4 text-3xl font-semibold tracking-tight">It&apos;s your brand on every report — not ours</h2>
           <p className="mt-4 leading-relaxed text-ink-500">
-            Upload your logo, set your brand colour, add your footer and send from your own domain. Clients see a
-            polished reporting platform from <span className="font-medium text-ink-700">your agency</span>. ReportFlow
-            never appears — not on the report, not in the email, not in the PDF.
+            Upload your logo, set your brand colour, add your footer and verify your own sending domain. Clients see a
+            polished report from <span className="font-medium text-ink-700">your agency</span> — your brand on the
+            report, the PDF, and the email sender, not ours.
           </p>
           <ul className="mt-6 space-y-3">
             {[
