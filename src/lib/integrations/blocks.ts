@@ -210,6 +210,20 @@ function projectAds(sourceId: string, snap: unknown): ReportBlock {
     );
   }
 
+  // An account with no spend and nothing to compare against loses every
+  // metric to `meaningful` and keeps only uncalculable ratios, which the
+  // renderers drop, so the section showed a bare heading and read as broken.
+  // Zero spend is the finding here: say it with the volume metrics.
+  const dormant = isRec(totals) && !kpis.some((k) => k.value !== null && k.value !== 0);
+  const shown = dormant
+    ? [
+        kpi("Spend", totals?.spend ?? 0, prev?.spend, "currency"),
+        kpi("Impressions", totals?.impressions ?? 0, prev?.impressions, "number"),
+        kpi("Clicks", totals?.clicks ?? 0, prev?.clicks, "number"),
+      ]
+    : kpis;
+  if (dormant) notes.push("No ads ran in this period.");
+
   return {
     sourceId,
     sourceName: nameOf(sourceId),
@@ -217,7 +231,7 @@ function projectAds(sourceId: string, snap: unknown): ReportBlock {
     // Never assume USD. An unknown currency stays null and the formatter omits
     // the symbol — showing "$" over PKR spend is worse than showing no symbol.
     currency: s(at(snap, "currency")) || null,
-    kpis,
+    kpis: shown,
     series,
     tables,
     notes,

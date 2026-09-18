@@ -54,6 +54,16 @@ describe("snapshotToBlock — shape detection", () => {
     expect(labels).toContain("Spend");
   });
 
+  it("shows an account with no ads running as zero spend, impressions and clicks", () => {
+    const zero = { spend: 0, impressions: 0, clicks: 0, ctr: 0, cpc: 0, cpm: 0, conversions: 0, costPerConversion: 0, revenue: 0, roas: 0 };
+    const dormant = { platform: "google_ads", currency: "PKR", totals: zero, previousTotals: zero, byDate: [], topCampaigns: [] };
+    const block = snapshotToBlock("google_ads", dormant)!;
+    expect(block.kpis.map((k) => [k.label, k.value])).toEqual([["Spend", 0], ["Impressions", 0], ["Clicks", 0]]);
+    expect(block.notes).toEqual(["No ads ran in this period."]);
+    // An account that did spend keeps the ordinary rules and no note.
+    expect(snapshotToBlock("google_ads", adsSnapshot)!.notes).toEqual([]);
+  });
+
   it("detects commerce, crm and email shapes without provider hints", () => {
     expect(snapshotToBlock("shopify", { currency: "USD", totals: { orders: 10, revenue: 500, avgOrderValue: 50, customers: 8 } })!.category).toBe("commerce");
     expect(snapshotToBlock("hubspot", { totals: { newContacts: 5, newDeals: 2, wonDeals: 1, wonRevenue: 100 } })!.category).toBe("crm");
