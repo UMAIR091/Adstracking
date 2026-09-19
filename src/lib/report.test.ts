@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canonicalPeriod, periodDayCount, periodLabel, dataCoverage, normalizeReportData, isReportEmpty, REPORT_LAG_DAYS } from "./report";
+import { canonicalPeriod, periodDayCount, periodLabel, insightsPeriodPhrase, dataCoverage, normalizeReportData, isReportEmpty, REPORT_LAG_DAYS } from "./report";
 
 // The canonical window is the contract between the period a user selects, the
 // row stored in the database, the PDF and every UI surface. Before it existed,
@@ -132,5 +132,47 @@ describe("regenerating insights preserves the rest of the report", () => {
     expect(reread.blocks).toHaveLength(0);
     expect(reread.meta).toBeUndefined();
     expect(isReportEmpty(reread)).toBe(true);
+  });
+});
+
+// The phrase handed to the model is the only thing telling it which window the
+// numbers describe. Generation passed the real window; the regenerate-insights
+// route rebuilt "the last N days" from byDate row counts, so regenerating a
+// calendar-period report re-introduced the exact bug generation had been fixed
+// to avoid. Both paths call this now — these pin what it produces.
+describe("insightsPeriodPhrase", () => {
+  it("names the real window, not a rolling day count", () => {
+    expect(
+      insightsPeriodPhrase({ label: "Q2 2026", start: "2026-04-01", end: "2026-06-30", days: 91 })
+    ).toBe("Q2 2026 — 2026-04-01 to 2026-06-30 (91 days)");
+  });
+
+  it("is byte-identical to what generation built before, so cached insights still hit", () => {
+    const period = { label: "Last 28 days", start: "2026-07-20", end: "2026-08-16", days: 28 };
+    expect(insightsPeriodPhrase(period)).toBe(
+      `${period.label} — ${period.start} to ${period.end} (${period.days} days)`
+    );
+  });
+
+  it("derives the day count when none is stored", () => {
+    // Reports generated before `meta` carried periodDays still have their own
+    // period_start/period_end columns.
+    expect(insightsPeriodPhrase({ start: "2026-08-01", end: "2026-08-31" })).toBe(
+      "Aug 2026 — 2026-08-01 to 2026-08-31 (31 days)"
+    );
+  });
+
+  it("falls back to a month label when no label is stored", () => {
+    expect(insightsPeriodPhrase({ label: "  ", start: "2026-07-01", end: "2026-08-31", days: 62 })).toBe(
+      "Jul–Aug 2026 — 2026-07-01 to 2026-08-31 (62 days)"
+    );
+  });
+
+  it("still names the window for a report with no Google source", () => {
+    // A Meta-Ads-only report has no gsc/ga4 byDate, which is what previously
+    // reduced the phrase to "this reporting period" with no dates at all.
+    const phrase = insightsPeriodPhrase({ start: "2026-05-01", end: "2026-05-31", days: 31 });
+    expect(phrase).toContain("2026-05-01 to 2026-05-31");
+    expect(phrase).not.toContain("this reporting period");
   });
 });

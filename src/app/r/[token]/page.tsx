@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -8,6 +9,14 @@ import { loadReportForRender } from "@/lib/reports/branding";
 
 export const dynamic = "force-dynamic";
 
+// generateMetadata and the page body both need the report, and each was doing
+// its own full load — report + agency + client, twice per public page view.
+// React's cache() dedupes them within a single request. Keyed on the token, not
+// on a Supabase client (a fresh one per call would never match).
+const loadSharedReport = cache(async (token: string) =>
+  loadReportForRender(createAdminClient(), { shareToken: token })
+);
+
 // White-label the shared report's own metadata. Without this the page inherits
 // the root layout's ReportFlow marketing title/OG, so a client opening the link
 // (or a link preview of it) would see "ReportFlow" in the tab and social card.
@@ -15,7 +24,7 @@ export const dynamic = "force-dynamic";
 // agency's name instead — never ReportFlow. Still noindex: the share token is
 // the only access control, so search engines must not index it.
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
-  const report = await loadReportForRender(createAdminClient(), { shareToken: params.token });
+  const report = await loadSharedReport(params.token);
   const agency = report?.branding?.name?.trim();
   const title = agency ? `${agency} — Performance Report` : "Performance Report";
   const description = agency ? `Performance report prepared by ${agency}.` : "Performance report.";
@@ -30,10 +39,9 @@ export async function generateMetadata({ params }: { params: { token: string } }
 
 // Public, unauthenticated report — accessed via an unguessable share token.
 export default async function PublicReportPage({ params }: { params: { token: string } }) {
-  const admin = createAdminClient();
   // Same loader the authenticated views use: branding from the report's own
   // agency, client name from its own client.
-  const report = await loadReportForRender(admin, { shareToken: params.token });
+  const report = await loadSharedReport(params.token);
   if (!report) notFound();
 
   return (

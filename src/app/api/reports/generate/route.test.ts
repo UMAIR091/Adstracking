@@ -7,8 +7,13 @@ import path from "node:path";
 // AI insight generation inside createClientReport takes ~15s. A report-
 // generating route with no `maxDuration` runs at Vercel's 10s default and is
 // killed mid-call before the report is stored, so a configured AI never lands
-// on the report. Every route that calls createClientReport (directly or via
-// runScheduledReports) must budget at least the AI call time.
+// on the report. Every route that makes an AI call — via createClientReport,
+// via runScheduledReports, or directly — must budget at least the AI call time.
+//
+// The list is the guard. regenerate-insights was omitted from it and was
+// therefore the one AI route still on the 10s default, which meant
+// "Regenerate insights" could not complete in production at all. Add any new
+// AI-calling route here.
 //
 // Read the source rather than importing the route so this stays a pure static
 // check with no Next/runtime or env dependencies.
@@ -19,7 +24,8 @@ const ROUTES = [
   "src/app/api/reports/generate/route.ts", // manual "Generate report" — the one B3 fixed
   "src/app/api/reports/[id]/send/route.ts", // "Send now" / test send
   "src/app/api/schedules/run/route.ts", // manual run-now for a schedule
-  "src/app/api/cron/reports/route.ts", // daily scheduled delivery
+  "src/app/api/cron/reports/route.ts", // scheduled delivery
+  "src/app/api/reports/[id]/regenerate-insights/route.ts", // calls the model directly
 ];
 
 function maxDurationOf(relPath: string): number | null {

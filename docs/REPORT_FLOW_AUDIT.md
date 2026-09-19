@@ -4,7 +4,36 @@ End-to-end review of the report flow: **generate → store → preview → PDF �
 send**, plus the scheduled-delivery engine.
 
 Baseline at time of audit: `2a7296f`, typecheck clean, 544/544 tests passing.
-No code was changed for this audit — findings only.
+
+## Status — all seven fixed
+
+| | Finding | Fix |
+|---|---|---|
+| S1 | Scheduled delivery drops most due reports | Cron every 10 min (was daily); batch default 50 → 5; retries claimed and processed first, capped at half the batch; fresh claim takes only the remaining capacity; wall-clock budget; `deferred` counted and carried into the heartbeat |
+| S2 | `regenerate-insights` missing every guard | `maxDuration = 60`, plan gate on `aiInsights`, `trackUsage`, rate limit + access check |
+| S3 | `processJob` could throw and abort the batch | Whole body wrapped; `finalize` and `advanceSchedule` swallow their own errors |
+| S4 | Wrong period handed to the model on regeneration | Both paths now call one shared `insightsPeriodPhrase` |
+| S5 | Agency PDF download bypassed the render cache | Serves from the same Storage cache as the share link; rate-limited |
+| S6 | Throwing AI step could burn a trial allowance | `createAdminClient()` moved inside the try |
+| S7 | Duplicated work on two hot paths | Report assembled once; public page load deduped with React `cache()` |
+
+Verified with typecheck, the full suite (561, up from 544) and a production
+build. The new guards were each confirmed to fail against the old code.
+
+**Two deliberate judgement calls, both needing your sign-off:**
+
+1. **`vercel.json` now runs the reports cron every 10 minutes.** This is load
+   bearing — the retry path only runs when the cron runs, and only considers
+   ledger rows from the last 24h, so on a daily cron retries were dead on
+   arrival. It also fixes `send_hour` fidelity, which a daily 08:00 cron could
+   never honour. **Sub-daily crons need a Vercel plan above Hobby**; on Hobby
+   the deployment will be rejected. If you are on Hobby, say so and the engine
+   can be reworked to drain a backlog within a single daily run instead.
+2. **S5 keeps no `requireActiveAccess`.** The audit flagged this as possibly
+   deliberate — a lapsed agency can still download reports it already paid to
+   generate — so the behaviour is unchanged. Say the word to gate it.
+
+The findings below are kept as written, as the record of what was wrong.
 
 **How to read this.** Each finding names the evidence in the code. "Verified"
 means I traced it in the source; "inferred" means the conclusion rests on a

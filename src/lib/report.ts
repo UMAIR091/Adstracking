@@ -261,6 +261,32 @@ export function periodLabel(start: string | null | undefined, end: string | null
 }
 
 /**
+ * The exact window phrase handed to the model, so its prose can never describe a
+ * period the report doesn't cover.
+ *
+ * Generation and regeneration MUST agree on this, and they didn't. Generation
+ * passed the real resolved window; the regenerate-insights route rebuilt "the
+ * last N days" from `byDate` row counts, which named the wrong window on any
+ * calendar or custom period (a Q2 report was described as "the last 61 days")
+ * and no window at all on a report with no Google source. Both paths now call
+ * this, so they cannot drift apart again.
+ *
+ * The output is byte-identical to what generation built before, which matters:
+ * the AI insight cache is keyed on a hash of the model input, so changing the
+ * phrasing would invalidate every cached insight.
+ */
+export function insightsPeriodPhrase(input: {
+  label?: string | null;
+  start: string;
+  end: string;
+  days?: number | null;
+}): string {
+  const days = input.days && input.days > 0 ? input.days : periodDayCount(input.start, input.end);
+  const label = input.label?.trim() || periodLabel(input.start, input.end) || "This period";
+  return `${label} — ${input.start} to ${input.end}${days ? ` (${days} days)` : ""}`;
+}
+
+/**
  * The extent of the data that actually landed, or null when there is none.
  * Reported alongside the canonical window so a partially-covered report can say
  * so honestly instead of quietly shrinking its own period.

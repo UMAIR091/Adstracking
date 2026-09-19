@@ -69,9 +69,17 @@ export async function generateReportInsightsCached(
   if (!getProvider().isConfigured()) return { insights: null, cached: false };
 
   const key = crypto.createHash("sha256").update(JSON.stringify(input)).digest("hex");
-  const admin = createAdminClient();
 
+  // `createAdminClient()` used to sit outside this try. It is
+  // `createClient(url!, key!)`, which THROWS when SUPABASE_SERVICE_ROLE_KEY is
+  // absent — so a config gap made this wrapper throw instead of returning null,
+  // breaking the contract above that the AI step never fails report generation.
+  // It escaped `createClientReport` after the plan's report allowance had been
+  // reserved and before the report row was inserted, so the release path never
+  // ran and a trial agency silently lost one of its counted generations.
+  let admin: ReturnType<typeof createAdminClient> | null = null;
   try {
+    admin = createAdminClient();
     const { data } = await admin.from("ai_insights_cache").select("insights").eq("cache_key", key).maybeSingle();
     if (data?.insights) return { insights: data.insights as ReportInsights, cached: true };
   } catch {
@@ -79,7 +87,8 @@ export async function generateReportInsightsCached(
   }
 
   const insights = await generateReportInsights(input);
-  if (insights) {
+  // No admin client means the cache is unreachable; the insights are still good.
+  if (insights && admin) {
     try {
       await admin.from("ai_insights_cache").insert({ cache_key: key, insights });
     } catch {
