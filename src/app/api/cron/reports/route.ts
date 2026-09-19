@@ -41,7 +41,12 @@ export async function GET(req: Request) {
       const { error } = await admin.rpc("record_heartbeat", {
         p_job: "reports",
         p_ok: true,
-        p_detail: `sent ${result.sent} failed ${result.failed}`,
+        // `deferred` is appended only when there is a backlog, so the detail of a
+      // healthy run is unchanged. A run that claims more than it can start used
+      // to be indistinguishable from one with nothing to do.
+      p_detail:
+        `sent ${result.sent} failed ${result.failed}` +
+        (result.deferred ? ` deferred ${result.deferred}` : ""),
       });
       if (error) heartbeat = "failed";
     } catch {

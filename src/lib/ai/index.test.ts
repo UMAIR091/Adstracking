@@ -155,3 +155,31 @@ describe("generateReportInsightsCached", () => {
     expect(h.inserts).toHaveLength(0);
   });
 });
+
+describe("the cache wrapper honours the never-throw contract", () => {
+  // createAdminClient() sat outside the try. It is createClient(url!, key!),
+  // which throws when SUPABASE_SERVICE_ROLE_KEY is missing — so a config gap
+  // made this wrapper throw instead of degrading. It escaped createClientReport
+  // after the report allowance had been reserved and before the row was
+  // inserted, so the release never ran and a trial agency lost a generation.
+  it("still returns insights when the admin client cannot be constructed", async () => {
+    h.createAdmin.mockImplementation(() => {
+      throw new Error("supabaseKey is required.");
+    });
+
+    const result = await generateReportInsightsCached(INPUT);
+
+    expect(result).toEqual({ insights: FULL, cached: false });
+    expect(h.complete).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not attempt a cache write when there is no admin client", async () => {
+    h.createAdmin.mockImplementation(() => {
+      throw new Error("supabaseKey is required.");
+    });
+
+    await generateReportInsightsCached(INPUT);
+
+    expect(h.inserts).toEqual([]);
+  });
+});
