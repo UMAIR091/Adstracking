@@ -121,7 +121,7 @@ describe("scheduled delivery checks the plan at send time", () => {
 
     const result = await run();
 
-    expect(result).toEqual({ processed: 1, sent: 0, failed: 0, skipped: 1 });
+    expect(result).toEqual({ processed: 1, sent: 0, failed: 0, skipped: 1, deferred: 0 });
     expect(createClientReport).not.toHaveBeenCalled();
     expect(deliverReport).not.toHaveBeenCalled();
     expect(ledger.get("del-free-1")).toEqual({ status: "skipped", error: "plan excludes scheduled delivery" });
@@ -132,7 +132,7 @@ describe("scheduled delivery checks the plan at send time", () => {
 
     const result = await run();
 
-    expect(result).toEqual({ processed: 3, sent: 3, failed: 0, skipped: 0 });
+    expect(result).toEqual({ processed: 3, sent: 3, failed: 0, skipped: 0, deferred: 0 });
     expect(createClientReport).toHaveBeenCalledTimes(3);
     expect(ledger.get("del-pro-1")).toMatchObject({ status: "sent" });
   });
@@ -152,7 +152,7 @@ describe("scheduled delivery checks the plan at send time", () => {
 
     const result = await run();
 
-    expect(result).toEqual({ processed: 1, sent: 0, failed: 0, skipped: 1 });
+    expect(result).toEqual({ processed: 1, sent: 0, failed: 0, skipped: 1, deferred: 0 });
     expect(deliverReport).not.toHaveBeenCalled();
   });
 
@@ -174,7 +174,7 @@ describe("an archived client's schedule is paused", () => {
 
     const result = await run();
 
-    expect(result).toEqual({ processed: 1, sent: 0, failed: 0, skipped: 1 });
+    expect(result).toEqual({ processed: 1, sent: 0, failed: 0, skipped: 1, deferred: 0 });
     expect(createClientReport).not.toHaveBeenCalled();
     expect(deliverReport).not.toHaveBeenCalled();
     expect(ledger.get("del-pro-1")).toEqual({ status: "skipped", error: "client archived" });
@@ -186,7 +186,7 @@ describe("an archived client's schedule is paused", () => {
 
     const result = await run();
 
-    expect(result).toEqual({ processed: 2, sent: 1, failed: 0, skipped: 1 });
+    expect(result).toEqual({ processed: 2, sent: 1, failed: 0, skipped: 1, deferred: 0 });
     expect(createClientReport).toHaveBeenCalledTimes(1);
     expect(createClientReport).toHaveBeenCalledWith(admin, "pro", "cli-active", expect.anything());
   });
@@ -197,7 +197,7 @@ describe("an archived client's schedule is paused", () => {
 
     const result = await run();
 
-    expect(result).toEqual({ processed: 1, sent: 0, failed: 0, skipped: 1 });
+    expect(result).toEqual({ processed: 1, sent: 0, failed: 0, skipped: 1, deferred: 0 });
     expect(deliverReport).not.toHaveBeenCalled();
   });
 
@@ -208,7 +208,7 @@ describe("an archived client's schedule is paused", () => {
 
     archivedClients.delete("cli-pro");
     dueJobs = [job("pro", 2)];
-    expect(await run()).toEqual({ processed: 1, sent: 1, failed: 0, skipped: 0 });
+    expect(await run()).toEqual({ processed: 1, sent: 1, failed: 0, skipped: 0, deferred: 0 });
   });
 
   it("does not deliver for a client that no longer exists", async () => {

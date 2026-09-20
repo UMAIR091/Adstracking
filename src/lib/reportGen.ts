@@ -15,7 +15,7 @@ import { deriveGsc, deriveGa4, deriveBlock, seriesCoverage, covers, distinctDays
 import { fetchHistory } from "@/lib/metrics/history";
 import { inferReportType, isReportType, suggestReportTitle, type ReportType } from "@/lib/reports/types";
 import { hasCalculableKpis } from "@/lib/reports/summary";
-import { assembleReport, isGscEmpty, isGa4Empty, isReportEmpty, dataCoverage, periodLabel, toInsightsInput, type ReportData } from "@/lib/report";
+import { assembleReport, isGscEmpty, isGa4Empty, isReportEmpty, dataCoverage, periodLabel, insightsPeriodPhrase, toInsightsInput, type ReportData } from "@/lib/report";
 
 /**
  * Bridges the legacy `periodDays` argument and the period presets.
@@ -338,12 +338,21 @@ export async function createClientReport(
   // prose can't describe a period the report doesn't cover.
   const { insights, cached } = aiAllowed
     ? await generateReportInsightsCached(
-        toInsightsInput(unified, client.name, `${period.label} — ${period.start} to ${period.end} (${period.days} days)`)
+        toInsightsInput(
+          unified,
+          client.name,
+          insightsPeriodPhrase({ label: period.label, start: period.start, end: period.end, days: period.days })
+        )
       )
     : { insights: null, cached: false };
   // Meter AI usage only when the model actually ran (a cache hit costs nothing).
   if (insights && !cached) await trackUsage(agencyId, "ai_summaries");
-  const data = assembleReport(gscData, ga4Data, insights, blocks, meta);
+  // Attach the insights to the report already built above rather than composing
+  // the whole thing a second time. `assembleReport`'s insightsHash is computed
+  // from { gsc, ga4, blocks } only — it does not depend on `insights` — so this
+  // is the identical object, including key order, for one less full re-hash of
+  // the payload per generation.
+  const data: ReportData = { ...unified, insights };
 
   // Title: the user's own if they edited one, otherwise a suggestion built from
   // the client, the inferred type and the window. The old default came from the
