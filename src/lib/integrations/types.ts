@@ -10,7 +10,10 @@ export type TokenSet = { access_token: string; refresh_token?: string; expires_i
 // via Microsoft *or* Google sign-in) can route code exchange and refresh to the
 // right provider's endpoints. Absent/empty for single-provider integrations,
 // which ignore it — so adding this arg is backwards compatible.
-export type AuthContext = { provider?: string };
+// `connectValue` carries the one value some integrations collect before OAuth
+// starts (IntegrationDef.connectField) — e.g. the Google Sheet to read, which
+// lets Sheets ask for the sheet itself instead of a Drive-wide scope.
+export type AuthContext = { provider?: string; connectValue?: string };
 
 // A pluggable OAuth backend, shared by every integration that authenticates
 // through the same provider (e.g. all Google sources share one).

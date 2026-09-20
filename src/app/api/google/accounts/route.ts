@@ -38,16 +38,18 @@ export async function POST(req: Request) {
 
   const current = (ds.config ?? {}) as IntegrationConfig;
   const provider = typeof current.identity_provider === "string" ? current.identity_provider : undefined;
+  // Integrations named by a pasted value (Sheets) have no list to browse, so
+  // re-listing means re-reading the same one: hand back what was chosen.
+  const chosen = def.readSelected?.(current) ?? null;
   let accounts: IntegrationAccount[];
   try {
     const accessToken = await getValidAccessToken(supabase, ds as SyncableSource);
-    accounts = await def.listAccounts(accessToken, { provider });
+    accounts = await def.listAccounts(accessToken, { provider, connectValue: chosen ?? undefined });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 502 });
   }
 
   const config: IntegrationConfig = { ...current, ...def.buildConfig(accounts) };
-  const chosen = def.readSelected?.(current) ?? null;
   if (chosen) config[def.accountConfigKey] = chosen;
 
   const { error } = await supabase.from("data_sources").update({ config }).eq("id", dataSourceId);

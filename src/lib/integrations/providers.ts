@@ -21,7 +21,7 @@ import { verifyMozKey, fetchMozReport } from "./oauth/moz";
 import { listStripeAccounts, fetchStripeReport, stripeConfigured } from "./oauth/stripe";
 import { listYoutubeChannels, fetchYoutubeReport } from "./oauth/youtube";
 import { verifyBigQueryAccess, fetchBigQuerySnapshot } from "./oauth/bigquery";
-import { listSpreadsheets, fetchSheetTable } from "./oauth/sheets";
+import { resolveSpreadsheet, fetchSheetTable } from "./oauth/sheets";
 import { listHubspotAccounts, fetchHubspotReport, hubspotConfigured } from "./oauth/hubspot";
 import { listLinkedinAdAccounts, fetchLinkedinAdsReport, linkedinConfigured } from "./oauth/linkedin";
 import { listTiktokAdvertisers, fetchTiktokAdsReport, tiktokConfigured } from "./oauth/tiktok";
@@ -293,10 +293,19 @@ export const sheetsDef: IntegrationDef = {
   accountConfigKey: "account_id",
   snapshotTable: "integration_snapshots",
   dataAccess: [
-    { item: "The spreadsheet you select (read-only)", why: "Its first worksheet is embedded as a data table in this client's dashboard and reports." },
-    { item: "Your list of spreadsheets (names only)", why: "So you can pick which spreadsheet this client's data comes from." },
+    { item: "Only the spreadsheet you paste (read-only)", why: "Its first worksheet is embedded as a data table in this client's dashboard and reports." },
+    { item: "Nothing else in your Google Drive", why: "ReportFlow asks for no Drive access, so no other file is readable." },
   ],
-  listAccounts: (at) => listSpreadsheets(at),
+  // Named by its link rather than picked from a Drive listing: that is what
+  // keeps Sheets off Google's restricted Drive scopes, which would otherwise
+  // require an annual third-party security assessment.
+  connectField: {
+    name: "sheet",
+    label: "Google Sheet link",
+    placeholder: "https://docs.google.com/spreadsheets/d/...",
+    hint: "Open the sheet and copy the link from your browser. The Google account you connect with must be able to open it.",
+  },
+  listAccounts: (at, ctx) => resolveSpreadsheet(at, ctx?.connectValue ?? ""),
   fetchSnapshot: (at, id) => fetchSheetTable(at, id),
   buildConfig: (accounts) => ({ accounts: accounts.slice(0, 100), account_id: accounts.length === 1 ? accounts[0].id : null }),
   readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),

@@ -1,11 +1,12 @@
-// Google Sheets backend. Reuses the shared Google OAuth app with read-only
-// Sheets + Drive-metadata scopes. Sheets is a custom-data source: the snapshot
-// is the first worksheet as a bounded table (SheetTable), shown on the client
-// dashboard and available to reports — not force-fitted into ad metrics.
+// Google Sheets backend. Reuses the shared Google OAuth app with the read-only
+// Sheets scope alone: the agency pastes the sheet's link, so ReportFlow never
+// asks for a Drive scope and can only read that one sheet. Sheets is a
+// custom-data source: the snapshot is the first worksheet as a bounded table
+// (SheetTable), shown on the client dashboard and available to reports — not
+// force-fitted into ad metrics.
 import type { IntegrationAccount } from "../types";
 import { withRetry, type SheetTable } from "../metrics";
 
-const DRIVE = "https://www.googleapis.com/drive/v3";
 const SHEETS = "https://sheets.googleapis.com/v4";
 
 const MAX_ROWS = 200;
@@ -23,18 +24,27 @@ async function gGet<T>(url: string, accessToken: string): Promise<T> {
   });
 }
 
-// Lists the user's spreadsheets (most recently modified first).
-export async function listSpreadsheets(accessToken: string): Promise<IntegrationAccount[]> {
-  const params = new URLSearchParams({
-    q: "mimeType='application/vnd.google-apps.spreadsheet' and trashed=false",
-    orderBy: "modifiedTime desc",
-    pageSize: "100",
-    fields: "files(id,name)",
-  });
-  const data = await gGet<{ files?: { id: string; name: string }[] }>(
-    `${DRIVE}/files?${params.toString()}`, accessToken
+// Pulls the spreadsheet id out of what the agency pasted: a browser link, a
+// link with a #gid or query string, or the bare id.
+export function parseSpreadsheetId(input: string): string | null {
+  const value = (input ?? "").trim();
+  const fromLink = /\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/.exec(value);
+  if (fromLink) return fromLink[1];
+  return /^[a-zA-Z0-9_-]{20,}$/.test(value) ? value : null;
+}
+
+// The "account" for Sheets is the single sheet the agency pasted. Reading its
+// title both names the connection and proves the signed-in Google user can
+// open it — no Drive-wide scope, so nothing else in their Drive is readable.
+export async function resolveSpreadsheet(accessToken: string, linkOrId: string): Promise<IntegrationAccount[]> {
+  const id = parseSpreadsheetId(linkOrId);
+  if (!id) {
+    throw new Error("That doesn't look like a Google Sheets link. Open the sheet and copy the link from your browser's address bar.");
+  }
+  const meta = await gGet<{ properties?: { title?: string } }>(
+    `${SHEETS}/spreadsheets/${id}?fields=properties.title`, accessToken
   );
-  return (data.files ?? []).map((f) => ({ id: f.id, name: f.name }));
+  return [{ id, name: meta.properties?.title || "Untitled spreadsheet" }];
 }
 
 // Snapshots the first worksheet of the selected spreadsheet as a bounded

@@ -46,7 +46,9 @@ export const youtubeOAuth = googleVariant("youtube_analytics", [
 ]);
 export const bigqueryOAuth = googleVariant("bigquery", ["https://www.googleapis.com/auth/bigquery.readonly"]);
 export const gbpOAuth = googleVariant("gbp", ["https://www.googleapis.com/auth/business.manage"]);
-export const sheetsOAuth = googleVariant("sheets", [
-  "https://www.googleapis.com/auth/spreadsheets.readonly",
-  "https://www.googleapis.com/auth/drive.metadata.readonly",
-]);
+// Sheets deliberately asks for NO Drive scope. Listing a user's spreadsheets
+// needs drive.metadata.readonly, which Google classes as restricted and only
+// approves after an annual third-party security assessment. The agency pastes
+// the sheet's link instead (IntegrationDef.connectField), and spreadsheets.
+// readonly — merely sensitive — reads that one sheet.
+export const sheetsOAuth = googleVariant("sheets", ["https://www.googleapis.com/auth/spreadsheets.readonly"]);
