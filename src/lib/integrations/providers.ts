@@ -967,7 +967,8 @@ export const microsoftAdsDef: IntegrationDef = {
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,
 };
 
-export const soonDefs: IntegrationDef[] = [
-  soon("x_twitter", "X (Twitter)", "Impressions, engagements & spend", "Twitter", "ink"),
-  soon("youtube", "YouTube", "Views, watch time & subscribers", "Youtube", "red"),
-];
+// Placeholders for platforms nothing is built for yet. "YouTube" and
+// "X (Twitter)" used to live here and were removed once youtubeAnalyticsDef and
+// xAdsDef shipped: keeping them listed a second, unconnectable copy of a
+// platform the app already supports.
+export const soonDefs: IntegrationDef[] = [];
