@@ -62,8 +62,18 @@ export async function handleConnect(req: Request): Promise<Response> {
     }
   }
 
+  // One value some integrations need before OAuth can start — the Shopify store
+  // domain, the Google Sheet to read — collected on the consent screen and
+  // posted here. It rides inside the state so it survives the round trip to the
+  // provider without a second cookie.
+  let field: string | undefined;
+  if (def.connectField) {
+    field = (url.searchParams.get(def.connectField.name) ?? "").trim();
+    if (!field) return NextResponse.json({ error: `${def.connectField.label} is required.` }, { status: 400 });
+  }
+
   const nonce = crypto.randomUUID();
-  const state = Buffer.from(JSON.stringify({ clientId, nonce, type: def.id, provider })).toString("base64url");
+  const state = Buffer.from(JSON.stringify({ clientId, nonce, type: def.id, provider, field })).toString("base64url");
   // 30 minutes: long enough to survive a consent screen where the user has to
   // stop and enable an API or pick an account, short enough to stay a
   // meaningful CSRF window. The nonce is still single-use and httpOnly, and is
@@ -98,11 +108,13 @@ export async function handleCallback(req: Request): Promise<Response> {
   let clientId: string;
   let type: string;
   let provider: string | undefined;
+  let field: string | undefined;
   try {
     const parsed = JSON.parse(Buffer.from(state, "base64url").toString("utf8"));
     clientId = parsed.clientId;
     type = parsed.type;
     provider = parsed.provider;
+    field = typeof parsed.field === "string" ? parsed.field : undefined;
     if (!clientId || !type) return fail("Invalid state");
     const cookieNonce = cookies().get(NONCE_COOKIE)?.value;
     if (!cookieNonce || cookieNonce !== parsed.nonce) {
@@ -138,7 +150,7 @@ export async function handleCallback(req: Request): Promise<Response> {
   if (!client) return fail("Client not found");
 
   try {
-    await completeOAuthConnect(supabase, agency.id, clientId, def, oauth, code, provider);
+    await completeOAuthConnect(supabase, agency.id, clientId, def, oauth, code, provider, field);
     cookies().set(NONCE_COOKIE, "", { maxAge: 0, path: "/" });
     return NextResponse.redirect(`${appBase}/dashboard/clients/${clientId}?connected=${def.id}`);
   } catch (err) {
@@ -164,7 +176,8 @@ export async function completeOAuthConnect(
   def: IntegrationDef,
   oauth: OAuthProvider,
   code: string,
-  provider?: string
+  provider?: string,
+  connectValue?: string
 ): Promise<void> {
   if (!def.listAccounts || !def.buildConfig) throw new Error("Integration is not connectable");
 
@@ -174,7 +187,7 @@ export async function completeOAuthConnect(
 
   const [identity, accounts] = await Promise.all([
     oauth.identity(accessToken, { provider }),
-    def.listAccounts(accessToken, { provider }),
+    def.listAccounts(accessToken, { provider, connectValue }),
   ]);
   const config = def.buildConfig(accounts);
   // Record which identity provider authenticated this connection so token
