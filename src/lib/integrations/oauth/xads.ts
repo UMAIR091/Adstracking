@@ -14,8 +14,11 @@ import crypto from "node:crypto";
 import type { IntegrationAccount } from "../types";
 import { adsTotals, dayRange, isoDay, withRetry, type AdsDay, type AdsReport } from "../metrics";
 
-const ADS_API = "https://ads-api.twitter.com/12";
-const OAUTH_BASE = "https://api.twitter.com/oauth";
+// v12 is the current Ads API version (no deprecation date announced), and
+// ads-api.x.com is its canonical host — the ads-api.twitter.com name still
+// resolves, but only while X finishes the migration.
+const ADS_API = "https://ads-api.x.com/12";
+const OAUTH_BASE = "https://api.x.com/oauth";
 const MICRO = 1_000_000;
 
 // httpOnly cookie carrying the in-flight 1.0a request token + target client
