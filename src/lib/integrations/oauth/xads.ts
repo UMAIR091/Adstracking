@@ -32,8 +32,19 @@ function env(key: string): string {
   return v;
 }
 
+// X now calls these the app's API Key and Secret; OAuth 1.0a still signs them
+// as the "consumer" key and secret. Either env name works, so a deployment that
+// set one spelling doesn't silently read as unconfigured.
+const clientKey = () => process.env.X_ADS_CLIENT_KEY || process.env.X_ADS_CONSUMER_KEY || "";
+const clientSecret = () => process.env.X_ADS_CLIENT_SECRET || process.env.X_ADS_CONSUMER_SECRET || "";
+
+function required(value: string, names: string): string {
+  if (!value) throw new Error(`${names} is not set`);
+  return value;
+}
+
 export function xAdsConfigured(): boolean {
-  return Boolean(process.env.X_ADS_CONSUMER_KEY && process.env.X_ADS_CONSUMER_SECRET);
+  return Boolean(clientKey() && clientSecret());
 }
 
 export function xRedirectUri(): string {
@@ -58,7 +69,7 @@ function authHeader(
   extraOAuth: Record<string, string> = {}
 ): string {
   const oauth: Record<string, string> = {
-    oauth_consumer_key: env("X_ADS_CONSUMER_KEY"),
+    oauth_consumer_key: required(clientKey(), "X_ADS_CLIENT_KEY"),
     oauth_nonce: crypto.randomBytes(16).toString("hex"),
     oauth_signature_method: "HMAC-SHA1",
     oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
@@ -74,7 +85,7 @@ function authHeader(
     .map((k) => `${pct(k)}=${pct(all[k])}`)
     .join("&");
   const base = `${method}&${pct(url)}&${pct(paramString)}`;
-  const signingKey = `${pct(env("X_ADS_CONSUMER_SECRET"))}&${pct(token?.secret ?? "")}`;
+  const signingKey = `${pct(required(clientSecret(), "X_ADS_CLIENT_SECRET"))}&${pct(token?.secret ?? "")}`;
   const signature = crypto.createHmac("sha1", signingKey).update(base).digest("base64");
 
   const header: Record<string, string> = { ...oauth, oauth_signature: signature };
