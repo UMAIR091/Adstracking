@@ -58,7 +58,7 @@ export function normalizeStoreUrl(input: string): string | null {
 // browser to return_url.
 export function wooAuthUrl(storeUrl: string, state: string, returnUrl: string, callbackUrl: string): string {
   const params = new URLSearchParams({
-    app_name: "ReportFlow",
+    app_name: "Anavyst",
     scope: "read",
     user_id: state,
     return_url: returnUrl,

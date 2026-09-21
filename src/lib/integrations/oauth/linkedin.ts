@@ -10,7 +10,7 @@ const API = "https://api.linkedin.com";
 // about a year, after which calls pinned to it fail. 202506 was sunset in 2026
 // (supported versions were 202510–202609 as of September 2026). The breaking
 // changes since then only touch campaign/campaign-group creation, which
-// ReportFlow never does. Revisit before September 2027.
+// Anavyst never does. Revisit before September 2027.
 const LINKEDIN_VERSION = process.env.LINKEDIN_API_VERSION || "202609";
 // r_ads reads accounts/campaigns; r_ads_reporting reads analytics;
 // openid+profile let identity() label the connection.

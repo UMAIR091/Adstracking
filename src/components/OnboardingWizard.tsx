@@ -120,7 +120,7 @@ export function OnboardingWizard({ agency }: { agency: Agency }) {
       <div className="rounded-2xl border border-ink-200 bg-surface p-6 shadow-sm sm:p-8">
         {step === 0 && (
           <div className="space-y-5">
-            <Header icon={Building2} title="Make it yours" subtitle="Your logo and colour appear on every report, email and PDF — clients see your agency, never ReportFlow." />
+            <Header icon={Building2} title="Make it yours" subtitle="Your logo and colour appear on every report, email and PDF — clients see your agency, never Anavyst." />
             <div>
               <Label htmlFor="ob-name">Agency name</Label>
               <Input id="ob-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme Digital" autoFocus />

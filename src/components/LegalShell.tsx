@@ -20,7 +20,7 @@ export function LegalShell({
     <div className="flex min-h-screen flex-col bg-surface-page">
       <header className="border-b border-ink-100">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
-          <Link href="/" aria-label="ReportFlow home"><Brand /></Link>
+          <Link href="/" aria-label="Anavyst home"><Brand /></Link>
           <nav className="flex items-center gap-5 text-sm text-ink-500">
             <Link href="/contact" className="hover:text-ink-800">Support</Link>
             <Link href="/login" className="hover:text-ink-800">Sign in</Link>

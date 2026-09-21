@@ -41,7 +41,7 @@ const blocked = (reason: string, plan: string, planName: string, isTrial: boolea
 
 // Trial expired / no subscription — nothing is allowed until they upgrade.
 const noAccess = (plan: string, planName: string): LimitCheck =>
-  ({ allowed: false, current: 0, limit: 0, plan, planName, isTrial: false, hasAccess: false, reason: "Your subscription has ended. Choose a plan to keep using ReportFlow." });
+  ({ allowed: false, current: 0, limit: 0, plan, planName, isTrial: false, hasAccess: false, reason: "Your subscription has ended. Choose a plan to keep using Anavyst." });
 
 // Can this agency create another client/workspace?
 export async function checkClientLimit(supabase: SupabaseClient, agencyId: string): Promise<LimitCheck> {

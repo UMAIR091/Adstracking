@@ -18,10 +18,10 @@ const loadSharedReport = cache(async (token: string) =>
 );
 
 // White-label the shared report's own metadata. Without this the page inherits
-// the root layout's ReportFlow marketing title/OG, so a client opening the link
-// (or a link preview of it) would see "ReportFlow" in the tab and social card.
+// the root layout's Anavyst marketing title/OG, so a client opening the link
+// (or a link preview of it) would see "Anavyst" in the tab and social card.
 // The report already carries the agency's branding, so the tab/OG show the
-// agency's name instead — never ReportFlow. Still noindex: the share token is
+// agency's name instead — never Anavyst. Still noindex: the share token is
 // the only access control, so search engines must not index it.
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
   const report = await loadSharedReport(params.token);

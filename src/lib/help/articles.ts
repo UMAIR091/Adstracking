@@ -34,10 +34,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: "getting-started",
     category: "Getting started",
-    title: "Getting started with ReportFlow",
+    title: "Getting started with Anavyst",
     summary: "From signup to your first branded client report in a few minutes.",
     keywords: ["setup", "onboarding", "first report", "quick start"],
-    body: `ReportFlow turns your clients' marketing data into beautiful, white-label reports — written by AI and delivered on autopilot.
+    body: `Anavyst turns your clients' marketing data into beautiful, white-label reports — written by AI and delivered on autopilot.
 
 Here's the fastest path to value:
 
@@ -61,9 +61,9 @@ To connect one:
 
 - Open a client (Clients → pick a client).
 - In "Data sources", click Connect on the integration you want.
-- Review the consent screen — it shows exactly what ReportFlow will read (read-only, no passwords shared) — then continue.
+- Review the consent screen — it shows exactly what Anavyst will read (read-only, no passwords shared) — then continue.
 - Sign in with the client's account and approve access.
-- You'll return to ReportFlow and the source starts syncing automatically.
+- You'll return to Anavyst and the source starts syncing automatically.
 
 If an integration shows "Coming soon", it isn't available in your plan/region yet. Data refreshes automatically after the first sync — you never have to pull it manually.`,
   },
@@ -77,7 +77,7 @@ If an integration shows "Coming soon", it isn't available in your plan/region ye
 
 - Open the client and click "Generate report".
 - Pick a template (e.g. SEO, Marketing, Executive) and a period.
-- ReportFlow pulls the metrics, builds the charts, and writes an executive summary, key wins, issues and recommended actions — from the real numbers.
+- Anavyst pulls the metrics, builds the charts, and writes an executive summary, key wins, issues and recommended actions — from the real numbers.
 
 Every report gives you three ways to deliver it:
 
@@ -97,7 +97,7 @@ You can find every report you've made under Reports, with search and filters.`,
 
 - Open a client and find "Automated delivery".
 - Choose a frequency (weekly, monthly or quarterly), the day and hour, and the recipients.
-- Save. ReportFlow will generate the report and email it automatically, with a branded PDF attached.
+- Save. Anavyst will generate the report and email it automatically, with a branded PDF attached.
 
 Tips:
 
@@ -111,7 +111,7 @@ Tips:
     title: "White-label & sending domain setup",
     summary: "Put your brand on every report, and send email from your own domain.",
     keywords: ["white label", "branding", "logo", "domain", "sender", "email domain"],
-    body: `ReportFlow stays invisible — your brand is on every report, email and PDF.
+    body: `Anavyst stays invisible — your brand is on every report, email and PDF.
 
 Branding (Settings):
 
@@ -122,7 +122,7 @@ Sending from your own domain (Settings → Email branding):
 
 - Add your domain (e.g. agency.com).
 - Add the DNS records we show you at your domain registrar.
-- Click Verify. Once verified, reports send from reports@yourdomain — not from ReportFlow.
+- Click Verify. Once verified, reports send from reports@yourdomain — not from Anavyst.
 
 Until a domain is verified, reports send from the default platform sender. You can send a test email to confirm everything looks right.`,
   },
@@ -159,8 +159,8 @@ Yes. Connections are read-only, tokens are encrypted (AES-256), and each agency'
 Do I need a credit card to try it?
 Your payment method is taken when you choose a plan, and the first charge lands when the 3-day trial ends. Cancel before then and you won't be billed.
 
-Can clients see ReportFlow?
-Your reports, PDFs and shared report pages carry your branding only, and once you verify your own sending domain, emails come from your address too — so what your clients receive shows your brand, not ReportFlow.
+Can clients see Anavyst?
+Your reports, PDFs and shared report pages carry your branding only, and once you verify your own sending domain, emails come from your address too — so what your clients receive shows your brand, not Anavyst.
 
 What happens when I hit my client limit?
 Existing clients and reports keep working. To add more active clients, upgrade — or archive a client you no longer report on to free up a slot.

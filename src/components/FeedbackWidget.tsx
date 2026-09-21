@@ -90,7 +90,7 @@ export function FeedbackWidget() {
                 onChange={(e) => setMessage(e.target.value)}
                 rows={4}
                 autoFocus
-                placeholder={kind === "bug" ? "What happened, and what did you expect?" : kind === "feature" ? "What would you love ReportFlow to do?" : "Tell us what's on your mind…"}
+                placeholder={kind === "bug" ? "What happened, and what did you expect?" : kind === "feature" ? "What would you love Anavyst to do?" : "Tell us what's on your mind…"}
                 className="field w-full resize-none py-2"
               />
               <div className="flex items-center justify-between">

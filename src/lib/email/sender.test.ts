@@ -39,7 +39,7 @@ const send = (agency: Partial<AgencyRow>, domain: DomainRow) => resolveSender(fa
 let savedFrom: string | undefined;
 beforeEach(() => {
   savedFrom = process.env.EMAIL_FROM;
-  process.env.EMAIL_FROM = "ReportFlow <reports@tryreportflow.com>";
+  process.env.EMAIL_FROM = "Anavyst <reports@tryreportflow.com>";
 });
 afterEach(() => {
   if (savedFrom === undefined) delete process.env.EMAIL_FROM;
@@ -85,7 +85,7 @@ describe("white-label sending", () => {
 
   it("never sends as an arbitrary address on the platform's domain, even from a row that claims it", async () => {
     const sender = await send(
-      { email_sender_email: "billing@tryreportflow.com", email_sender_name: "ReportFlow Billing" },
+      { email_sender_email: "billing@tryreportflow.com", email_sender_name: "Anavyst Billing" },
       { domain: "tryreportflow.com", status: "verified" }
     );
 

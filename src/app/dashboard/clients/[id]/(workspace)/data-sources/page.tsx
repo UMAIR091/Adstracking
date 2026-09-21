@@ -104,7 +104,7 @@ export default async function ClientDataSourcesPage({ params }: { params: { id: 
         <div className="rounded-xl border border-dashed border-ink-200 bg-surface-subtle px-6 py-12 text-center">
           <p className="text-sm font-medium text-ink-800">No data sources connected yet</p>
           <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-ink-500">
-            Connect this client&apos;s Search Console, GA4, Meta Ads or any of the other platforms. ReportFlow syncs
+            Connect this client&apos;s Search Console, GA4, Meta Ads or any of the other platforms. Anavyst syncs
             the data automatically and builds their reports from it.
           </p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2">

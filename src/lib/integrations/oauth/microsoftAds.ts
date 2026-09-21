@@ -343,7 +343,7 @@ function submitBody(accountId: string, since: string, until: string): string {
     `<ExcludeReportFooter>true</ExcludeReportFooter>` +
     `<ExcludeReportHeader>true</ExcludeReportHeader>` +
     `<Format>Csv</Format>` +
-    `<ReportName>ReportFlow</ReportName>` +
+    `<ReportName>Anavyst</ReportName>` +
     `<ReturnOnlyCompleteData>false</ReturnOnlyCompleteData>` +
     `<Aggregation>Daily</Aggregation>` +
     `<Columns>${cols}</Columns>` +

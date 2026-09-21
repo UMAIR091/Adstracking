@@ -131,7 +131,7 @@ export default async function ClientPerformancePage({
       <div className="rounded-xl border border-dashed border-ink-200 bg-surface-subtle px-6 py-12 text-center">
         <p className="text-sm font-medium text-ink-800">No performance data yet</p>
         <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-ink-500">
-          Connect Search Console, GA4, Meta Ads or any other source. ReportFlow syncs the data and builds this
+          Connect Search Console, GA4, Meta Ads or any other source. Anavyst syncs the data and builds this
           client&apos;s dashboard for you.
         </p>
         <Button asChild className="mt-5">

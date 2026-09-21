@@ -4,7 +4,7 @@ import { Brand } from "@/components/Brand";
 import { OnboardingWizard } from "@/components/OnboardingWizard";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Welcome to ReportFlow" };
+export const metadata = { title: "Welcome to Anavyst" };
 
 // First-run onboarding. Auto-creates the agency (via getCurrentUserAndAgency)
 // then guides branding + defaults before the user reaches the dashboard.

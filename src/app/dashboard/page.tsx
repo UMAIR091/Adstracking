@@ -99,7 +99,7 @@ export default async function DashboardPage() {
   }[];
 
   // Performance — aggregated strictly from real cached snapshots. When there
-  // is nothing to aggregate the KPI block is not rendered at all: ReportFlow
+  // is nothing to aggregate the KPI block is not rendered at all: Anavyst
   // never shows invented numbers, so an empty state takes its place.
   const snapRows = (snaps ?? []) as {
     data_source_id: string;
@@ -188,7 +188,7 @@ export default async function DashboardPage() {
       done: !!agency.logo_url,
       href: "/dashboard/settings",
       cta: "Add branding",
-      description: "Clients see your agency on every report and email — not ReportFlow.",
+      description: "Clients see your agency on every report and email — not Anavyst.",
     },
     {
       label: "Generate your first report",

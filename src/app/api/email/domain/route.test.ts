@@ -92,7 +92,7 @@ beforeEach(() => {
   ownRow = null;
   takenElsewhere = false;
   insertError = null;
-  process.env.EMAIL_FROM = "ReportFlow <reports@tryreportflow.com>";
+  process.env.EMAIL_FROM = "Anavyst <reports@tryreportflow.com>";
   provider.verifyDomain.mockResolvedValue(undefined);
   provider.deleteDomain.mockResolvedValue(undefined);
 });

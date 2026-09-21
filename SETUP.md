@@ -1,4 +1,4 @@
-# ReportFlow — Setup
+# Anavyst — Setup
 
 White-label client reporting for marketing agencies. Next.js + Supabase + Resend + Lemon Squeezy.
 

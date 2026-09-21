@@ -65,7 +65,7 @@ export function AiPanel({ signals, connected }: { signals: Signal[]; connected: 
           <div className="rounded-xl border border-dashed border-ink-200 p-5">
             <p className="text-sm font-medium text-ink-800">Insights unlock after your first sync</p>
             <p className="mt-1 text-sm leading-relaxed text-ink-500">
-              Connect a data source and ReportFlow reads that client&apos;s real numbers — then every report opens
+              Connect a data source and Anavyst reads that client&apos;s real numbers — then every report opens
               with an AI-written summary, the wins worth reporting, the risks worth flagging, and the actions worth
               taking.
             </p>

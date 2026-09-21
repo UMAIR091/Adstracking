@@ -5,8 +5,8 @@ import { Brand } from "@/components/Brand";
 import { CHANGELOG, type ChangeType } from "@/lib/changelog";
 
 export const metadata = {
-  title: "Changelog · ReportFlow",
-  description: "New features, improvements and fixes shipping in ReportFlow.",
+  title: "Changelog · Anavyst",
+  description: "New features, improvements and fixes shipping in Anavyst.",
 };
 
 const BADGE: Record<ChangeType, { label: string; cls: string; Icon: typeof Sparkles }> = {
@@ -26,7 +26,7 @@ export default function ChangelogPage() {
       </header>
       <main className="mx-auto max-w-2xl px-5 py-10">
         <h1 className="text-3xl font-semibold tracking-tight text-ink-900">Changelog</h1>
-        <p className="mt-1 text-ink-500">What&apos;s new in ReportFlow.</p>
+        <p className="mt-1 text-ink-500">What&apos;s new in Anavyst.</p>
 
         {CHANGELOG.length === 0 ? (
           <p className="mt-8 rounded-xl border border-dashed border-ink-200 bg-surface px-4 py-10 text-center text-sm text-ink-500">

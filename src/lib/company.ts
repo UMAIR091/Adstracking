@@ -3,7 +3,7 @@
 // [brackets] — update them here once and every page picks up the change.
 
 export const COMPANY = {
-  product: "ReportFlow",
+  product: "Anavyst",
   tagline: "White-label client reporting for marketing agencies.",
   // ── business details ──
   // The operator's personal name and home address used to live here and render
@@ -24,7 +24,7 @@ export const COMPANY = {
 };
 
 // Bump when any legal document materially changes.
-export const LEGAL_LAST_UPDATED = "August 25, 2026";
+export const LEGAL_LAST_UPDATED = "September 21, 2026";
 
 // The one-line promise repeated across legal pages, the consent screen and the
 // footer. Keep the wording consistent everywhere.

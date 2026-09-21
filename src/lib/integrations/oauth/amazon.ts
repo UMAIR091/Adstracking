@@ -140,7 +140,7 @@ type ReportRow = { date?: string; campaignId?: number | string; campaignName?: s
 
 async function createReport(accessToken: string, profileId: string, startDate: string, endDate: string): Promise<string> {
   const body = {
-    name: `reportflow-sp-${startDate}-${endDate}`,
+    name: `anavyst-sp-${startDate}-${endDate}`,
     startDate,
     endDate,
     configuration: {

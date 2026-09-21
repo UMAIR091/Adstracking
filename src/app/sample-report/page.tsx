@@ -6,9 +6,9 @@ import { ReportPreview } from "@/components/ReportPreview";
 import { SiteFooter } from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
-  title: "Sample client report — ReportFlow",
+  title: "Sample client report — Anavyst",
   description:
-    "A real example of the white-label SEO & analytics report ReportFlow generates and sends for you — AI-written insights, your branding, delivered on schedule.",
+    "A real example of the white-label SEO & analytics report Anavyst generates and sends for you — AI-written insights, your branding, delivered on schedule.",
 };
 
 // Public sample report — the strongest sales asset we have. Anonymous visitors
@@ -18,7 +18,7 @@ export default function SampleReportPage() {
     <div className="flex min-h-screen flex-col bg-surface-muted">
       <header className="sticky top-0 z-30 border-b border-ink-200/70 bg-surface/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5">
-          <Link href="/" aria-label="ReportFlow home"><Brand className="text-lg" /></Link>
+          <Link href="/" aria-label="Anavyst home"><Brand className="text-lg" /></Link>
           <div className="flex items-center gap-3 text-sm">
             <Link href="/login" className="hidden text-ink-700 hover:text-ink-900 sm:inline">Sign in</Link>
             <Link href="/signup" className="rounded-lg bg-brand-solid px-4 py-2 font-medium text-white hover:bg-brand-solid-hover">

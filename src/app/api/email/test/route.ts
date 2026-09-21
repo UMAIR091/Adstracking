@@ -62,7 +62,7 @@ export async function POST() {
     shareUrl: `${appUrl}/dashboard/settings`,
     // Stands in for the AI summary so the agency sees the real layout.
     aiSummary: sender.whiteLabel
-      ? `White-label sending is working. This email was sent from ${sender.fromEmail} using your verified domain ${sender.fromDomain}, so your clients will never see ReportFlow in the sender. Scheduled reports will arrive exactly like this, with the PDF attached.`
+      ? `White-label sending is working. This email was sent from ${sender.fromEmail} using your verified domain ${sender.fromDomain}, so your clients will never see Anavyst in the sender. Scheduled reports will arrive exactly like this, with the PDF attached.`
       : `Your email setup works, but this was sent from the default sender (${sender.fromEmail}) rather than your own domain. Add and verify your sending domain in Email branding to send from your own address.`,
     message: "This is a test of your report email setup — no client has received it.",
     footerText: agency.email_footer ?? agency.footer_text,

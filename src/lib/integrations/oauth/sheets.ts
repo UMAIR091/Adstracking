@@ -1,5 +1,5 @@
 // Google Sheets backend. Reuses the shared Google OAuth app with the read-only
-// Sheets scope alone: the agency pastes the sheet's link, so ReportFlow never
+// Sheets scope alone: the agency pastes the sheet's link, so Anavyst never
 // asks for a Drive scope and can only read that one sheet. Sheets is a
 // custom-data source: the snapshot is the first worksheet as a bounded table
 // (SheetTable), shown on the client dashboard and available to reports — not

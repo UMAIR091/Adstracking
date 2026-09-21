@@ -331,7 +331,7 @@ export default async function PricingPage() {
               </h2>
               <p className="mt-3 text-ink-500">
                 Most reporting tools charge per client or per report, so your bill climbs every time you win business.
-                ReportFlow is a flat monthly price — win as many clients as your plan holds, pay the same.
+                Anavyst is a flat monthly price — win as many clients as your plan holds, pay the same.
               </p>
             </div>
 
@@ -345,7 +345,7 @@ export default async function PricingPage() {
                   highlight: false,
                 },
                 {
-                  name: "ReportFlow",
+                  name: "Anavyst",
                   example: "Agency plan",
                   price: "$149/mo",
                   detail: "flat, for up to 25 active clients — every feature included.",
@@ -385,7 +385,7 @@ export default async function PricingPage() {
                 <p className="text-sm font-semibold text-ink-900">The math at 20 clients</p>
                 <p className="mt-1.5 text-sm leading-relaxed text-ink-600">
                   Per-client tools raise your bill every time you win a client: at 20 clients, AgencyAnalytics runs
-                  ≈ $240/mo and Whatagraph starts around $249/mo. On ReportFlow, 25 clients is the $149 Growth plan —
+                  ≈ $240/mo and Whatagraph starts around $249/mo. On Anavyst, 25 clients is the $149 Growth plan —
                   with every feature included. That&apos;s money back in your margin, every month.
                 </p>
                 <p className="mt-2 text-xs text-ink-500">
@@ -456,7 +456,7 @@ export default async function PricingPage() {
               {[
                 { icon: CreditCard, t: "Secure checkout", x: "Payments handled by Paddle, our PCI-DSS compliant merchant of record. Card details never touch our servers." },
                 { icon: Lock, t: "Encrypted everywhere", x: "All traffic over TLS; OAuth tokens encrypted at rest with AES-256." },
-                { icon: EyeOff, t: "Read-only access", x: "ReportFlow can never change anything in your Google or Meta accounts." },
+                { icon: EyeOff, t: "Read-only access", x: "Anavyst can never change anything in your Google or Meta accounts." },
                 { icon: BadgeCheck, t: "No lock-in", x: "Cancel anytime in two clicks. Your data is yours — export or delete it whenever you like." },
               ].map((s) => {
                 const Icon = s.icon;

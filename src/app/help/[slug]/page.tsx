@@ -10,7 +10,7 @@ export function generateStaticParams() {
 
 export function generateMetadata({ params }: { params: { slug: string } }) {
   const a = getArticle(params.slug);
-  return a ? { title: `${a.title} · ReportFlow Help`, description: a.summary } : { title: "Help · ReportFlow" };
+  return a ? { title: `${a.title} · Anavyst Help`, description: a.summary } : { title: "Help · Anavyst" };
 }
 
 export default function HelpArticlePage({ params }: { params: { slug: string } }) {

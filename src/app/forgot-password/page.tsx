@@ -1,6 +1,6 @@
 import { ForgotPasswordForm } from "@/components/ForgotPasswordForm";
 
-export const metadata = { title: "Reset your password · ReportFlow" };
+export const metadata = { title: "Reset your password · Anavyst" };
 
 export default function ForgotPasswordPage() {
   return (

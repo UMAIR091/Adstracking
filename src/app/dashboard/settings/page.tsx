@@ -59,7 +59,7 @@ export default async function SettingsPage() {
       <h1 className="text-2xl font-semibold tracking-tight text-ink-900">General &amp; branding</h1>
       <p className="mb-6 text-sm text-ink-500">
         Your logo, colour and contact details go out automatically on every report and email — this is what your
-        clients see instead of ReportFlow.
+        clients see instead of Anavyst.
       </p>
       <AgencySettingsForm
         agencyId={agency.id}

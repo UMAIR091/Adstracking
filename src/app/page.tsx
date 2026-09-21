@@ -15,12 +15,12 @@ import { PAID_TRIAL_DAYS } from "@/lib/billing/config";
 import { SiteFooter } from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
-  title: "ReportFlow — White-label client reports on autopilot, written by AI",
+  title: "Anavyst — White-label client reports on autopilot, written by AI",
   description:
     "The client-reporting tool for marketing agencies. Connect Search Console, GA4 and Meta Ads, and send beautiful white-label reports with AI-written insights — every feature on every plan, from $49/mo, live in 5 minutes.",
   alternates: { canonical: "/" },
   openGraph: {
-    title: "ReportFlow — White-label client reports on autopilot",
+    title: "Anavyst — White-label client reports on autopilot",
     description:
       "Connect a client's marketing data and send agency-grade, AI-written reports under your brand. Every feature on every plan, from $49/mo.",
   },
@@ -62,7 +62,7 @@ function faqs(pricing: PlanPricing[], savingPct: number | null) {
 
   return [
   {
-    q: "How is ReportFlow different from AgencyAnalytics or Whatagraph?",
+    q: "How is Anavyst different from AgencyAnalytics or Whatagraph?",
     a: `Three things. Pricing that stays simple as you grow — every plan includes every feature, and ${topLine} instead of the ~$240+ per-client tools charge. AI-written insights on every report, not just charts. And setup measured in minutes: connect a source, pick an account, generate. We deliberately skip the 100-widget dashboard maze and do the reporting part exceptionally well.`,
   },
   {
@@ -79,11 +79,11 @@ function faqs(pricing: PlanPricing[], savingPct: number | null) {
   },
   {
     q: "Can reports go out automatically?",
-    a: "Yes — set a weekly, monthly, or quarterly schedule per client and ReportFlow generates the report, writes the insights, and emails it with a branded PDF attached. You can also send test runs to yourself first.",
+    a: "Yes — set a weekly, monthly, or quarterly schedule per client and Anavyst generates the report, writes the insights, and emails it with a branded PDF attached. You can also send test runs to yourself first.",
   },
   {
     q: "Is my clients' data safe?",
-    a: "Access is read-only — ReportFlow can never change anything in your Google or Meta accounts. Connection tokens are encrypted with AES-256, every workspace is isolated at the database level, and your data is only ever used to generate your reports — never sold or used for advertising. You can disconnect any source and delete its data instantly.",
+    a: "Access is read-only — Anavyst can never change anything in your Google or Meta accounts. Connection tokens are encrypted with AES-256, every workspace is isolated at the database level, and your data is only ever used to generate your reports — never sold or used for advertising. You can disconnect any source and delete its data instantly.",
   },
   {
     q: "How long does setup take?",
@@ -105,7 +105,7 @@ function jsonLd(pricing: PlanPricing[], savingPct: number | null) {
   "@graph": [
     {
       "@type": "SoftwareApplication",
-      name: "ReportFlow",
+      name: "Anavyst",
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
       description:
@@ -176,7 +176,7 @@ export default async function LandingPage() {
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-ink-500">
             Connect a client&apos;s <span className="font-medium text-ink-700">marketing accounts</span> once.
-            ReportFlow pulls the data, writes the insights with AI, and delivers a beautiful report under{" "}
+            Anavyst pulls the data, writes the insights with AI, and delivers a beautiful report under{" "}
             <span className="font-medium text-ink-700">your brand</span> — on schedule, every time.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -257,7 +257,7 @@ export default async function LandingPage() {
             },
             {
               icon: Sparkles,
-              title: "2. ReportFlow does the work",
+              title: "2. Anavyst does the work",
               text: "We pull the metrics, build the charts, and write the executive summary, wins, risks and next steps in plain English — from the real numbers.",
             },
             {
@@ -296,10 +296,10 @@ export default async function LandingPage() {
           <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {[
               { icon: Clock, title: "Reclaim two days a month", text: "Stop rebuilding the same report every month. The data refreshes itself and the narrative writes itself — you just hit send (or don't even do that)." },
-              { icon: Users, title: "Grow without a pricing penalty", text: "Per-client fees punish you for winning business. ReportFlow keeps it simple: 100 clients costs $299/mo — not the $240+ per-client tools charge — with every feature included." },
+              { icon: Users, title: "Grow without a pricing penalty", text: "Per-client fees punish you for winning business. Anavyst keeps it simple: 100 clients costs $299/mo — not the $240+ per-client tools charge — with every feature included." },
               { icon: Sparkles, title: "Insights clients actually read", text: "Charts show what happened; your clients pay you to know why and what's next. Every report explains wins, risks and priorities in plain English." },
               { icon: Palette, title: "Look like you built it", text: "Your logo, colours, footer and sending domain on every report and email. Clients see a polished platform from your agency — we stay invisible." },
-              { icon: CalendarClock, title: "Reports on autopilot", text: "Schedule weekly, monthly or quarterly delivery per client. ReportFlow generates, writes and emails it — with a branded PDF attached." },
+              { icon: CalendarClock, title: "Reports on autopilot", text: "Schedule weekly, monthly or quarterly delivery per client. Anavyst generates, writes and emails it — with a branded PDF attached." },
               { icon: ShieldCheck, title: "Client data handled right", text: "Read-only access, AES-256-encrypted connections, isolated workspaces. Disconnect and delete any source's data in one click." },
             ].map((b) => {
               const Icon = b.icon;
@@ -404,7 +404,7 @@ export default async function LandingPage() {
             <Eyebrow icon={CalendarClock}>Autopilot</Eyebrow>
             <h2 className="mt-4 text-3xl font-semibold tracking-tight">Set the schedule once. Never chase a report again.</h2>
             <p className="mt-4 leading-relaxed text-ink-500">
-              Pick a cadence per client — weekly, monthly or quarterly, down to the day and hour. ReportFlow generates
+              Pick a cadence per client — weekly, monthly or quarterly, down to the day and hour. Anavyst generates
               the report, writes the insights, and emails it from your domain with a branded PDF attached. Delivery
               history shows exactly what went out, and when.
             </p>
@@ -523,7 +523,7 @@ export default async function LandingPage() {
             {[
               { q: "We cut monthly reporting from two full days to about twenty minutes. The AI summaries alone are worth it.", n: "Founder", a: "3-person SEO studio" },
               { q: "Switching off per-client pricing saved us hundreds a month. Adding a client now costs us nothing.", n: "Owner", a: "PPC agency" },
-              { q: "Clients think we built a custom reporting platform. It's just ReportFlow under our brand.", n: "Director", a: "Growth agency" },
+              { q: "Clients think we built a custom reporting platform. It's just Anavyst under our brand.", n: "Director", a: "Growth agency" },
             ].map((t) => (
               <figure key={t.q} className="flex flex-col rounded-2xl border border-ink-200 bg-surface p-6">
                 <div className="flex gap-0.5 text-warning-400" aria-hidden>
@@ -559,7 +559,7 @@ export default async function LandingPage() {
           </div>
           <div className="mt-10 grid gap-6 text-center sm:grid-cols-3">
             {[
-              { icon: EyeOff, t: "Read-only access", x: "ReportFlow can never change anything in your Google or Meta accounts." },
+              { icon: EyeOff, t: "Read-only access", x: "Anavyst can never change anything in your Google or Meta accounts." },
               { icon: Lock, t: "Encrypted connections", x: "OAuth tokens encrypted at rest with AES-256; all traffic over TLS." },
               { icon: Zap, t: "Delete anytime", x: "Disconnect any source and its stored data is deleted instantly." },
             ].map((s) => {
@@ -611,7 +611,7 @@ export default async function LandingPage() {
             />
           </div>
           <p className="mt-8 text-center text-sm text-ink-500">
-            AgencyAnalytics at 20 clients ≈ $240/mo. Whatagraph from ~$249/mo. ReportFlow at 20 clients: $149/mo —
+            AgencyAnalytics at 20 clients ≈ $240/mo. Whatagraph from ~$249/mo. Anavyst at 20 clients: $149/mo —
             every feature included. <Link href="/pricing" className="font-medium text-brand-600 hover:underline">See full pricing →</Link>
           </p>
         </div>

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 
 // Empty states for the analytics surfaces.
 //
-// ReportFlow never renders invented numbers. Where there is no data, these
+// Anavyst never renders invented numbers. Where there is no data, these
 // components explain *why* and what to do next, so an empty dashboard reads as
 // a deliberate first step rather than a broken page.
 
@@ -71,8 +71,8 @@ export function NoIntegrationsState({ hasClients, steps }: { hasClients: boolean
             </h2>
             <p className="mt-1.5 text-sm leading-relaxed text-ink-500">
               {hasClients
-                ? "Link a client to Google Search Console, GA4, Meta Ads or any other supported source. Once connected, ReportFlow syncs their metrics automatically and your performance data appears here."
-                : "Clients are the workspaces you report on. Add your first one, connect their marketing accounts, and ReportFlow takes care of the rest."}
+                ? "Link a client to Google Search Console, GA4, Meta Ads or any other supported source. Once connected, Anavyst syncs their metrics automatically and your performance data appears here."
+                : "Clients are the workspaces you report on. Add your first one, connect their marketing accounts, and Anavyst takes care of the rest."}
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Button asChild>

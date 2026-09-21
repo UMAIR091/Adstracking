@@ -51,7 +51,7 @@ export default async function InvitePage({ params }: { params: { token: string }
           <LogIn size={20} aria-hidden />
         </div>
         <h1 className="mt-4 text-xl font-semibold tracking-tight text-ink-900">
-          {agencyName ? `Join ${agencyName} on ReportFlow` : "Accept your invitation"}
+          {agencyName ? `Join ${agencyName} on Anavyst` : "Accept your invitation"}
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-ink-600">
           {invite?.email ? (

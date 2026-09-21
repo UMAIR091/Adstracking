@@ -205,7 +205,7 @@ async function agencyContact(admin: SupabaseClient, agencyId: string): Promise<{
 }
 
 // ── Welcome email ────────────────────────────────────────────
-// ReportFlow → agency, sent once when their subscription first activates.
+// Anavyst → agency, sent once when their subscription first activates.
 // Complements (never replaces) Paddle's receipt — Paddle is merchant of record
 // and owns the tax invoice; this is the product's own onboarding touch.
 // Best-effort: a mail failure must never fail the webhook that grants access.
@@ -224,8 +224,8 @@ async function sendWelcomeEmail(
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tryreportflow.com";
     const planNm = planName(args.plan);
     const subject = args.trial
-      ? `Your ReportFlow trial has started`
-      : `Welcome to ReportFlow ${planNm}`;
+      ? `Your Anavyst trial has started`
+      : `Welcome to Anavyst ${planNm}`;
 
     const html = welcomeEmailHtml({
       agencyName: name,

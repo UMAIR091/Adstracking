@@ -1,7 +1,7 @@
 import { Brand } from "@/components/Brand";
 import { Wrench } from "lucide-react";
 
-export const metadata = { title: "Under maintenance · ReportFlow", robots: { index: false } };
+export const metadata = { title: "Under maintenance · Anavyst", robots: { index: false } };
 
 export default function MaintenancePage() {
   const message = process.env.NEXT_PUBLIC_INCIDENT_MESSAGE;
@@ -13,7 +13,7 @@ export default function MaintenancePage() {
       </div>
       <h1 className="mt-5 text-xl font-semibold text-ink-900">We&apos;ll be right back</h1>
       <p className="mt-2 max-w-md text-sm leading-relaxed text-ink-500">
-        {message || "ReportFlow is undergoing scheduled maintenance to make things better. Your data is safe and we'll be back online shortly."}
+        {message || "Anavyst is undergoing scheduled maintenance to make things better. Your data is safe and we'll be back online shortly."}
       </p>
     </main>
   );

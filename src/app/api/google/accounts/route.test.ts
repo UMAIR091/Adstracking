@@ -75,7 +75,7 @@ beforeEach(() => {
 
 describe("POST /api/google/accounts", () => {
   it("picks up an account created after connecting, selects it and syncs", async () => {
-    listed = [{ id: "3333333333@6479121847", name: "ReportFlow Demo (333-333-3333)" }];
+    listed = [{ id: "3333333333@6479121847", name: "Anavyst Demo (333-333-3333)" }];
 
     const res = await refresh();
 

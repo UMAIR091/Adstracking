@@ -13,7 +13,7 @@ export function BrandingNotice({ hasLogo }: { hasLogo: boolean }) {
         <div>
           <p className="text-sm font-medium text-warning-900">Your reports aren&apos;t branded yet</p>
           <p className="text-xs text-warning-700">
-            Add your logo, colour and sender details so clients see your agency — not ReportFlow — on every report and email.
+            Add your logo, colour and sender details so clients see your agency — not Anavyst — on every report and email.
           </p>
         </div>
       </div>

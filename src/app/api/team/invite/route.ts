@@ -104,7 +104,7 @@ export async function POST(req: Request) {
     const { id: providerId, attempts } = await sendEmailWithRetry({
       from,
       to: [email],
-      subject: `${agency.name} invited you to join them on ReportFlow`,
+      subject: `${agency.name} invited you to join them on Anavyst`,
       html: invitationEmailHtml({
         agencyName: agency.name,
         inviterEmail: user.email ?? null,
@@ -122,7 +122,7 @@ export async function POST(req: Request) {
       agency_id: agency.id,
       report_id: null,
       to_email: email,
-      subject: `${agency.name} invited you to join them on ReportFlow`,
+      subject: `${agency.name} invited you to join them on Anavyst`,
       provider_id: providerId,
       status: "sent",
       attempts,
@@ -144,7 +144,7 @@ export async function POST(req: Request) {
       agency_id: agency.id,
       report_id: null,
       to_email: email,
-      subject: `${agency.name} invited you to join them on ReportFlow`,
+      subject: `${agency.name} invited you to join them on Anavyst`,
       status: "failed",
       error: message.slice(0, 500),
       attempts: 3,

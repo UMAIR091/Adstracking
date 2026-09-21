@@ -294,7 +294,7 @@ export const sheetsDef: IntegrationDef = {
   snapshotTable: "integration_snapshots",
   dataAccess: [
     { item: "Only the spreadsheet you paste (read-only)", why: "Its first worksheet is embedded as a data table in this client's dashboard and reports." },
-    { item: "Nothing else in your Google Drive", why: "ReportFlow asks for no Drive access, so no other file is readable." },
+    { item: "Nothing else in your Google Drive", why: "Anavyst asks for no Drive access, so no other file is readable." },
   ],
   // Named by its link rather than picked from a Drive listing: that is what
   // keeps Sheets off Google's restricted Drive scopes, which would otherwise

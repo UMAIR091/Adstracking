@@ -17,7 +17,7 @@ const ADS_API = "https://ads-api.reddit.com/api/v3";
 const OAUTH = "https://www.reddit.com/api/v1";
 const IDENTITY_API = "https://oauth.reddit.com/api/v1";
 // Reddit rejects requests without a descriptive User-Agent.
-const USER_AGENT = "web:reportflow:v1.0 (ReportFlow analytics)";
+const USER_AGENT = "web:anavyst:v1.0 (Anavyst analytics)";
 const SCOPE = "adsread identity";
 const MICRO = 1_000_000; // Reddit reports spend in micro-currency (verify on live data).
 const FIELDS = ["spend", "impressions", "clicks", "conversions"];

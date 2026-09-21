@@ -5,8 +5,8 @@ import { HelpCenter } from "@/components/HelpCenter";
 import { HELP_ARTICLES } from "@/lib/help/articles";
 
 export const metadata = {
-  title: "Help Center · ReportFlow",
-  description: "Guides and answers for setting up clients, connecting data, and sending white-label reports with ReportFlow.",
+  title: "Help Center · Anavyst",
+  description: "Guides and answers for setting up clients, connecting data, and sending white-label reports with Anavyst.",
 };
 
 export default function HelpPage() {

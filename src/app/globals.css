@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* ─────────────────────────────────────────────────────────────
-   ReportFlow design tokens — Obsidian · Indigo · Grey.
+   Anavyst design tokens — Obsidian · Indigo · Grey.
 
    Every colour in the app resolves to a variable here. The Tailwind
    config maps its scales onto these — including the built-in `slate`,

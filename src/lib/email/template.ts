@@ -36,7 +36,7 @@ export type ReportEmailArgs = {
 
 // ── Subscription welcome ─────────────────────────────────────
 // Sent by the Paddle webhook when an agency's subscription first activates.
-// This one is ReportFlow → agency (our own customer), so platform branding is
+// This one is Anavyst → agency (our own customer), so platform branding is
 // correct here — unlike report emails, which are agency → their client and
 // must stay white-label.
 export type WelcomeEmailArgs = {
@@ -84,12 +84,12 @@ export function welcomeEmailHtml(a: WelcomeEmailArgs): string {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:36px 12px;">
       <tr><td align="center">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e9edf2;">
-          <tr><td style="background:${color};padding:22px 32px;"><span style="font-size:18px;font-weight:700;color:#ffffff;">ReportFlow</span></td></tr>
+          <tr><td style="background:${color};padding:22px 32px;"><span style="font-size:18px;font-weight:700;color:#ffffff;">Anavyst</span></td></tr>
           <tr><td style="padding:32px;">
             <h1 style="margin:0 0 14px;font-size:20px;line-height:1.35;color:#0f172a;">${heading}</h1>
             <p style="margin:0 0 8px;font-size:15px;color:#0f172a;font-weight:600;">${hi}</p>
             <p style="margin:0 0 18px;font-size:15px;line-height:1.65;color:#334155;">
-              Thanks for choosing ReportFlow. Everything is unlocked and ready:
+              Thanks for choosing Anavyst. Everything is unlocked and ready:
             </p>
             <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
               ${features.map((f) => `<tr><td style="padding:3px 0;font-size:14px;color:#334155;">✓&nbsp; ${esc(f)}</td></tr>`).join("")}
@@ -103,7 +103,7 @@ export function welcomeEmailHtml(a: WelcomeEmailArgs): string {
             </p>
           </td></tr>
           <tr><td style="padding:18px 32px;border-top:1px solid #eef1f5;">
-            <p style="margin:0;font-size:12px;line-height:1.7;color:#94a3b8;">ReportFlow · white-label client reporting on autopilot<br/>Questions? Just reply to this email.</p>
+            <p style="margin:0;font-size:12px;line-height:1.7;color:#94a3b8;">Anavyst · white-label client reporting on autopilot<br/>Questions? Just reply to this email.</p>
           </td></tr>
         </table>
       </td></tr>
@@ -113,8 +113,8 @@ export function welcomeEmailHtml(a: WelcomeEmailArgs): string {
 }
 
 // ── Team invitation ──────────────────────────────────────────
-// A platform email, not a white-label one: it invites someone to join a
-// ReportFlow workspace, so it carries ReportFlow's identity and is sent from
+// A platform email, not a white-label one: it invites someone to join an
+// Anavyst workspace, so it carries Anavyst's identity and is sent from
 // the platform sender. That also means it does not depend on the agency having
 // verified a sending domain — an invite must work on day one.
 export type InvitationEmailArgs = {
@@ -146,12 +146,12 @@ export function invitationEmailHtml(a: InvitationEmailArgs): string {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:36px 12px;">
       <tr><td align="center">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e9edf2;">
-          <tr><td style="background:${color};padding:22px 32px;"><span style="font-size:18px;font-weight:700;color:#ffffff;">ReportFlow</span></td></tr>
+          <tr><td style="background:${color};padding:22px 32px;"><span style="font-size:18px;font-weight:700;color:#ffffff;">Anavyst</span></td></tr>
           <tr><td style="padding:32px;">
             <h1 style="margin:0 0 14px;font-size:20px;line-height:1.35;color:#0f172a;">You've been invited to join ${agency}</h1>
             <p style="margin:0 0 18px;font-size:15px;line-height:1.65;color:#334155;">
               ${inviter ? `${inviter} has invited you` : "You've been invited"} to join
-              <strong>${agency}</strong> on ReportFlow as ${roleLabel}. Once you accept you'll be able to:
+              <strong>${agency}</strong> on Anavyst as ${roleLabel}. Once you accept you'll be able to:
             </p>
             <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 22px;">
               ${canDo.map((f) => `<tr><td style="padding:3px 0;font-size:14px;color:#334155;">✓&nbsp; ${esc(f)}</td></tr>`).join("")}
@@ -173,7 +173,7 @@ export function invitationEmailHtml(a: InvitationEmailArgs): string {
           </td></tr>
           <tr><td style="padding:18px 32px;border-top:1px solid #eef1f5;">
             <p style="margin:0;font-size:12px;line-height:1.7;color:#94a3b8;">
-              ReportFlow · white-label client reporting on autopilot<br/>
+              Anavyst · white-label client reporting on autopilot<br/>
               Weren't expecting this? You can safely ignore this email — nothing happens until you accept.
             </p>
           </td></tr>

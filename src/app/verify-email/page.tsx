@@ -1,6 +1,6 @@
 import { VerifyEmail } from "@/components/VerifyEmail";
 
-export const metadata = { title: "Verify your email · ReportFlow" };
+export const metadata = { title: "Verify your email · Anavyst" };
 
 export default function VerifyEmailPage({ searchParams }: { searchParams: { email?: string } }) {
   return (

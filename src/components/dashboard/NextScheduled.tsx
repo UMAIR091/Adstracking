@@ -35,7 +35,7 @@ export function NextScheduled({ data }: { data: NextScheduledData | null }) {
           </div>
           <p className="mt-3 text-sm font-medium text-ink-800">Nothing scheduled yet</p>
           <p className="mt-1 flex-1 text-xs leading-relaxed text-ink-500">
-            Put a client on a weekly or monthly schedule and ReportFlow generates the report, attaches the PDF and
+            Put a client on a weekly or monthly schedule and Anavyst generates the report, attaches the PDF and
             emails it — without you opening the app.
           </p>
           <Button asChild size="sm" variant="outline" className="mt-4 self-start">

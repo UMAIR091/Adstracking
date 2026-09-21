@@ -186,7 +186,7 @@ export function ReportSchedule({
                 {/* The hint stays next to the title: its tooltip is a fixed-width
                     box centred on the icon, so pushing the icon further right
                     pushes the tooltip off a narrow screen. */}
-                <HelpHint label="About automated delivery">Set it once and ReportFlow generates, writes and emails a branded PDF on your schedule — from your domain, with delivery history. True set-and-forget.</HelpHint>
+                <HelpHint label="About automated delivery">Set it once and Anavyst generates, writes and emails a branded PDF on your schedule — from your domain, with delivery history. True set-and-forget.</HelpHint>
                 {/* Whether this client is on a schedule is the question the tab
                     exists to answer, so it is stated up front rather than
                     inferred from the state of the form. */}

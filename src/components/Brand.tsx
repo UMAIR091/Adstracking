@@ -9,7 +9,7 @@ export function Brand({ className = "" }: { className?: string }) {
           <rect x="17" y="13" width="3" height="4" rx="1" />
         </svg>
       </span>
-      ReportFlow
+      Anavyst
     </span>
   );
 }
