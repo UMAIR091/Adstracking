@@ -89,6 +89,78 @@ describe("Snapchat daily stats", () => {
   });
 });
 
+describe("Snapchat ad account metrics", () => {
+  it("asks for the campaign breakdown, which is the only way an ad account serves more than spend", async () => {
+    emptyApi("UTC");
+    await fetchSnapchatAdsReport("token", AD_ACCOUNT, 28);
+
+    const day = calls.map((c) => new URL(c)).find((u) => u.searchParams.get("granularity") === "DAY")!;
+    expect(day.searchParams.get("breakdown")).toBe("campaign");
+    expect(day.searchParams.get("fields")).toContain("impressions");
+  });
+
+  it("adds the campaigns back up into one account total per day", async () => {
+    const dayStats = (start: string, spend: number, impressions: number) => ({
+      start_time: start, stats: { spend, impressions, swipes: 1, conversion_purchases: 0 },
+    });
+    fakeApi((url) => {
+      if (url.pathname.endsWith("/campaigns")) return json(200, { campaigns: [] });
+      if (url.pathname.endsWith("/stats") && url.searchParams.get("granularity") === "DAY") {
+        const start = url.searchParams.get("start_time")!;
+        return json(200, {
+          timeseries_stats: [{
+            timeseries_stat: {
+              breakdown_stats: {
+                campaign: [
+                  { id: "c1", timeseries: [dayStats(start, 2_000_000, 10)] },
+                  { id: "c2", timeseries: [dayStats(start, 3_000_000, 5)] },
+                ],
+              },
+            },
+          }],
+        });
+      }
+      if (url.pathname.endsWith("/stats")) return json(200, { total_stats: [] });
+      return json(200, { adaccounts: [{ adaccount: { id: AD_ACCOUNT, timezone: "UTC", currency: "USD" } }] });
+    });
+
+    const report = await fetchSnapchatAdsReport("token", AD_ACCOUNT, 28);
+    const day = report.byDate.find((d) => d.spend > 0)!;
+    expect(day.spend).toBe(5); // 2 + 3, converted out of micro-currency
+    expect(day.impressions).toBe(15);
+    expect(day.clicks).toBe(2);
+  });
+
+  it("falls back to spend alone rather than failing when the breakdown is refused", async () => {
+    fakeApi((url) => {
+      if (url.pathname.endsWith("/campaigns")) return json(200, { campaigns: [] });
+      if (url.pathname.endsWith("/stats") && url.searchParams.get("granularity") === "DAY") {
+        if (url.searchParams.get("breakdown")) {
+          return json(400, {
+            request_status: "ERROR",
+            debug_message: "Unsupported Stats Query: Only field 'spend' should be used when querying AdAccount stats.",
+            error_code: "E1008",
+          });
+        }
+        return json(200, {
+          timeseries_stats: [{
+            timeseries_stat: {
+              timeseries: [{ start_time: url.searchParams.get("start_time")!, stats: { spend: 4_000_000 } }],
+            },
+          }],
+        });
+      }
+      if (url.pathname.endsWith("/stats")) return json(200, { total_stats: [] });
+      return json(200, { adaccounts: [{ adaccount: { id: AD_ACCOUNT, timezone: "UTC", currency: "USD" } }] });
+    });
+
+    const report = await fetchSnapchatAdsReport("token", AD_ACCOUNT, 28);
+    expect(report.byDate.some((d) => d.spend === 4)).toBe(true);
+    const retry = calls.map((c) => new URL(c)).find((u) => u.searchParams.get("granularity") === "DAY" && !u.searchParams.get("breakdown"))!;
+    expect(retry.searchParams.get("fields")).toBe("spend");
+  });
+});
+
 describe("Snapchat errors", () => {
   it("surfaces Snapchat's own message and code instead of a bare 400", async () => {
     fakeApi((url) => {

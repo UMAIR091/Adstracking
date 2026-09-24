@@ -159,8 +159,14 @@ function dayStart(daysAgo: number, timezone: string): { ymd: string; iso: string
 // sync fail with a bare 400.
 const MAX_DAY_SPAN = 31;
 
+type TimeseriesEntry = { start_time?: string; stats?: Record<string, number> };
 type TimeseriesStats = {
-  timeseries_stats?: { timeseries_stat?: { timeseries?: { start_time?: string; stats?: Record<string, number> }[] } }[];
+  timeseries_stats?: {
+    timeseries_stat?: {
+      timeseries?: TimeseriesEntry[];
+      breakdown_stats?: { campaign?: { id?: string; timeseries?: TimeseriesEntry[] }[] };
+    };
+  }[];
 };
 type BreakdownStats = {
   total_stats?: { total_stat?: { breakdown_stats?: { campaign?: { id: string; stats?: Record<string, number> }[] } } }[];
@@ -188,16 +194,51 @@ async function accountDetail(accessToken: string, adAccountId: string): Promise<
   }
 }
 
+// Sums the daily rows of a stats response, whether they arrive as one series
+// for the whole account or as one series per campaign under breakdown_stats.
+function totalsByDay(data: TimeseriesStats): AdsDay[] {
+  const byDay = new Map<string, AdsDay>();
+  for (const wrap of data.timeseries_stats ?? []) {
+    const stat = wrap.timeseries_stat;
+    const campaigns = stat?.breakdown_stats?.campaign;
+    const series = campaigns?.length ? campaigns.map((c) => c.timeseries ?? []) : [stat?.timeseries ?? []];
+    for (const entries of series) {
+      for (const entry of entries) {
+        const day = toDay(entry.start_time ?? "", entry.stats);
+        const prev = byDay.get(day.date);
+        byDay.set(day.date, prev
+          ? {
+              date: day.date,
+              spend: prev.spend + day.spend,
+              impressions: prev.impressions + day.impressions,
+              clicks: prev.clicks + day.clicks,
+              conversions: prev.conversions + day.conversions,
+            }
+          : day);
+      }
+    }
+  }
+  return Array.from(byDay.values());
+}
+
+// Snapchat answers "Only field 'spend' should be used when querying AdAccount
+// stats" (E1008) to anything richer asked of an ad account as a whole — which
+// is what our impressions/swipes/conversions request was. Those metrics are
+// only served broken down, so we ask for the campaign breakdown and add the
+// campaigns back up into account totals. If even that is refused, fall back to
+// the one shape an ad account always accepts so the source still syncs with
+// spend rather than failing outright.
 async function dailyStats(accessToken: string, adAccountId: string, startIso: string, endIso: string): Promise<AdsDay[]> {
-  const data = await snapGet<TimeseriesStats>(`/adaccounts/${encodeURIComponent(adAccountId)}/stats`, accessToken, {
-    granularity: "DAY",
-    fields: FIELDS.join(","),
-    start_time: startIso,
-    end_time: endIso,
-    omit_empty: "false",
-  });
-  const series = data.timeseries_stats?.[0]?.timeseries_stat?.timeseries ?? [];
-  return series.map((s) => toDay(s.start_time ?? "", s.stats));
+  const path = `/adaccounts/${encodeURIComponent(adAccountId)}/stats`;
+  const base = { granularity: "DAY", start_time: startIso, end_time: endIso, omit_empty: "false" };
+  try {
+    return totalsByDay(await snapGet<TimeseriesStats>(path, accessToken, {
+      ...base, fields: FIELDS.join(","), breakdown: "campaign",
+    }));
+  } catch (err) {
+    if (!/E1008|Unsupported Stats Query/i.test(String((err as Error).message ?? ""))) throw err;
+    return totalsByDay(await snapGet<TimeseriesStats>(path, accessToken, { ...base, fields: "spend" }));
+  }
 }
 
 // Walks a range (expressed in days-ago boundaries, older → newer) in windows of
