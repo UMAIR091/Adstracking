@@ -27,7 +27,15 @@ export async function GET(req: Request) {
     const result = await dispatchSyncBatch(admin, baseUrl, secret);
 
     // Heartbeat (uptime monitoring) + best-effort housekeeping. Never block.
-    admin.rpc("record_heartbeat", { p_job: "sync", p_ok: true, p_detail: `claimed ${result.claimed}` }).then(() => {}, () => {});
+    // Record what actually happened, not just what was claimed: a worker that
+    // never reports back leaves the claim stamped and the sources untouched, so
+    // "claimed 7" alone reads identically to a healthy run and a silent
+    // fan-out failure can go unnoticed for days.
+    admin.rpc("record_heartbeat", {
+      p_job: "sync",
+      p_ok: result.failed === 0,
+      p_detail: `claimed ${result.claimed} synced ${result.synced} failed ${result.failed}`,
+    }).then(() => {}, () => {});
     admin.rpc("purge_rate_limits").then(() => {}, () => {});
 
     return NextResponse.json({ ok: true, ...dispatchConfig(), ...result });

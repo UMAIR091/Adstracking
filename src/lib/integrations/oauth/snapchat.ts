@@ -35,9 +35,17 @@ async function snapGet<T>(path: string, accessToken: string, params?: Record<str
     if (res.status === 429) throw new Error("Snapchat rate limit (429)");
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const detail = (data as { error_description?: string; message?: string }).error_description
-        ?? (data as { message?: string }).message ?? res.statusText;
-      throw new Error(`Snapchat API error: ${detail} (${res.status})`);
+      // Snapchat reports failures in debug_message/display_message with an
+      // error_code — not the OAuth-style error_description we used to read, so
+      // every stats rejection surfaced as a bare "Bad Request (400)" with
+      // nothing to act on.
+      const body = data as {
+        debug_message?: string; display_message?: string; error_code?: string;
+        error_description?: string; message?: string;
+      };
+      const detail = body.debug_message ?? body.display_message ?? body.error_description ?? body.message ?? res.statusText;
+      const code = body.error_code ? ` [${body.error_code}]` : "";
+      throw new Error(`Snapchat API error: ${detail}${code} (${res.status})`);
     }
     return data as T;
   });
@@ -132,11 +140,24 @@ function tzOffset(timezone: string, at: Date): string {
   }
 }
 
-function dayStart(daysAgo: number, offset: string): { ymd: string; iso: string } {
-  const d = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
-  const ymd = d.toISOString().slice(0, 10);
-  return { ymd, iso: `${ymd}T00:00:00.000${offset}` };
+// A day boundary as Snapchat wants it: the AD ACCOUNT's calendar date at
+// midnight in its own timezone. Taking the UTC date instead would land on the
+// wrong day for accounts whose offset crosses midnight, and the offset is
+// recomputed per date so DST transitions inside a range stay correct.
+function dayStart(daysAgo: number, timezone: string): { ymd: string; iso: string } {
+  const at = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
+  const ymd = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(at);
+  return { ymd, iso: `${ymd}T00:00:00.000${tzOffset(timezone, at)}` };
 }
+
+// Snapchat rejects a synchronous DAY-granularity query whose range exceeds 31
+// days ("time must be of day boundary, start_time and end_time within 31
+// days"), so the 90-day report has to be fetched in windows and stitched back
+// together. Requesting the whole range in one call is what made every Snapchat
+// sync fail with a bare 400.
+const MAX_DAY_SPAN = 31;
 
 type TimeseriesStats = {
   timeseries_stats?: { timeseries_stat?: { timeseries?: { start_time?: string; stats?: Record<string, number> }[] } }[];
@@ -179,6 +200,20 @@ async function dailyStats(accessToken: string, adAccountId: string, startIso: st
   return series.map((s) => toDay(s.start_time ?? "", s.stats));
 }
 
+// Walks a range (expressed in days-ago boundaries, older → newer) in windows of
+// at most MAX_DAY_SPAN. Sequential on purpose: three chunks of a 90-day report
+// are cheap, and Snapchat allows only 10 req/s per access token.
+async function dailyStatsRange(
+  accessToken: string, adAccountId: string, fromDaysAgo: number, toDaysAgo: number, timezone: string
+): Promise<AdsDay[]> {
+  const rows: AdsDay[] = [];
+  for (let from = fromDaysAgo; from > toDaysAgo; from -= MAX_DAY_SPAN) {
+    const to = Math.max(from - MAX_DAY_SPAN, toDaysAgo);
+    rows.push(...(await dailyStats(accessToken, adAccountId, dayStart(from, timezone).iso, dayStart(to, timezone).iso)));
+  }
+  return rows;
+}
+
 async function topCampaigns(accessToken: string, adAccountId: string, startIso: string, endIso: string): Promise<AdsReport["topCampaigns"]> {
   const [campaigns, breakdown] = await Promise.all([
     snapGet<{ campaigns?: CampaignWrap[] }>(`/adaccounts/${encodeURIComponent(adAccountId)}/campaigns`, accessToken).catch(() => ({ campaigns: [] as CampaignWrap[] })),
@@ -215,16 +250,13 @@ export async function fetchSnapchatAdsReport(
   accessToken: string, adAccountId: string, periodDays: number
 ): Promise<AdsReport> {
   const { timezone, currency } = await accountDetail(accessToken, adAccountId);
-  const offset = tzOffset(timezone, new Date());
 
-  const start = dayStart(periodDays, offset);
-  const end = dayStart(0, offset);
-  const prevStart = dayStart(periodDays * 2, offset);
-  const prevEnd = dayStart(periodDays, offset);
+  const start = dayStart(periodDays, timezone);
+  const end = dayStart(0, timezone);
 
   const [dailyRows, prevRows, campaigns] = await Promise.all([
-    dailyStats(accessToken, adAccountId, start.iso, end.iso),
-    dailyStats(accessToken, adAccountId, prevStart.iso, prevEnd.iso).catch(() => [] as AdsDay[]),
+    dailyStatsRange(accessToken, adAccountId, periodDays, 0, timezone),
+    dailyStatsRange(accessToken, adAccountId, periodDays * 2, periodDays, timezone).catch(() => [] as AdsDay[]),
     topCampaigns(accessToken, adAccountId, start.iso, end.iso).catch(() => [] as AdsReport["topCampaigns"]),
   ]);
 
