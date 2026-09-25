@@ -25,7 +25,7 @@ import { resolveSpreadsheet, fetchSheetTable } from "./oauth/sheets";
 import { listHubspotAccounts, fetchHubspotReport, hubspotConfigured } from "./oauth/hubspot";
 import { listLinkedinAdAccounts, fetchLinkedinAdsReport, linkedinConfigured } from "./oauth/linkedin";
 import { listTiktokAdvertisers, fetchTiktokAdsReport, tiktokConfigured } from "./oauth/tiktok";
-import { listPinterestAdAccounts, fetchPinterestAdsReport } from "./oauth/pinterest";
+import { listPinterestAdAccounts, fetchPinterestAdsReport, pinterestConfigured } from "./oauth/pinterest";
 import { listSnapchatAdAccounts, fetchSnapchatAdsReport, snapchatConfigured } from "./oauth/snapchat";
 import { listRedditAdAccounts, fetchRedditAdsReport, redditConfigured } from "./oauth/reddit";
 import { listAmazonProfiles, fetchAmazonAdsReport, amazonConfigured } from "./oauth/amazon";
@@ -663,12 +663,11 @@ export const pinterestAdsDef: IntegrationDef = {
   description: "Spend, impressions, clicks & conversions",
   icon: "Megaphone",
   accent: "rose",
-  // Held back as "coming soon" on purpose, whatever credentials are set. The
-  // Pinterest app is configured in production, but the integration is not ready
-  // to offer to customers yet, so it must not show "Live" on the marketing page
-  // or be connectable from the app. soon also drops it from syncableTypes().
-  // Restore gated(pinterestConfigured()) to launch it.
-  status: "soon",
+  // Launched: the connector is complete and the Pinterest app (1591007) now has
+  // its redirect URI registered, so the OAuth flow completes end to end. Still
+  // subject to the LIVE_INTEGRATIONS allowlist, which is what keeps an
+  // environment without Pinterest credentials from advertising it.
+  status: gated(pinterestConfigured()),
   oauthProviderId: "pinterest",
   connectPath: "/api/pinterest/connect",
   accountNoun: "ad account",
