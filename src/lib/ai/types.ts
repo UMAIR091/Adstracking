@@ -55,6 +55,19 @@ export type InsightsInput = {
   // prompt, so paid media, commerce, CRM, email and social all get analyzed
   // alongside search and analytics.
   blocks?: ReportBlock[] | null;
+  // Anomalies the deterministic layer (lib/insights/signals.ts) found by
+  // measuring the client's own daily variance. The model is told to elaborate
+  // on these and — crucially — never to call an anomaly the arithmetic did not
+  // find. Kept as a flat shape so this module stays free of that import.
+  signals?: PromptSignal[] | null;
+};
+
+// One pre-computed anomaly flag, already phrased and already graded.
+export type PromptSignal = {
+  title: string;
+  detail: string;
+  metric: string;
+  confidence: "high" | "medium" | "low";
 };
 
 // The structured, client-ready insight groups the report renders.

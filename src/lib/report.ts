@@ -5,6 +5,7 @@
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import type { ReportInsights, InsightsInput } from "@/lib/ai";
 import type { ReportBlock } from "@/lib/integrations/blocks";
+import { detectSignals } from "@/lib/insights/signals";
 
 // The unified payload stored in reports.data and rendered by ReportDocument.
 // Either Google source may be null (only one connected). `insightsHash`
@@ -198,6 +199,15 @@ export function toInsightsInput(data: ReportData, clientName: string, periodLabe
         }
       : null,
     blocks: data.blocks?.length ? data.blocks : null,
+    // The same anomalies the report renders, handed to the model so its prose
+    // agrees with the figures printed beside it — and so it has no reason to
+    // invent an anomaly of its own.
+    signals: detectSignals(data.gsc, data.ga4).map((s) => ({
+      title: s.title,
+      detail: s.detail,
+      metric: s.metric,
+      confidence: s.confidence,
+    })),
   };
 }
 
