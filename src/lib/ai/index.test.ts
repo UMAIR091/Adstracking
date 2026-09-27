@@ -15,6 +15,7 @@ const h = vi.hoisted(() => ({
   createAdmin: vi.fn(),
   cacheRow: null as { insights: unknown } | null,
   inserts: [] as unknown[],
+  lookups: [] as unknown[],
 }));
 
 vi.mock("./providers/anthropic", () => ({
@@ -27,7 +28,9 @@ vi.mock("./providers/anthropic", () => ({
 
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: (...a: unknown[]) => h.createAdmin(...a) }));
 
+import crypto from "node:crypto";
 import { generateReportInsights, generateReportInsightsCached, aiConfigured } from "./index";
+import { SYSTEM } from "./prompt";
 import type { InsightsInput, ReportInsights } from "./types";
 
 const INPUT: InsightsInput = {
@@ -52,7 +55,7 @@ function cacheClient() {
   Object.assign(api, {
     from: () => api,
     select: () => api,
-    eq: () => api,
+    eq: (_col: string, val: unknown) => { h.lookups.push(val); return api; },
     maybeSingle: async () => ({ data: h.cacheRow }),
     insert: async (row: unknown) => { h.inserts.push(row); return { error: null }; },
   });
@@ -65,6 +68,7 @@ beforeEach(() => {
   h.complete.mockResolvedValue(JSON.stringify(FULL));
   h.cacheRow = null;
   h.inserts = [];
+  h.lookups = [];
   h.createAdmin.mockReset();
   h.createAdmin.mockImplementation(() => cacheClient());
 });
@@ -153,6 +157,36 @@ describe("generateReportInsightsCached", () => {
 
     expect(out).toEqual({ insights: null, cached: false });
     expect(h.inserts).toHaveLength(0);
+  });
+});
+
+describe("the cache key covers the prompt, not just the data", () => {
+  // Keyed on the input alone, editing SYSTEM changed nothing for any client
+  // whose metrics hadn't moved: they kept being served prose written under the
+  // old instructions, with nothing in the report to show it. Rewriting the
+  // prompt has to retire the answers it produced.
+  const keyOf = (...parts: string[]) => {
+    const hash = crypto.createHash("sha256");
+    for (const p of parts) hash.update(p);
+    return hash.digest("hex");
+  };
+
+  it("hashes SYSTEM alongside the input", async () => {
+    await generateReportInsightsCached(INPUT);
+
+    expect(h.lookups).toEqual([keyOf(SYSTEM, "\u0000", JSON.stringify(INPUT))]);
+  });
+
+  it("is not the data hash on its own", async () => {
+    await generateReportInsightsCached(INPUT);
+
+    expect(h.lookups[0]).not.toBe(keyOf(JSON.stringify(INPUT)));
+  });
+
+  it("writes the row back under the same key it looked up", async () => {
+    await generateReportInsightsCached(INPUT);
+
+    expect((h.inserts[0] as { cache_key: string }).cache_key).toBe(h.lookups[0]);
   });
 });
 

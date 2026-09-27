@@ -68,7 +68,17 @@ export async function generateReportInsightsCached(
 ): Promise<{ insights: ReportInsights | null; cached: boolean }> {
   if (!getProvider().isConfigured()) return { insights: null, cached: false };
 
-  const key = crypto.createHash("sha256").update(JSON.stringify(input)).digest("hex");
+  // The prompt is part of the input as far as the answer is concerned. Keying
+  // on the data alone meant editing SYSTEM changed nothing for any client whose
+  // metrics hadn't moved — they kept being served prose written under the old
+  // instructions, indefinitely, with no way to tell from the report. Hashing
+  // SYSTEM in retires the old answers the moment the wording changes.
+  const key = crypto
+    .createHash("sha256")
+    .update(SYSTEM)
+    .update("\u0000")
+    .update(JSON.stringify(input))
+    .digest("hex");
 
   // `createAdminClient()` used to sit outside this try. It is
   // `createClient(url!, key!)`, which THROWS when SUPABASE_SERVICE_ROLE_KEY is
