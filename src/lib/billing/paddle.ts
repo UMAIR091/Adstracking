@@ -114,6 +114,17 @@ function wrap(err: unknown, fallback: string): PaddleError {
     return e;
   }
 
+  // A catalog price below Paddle's minimum charge (US$0.70) makes every
+  // checkout on it fail. That's an operator misconfiguration, not something
+  // the customer can fix — say so plainly instead of echoing Paddle's detail.
+  if ((err as { code?: unknown })?.code === "transaction_balance_less_than_charge_limit") {
+    console.error(`Paddle rejected a price below its minimum charge — fix the price in Paddle: ${raw}`);
+    return new PaddleError(
+      "This plan can't be purchased right now because of a pricing configuration issue on our side. Please try another plan or contact support — we've been notified.",
+      422
+    );
+  }
+
   // Any other provider message still gets logged in full, but the customer
   // sees it without an embedded identifier.
   console.error(`Paddle error (${status}): ${raw}`);
