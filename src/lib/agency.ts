@@ -50,10 +50,10 @@ export async function getCurrentUserAndAgency() {
     .maybeSingle();
 
   if (owned) {
-    // Owners predating the team release have no membership row. Write it once,
-    // lazily, so the team list shows them and role lookups stay uniform. RLS
-    // permits this: you are an admin of an agency you own.
-    await ensureOwnerMembership(supabase, owned.id, user.id);
+    // Owners predating the team release were backfilled lazily here, which
+    // cost a blocking database write on EVERY request. All owners had their
+    // row by 2026-09-28 and new agencies get it at creation (below), so the
+    // per-request upsert is gone — it was a cross-region round trip per page.
     return { user, agency: owned as Agency, role: "owner" as AgencyRole };
   }
 

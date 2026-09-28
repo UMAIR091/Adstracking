@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import { toast } from "sonner";
@@ -41,7 +41,10 @@ export function BillingPlans({
   initialInterval = "monthly",
   highlightPlan,
   savingPct = null,
+  paddleClient,
 }: {
+  /** Public Paddle.js config, so the payment script can load before the click. */
+  paddleClient?: Pick<CheckoutSession, "clientToken" | "environment">;
   plans: PlanView[];
   currentPlan: string; // "trial" | "free" | plan id
   currentInterval?: "monthly" | "quarterly" | null;
@@ -64,6 +67,7 @@ export function BillingPlans({
   const [interval, setInterval] = useState<"monthly" | "quarterly">(initialInterval);
   const [busy, setBusy] = useState<string | null>(null);
   const paddleRef = useRef<Paddle | null>(null);
+  const paddleLoadRef = useRef<Promise<Paddle> | null>(null);
 
   // Paddle.js is loaded on demand (first checkout click) so the billing page
   // itself stays free of third-party script cost. The token and environment
@@ -101,28 +105,49 @@ export function BillingPlans({
     [router]
   );
 
-  const getPaddle = useCallback(async (session: CheckoutSession): Promise<Paddle> => {
+  const getPaddle = useCallback(async (session: Pick<CheckoutSession, "clientToken" | "environment">): Promise<Paddle> => {
     if (paddleRef.current) return paddleRef.current;
-    const instance = await initializePaddle({
-      environment: session.environment,
-      token: session.clientToken,
-      eventCallback: (ev) => {
-        // Paddle fires this once payment is captured. Webhooks remain the
-        // authoritative path, but they are delivered by a third party to a
-        // destination the app can't verify at runtime — so we ALSO confirm the
-        // transaction directly. Without that, a webhook that never arrives
-        // leaves a paying customer looking inactive.
-        if (ev.name === "checkout.completed") {
-          const txnId = (ev.data as { transaction_id?: string } | undefined)?.transaction_id ?? null;
-          toast.success("Payment received — activating your plan…");
-          void confirmCheckout(txnId);
-        }
-      },
-    });
-    if (!instance) throw new Error("Couldn't load the payment form. Please disable any ad blocker and retry.");
-    paddleRef.current = instance;
-    return instance;
-  }, [router, confirmCheckout]);
+    // One in-flight load is shared, so a click during the idle preload waits
+    // for it rather than initialising Paddle a second time.
+    if (paddleLoadRef.current) return paddleLoadRef.current;
+    const load = (async () => {
+      const instance = await initializePaddle({
+        environment: session.environment,
+        token: session.clientToken,
+        eventCallback: (ev) => {
+          // Paddle fires this once payment is captured. Webhooks remain the
+          // authoritative path, but they are delivered by a third party to a
+          // destination the app can't verify at runtime — so we ALSO confirm the
+          // transaction directly. Without that, a webhook that never arrives
+          // leaves a paying customer looking inactive.
+          if (ev.name === "checkout.completed") {
+            const txnId = (ev.data as { transaction_id?: string } | undefined)?.transaction_id ?? null;
+            toast.success("Payment received — activating your plan…");
+            void confirmCheckout(txnId);
+          }
+        },
+      });
+      if (!instance) throw new Error("Couldn't load the payment form. Please disable any ad blocker and retry.");
+      paddleRef.current = instance;
+      return instance;
+    })();
+    paddleLoadRef.current = load;
+    // A failed load (ad blocker, flaky network) must not be cached — the
+    // click retries it and reports the error.
+    load.catch(() => { paddleLoadRef.current = null; });
+    return load;
+  }, [confirmCheckout]);
+
+  // Paddle.js used to load only after the click, in series with creating the
+  // transaction. Loading it while the customer reads the plans takes it off
+  // the critical path; the click then waits only for the server.
+  useEffect(() => {
+    if (!paddleClient) return;
+    const start = () => { void getPaddle(paddleClient).catch(() => {}); };
+    const w = window as Window & { requestIdleCallback?: (cb: () => void) => number };
+    if (w.requestIdleCallback) w.requestIdleCallback(start);
+    else setTimeout(start, 500);
+  }, [paddleClient, getPaddle]);
 
   async function startCheckout(planId: string) {
     setBusy(planId);

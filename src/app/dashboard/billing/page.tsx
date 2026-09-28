@@ -9,7 +9,7 @@ import { checkTrialEligibility } from "@/lib/billing/trial";
 import { getSubscriptionState } from "@/lib/billing/subscription";
 import { billingConfigured, intervalLabel, normalizeInterval, PAID_FEATURES, PAID_TRIAL_DAYS } from "@/lib/billing/config";
 import { getPlanPricing, headlineSavingPct } from "@/lib/billing/prices";
-import { listInvoices, type InvoiceView } from "@/lib/billing/paddle";
+import { isSandbox, listInvoices, paddleClientToken, type InvoiceView } from "@/lib/billing/paddle";
 import { refreshSubscriptionFromProvider } from "@/lib/billing/reconcile";
 import { BillingPlans, type PlanView } from "@/components/BillingPlans";
 import { SubscriptionActions } from "@/components/SubscriptionActions";
@@ -265,6 +265,11 @@ export default async function BillingPage({
             hasSubscription={state.subscriptionLive}
             initialInterval={normalizeInterval(searchParams.interval) ?? "monthly"}
             savingPct={headlineSavingPct(plans)}
+            paddleClient={
+              paddleClientToken()
+                ? { clientToken: paddleClientToken()!, environment: isSandbox() ? "sandbox" : "production" }
+                : undefined
+            }
             highlightPlan={plans.some((p) => p.id === searchParams.plan) ? searchParams.plan : undefined}
           />
         </div>

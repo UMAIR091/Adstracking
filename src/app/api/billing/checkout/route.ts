@@ -64,12 +64,21 @@ export async function POST(req: Request) {
 
   // Reuse the existing Paddle customer when we have one, so a returning
   // customer keeps a single billing identity instead of spawning duplicates.
+  // Everything checkout needs to decide is read in parallel: the database is
+  // a cross-region round trip away, and doing these one after another was
+  // most of the wait between the click and Paddle's payment form. The trial
+  // lookups read the cached catalog and are harmless if the 409 below wins.
   const supabase = createClient();
-  const { data: sub } = await supabase
-    .from("subscriptions")
-    .select("provider_customer_id, provider, provider_subscription_id, status")
-    .eq("agency_id", agency.id)
-    .maybeSingle();
+  const [{ data: sub }, trialPriceId, standardTrial, eligibility] = await Promise.all([
+    supabase
+      .from("subscriptions")
+      .select("provider_customer_id, provider, provider_subscription_id, status")
+      .eq("agency_id", agency.id)
+      .maybeSingle(),
+    usableTrialPriceId(plan, interval),
+    standardPriceStartsTrial(plan, interval),
+    checkTrialEligibility(createAdminClient(), { agencyId: agency.id, email: user.email }),
+  ]);
 
   // An agency that already has a live subscription must change plan through
   // the subscription route, otherwise Paddle would bill two subscriptions.
@@ -91,25 +100,18 @@ export async function POST(req: Request) {
   // The id is verified against the live Paddle catalog before use: an archived
   // trial price is rejected at transaction time, so checking out on one would
   // turn "start your trial" into a hard failure to buy.
-  const trialPriceId = await usableTrialPriceId(plan, interval);
   let usedTrial = false;
   let checkoutPriceId = priceId;
 
-  if (trialPriceId) {
-    const eligibility = await checkTrialEligibility(createAdminClient(), {
-      agencyId: agency.id,
-      email: user.email,
-    });
-    if (eligibility.eligible) {
-      checkoutPriceId = trialPriceId;
-      usedTrial = true;
-    }
+  if (trialPriceId && eligibility.eligible) {
+    checkoutPriceId = trialPriceId;
+    usedTrial = true;
   }
 
   // The plan's own price can carry a trial period, in which case Paddle starts
   // the subscription in `trialing` whichever price was chosen. Report what the
   // customer will actually experience rather than what we intended to offer.
-  if (!usedTrial && (await standardPriceStartsTrial(plan, interval))) usedTrial = true;
+  if (!usedTrial && standardTrial) usedTrial = true;
 
   try {
     const session = await createCheckoutSession({
