@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { cronAuthorized } from "@/lib/cronAuth";
 import { dispatchSyncBatch, dispatchConfig } from "@/lib/syncDispatch";
 import { logRouteError } from "@/lib/errorLog";
+import { reconcileLiveSubscriptions } from "@/lib/billing/reconcile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,19 +27,29 @@ export async function GET(req: Request) {
   try {
     const result = await dispatchSyncBatch(admin, baseUrl, secret);
 
-    // Heartbeat (uptime monitoring) + best-effort housekeeping. Never block.
+    // Billing drift sweep: Paddle is the source of truth, and a lost webhook
+    // must not leave paid access running (see reconcileLiveSubscriptions).
+    const billing = await reconcileLiveSubscriptions(admin).catch(() => ({ checked: 0, changed: 0 }));
+
+    // Heartbeat (uptime monitoring) + best-effort housekeeping.
     // Record what actually happened, not just what was claimed: a worker that
     // never reports back leaves the claim stamped and the sources untouched, so
     // "claimed 7" alone reads identically to a healthy run and a silent
     // fan-out failure can go unnoticed for days.
-    admin.rpc("record_heartbeat", {
-      p_job: "sync",
-      p_ok: result.failed === 0,
-      p_detail: `claimed ${result.claimed} synced ${result.synced} failed ${result.failed}`,
-    }).then(() => {}, () => {});
-    admin.rpc("purge_rate_limits").then(() => {}, () => {});
+    //
+    // Awaited: fired-and-forgotten, the function could return and be frozen
+    // before the write landed — the 28 Sep run synced every source yet left
+    // no heartbeat, so /api/health reported the job stale.
+    await Promise.allSettled([
+      admin.rpc("record_heartbeat", {
+        p_job: "sync",
+        p_ok: result.failed === 0,
+        p_detail: `claimed ${result.claimed} synced ${result.synced} failed ${result.failed} · billing checked ${billing.checked} fixed ${billing.changed}`,
+      }),
+      admin.rpc("purge_rate_limits"),
+    ]);
 
-    return NextResponse.json({ ok: true, ...dispatchConfig(), ...result });
+    return NextResponse.json({ ok: true, ...dispatchConfig(), ...result, billing });
   } catch (err) {
     const message = await logRouteError("cron", err);
     return NextResponse.json({ error: message }, { status: 500 });

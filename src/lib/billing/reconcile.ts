@@ -15,6 +15,42 @@ import { planForPrice } from "./config";
 import { getSubscription, readSubscription, type PaddleError } from "./paddle";
 
 /**
+ * Daily sweep: re-checks every subscription the database believes is live
+ * against Paddle, so a lost webhook can't leave a cancelled customer with paid
+ * access indefinitely. That happened in production — a row stayed "active" for
+ * a month after Paddle cancelled it, and the billing-page self-heal only fires
+ * if that customer happens to open billing (launch audit 2026-09-28, P1-4).
+ *
+ * Sequential and capped: the live set is small, and Paddle rate-limits. Never
+ * throws; a Paddle outage leaves every row untouched.
+ */
+export async function reconcileLiveSubscriptions(
+  admin: SupabaseClient,
+  limit = 200
+): Promise<{ checked: number; changed: number }> {
+  const { data, error } = await admin
+    .from("subscriptions")
+    .select("agency_id, provider_subscription_id")
+    .eq("provider", "paddle")
+    .in("status", ["active", "on_trial", "past_due", "paused"])
+    .not("provider_subscription_id", "is", null)
+    .order("updated_at", { ascending: true })
+    .limit(limit);
+  if (error || !data) {
+    if (error) console.error(`Subscription reconcile query failed: ${error.message}`);
+    return { checked: 0, changed: 0 };
+  }
+
+  let changed = 0;
+  for (const row of data) {
+    if (await refreshSubscriptionFromProvider(admin, row.agency_id as string, row.provider_subscription_id as string)) {
+      changed++;
+    }
+  }
+  return { checked: data.length, changed };
+}
+
+/**
  * Re-reads a subscription the row claims is live and writes back what Paddle
  * says, returning true when anything changed.
  *

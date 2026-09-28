@@ -70,9 +70,32 @@ function liveAllowlist(): Set<string> | null {
   return new Set(raw.split(",").map((s) => s.trim()).filter(Boolean));
 }
 
+// Coded and credentialled, but the PROVIDER has not yet approved public use, so
+// an outside agency cannot actually connect it. Held at "coming soon"
+// everywhere — homepage grid, live count, connect pages — whatever
+// LIVE_INTEGRATIONS says, because that env var is edited by hand in Vercel and
+// had drifted into advertising these as "Live" (launch audit 2026-09-28, P1-1).
+// Remove an id only once its approval is confirmed AND a production sync has
+// returned real data. Syncing of sources already connected is unaffected.
+//   instagram          Meta rejected pages_show_list + instagram_manage_insights (26 Sep)
+//   gbp                business.manage is not a Google-verified scope; GBP API access unconfirmed
+//   pinterest_ads      Standard access pending (27 Sep); no ad data ever retrieved
+//   tiktok_ads         never connected in production
+//   youtube_analytics, sheets, bigquery   scopes not Google-verified
+export const AWAITING_PROVIDER_APPROVAL = new Set([
+  "instagram",
+  "gbp",
+  "pinterest_ads",
+  "tiktok_ads",
+  "youtube_analytics",
+  "sheets",
+  "bigquery",
+]);
+
 // The status a user actually sees/experiences, after applying the allowlist.
 export function effectiveStatus(def: IntegrationDef): IntegrationDef["status"] {
   if (def.status !== "live") return def.status;
+  if (AWAITING_PROVIDER_APPROVAL.has(def.id)) return "soon";
   const allow = liveAllowlist();
   return !allow || allow.has(def.id) ? "live" : "soon";
 }

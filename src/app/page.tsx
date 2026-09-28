@@ -4,7 +4,7 @@ import {
   Check, Sparkles, Palette, Zap, Clock, Users, FileBarChart2, Plug,
   ArrowRight, ShieldCheck, Search, BarChart3, Facebook, Linkedin, Music,
   Megaphone, MapPin, Twitter, Youtube, CalendarClock, Send, Lock, EyeOff,
-  Star, MailCheck, LineChart, Instagram, Image as ImageIcon,
+  MailCheck, LineChart, Instagram, Image as ImageIcon,
 } from "lucide-react";
 import { isLive } from "@/lib/integrations/registry";
 import { Brand } from "@/components/Brand";
@@ -515,36 +515,9 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ── 10. Testimonials ── */}
-      <section className="border-b border-surface-band-edge bg-surface-band py-24">
-        <div className="mx-auto max-w-6xl px-5">
-          <SectionHeading eyebrow="Built for lean agencies" title="More billable hours, fewer reporting weekends" />
-          <div className="mt-14 grid gap-6 md:grid-cols-3">
-            {[
-              { q: "We cut monthly reporting from two full days to about twenty minutes. The AI summaries alone are worth it.", n: "Founder", a: "3-person SEO studio" },
-              { q: "Switching off per-client pricing saved us hundreds a month. Adding a client now costs us nothing.", n: "Owner", a: "PPC agency" },
-              { q: "Clients think we built a custom reporting platform. It's just Anavyst under our brand.", n: "Director", a: "Growth agency" },
-            ].map((t) => (
-              <figure key={t.q} className="flex flex-col rounded-2xl border border-ink-200 bg-surface p-6">
-                <div className="flex gap-0.5 text-warning-400" aria-hidden>
-                  {Array.from({ length: 5 }).map((_, j) => <Star key={j} size={14} fill="currentColor" />)}
-                </div>
-                <blockquote className="mt-3 flex-1 text-sm leading-relaxed text-ink-700">&ldquo;{t.q}&rdquo;</blockquote>
-                <figcaption className="mt-4 flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-ink-100 text-xs font-semibold text-ink-700" aria-hidden>
-                    {t.n.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-ink-800">{t.n}</p>
-                    <p className="text-xs text-ink-500">{t.a}</p>
-                  </div>
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-          <p className="mt-4 text-center text-xs text-ink-500">Illustrative quotes shown during launch.</p>
-        </div>
-      </section>
+      {/* Testimonials: removed until real, attributable customer quotes exist.
+          The launch placeholders were invented ("Illustrative quotes"), which
+          is not something to put in front of paid traffic (audit 2026-09-28). */}
 
       {/* ── 11. Trust / security band ── */}
       <section aria-label="Security and data practices" className="mx-auto max-w-6xl px-5 py-24">
