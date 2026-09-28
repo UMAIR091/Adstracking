@@ -50,9 +50,20 @@ export type SubscriptionState = {
   priceId: string | null;
   /** A cancellation is scheduled; access continues until `endsAt`. */
   cancelAtPeriodEnd: boolean;
+  /**
+   * The provider subscription still exists and can be changed, cancelled or
+   * resumed. False once it has ended at the provider — a Paddle subscription
+   * in `canceled` is terminal and can never be billed again, so the only way
+   * back onto a paid plan is a NEW checkout.
+   */
+  subscriptionLive: boolean;
+  /** The paid plan an ended subscription was on, so the UI can offer it back. */
+  previous: { plan: PlanId; planName: string; status: string; endedAt: string | null; subscriptionId: string | null } | null;
 };
 
 const ACCESS_STATUSES = new Set(["active", "on_trial", "past_due"]);
+/** Statuses where the provider subscription still exists and accepts changes. */
+export const LIVE_SUBSCRIPTION_STATUSES = new Set(["active", "on_trial", "past_due", "paused"]);
 
 export function resolveState(sub: SubscriptionRow | null, agencyCreatedAt: string): SubscriptionState {
   const now = Date.now();
@@ -74,6 +85,8 @@ export function resolveState(sub: SubscriptionRow | null, agencyCreatedAt: strin
       customerId: sub.provider_customer_id,
       priceId: sub.price_id,
       cancelAtPeriodEnd: Boolean(sub.cancel_at_period_end),
+      subscriptionLive: Boolean(sub.provider_subscription_id) && LIVE_SUBSCRIPTION_STATUSES.has(sub.status),
+      previous: null,
     };
 
     if (ACCESS_STATUSES.has(sub.status)) {
@@ -85,28 +98,42 @@ export function resolveState(sub: SubscriptionRow | null, agencyCreatedAt: strin
     if (sub.status === "paused") {
       return { ...base, hasAccess: false, blockedReason: "Your subscription is paused. Resume it to keep generating reports." };
     }
-    // unpaid / expired / cancelled-and-ended / inactive → no paid access;
-    // fall through to the app trial (covers "subscribed then expired inside
-    // the original 14 days" edge case gracefully).
-    const trial = appTrial(agencyCreatedAt, now);
-    if (trial.active) {
-      return { ...base, hasAccess: true, blockedReason: null, trialEndsAt: trial.endsAt, trialDaysLeft: trial.daysLeft };
-    }
+    // unpaid / expired / cancelled-and-ended / inactive: the paid plan is
+    // over. The agency is now exactly where one that never subscribed would
+    // be — the app trial if it is still running, otherwise Free.
+    //
+    // This used to keep `plan` on the old paid tier with hasAccess false, so
+    // the billing page badged a dead subscription "Current plan", offered
+    // "Manage billing" (a portal that cannot take payment for a cancelled
+    // subscription) instead of checkout, and routed the other tiers through
+    // "change plan" on a subscription Paddle refuses to update. It also locked
+    // a lapsed customer out entirely — harsher than Free.
+    const ended = unsubscribedState(agencyCreatedAt, now);
     return {
-      ...base,
-      hasAccess: false,
-      blockedReason:
-        sub.status === "unpaid"
-          ? "Your last payment failed. Update your payment method to keep generating reports."
-          : "Your subscription has ended. Choose a plan to keep generating reports.",
+      ...ended,
+      status: sub.status,
+      interval: base.interval,
+      endsAt: sub.ends_at,
+      customerId: sub.provider_customer_id,
+      previous: {
+        plan: base.plan,
+        planName,
+        status: sub.status,
+        endedAt: sub.ends_at ?? sub.current_period_end,
+        subscriptionId: sub.provider_subscription_id,
+      },
     };
   }
 
-  // No subscription row: the app-level trial from agency creation, and after it
-  // the free plan. The trial ending is no longer a lockout — the account keeps
-  // working on FREE_LIMITS (one client, two sources, one report a month, no
-  // scheduling, no AI). What it can still do is enforced by lib/billing/limits
-  // and featuresForPlan, not by hasAccess.
+  return unsubscribedState(agencyCreatedAt, now);
+}
+
+// No paid subscription: the app-level trial from agency creation, and after it
+// the free plan. The trial ending is not a lockout — the account keeps working
+// on FREE_LIMITS (one client, two sources, one report a month, no scheduling,
+// no AI). What it can still do is enforced by lib/billing/limits and
+// featuresForPlan, not by hasAccess.
+function unsubscribedState(agencyCreatedAt: string, now: number): SubscriptionState {
   const trial = appTrial(agencyCreatedAt, now);
   return {
     plan: trial.active ? "trial" : "free",
@@ -125,6 +152,8 @@ export function resolveState(sub: SubscriptionRow | null, agencyCreatedAt: strin
     customerId: null,
     priceId: null,
     cancelAtPeriodEnd: false,
+    subscriptionLive: false,
+    previous: null,
   };
 }
 

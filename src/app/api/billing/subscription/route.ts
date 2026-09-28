@@ -9,9 +9,11 @@ import {
   cancelSubscription,
   changeSubscriptionPrice,
   resumeSubscription,
+  unpauseSubscription,
   readSubscription,
   PaddleError,
 } from "@/lib/billing/paddle";
+import { LIVE_SUBSCRIPTION_STATUSES } from "@/lib/billing/subscription";
 
 export const runtime = "nodejs";
 
@@ -58,6 +60,16 @@ export async function POST(req: Request) {
   }
   const subscriptionId = sub.provider_subscription_id as string;
 
+  // An ended subscription is terminal at Paddle — it cannot be changed,
+  // cancelled or resumed, and asking only returns an opaque provider error.
+  // The way back is a new checkout, so say that.
+  if (!LIVE_SUBSCRIPTION_STATUSES.has(sub.status as string)) {
+    return NextResponse.json(
+      { error: "Your subscription has ended. Choose a plan on this page to subscribe again.", code: "subscription_ended" },
+      { status: 409 }
+    );
+  }
+
   try {
     if (action === "cancel") {
       const updated = await cancelSubscription(subscriptionId);
@@ -72,7 +84,8 @@ export async function POST(req: Request) {
     }
 
     if (action === "resume") {
-      const updated = await resumeSubscription(subscriptionId);
+      const updated =
+        sub.status === "paused" ? await unpauseSubscription(subscriptionId) : await resumeSubscription(subscriptionId);
       await persist(admin, agency.id, updated);
       return NextResponse.json({ ok: true, message: "Your subscription has been resumed." });
     }

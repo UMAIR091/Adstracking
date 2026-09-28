@@ -35,6 +35,7 @@ export function BillingPlans({
   plans,
   currentPlan,
   currentInterval,
+  previousPlan,
   hasSubscription,
   trialDays = 0,
   initialInterval = "monthly",
@@ -44,7 +45,13 @@ export function BillingPlans({
   plans: PlanView[];
   currentPlan: string; // "trial" | "free" | plan id
   currentInterval?: "monthly" | "quarterly" | null;
-  hasSubscription: boolean; // a manageable Paddle subscription exists
+  /** The paid plan of a subscription that has ended, offered back first. */
+  previousPlan?: string;
+  /**
+   * A LIVE Paddle subscription exists (not merely a row with an id). Only then
+   * can plans be changed in place; otherwise every button is a new checkout.
+   */
+  hasSubscription: boolean;
   /** Paid-plan trial length, already checked for eligibility; 0 = none. */
   trialDays?: number;
   initialInterval?: "monthly" | "quarterly";
@@ -200,7 +207,8 @@ export function BillingPlans({
           const isCurrent = currentPlan === p.id && (!currentInterval || currentInterval === interval);
           const isSamePlanOtherInterval = currentPlan === p.id && !isCurrent;
           const isPicked = highlightPlan === p.id && !isCurrent;
-          const accent = isPicked || (p.id === "pro" && !highlightPlan);
+          const isPrevious = !hasSubscription && previousPlan === p.id && !isCurrent;
+          const accent = isPicked || (!highlightPlan && (previousPlan ? isPrevious : p.id === "pro"));
           const isUpgrade = p.rank >= currentRank;
 
           return (
@@ -212,8 +220,10 @@ export function BillingPlans({
                     <Badge variant="success">Current plan</Badge>
                   ) : isPicked ? (
                     <Badge>Your pick</Badge>
+                  ) : isPrevious ? (
+                    <Badge variant="muted">Your previous plan</Badge>
                   ) : (
-                    p.id === "pro" && !highlightPlan && <Badge>Most popular</Badge>
+                    p.id === "pro" && !highlightPlan && !previousPlan && <Badge>Most popular</Badge>
                   )}
                 </div>
                 <p className="mt-3">
@@ -229,7 +239,7 @@ export function BillingPlans({
                   ))}
                 </ul>
 
-                {isCurrent ? (
+                {isCurrent && hasSubscription ? (
                   <Button variant="outline" asChild>
                     <a href="/api/billing/portal">Manage billing</a>
                   </Button>
@@ -258,7 +268,9 @@ export function BillingPlans({
                         ? "Opening checkout…"
                         : trialDays > 0
                           ? `Start ${trialDays}-day free trial`
-                          : `Choose ${p.name}`}
+                          : isPrevious || isCurrent
+                            ? `Resubscribe to ${p.name}`
+                            : `Choose ${p.name}`}
                     </Button>
                     {trialDays > 0 && (
                       <p className="mt-2 text-center text-xs text-ink-500">

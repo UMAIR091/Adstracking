@@ -274,6 +274,17 @@ export async function resumeSubscription(subscriptionId: string): Promise<Subscr
   }
 }
 
+// Unpauses a paused subscription straight away. A paused subscription is not
+// a scheduled cancellation, so clearing scheduledChange does nothing for it —
+// Paddle has a dedicated resume call.
+export async function unpauseSubscription(subscriptionId: string): Promise<Subscription> {
+  try {
+    return await withRetry(() => paddle().subscriptions.resume(subscriptionId, { effectiveFrom: "immediately" }));
+  } catch (err) {
+    throw wrap(err, "Couldn't resume the subscription.");
+  }
+}
+
 // ── Customer portal ──────────────────────────────────────────
 
 // Paddle generates short-lived, signed portal links per customer, so we mint a

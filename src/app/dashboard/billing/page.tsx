@@ -10,6 +10,7 @@ import { getSubscriptionState } from "@/lib/billing/subscription";
 import { billingConfigured, intervalLabel, normalizeInterval, PAID_FEATURES, PAID_TRIAL_DAYS } from "@/lib/billing/config";
 import { getPlanPricing, headlineSavingPct } from "@/lib/billing/prices";
 import { listInvoices, type InvoiceView } from "@/lib/billing/paddle";
+import { refreshSubscriptionFromProvider } from "@/lib/billing/reconcile";
 import { BillingPlans, type PlanView } from "@/components/BillingPlans";
 import { SubscriptionActions } from "@/components/SubscriptionActions";
 import { Card, CardContent } from "@/components/ui/card";
@@ -55,14 +56,24 @@ export default async function BillingPage({
   if (!user || !agency) redirect("/login");
 
   const supabase = createClient();
-  const state = await getSubscriptionState(supabase, agency.id);
   const configured = billingConfigured();
+  let state = await getSubscriptionState(supabase, agency.id);
+  // Confirm a "live" row against Paddle before offering changes on it — a
+  // missed cancellation webhook otherwise shows a dead subscription as active.
+  if (configured && state.subscriptionLive && state.subscriptionId) {
+    if (await refreshSubscriptionFromProvider(createAdminClient(), agency.id, state.subscriptionId)) {
+      state = await getSubscriptionState(supabase, agency.id);
+    }
+  }
   // Amounts come from Paddle rather than a local table, so the billing page
   // and the checkout it opens can never quote different numbers.
   const plans = configured ? await getPlanPricing() : [];
 
   // Invoice history is decorative — listInvoices never throws.
-  const invoices: InvoiceView[] = state.subscriptionId && configured ? await listInvoices(state.subscriptionId) : [];
+  // An ended subscription's receipts stay listed — they are still the
+  // customer's records.
+  const invoiceSubId = state.subscriptionId ?? state.previous?.subscriptionId ?? null;
+  const invoices: InvoiceView[] = invoiceSubId && configured ? await listInvoices(invoiceSubId) : [];
 
   const planViews: PlanView[] = plans.map((p, i) => ({
     id: p.id,
@@ -81,27 +92,33 @@ export default async function BillingPage({
   // Whether this agency can still take the one-time paid-plan trial, so the
   // UI promises a trial only when checkout would actually grant one.
   const trialEligible =
-    configured && !state.subscriptionId
+    configured && !state.subscriptionLive
       ? (await checkTrialEligibility(createAdminClient(), { agencyId: agency.id, email: user.email })).eligible
       : false;
 
-  const badge = STATUS_BADGE[state.status] ?? { label: state.status, variant: "muted" as const };
+  // An ended subscription is described as what it is — "Pro ended" — rather
+  // than a bare "Cancelled" badge next to the Free/trial plan it fell back to.
+  const badge = state.previous
+    ? { label: `${state.previous.planName} ended`, variant: "muted" as const }
+    : STATUS_BADGE[state.status] ?? { label: state.status, variant: "muted" as const };
   // Legacy rows still store "annual"; normalizeInterval maps them onto the
   // quarterly cycle their Paddle price now carries, so an existing customer
   // never sees a blank billing cycle.
-  const currentInterval = normalizeInterval(state.interval);
+  const currentInterval = state.previous ? null : normalizeInterval(state.interval);
   const cycleLabel = currentInterval ? intervalLabel(currentInterval) : "—";
 
   // What the customer should read as "what happens next".
   const renewalLabel = state.cancelAtPeriodEnd
     ? `Ends ${fmtDate(state.endsAt ?? state.renewsAt)}`
-    : state.status === "cancelled" && state.endsAt
-      ? `Access until ${fmtDate(state.endsAt)}`
-      : state.plan === "trial" && state.trialEndsAt
-        ? `Trial ends ${fmtDate(state.trialEndsAt)}`
-        : state.renewsAt
-          ? fmtDate(state.renewsAt)
-          : "—";
+    : state.plan === "trial" && state.trialEndsAt
+      ? `Trial ends ${fmtDate(state.trialEndsAt)}`
+      : state.previous
+        ? `Ended ${fmtDate(state.previous.endedAt)}`
+        : state.status === "cancelled" && state.endsAt
+          ? `Access until ${fmtDate(state.endsAt)}`
+          : state.renewsAt
+            ? fmtDate(state.renewsAt)
+            : "—";
 
   return (
     <div className="space-y-8">
@@ -151,6 +168,27 @@ export default async function BillingPage({
           </div>
         </div>
       )}
+      {state.previous && configured && (
+        <div className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-4">
+          <p className="font-semibold text-ink-900">
+            Your {state.previous.planName} subscription ended
+            {state.previous.endedAt ? ` on ${fmtDate(state.previous.endedAt)}` : ""}.
+          </p>
+          <p className="mt-1 text-sm text-ink-700">
+            {state.plan === "trial"
+              ? "You're on the free trial for now."
+              : "Your workspace is on the Free plan for now."}{" "}
+            Pick a plan below to subscribe again — you&apos;ll pay in a secure Paddle checkout and your paid
+            features come back straight away. Your clients, connections and reports are untouched.
+          </p>
+          <a
+            href="#plans"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-solid px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-solid-hover"
+          >
+            <CreditCard size={14} /> Resubscribe
+          </a>
+        </div>
+      )}
       {!state.hasAccess && (
         <div className="flex items-start gap-2.5 rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-800">
           <AlertTriangle size={17} className="mt-0.5 shrink-0" />
@@ -171,13 +209,27 @@ export default async function BillingPage({
               <div className="mt-5 grid gap-5 sm:grid-cols-3">
                 <Fact label="Billing cycle" value={cycleLabel} icon={<RefreshCw size={13} className="text-ink-500" />} />
                 <Fact
-                  label={state.cancelAtPeriodEnd || state.status === "cancelled" ? "Access ends" : "Next renewal"}
+                  label={
+                    state.plan === "trial"
+                      ? "Next renewal"
+                      : state.previous
+                        ? "Subscription"
+                        : state.cancelAtPeriodEnd || state.status === "cancelled"
+                          ? "Access ends"
+                          : "Next renewal"
+                  }
                   value={renewalLabel}
                   icon={<CalendarClock size={13} className="text-ink-500" />}
                 />
                 <Fact
                   label="Payment method"
-                  value={state.card ? `${state.card.brand} ending ${state.card.lastFour}` : "Managed by Paddle"}
+                  value={
+                    state.card
+                      ? `${state.card.brand} ending ${state.card.lastFour}`
+                      : state.subscriptionLive
+                        ? "Managed by Paddle"
+                        : "Added at checkout"
+                  }
                   icon={<CreditCard size={13} className="text-ink-500" />}
                 />
               </div>
@@ -190,8 +242,9 @@ export default async function BillingPage({
               )}
             </div>
 
-            {state.subscriptionId && (
+            {state.subscriptionLive && (
               <SubscriptionActions
+                paused={state.status === "paused"}
                 cancelAtPeriodEnd={state.cancelAtPeriodEnd}
                 endsAtLabel={state.endsAt ? fmtDate(state.endsAt) : state.renewsAt ? fmtDate(state.renewsAt) : null}
               />
@@ -202,16 +255,19 @@ export default async function BillingPage({
 
       {/* Plans */}
       {configured ? (
-        <BillingPlans
-          plans={planViews}
-          currentPlan={state.plan}
-          currentInterval={currentInterval}
-          trialDays={trialEligible ? PAID_TRIAL_DAYS : 0}
-          hasSubscription={Boolean(state.subscriptionId)}
-          initialInterval={normalizeInterval(searchParams.interval) ?? "monthly"}
-          savingPct={headlineSavingPct(plans)}
-          highlightPlan={plans.some((p) => p.id === searchParams.plan) ? searchParams.plan : undefined}
-        />
+        <div id="plans" className="scroll-mt-6">
+          <BillingPlans
+            plans={planViews}
+            currentPlan={state.plan}
+            currentInterval={currentInterval}
+            previousPlan={state.previous?.plan}
+            trialDays={trialEligible ? PAID_TRIAL_DAYS : 0}
+            hasSubscription={state.subscriptionLive}
+            initialInterval={normalizeInterval(searchParams.interval) ?? "monthly"}
+            savingPct={headlineSavingPct(plans)}
+            highlightPlan={plans.some((p) => p.id === searchParams.plan) ? searchParams.plan : undefined}
+          />
+        </div>
       ) : (
         <Card>
           <CardContent className="p-6 text-sm text-ink-500">

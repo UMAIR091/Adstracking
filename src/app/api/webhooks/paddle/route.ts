@@ -13,6 +13,7 @@ import {
   type TransactionLike,
 } from "@/lib/billing/paddle";
 import { recordTrialGrant } from "@/lib/billing/trial";
+import { LIVE_SUBSCRIPTION_STATUSES as LIVE } from "@/lib/billing/subscription";
 import { captureServer } from "@/lib/analyticsServer";
 import { ANALYTICS } from "@/lib/analytics";
 
@@ -108,9 +109,22 @@ async function syncSubscription(admin: SupabaseClient, sub: SubscriptionLike): P
   // first activation (welcome email) or just a lifecycle update.
   const { data: prevRow } = await admin
     .from("subscriptions")
-    .select("status")
+    .select("status, provider_subscription_id")
     .eq("agency_id", agencyId)
     .maybeSingle();
+
+  // After a resubscribe the row points at the NEW subscription. A late or
+  // replayed event for the old, ended one must not overwrite it — that would
+  // flip a paying customer back to "cancelled".
+  if (
+    prevRow?.provider_subscription_id &&
+    prevRow.provider_subscription_id !== facts.subscriptionId &&
+    LIVE.has(prevRow.status as string) &&
+    !LIVE.has(facts.status)
+  ) {
+    console.warn(`Paddle webhook: ignoring ${facts.status} for superseded subscription ${facts.subscriptionId}`);
+    return { ok: true, ignored: "superseded subscription" };
+  }
 
   const mapped = facts.priceId ? planForPrice(facts.priceId) : null;
 
@@ -286,7 +300,7 @@ async function recordPayment(admin: SupabaseClient, tx: TransactionLike): Promis
 
   const { data: existing } = await admin
     .from("subscriptions")
-    .select("status")
+    .select("status, provider_subscription_id")
     .eq("agency_id", agencyId)
     .maybeSingle();
 
@@ -307,8 +321,20 @@ async function recordPayment(admin: SupabaseClient, tx: TransactionLike): Promis
   // can arrive out of order, so a replayed transaction.completed must never
   // resurrect a subscription that has since been cancelled, paused or expired
   // — those transitions belong to the subscription.* events.
+  //
+  // A payment for a DIFFERENT subscription than the stored one is a customer
+  // resubscribing after the old one ended: that new subscription is the live
+  // one, whatever state the old row was left in.
   const PROMOTABLE = new Set(["inactive", "past_due", "unpaid"]);
-  if (!existing || PROMOTABLE.has(existing.status as string)) row.status = "active";
+  const isNewSubscription =
+    Boolean(existing?.provider_subscription_id) && existing?.provider_subscription_id !== tx.subscriptionId;
+  if (!existing || PROMOTABLE.has(existing.status as string) || (isNewSubscription && !LIVE.has(existing.status as string))) {
+    row.status = "active";
+  } else if (isNewSubscription) {
+    // The stored subscription is still live and this payment is for another
+    // one — don't repoint the row; the subscription.* events decide.
+    return { ok: true, ignored: "payment for a non-current subscription" };
+  }
   if (tx.customerId) row.provider_customer_id = tx.customerId;
   if (priceId) row.price_id = priceId;
   if (mapped) {

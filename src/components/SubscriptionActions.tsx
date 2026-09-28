@@ -14,7 +14,9 @@ import { CancelSubscriptionDialog } from "@/components/CancelSubscriptionDialog"
 // may well want to cancel, and hiding it would trap them. Hierarchy is handled
 // on the page instead: the recovery banner owns the only filled button, while
 // this stays a ghost control.
-export function SubscriptionActions({ cancelAtPeriodEnd, endsAtLabel }: {
+export function SubscriptionActions({ paused = false, cancelAtPeriodEnd, endsAtLabel }: {
+  /** Paused at Paddle: billing and access are on hold until resumed. */
+  paused?: boolean;
   cancelAtPeriodEnd: boolean;
   endsAtLabel: string | null;
 }) {
@@ -69,7 +71,7 @@ export function SubscriptionActions({ cancelAtPeriodEnd, endsAtLabel }: {
             Manage billing <ExternalLink size={14} />
           </a>
         </Button>
-        {cancelAtPeriodEnd ? (
+        {cancelAtPeriodEnd || paused ? (
           <Button variant="outline" disabled={busy !== null} onClick={resume}>
             {busy === "resume" ? "Resuming…" : "Resume subscription"}
           </Button>
