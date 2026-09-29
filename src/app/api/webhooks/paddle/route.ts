@@ -16,6 +16,7 @@ import { recordTrialGrant } from "@/lib/billing/trial";
 import { LIVE_SUBSCRIPTION_STATUSES as LIVE } from "@/lib/billing/subscription";
 import { captureServer } from "@/lib/analyticsServer";
 import { ANALYTICS } from "@/lib/analytics";
+import { reportFirstPurchase } from "@/lib/metaCapi";
 
 // The auth user id behind an agency — used as the analytics distinct id so
 // server money-events stitch to the same person as client-side events.
@@ -344,6 +345,16 @@ async function recordPayment(admin: SupabaseClient, tx: TransactionLike): Promis
 
   const { error } = await admin.from("subscriptions").upsert(row, { onConflict: "agency_id" });
   if (error) throw new Error(error.message);
+
+  // The first real payment is the conversion the ads are measured on. A trial
+  // checkout completes at zero and is skipped; its first charge days later is
+  // the one reported. Once per agency, and never fails the webhook.
+  await reportFirstPurchase(admin, {
+    agencyId,
+    transactionId: tx.id,
+    total: tx.details?.totals?.total,
+    currency: tx.currencyCode,
+  });
 
   // When this event performs the first activation (it usually beats
   // subscription.created), the welcome email goes out here; the later

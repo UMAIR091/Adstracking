@@ -6,6 +6,7 @@ import { billingConfigured, findPrice, trialPricingConfigured, PAID_TRIAL_DAYS, 
 import { usableTrialPriceId, standardPriceStartsTrial } from "@/lib/billing/prices";
 import { createCheckoutSession, PaddleError } from "@/lib/billing/paddle";
 import { checkTrialEligibility } from "@/lib/billing/trial";
+import { captureAdAttribution } from "@/lib/metaCapi";
 
 export const runtime = "nodejs";
 
@@ -114,12 +115,17 @@ export async function POST(req: Request) {
   if (!usedTrial && standardTrial) usedTrial = true;
 
   try {
-    const session = await createCheckoutSession({
-      priceId: checkoutPriceId,
-      agencyId: agency.id,
-      email: user.email,
-      customerId,
-    });
+    // Ad attribution is stored alongside, never in series: it only reads this
+    // request and can't fail the checkout (lib/metaCapi.ts).
+    const [session] = await Promise.all([
+      createCheckoutSession({
+        priceId: checkoutPriceId,
+        agencyId: agency.id,
+        email: user.email,
+        customerId,
+      }),
+      captureAdAttribution(createAdminClient(), agency.id),
+    ]);
     // `trial` tells the client what it just opened, so the UI can say
     // "3 days free, then $X" instead of guessing.
     return NextResponse.json({ ...session, trial: usedTrial, trialDays: usedTrial ? PAID_TRIAL_DAYS : 0 });

@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { COMPANY } from "@/lib/company";
 import { AnalyticsProvider } from "@/components/AnalyticsProvider";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
+import { MetaPixel } from "@/components/MetaPixel";
 import "./globals.css";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? COMPANY.website;

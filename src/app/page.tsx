@@ -83,7 +83,7 @@ function faqs(pricing: PlanPricing[], savingPct: number | null) {
   },
   {
     q: "Is my clients' data safe?",
-    a: "Access is read-only — Anavyst can never change anything in your Google or Meta accounts. Connection tokens are encrypted with AES-256, every workspace is isolated at the database level, and your data is only ever used to generate your reports — never sold or used for advertising. You can disconnect any source and delete its data instantly.",
+    a: "Access is read-only — Anavyst can never change anything in your Google or Meta accounts. Connection tokens are encrypted with AES-256, every workspace is isolated at the database level, and your clients' data is only ever used to generate your reports — never sold or used for advertising. You can disconnect any source and delete its data instantly.",
   },
   {
     q: "How long does setup take?",
@@ -526,8 +526,8 @@ export default async function LandingPage() {
             <Eyebrow icon={ShieldCheck}>Trust &amp; security</Eyebrow>
             <h2 className="mt-4 text-3xl font-semibold tracking-tight">Your clients&apos; data, handled like it&apos;s ours</h2>
             <p className="mt-3 text-ink-500">
-              Your data is used only to generate your reports — never sold, never used for advertising, never used to
-              train AI models.
+              Your clients&apos; data is used only to generate your reports — never sold, never used for advertising, never
+              used to train AI models.
             </p>
           </div>
           <div className="mt-10 grid gap-6 text-center sm:grid-cols-3">

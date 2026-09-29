@@ -25,6 +25,15 @@ const PADDLE_FRAME = "https://buy.paddle.com https://sandbox-buy.paddle.com";
 const GA_SCRIPT = "https://www.googletagmanager.com";
 const GA_CONNECT = "https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com";
 
+// Meta Pixel (lib/metaPixel.ts): fbevents.js loads from connect.facebook.net and
+// reports to www.facebook.com/tr. Image beacons are already covered by img-src.
+const META_SCRIPT = "https://connect.facebook.net";
+const META_CONNECT = "https://www.facebook.com https://connect.facebook.net";
+
+// Visitor country for the Meta Pixel consent check, from Vercel geo IP. Not
+// httpOnly: lib/metaPixel.ts reads it in the browser on static pages.
+const COUNTRY_COOKIE = "av_cc";
+
 // The one host this deployment should be reached on, taken from
 // NEXT_PUBLIC_APP_URL (e.g. "tryreportflow.com").
 function canonicalHost(): string | null {
@@ -54,7 +63,7 @@ function buildCsp(nonce: string, strict: boolean): string {
 
   const scriptSrc = strict
     ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline' https:`
-    : `script-src 'self' 'unsafe-inline' ${PADDLE_SCRIPT} ${GA_SCRIPT}`;
+    : `script-src 'self' 'unsafe-inline' ${PADDLE_SCRIPT} ${GA_SCRIPT} ${META_SCRIPT}`;
 
   return [
     "default-src 'self'",
@@ -62,7 +71,7 @@ function buildCsp(nonce: string, strict: boolean): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self' data:",
-    `connect-src 'self' ${supabaseOrigin} ${supabaseWs} ${PADDLE_CONNECT} ${GA_CONNECT}`.replace(/\s+/g, " ").trim(),
+    `connect-src 'self' ${supabaseOrigin} ${supabaseWs} ${PADDLE_CONNECT} ${GA_CONNECT} ${META_CONNECT}`.replace(/\s+/g, " ").trim(),
     `frame-src 'self' ${PADDLE_FRAME}`,
     "object-src 'none'",
     "base-uri 'self'",
@@ -185,6 +194,11 @@ export async function updateSession(request: NextRequest) {
       redirect.headers.set("content-security-policy", csp);
       return redirect;
     }
+  }
+
+  const country = request.headers.get("x-vercel-ip-country");
+  if (country && request.cookies.get(COUNTRY_COOKIE)?.value !== country) {
+    response.cookies.set(COUNTRY_COOKIE, country, { path: "/", sameSite: "lax", secure: true, maxAge: 60 * 60 * 24 });
   }
 
   response.headers.set("content-security-policy", csp);

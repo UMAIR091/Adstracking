@@ -24,12 +24,12 @@ export const COMPANY = {
 };
 
 // Bump when any legal document materially changes.
-export const LEGAL_LAST_UPDATED = "September 21, 2026";
+export const LEGAL_LAST_UPDATED = "September 29, 2026";
 
 // The one-line promise repeated across legal pages, the consent screen and the
 // footer. Keep the wording consistent everywhere.
 export const DATA_PROMISE =
-  "Your data is used only to generate your reports. It is never sold, rented, or shared with third parties for advertising.";
+  "Your connected marketing data is used only to generate your reports. It is never sold, rented, or shared with third parties for advertising.";
 
 export const FOOTER_LINKS: { heading: string; links: { label: string; href: string }[] }[] = [
   {

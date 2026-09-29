@@ -4,6 +4,7 @@ import { cronAuthorized } from "@/lib/cronAuth";
 import { dispatchSyncBatch, dispatchConfig } from "@/lib/syncDispatch";
 import { logRouteError } from "@/lib/errorLog";
 import { reconcileLiveSubscriptions } from "@/lib/billing/reconcile";
+import { purgeStaleAdAttribution } from "@/lib/metaCapi";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,6 +48,7 @@ export async function GET(req: Request) {
         p_detail: `claimed ${result.claimed} synced ${result.synced} failed ${result.failed} · billing checked ${billing.checked} fixed ${billing.changed}`,
       }),
       admin.rpc("purge_rate_limits"),
+      purgeStaleAdAttribution(admin),
     ]);
 
     return NextResponse.json({ ok: true, ...dispatchConfig(), ...result, billing });

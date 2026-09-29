@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
+import { metaTrack } from "@/lib/metaPixel";
 
 // Serializable plan info prepared by the server (no env access here).
 export type PlanView = {
@@ -29,6 +30,16 @@ type CheckoutSession = {
   transactionId: string;
   clientToken: string;
   environment: "sandbox" | "production";
+  trial?: boolean;
+};
+
+// The parts of Paddle.js's checkout.completed payload the ad events read.
+// Paddle.js reports totals in major units (49, not 4900).
+type CompletedCheckout = {
+  transaction_id?: string;
+  currency_code?: string;
+  totals?: { total?: number };
+  recurring_totals?: { total?: number };
 };
 
 export function BillingPlans({
@@ -68,6 +79,9 @@ export function BillingPlans({
   const [busy, setBusy] = useState<string | null>(null);
   const paddleRef = useRef<Paddle | null>(null);
   const paddleLoadRef = useRef<Promise<Paddle> | null>(null);
+  // What the open checkout is, for the Meta event fired when it completes:
+  // the eventCallback below is bound once, so it reads this rather than state.
+  const openCheckoutRef = useRef<{ plan: string; interval: string; trial: boolean } | null>(null);
 
   // Paddle.js is loaded on demand (first checkout click) so the billing page
   // itself stays free of third-party script cost. The token and environment
@@ -121,7 +135,9 @@ export function BillingPlans({
           // transaction directly. Without that, a webhook that never arrives
           // leaves a paying customer looking inactive.
           if (ev.name === "checkout.completed") {
-            const txnId = (ev.data as { transaction_id?: string } | undefined)?.transaction_id ?? null;
+            const data = ev.data as CompletedCheckout | undefined;
+            const txnId = data?.transaction_id ?? null;
+            reportCompletedCheckout(data, openCheckoutRef.current);
             toast.success("Payment received — activating your plan…");
             void confirmCheckout(txnId);
           }
@@ -163,6 +179,8 @@ export function BillingPlans({
       const session = body as CheckoutSession;
       const paddle = await getPaddle(session);
       paddle.Checkout.open({ transactionId: session.transactionId });
+      openCheckoutRef.current = { plan: planId, interval, trial: Boolean(session.trial) };
+      metaTrack("InitiateCheckout", { content_name: planId, content_category: interval }, session.transactionId);
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -312,4 +330,26 @@ export function BillingPlans({
       </div>
     </div>
   );
+}
+
+// Meta Pixel conversion for a completed checkout, keyed on the Paddle
+// transaction id so the server's Purchase for the same transaction
+// (lib/metaCapi.ts) is deduplicated against it. A trial checkout charges
+// nothing today: it is a StartTrial, and the paid conversion is reported by the
+// server when Paddle takes the first payment.
+function reportCompletedCheckout(
+  data: CompletedCheckout | undefined,
+  open: { plan: string; interval: string; trial: boolean } | null
+): void {
+  const txnId = data?.transaction_id;
+  if (!txnId) return;
+  const currency = data?.currency_code ?? "USD";
+  const total = Number(data?.totals?.total ?? 0);
+  const content = { content_name: open?.plan, content_category: open?.interval };
+  if (open?.trial || !(total > 0)) {
+    const recurring = Number(data?.recurring_totals?.total ?? 0);
+    metaTrack("StartTrial", { ...content, value: 0, currency, predicted_ltv: recurring > 0 ? recurring : undefined }, txnId);
+  } else {
+    metaTrack("Purchase", { ...content, value: total, currency }, txnId);
+  }
 }

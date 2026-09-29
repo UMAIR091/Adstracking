@@ -41,6 +41,7 @@ export default function PrivacyPage() {
       <h3>Usage information</h3>
       <ul>
         <li>Basic technical logs (such as request logs and error reports) needed to operate and secure the service.</li>
+        <li>Website analytics and advertising measurement on our own website, described in section 5.</li>
       </ul>
 
       <h2>2. How we use your information</h2>
@@ -51,8 +52,8 @@ export default function PrivacyPage() {
         <li>To process your subscription payments (handled by our payment provider).</li>
       </ul>
       <p>
-        <strong>{DATA_PROMISE}</strong> We do not use your data to train AI models, we do not sell it to data brokers,
-        and we do not use it for advertising.
+        <strong>{DATA_PROMISE}</strong> We do not use your connected data or your clients&apos; data to train AI models,
+        we do not sell it to data brokers, and we never use it for advertising.
       </p>
 
       <h2>3. Google API Services — Limited Use disclosure</h2>
@@ -77,7 +78,38 @@ export default function PrivacyPage() {
         data at any time.
       </p>
 
-      <h2>5. How we store and protect data</h2>
+      <h2>5. Analytics and advertising measurement on our website</h2>
+      <p>
+        We measure how people find and use our own website so we can tell which of our ads work. This never involves
+        your connected marketing data or your clients&apos; data.
+      </p>
+      <ul>
+        <li>Google Analytics 4 records page-view statistics on our website.</li>
+        <li>
+          The Meta Pixel runs only on our public marketing pages, the signup page and the billing page. It never runs on
+          client report links (<code>/r/…</code>) or anywhere else in your dashboard. It tells Meta about page views and
+          a few steps of our own sign-up funnel: creating an account, opening checkout, starting a trial, and paying.
+        </li>
+        <li>
+          When you open checkout in a browser where the Meta Pixel ran, we store Meta&apos;s cookie identifiers
+          (<code>_fbp</code>, <code>_fbc</code>), your IP address and your browser&apos;s user agent. When your first
+          payment goes through, we send them to Meta through its Conversions API, with a SHA-256 hashed copy of your
+          account email and user ID, so Meta can match the payment to the ad you came from. We then delete those
+          identifiers. If you never pay, we delete them after 60 days.
+        </li>
+        <li>
+          We do not load the Meta Pixel for visitors in the European Economic Area, the United Kingdom or Switzerland,
+          or in browsers that send a Global Privacy Control signal. Under some US state laws this measurement may count
+          as &quot;sharing&quot; personal information for advertising; we treat Global Privacy Control as your opt-out.
+        </li>
+        <li>
+          You can also opt out by blocking third-party scripts or cookies in your browser, or through the ad preferences
+          in your Facebook or Instagram settings. Meta&apos;s use of this data is governed by the{" "}
+          <a href="https://www.facebook.com/privacy/policy/" target="_blank" rel="noopener noreferrer">Meta Privacy Policy</a>.
+        </li>
+      </ul>
+
+      <h2>6. How we store and protect data</h2>
       <ul>
         <li>All data is transmitted over encrypted connections (TLS/HTTPS).</li>
         <li>OAuth access and refresh tokens are encrypted at rest with AES-256-GCM before being stored.</li>
@@ -89,7 +121,7 @@ export default function PrivacyPage() {
         subprocessor list.
       </p>
 
-      <h2>6. Data retention and deletion</h2>
+      <h2>7. Data retention and deletion</h2>
       <ul>
         <li>Connected-source snapshots are kept only while the data source stays connected.</li>
         <li>
@@ -107,31 +139,31 @@ export default function PrivacyPage() {
         Step-by-step instructions are on our <Link href="/data-deletion">Data Deletion Request</Link> page.
       </p>
 
-      <h2>7. Sharing and subprocessors</h2>
+      <h2>8. Sharing and subprocessors</h2>
       <p>
         We share data only with the infrastructure providers required to run the service (hosting, database, email
         delivery, AI summaries, and payments), each bound by their own data-protection terms. The current list is
-        maintained on our <Link href="/security">Data Processing &amp; Security</Link> page. We never sell personal
-        data.
+        maintained on our <Link href="/security">Data Processing &amp; Security</Link> page. For the advertising measurement described in section 5 we also share limited identifiers with Meta
+        Platforms. We never sell personal data.
       </p>
 
-      <h2>8. Your rights</h2>
+      <h2>9. Your rights</h2>
       <p>
         Depending on your location, you may have the right to access, correct, export, or delete your personal data,
         and to object to or restrict certain processing. To exercise any of these rights, email{" "}
         <a href={`mailto:${COMPANY.privacyEmail}`}>{COMPANY.privacyEmail}</a>.
       </p>
 
-      <h2>9. Children</h2>
+      <h2>10. Children</h2>
       <p>{COMPANY.product} is a business tool and is not directed at children under 16. We do not knowingly collect data from children.</p>
 
-      <h2>10. Changes to this policy</h2>
+      <h2>11. Changes to this policy</h2>
       <p>
         We may update this policy from time to time. Material changes will be announced in the app or by email. The
         &quot;Last updated&quot; date above always reflects the current version.
       </p>
 
-      <h2>11. Contact</h2>
+      <h2>12. Contact</h2>
       <p>
         Privacy questions: <a href={`mailto:${COMPANY.privacyEmail}`}>{COMPANY.privacyEmail}</a> · General support:{" "}
         <a href={`mailto:${COMPANY.supportEmail}`}>{COMPANY.supportEmail}</a>.

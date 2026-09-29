@@ -419,6 +419,9 @@ export type TransactionLike = {
   subscriptionId: string | null;
   items: { price: { id: string } | null }[];
   customData: unknown;
+  // Amount in the currency's minor units, as Paddle sends it ("4900").
+  details?: { totals?: { total?: string } | null } | null;
+  currencyCode?: string | null;
 };
 
 export function readSubscription(sub: SubscriptionLike): SubscriptionFacts {

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Brand } from "@/components/Brand";
 import { PasswordField, passwordChecks } from "@/components/ui/password-field";
 import { track, ANALYTICS } from "@/lib/analytics";
+import { metaTrack } from "@/lib/metaPixel";
 import { authCallbackUrl } from "@/lib/authRedirect";
 
 const inputClass =
@@ -59,6 +60,7 @@ export function AuthForm({
       setLoading(false);
       if (error) return setError(error.message);
       track(ANALYTICS.signedUp, { method: "email" });
+      metaTrack("CompleteRegistration", { content_name: "email" });
       // If email confirmation is on there's no session yet — send them to the
       // verification screen, which auto-detects confirmation and continues (no
       // manual re-login). If confirmation is off, go straight in.
@@ -79,7 +81,10 @@ export function AuthForm({
 
   async function google() {
     setError(null);
-    if (isSignup) track(ANALYTICS.signedUp, { method: "google" });
+    if (isSignup) {
+      track(ANALYTICS.signedUp, { method: "google" });
+      metaTrack("CompleteRegistration", { content_name: "google" });
+    }
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: callbackUrl() },
