@@ -77,19 +77,15 @@ function liveAllowlist(): Set<string> | null {
 // had drifted into advertising these as "Live" (launch audit 2026-09-28, P1-1).
 // Remove an id only once its approval is confirmed AND a production sync has
 // returned real data. Syncing of sources already connected is unaffected.
-//   instagram          Meta rejected pages_show_list + instagram_manage_insights (26 Sep)
-//   gbp                business.manage is not a Google-verified scope; GBP API access unconfirmed
+// On 30 Sep the owner confirmed every other integration works in production and
+// narrowed the hold to these three:
 //   pinterest_ads      Standard access pending (27 Sep); no ad data ever retrieved
-//   tiktok_ads         never connected in production
-//   youtube_analytics, sheets, bigquery   scopes not Google-verified
+//   bigquery           scope not Google-verified
+//   callrail           held by the owner
 export const AWAITING_PROVIDER_APPROVAL = new Set([
-  "instagram",
-  "gbp",
   "pinterest_ads",
-  "tiktok_ads",
-  "youtube_analytics",
-  "sheets",
   "bigquery",
+  "callrail",
 ]);
 
 // The status a user actually sees/experiences, after applying the allowlist.
