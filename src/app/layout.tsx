@@ -43,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             same snippet with its nonce instead. */}
         <script src="/theme.js" />
         <GoogleAnalytics />
+        <MetaPixel />
         <Suspense fallback={null}>
           <AnalyticsProvider>{children}</AnalyticsProvider>
         </Suspense>
