@@ -152,7 +152,7 @@ const CATALOG: Omit<PlanDef, "variants" | "prices" | "trialPrices">[] = [
   { id: "pro", name: "Pro", limits: { maxClients: 5, maxIntegrationsPerClient: UNLIMITED, maxReports: UNLIMITED } },
   { id: "pro_plus", name: "Pro Plus", limits: { maxClients: 10, maxIntegrationsPerClient: UNLIMITED, maxReports: UNLIMITED } },
   { id: "growth", name: "Growth", limits: { maxClients: 25, maxIntegrationsPerClient: UNLIMITED, maxReports: UNLIMITED } },
-  { id: "agency", name: "Agency", limits: { maxClients: 100, maxIntegrationsPerClient: UNLIMITED, maxReports: UNLIMITED } },
+  { id: "agency", name: "Agency", limits: { maxClients: 50, maxIntegrationsPerClient: UNLIMITED, maxReports: UNLIMITED } },
 ];
 
 /** Catalog order, used to tell an upgrade from a downgrade. */

@@ -52,9 +52,14 @@ const navLinks = [
 
 // Copy that quotes a price is built from the live Paddle amounts, so prose
 // can't drift out of step with the plan cards after a price change.
-function faqs(pricing: PlanPricing[], savingPct: number | null) {
+// "50 clients costs $299/mo", from the largest plan's live limit and price.
+function scaleLine(pricing: PlanPricing[]): string {
   const top = pricing[pricing.length - 1];
-  const topLine = top?.monthly ? `${top.maxClients} clients costs ${top.monthly.formatted}/mo` : "large rosters stay flat-priced";
+  return top?.monthly ? `${top.maxClients} clients costs ${top.monthly.formatted}/mo` : "large rosters stay flat-priced";
+}
+
+function faqs(pricing: PlanPricing[], savingPct: number | null) {
+  const topLine = scaleLine(pricing);
   const tiers = pricing
     .filter((p) => p.monthly)
     .map((p) => `${p.maxClients} (${p.monthly!.formatted}/mo)`)
@@ -63,7 +68,7 @@ function faqs(pricing: PlanPricing[], savingPct: number | null) {
   return [
   {
     q: "How is Anavyst different from AgencyAnalytics or Whatagraph?",
-    a: `Three things. Pricing that stays simple as you grow — every plan includes every feature, and ${topLine} instead of the ~$240+ per-client tools charge. AI-written insights on every report, not just charts. And setup measured in minutes: connect a source, pick an account, generate. We deliberately skip the 100-widget dashboard maze and do the reporting part exceptionally well.`,
+    a: `Three things. Pricing that stays simple as you grow — every plan includes every feature, and ${topLine}, while per-client tools charge ~$240/mo for just 20 clients. AI-written insights on every report, not just charts. And setup measured in minutes: connect a source, pick an account, generate. We deliberately skip the 100-widget dashboard maze and do the reporting part exceptionally well.`,
   },
   {
     q: "How does pricing work?",
@@ -296,7 +301,7 @@ export default async function LandingPage() {
           <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {[
               { icon: Clock, title: "Reclaim two days a month", text: "Stop rebuilding the same report every month. The data refreshes itself and the narrative writes itself — you just hit send (or don't even do that)." },
-              { icon: Users, title: "Grow without a pricing penalty", text: "Per-client fees punish you for winning business. Anavyst keeps it simple: 100 clients costs $299/mo — not the $240+ per-client tools charge — with every feature included." },
+              { icon: Users, title: "Grow without a pricing penalty", text: `Per-client fees punish you for winning business. Anavyst keeps it simple: ${scaleLine(pricing)}, while per-client tools charge ~$240/mo for just 20 — with every feature included.` },
               { icon: Sparkles, title: "Insights clients actually read", text: "Charts show what happened; your clients pay you to know why and what's next. Every report explains wins, risks and priorities in plain English." },
               { icon: Palette, title: "Look like you built it", text: "Your logo, colours, footer and sending domain on every report and email. Clients see a polished platform from your agency — we stay invisible." },
               { icon: CalendarClock, title: "Reports on autopilot", text: "Schedule weekly, monthly or quarterly delivery per client. Anavyst generates, writes and emails it — with a branded PDF attached." },

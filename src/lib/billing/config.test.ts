@@ -6,6 +6,7 @@ describe("plan config", () => {
     expect(getPlan("pro")?.limits.maxClients).toBe(5);
     expect(getPlan("pro_plus")?.limits.maxClients).toBe(10);
     expect(getPlan("growth")?.limits.maxClients).toBe(25);
+    expect(getPlan("agency")?.limits.maxClients).toBe(50);
   });
 
   it("orders plans by capacity (rank monotonic with size)", () => {
