@@ -1,18 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
-  Check, Sparkles, Palette, Zap, Clock, Users, FileBarChart2, Plug,
-  ArrowRight, ShieldCheck, Search, BarChart3, Facebook, Linkedin, Music,
-  Megaphone, MapPin, Twitter, Youtube, CalendarClock, Send, Lock, EyeOff,
-  MailCheck, LineChart, Instagram, Image as ImageIcon,
+  Search, BarChart3, Facebook, Linkedin, Music, Megaphone, MapPin, LineChart, Instagram, Image as ImageIcon,
 } from "lucide-react";
 import { isLive } from "@/lib/integrations/registry";
-import { Brand } from "@/components/Brand";
-import { PricingPlans } from "@/components/PricingPlans";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { getPlanPricing, headlineSavingPct, type PlanPricing } from "@/lib/billing/prices";
-import { PAID_TRIAL_DAYS } from "@/lib/billing/config";
+import { FREE_LIMITS, PAID_TRIAL_DAYS } from "@/lib/billing/config";
 import { SiteFooter } from "@/components/SiteFooter";
+import { SiteHeader } from "@/components/site/SiteHeader";
+import {
+  CheckList, CtaPanel, Eyebrow, H2, btnOutline, btnPrimary, container, sitePage, textLink,
+} from "@/components/site/ui";
 
 export const metadata: Metadata = {
   title: "Anavyst — White-label client reports on autopilot, written by AI",
@@ -40,14 +38,6 @@ const MARKETING_INTEGRATIONS = [
   { id: "google_ads", n: "Google Ads", icon: Megaphone },
   { id: "linkedin_ads", n: "LinkedIn Ads", icon: Linkedin },
   { id: "gbp", n: "Business Profile", icon: MapPin },
-];
-
-const navLinks = [
-  { label: "How it works", href: "#how" },
-  { label: "Features", href: "#features" },
-  { label: "Integrations", href: "#integrations" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "FAQ", href: "#faq" },
 ];
 
 // Copy that quotes a price is built from the live Paddle amounts, so prose
@@ -135,585 +125,466 @@ function jsonLd(pricing: PlanPricing[], savingPct: number | null) {
 // enough for SEO while never showing an amount Paddle wouldn't charge.
 export const revalidate = 3600;
 
+// Vertical rhythm shared by the full-width sections.
+const sectionY = "py-[96px] lg:py-[110px]";
+
 export default async function LandingPage() {
   const pricing = await getPlanPricing();
   const savingPct = headlineSavingPct(pricing);
   const liveMarketingCount = MARKETING_INTEGRATIONS.filter((i) => isLive(i.id)).length;
   return (
-    <div className="min-h-screen bg-surface-page text-ink-900">
+    <div className={sitePage}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(pricing, savingPct)) }} />
 
-      {/* ── Nav ── */}
-      <header className="sticky top-0 z-30 border-b border-ink-200 bg-surface/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5">
-          <Brand className="text-lg" />
-          <nav aria-label="Main" className="hidden items-center gap-7 text-sm text-ink-600 md:flex">
-            {navLinks.map((l) => (
-              <a key={l.href} href={l.href} className="hover:text-ink-900">{l.label}</a>
-            ))}
-          </nav>
-          <div className="flex items-center gap-2 text-sm sm:gap-3">
-            {/* Icons only here — the sidebar carries the labelled version. Public
-                so the theme can be set before signing in. */}
-            <ThemeToggle compact />
-            <Link href="/login" className="hidden text-ink-700 transition-colors hover:text-ink-900 sm:inline">Sign in</Link>
-            <Link href="/signup" className="rounded-lg bg-brand-solid px-4 py-2 font-medium text-white transition-colors hover:bg-brand-solid-hover">
-              Start free
-            </Link>
+      <SiteHeader />
+
+      <main>
+        {/* ── 1. Hero ── */}
+        <section className={`${container} grid items-center gap-14 pb-12 pt-16 sm:pt-20 [grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr))]`}>
+          <div>
+            <p className="mb-7 inline-flex max-w-fit items-center gap-2 rounded-[10px] bg-site-accent-soft px-3 py-[7px] font-site-mono text-[13px] leading-[1.4] text-site-accent">
+              <span className="h-[7px] w-[7px] shrink-0 rounded-full bg-site-accent" aria-hidden />
+              The reporting tool for agencies that hate reporting
+            </p>
+            <h1 className="m-0 text-[clamp(42px,6vw,76px)] font-extrabold leading-[0.98] tracking-[-0.045em] [text-wrap:balance]">
+              Client reports that used to take all day, sent in minutes.
+            </h1>
+            <p className="mt-[26px] max-w-[540px] text-[19px] leading-[1.55] text-site-muted [text-wrap:pretty]">
+              Connect a client&apos;s marketing accounts once. Anavyst pulls the data, writes the insights with AI, and
+              delivers a beautiful report under your brand — on schedule, every time.
+            </p>
+            <div className="mt-[34px] flex flex-wrap gap-3">
+              <Link href="/signup" className={btnPrimary}>Start your free trial</Link>
+              <Link href="/sample-report" className={btnOutline}>View a sample report</Link>
+            </div>
+            <p className="mt-[22px] flex flex-wrap gap-x-[18px] gap-y-2 font-site-mono text-xs text-site-muted">
+              <span>{PAID_TRIAL_DAYS}-day free trial</span><span aria-hidden>·</span>
+              <span>Every feature on every plan</span><span aria-hidden>·</span>
+              <span>Live in 5 minutes</span><span aria-hidden>·</span>
+              <span>Cancel anytime</span>
+            </p>
           </div>
-        </div>
-      </header>
+          <HeroMock />
+        </section>
 
-      {/* ── 1. Hero ── */}
-      <section className="relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-[560px] bg-gradient-to-b from-ink-100 via-ink-50 to-surface-page" />
-        <div
-          className="pointer-events-none absolute left-1/2 top-24 h-[420px] w-[720px] -translate-x-1/2 rounded-full opacity-30 blur-3xl"
-          style={{ background: "radial-gradient(closest-side, rgb(var(--ink-300)), transparent)" }}
-        />
-        <div className="relative mx-auto max-w-6xl px-5 pb-14 pt-16 text-center sm:pt-24">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-100 bg-surface px-3 py-1 text-xs font-medium text-brand-700 shadow-xs">
-            <Sparkles size={13} aria-hidden /> The reporting tool for agencies that hate reporting
-          </span>
-          <h1 className="mx-auto mt-6 max-w-3xl text-4xl font-semibold leading-[1.08] tracking-tight sm:text-6xl">
-            Client reports that used to take all day,
-            <span className="text-brand-600"> sent in minutes.</span>
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-ink-500">
-            Connect a client&apos;s <span className="font-medium text-ink-700">marketing accounts</span> once.
-            Anavyst pulls the data, writes the insights with AI, and delivers a beautiful report under{" "}
-            <span className="font-medium text-ink-700">your brand</span> — on schedule, every time.
-          </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link
-              href="/signup"
-              className="inline-flex items-center gap-2 rounded-lg bg-brand-solid px-7 py-3.5 font-medium text-white shadow-md transition hover:bg-brand-solid-hover"
-            >
-              Start your free trial <ArrowRight size={18} aria-hidden />
-            </Link>
-            <Link
-              href="/sample-report"
-              className="rounded-lg border border-ink-200 bg-surface/70 px-7 py-3.5 font-medium text-ink-700 transition hover:bg-ink-50"
-            >
-              View a sample report
-            </Link>
-          </div>
-          <p className="mt-4 text-xs text-ink-500">
-            {PAID_TRIAL_DAYS}-day free trial · Every feature on every plan · Live in 5 minutes · Cancel anytime
-          </p>
-
-          {/* Hero product mock: report in a browser frame + floating proof chips */}
-          <div className="relative mx-auto mt-14 max-w-4xl">
-            <div className="overflow-hidden rounded-2xl border border-ink-200 bg-surface shadow-xl">
-              <BrowserBar url="reports.youragency.com/acme-co" />
-              <ReportMock />
-            </div>
-
-            <div className="absolute -left-6 top-24 hidden w-52 rotate-[-2deg] rounded-xl border border-ink-200 bg-surface p-3 text-left shadow-lg lg:block">
-              <p className="flex items-center gap-1.5 text-xs font-semibold text-brand-600">
-                <Sparkles size={12} aria-hidden /> AI insight
-              </p>
-              <p className="mt-1 text-[11px] leading-relaxed text-ink-600">
-                &ldquo;Carbon plate shoes&rdquo; is one spot off page one — a beginner&apos;s guide should tip it over.
-              </p>
-            </div>
-            <div className="absolute -right-6 bottom-20 hidden w-56 rotate-[2deg] rounded-xl border border-ink-200 bg-surface p-3 text-left shadow-lg lg:block">
-              <p className="flex items-center gap-1.5 text-xs font-semibold text-success-600">
-                <MailCheck size={13} aria-hidden /> Report delivered
-              </p>
-              <p className="mt-1 text-[11px] leading-relaxed text-ink-600">
-                Monthly report emailed to Acme Co with branded PDF attached — automatically.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── 2. Stat strip ── */}
-      <section aria-label="Highlights" className="border-y border-surface-band-edge bg-surface-band">
-        <div className="mx-auto grid max-w-5xl grid-cols-2 gap-6 px-5 py-8 text-center sm:grid-cols-4">
-          {[
-            { v: "5 min", l: "from signup to first report" },
-            { v: "$49/mo", l: "to start — every feature included" },
-            { v: `${liveMarketingCount} live`, l: `integrations, ${MARKETING_INTEGRATIONS.length - liveMarketingCount} more coming` },
-            { v: "100%", l: "your brand, not ours" },
-          ].map((s) => (
-            <div key={s.l}>
-              <p className="text-2xl font-semibold text-ink-900">{s.v}</p>
-              <p className="mt-0.5 text-xs text-ink-500">{s.l}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── 3. How it works ── */}
-      <section id="how" className="mx-auto max-w-6xl scroll-mt-20 px-5 py-24">
-        <SectionHeading
-          eyebrow="How it works"
-          title="From raw data to client-ready report in three steps"
-          subtitle="No spreadsheets, no screenshots, no Sunday-night copy-pasting."
-        />
-        <div className="mt-14 grid gap-6 md:grid-cols-3">
-          {[
-            {
-              icon: Plug,
-              title: "1. Connect a data source",
-              text: "Link a client's Search Console, GA4 or Meta Ads in two clicks — read-only, no passwords shared. Data stays synced automatically.",
-            },
-            {
-              icon: Sparkles,
-              title: "2. Anavyst does the work",
-              text: "We pull the metrics, build the charts, and write the executive summary, wins, risks and next steps in plain English — from the real numbers.",
-            },
-            {
-              icon: Send,
-              title: "3. It sends itself",
-              text: "Share a live link, download the PDF, or put it on a schedule — weekly, monthly or quarterly, under your logo, from your domain.",
-            },
-          ].map((s) => {
-            const Icon = s.icon;
-            return (
-              <div key={s.title} className="group relative rounded-2xl border border-ink-200 bg-surface p-6 transition-colors hover:border-ink-300">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-ink-100 text-ink-700">
-                  <Icon size={20} aria-hidden />
-                </div>
-                <h3 className="mt-4 font-semibold text-ink-900">{s.title}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-ink-500">{s.text}</p>
+        {/* ── 2. Stat strip ── */}
+        <section aria-label="Highlights" className={`${container} pb-[96px] pt-6`}>
+          <div className="grid border-y border-site-line-strong [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
+            {[
+              { v: "5 min", l: "from signup to first report" },
+              { v: "$49/mo", l: "to start — every feature included" },
+              { v: `${liveMarketingCount} live`, l: `integrations, ${MARKETING_INTEGRATIONS.length - liveMarketingCount} more coming` },
+              { v: "100%", l: "your brand, not ours" },
+            ].map((s) => (
+              <div key={s.l} className="px-1 py-7">
+                <p className="text-[40px] font-extrabold leading-tight tracking-[-0.04em]">{s.v}</p>
+                <p className="mt-1 text-sm text-site-muted">{s.l}</p>
               </div>
-            );
-          })}
-        </div>
-        <div className="mt-10 text-center">
-          <Link href="/signup" className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700">
-            Connect your first client free <ArrowRight size={15} aria-hidden />
-          </Link>
-        </div>
-      </section>
-
-      {/* ── 4. Benefits ── */}
-      <section id="features" className="scroll-mt-20 border-y border-surface-band-edge bg-surface-band py-24">
-        <div className="mx-auto max-w-6xl px-5">
-          <SectionHeading
-            eyebrow="Why agencies switch"
-            title="Built to kill the parts of reporting you hate"
-            subtitle="Every feature exists to win back billable hours — not to add another dashboard to babysit."
-          />
-          <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              { icon: Clock, title: "Reclaim two days a month", text: "Stop rebuilding the same report every month. The data refreshes itself and the narrative writes itself — you just hit send (or don't even do that)." },
-              { icon: Users, title: "Grow without a pricing penalty", text: `Per-client fees punish you for winning business. Anavyst keeps it simple: ${scaleLine(pricing)}, while per-client tools charge ~$240/mo for just 20 — with every feature included.` },
-              { icon: Sparkles, title: "Insights clients actually read", text: "Charts show what happened; your clients pay you to know why and what's next. Every report explains wins, risks and priorities in plain English." },
-              { icon: Palette, title: "Look like you built it", text: "Your logo, colours, footer and sending domain on every report and email. Clients see a polished platform from your agency — we stay invisible." },
-              { icon: CalendarClock, title: "Reports on autopilot", text: "Schedule weekly, monthly or quarterly delivery per client. Anavyst generates, writes and emails it — with a branded PDF attached." },
-              { icon: ShieldCheck, title: "Client data handled right", text: "Read-only access, AES-256-encrypted connections, isolated workspaces. Disconnect and delete any source's data in one click." },
-            ].map((b) => {
-              const Icon = b.icon;
-              return (
-                <div key={b.title} className="rounded-2xl border border-ink-200 bg-surface p-6 transition-colors hover:border-ink-300">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-ink-100 text-ink-700">
-                    <Icon size={18} aria-hidden />
-                  </div>
-                  <h3 className="mt-4 font-semibold text-ink-900">{b.title}</h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-ink-500">{b.text}</p>
-                </div>
-              );
-            })}
+            ))}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── 5. Product tour: AI insights ── */}
-      <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-24 lg:grid-cols-2">
-        <div>
-          <Eyebrow icon={Sparkles}>AI insights</Eyebrow>
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight">Your clients want answers, not just charts</h2>
-          <p className="mt-4 leading-relaxed text-ink-500">
-            Every report opens with a plain-English executive summary, the period&apos;s key wins and issues, and
-            prioritised recommendations — written automatically from the real data, tying search visibility to
-            traffic, engagement and conversions.
-          </p>
-          <ul className="mt-6 space-y-3">
+        {/* ── 3. How it works ── */}
+        <section id="how" className={`${container} scroll-mt-24 pb-[96px] pt-10 lg:pb-[110px]`}>
+          <Eyebrow>How it works</Eyebrow>
+          <H2 className="max-w-[760px]">From raw data to client-ready report in three steps</H2>
+          <p className="mt-4 text-lg text-site-muted">No spreadsheets, no screenshots, no Sunday-night copy-pasting.</p>
+          <ol className="mt-14 grid gap-10 [grid-template-columns:repeat(auto-fit,minmax(260px,1fr))]">
             {[
-              "Executive summary written in seconds, grounded in the numbers",
-              "Winning & declining keywords surfaced automatically",
-              "Growth opportunities: near-page-one keywords worth pushing",
-              "A prioritised action plan your client can say yes to",
-            ].map((t) => (
-              <li key={t} className="flex items-start gap-2.5 text-sm text-ink-700">
-                <Check size={16} className="mt-0.5 shrink-0 text-ink-400" aria-hidden /> {t}
+              {
+                title: "Connect a data source",
+                text: "Link a client's Search Console, GA4 or Meta Ads in two clicks — read-only, no passwords shared. Data stays synced automatically.",
+              },
+              {
+                title: "Anavyst does the work",
+                text: "We pull the metrics, build the charts, and write the executive summary, wins, risks and next steps in plain English — from the real numbers.",
+              },
+              {
+                title: "It sends itself",
+                text: "Share a live link, download the PDF, or put it on a schedule — weekly, monthly or quarterly, under your logo, from your domain.",
+              },
+            ].map((s, i) => (
+              <li key={s.title} className="border-t-2 border-site-fg pt-5">
+                <p className="font-site-mono text-[13px] text-site-accent">{String(i + 1).padStart(2, "0")}</p>
+                <h3 className="mb-2.5 mt-3 text-[23px] font-bold tracking-[-0.02em]">{s.title}</h3>
+                <p className="text-base leading-[1.55] text-site-muted">{s.text}</p>
               </li>
             ))}
-          </ul>
-        </div>
-        <div className="rounded-2xl border border-ink-200 bg-surface p-6 shadow-sm">
-          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-brand-600">
-            <Sparkles size={15} aria-hidden /> AI summary
+          </ol>
+          <Link href="/signup" className={`${textLink} mt-11`}>Connect your first client free →</Link>
+        </section>
+
+        {/* ── 4. Benefits ── */}
+        <section id="features" className="scroll-mt-24 bg-site-band">
+          <div className={`${container} ${sectionY}`}>
+            <Eyebrow>Why agencies switch</Eyebrow>
+            <H2 className="max-w-[720px]">Built to kill the parts of reporting you hate</H2>
+            <p className="mt-4 max-w-[620px] text-lg text-site-muted">
+              Every feature exists to win back billable hours — not to add another dashboard to babysit.
+            </p>
+            <div className="mt-[52px] grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]">
+              {[
+                { title: "Reclaim two days a month", text: "Stop rebuilding the same report every month. The data refreshes itself and the narrative writes itself — you just hit send (or don't even do that)." },
+                { title: "Grow without a pricing penalty", text: `Per-client fees punish you for winning business. Anavyst keeps it simple: ${scaleLine(pricing)}, while per-client tools charge ~$240/mo for just 20 — with every feature included.` },
+                { title: "Insights clients actually read", text: "Charts show what happened; your clients pay you to know why and what's next. Every report explains wins, risks and priorities in plain English." },
+                { title: "Look like you built it", text: "Your logo, colours, footer and sending domain on every report and email. Clients see a polished platform from your agency — we stay invisible." },
+                { title: "Reports on autopilot", text: "Schedule weekly, monthly or quarterly delivery per client. Anavyst generates, writes and emails it — with a branded PDF attached." },
+                { title: "Client data handled right", text: "Read-only access, AES-256-encrypted connections, isolated workspaces. Disconnect and delete any source's data in one click." },
+              ].map((b, i) => (
+                <div key={b.title} className="rounded-2xl bg-site-page p-7">
+                  <p className="font-site-mono text-xs text-site-accent">{String(i + 1).padStart(2, "0")}</p>
+                  <h3 className="mb-2 mt-2.5 text-xl font-bold">{b.title}</h3>
+                  <p className="text-[15.5px] leading-[1.55] text-site-muted">{b.text}</p>
+                </div>
+              ))}
+            </div>
           </div>
-          <p className="text-sm leading-relaxed text-ink-700">
-            &ldquo;Organic clicks are up <span className="font-semibold text-success-600">18%</span> and impressions{" "}
-            <span className="font-semibold text-success-600">12%</span> this month, led by &lsquo;carbon plate running
-            shoes&rsquo; at position 2.1. Engaged sessions from organic rose 14% — search growth is converting into real
-            visits.&rdquo;
-          </p>
-          <div className="mt-4 space-y-2">
+        </section>
+
+        {/* ── 5. Product tour: AI insights ── */}
+        <section className={`${container} ${sectionY} ${split}`}>
+          <div>
+            <Eyebrow>AI insights</Eyebrow>
+            <H2 size="sm">Your clients want answers, not just charts</H2>
+            <p className="mb-6 mt-[18px] text-[17px] leading-[1.6] text-site-muted">
+              Every report opens with a plain-English executive summary, the period&apos;s key wins and issues, and
+              prioritised recommendations — written automatically from the real data, tying search visibility to
+              traffic, engagement and conversions.
+            </p>
+            <CheckList
+              items={[
+                "Executive summary written in seconds, grounded in the numbers",
+                "Winning & declining keywords surfaced automatically",
+                "Growth opportunities: near-page-one keywords worth pushing",
+                "A prioritised action plan your client can say yes to",
+              ]}
+            />
+          </div>
+          <div className="flex flex-col gap-3 rounded-[20px] bg-site-dark p-6 text-site-dark-fg">
+            <p className="font-site-mono text-xs text-site-dark-accent">AI summary</p>
+            <p className="text-[17px] leading-[1.55]">
+              &ldquo;Organic clicks are up 18% and impressions 12% this month, led by &lsquo;carbon plate running
+              shoes&rsquo; at position 2.1. Engaged sessions from organic rose 14% — search growth is converting into real
+              visits.&rdquo;
+            </p>
             {[
-              { t: "Win", c: "bg-success-50 text-success-700", x: "“Carbon plate shoes” clicks up 142% after the comparison post." },
-              { t: "Issue", c: "bg-danger-50 text-danger-600", x: "“Cheap running shoes” slipped to page 2 — refresh the buying guide." },
-              { t: "Next", c: "bg-warning-50 text-warning-700", x: "Build a beginner's page — one spot off page one, 2.4k monthly searches." },
+              { t: "Win", c: "bg-site-dark-accent", x: "“Carbon plate shoes” clicks up 142% after the comparison post." },
+              { t: "Issue", c: "bg-site-amber", x: "“Cheap running shoes” slipped to page 2 — refresh the buying guide." },
+              { t: "Next", c: "bg-site-dark-fg", x: "Build a beginner's page — one spot off page one, 2.4k monthly searches." },
             ].map((r) => (
-              <div key={r.t} className="flex items-start gap-2 text-xs">
-                <span className={`shrink-0 rounded-full px-2 py-0.5 font-semibold ${r.c}`}>{r.t}</span>
-                <span className="leading-relaxed text-ink-600">{r.x}</span>
+              <div key={r.t} className="flex items-start gap-3 rounded-xl bg-site-dark-card p-3.5">
+                <span className={`shrink-0 rounded-md px-2 py-[3px] font-site-mono text-[11px] text-site-dark ${r.c}`}>{r.t}</span>
+                <span className="text-sm leading-normal">{r.x}</span>
               </div>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── 6. Product tour: autopilot ── */}
-      <section className="border-y border-surface-band-edge bg-surface-band py-24">
-        <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 lg:grid-cols-2">
-          <div className="order-2 lg:order-1">
-            <div className="rounded-2xl border border-ink-200 bg-surface p-6 shadow-sm">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-ink-900">Acme Co — delivery schedule</p>
-                <span className="rounded-full bg-success-50 px-2.5 py-1 text-[11px] font-semibold text-success-600">Active</span>
+        {/* ── 6. Product tour: autopilot ── */}
+        <section className={`${container} pb-[96px] lg:pb-[110px] ${split}`}>
+          <div className="order-2 rounded-[20px] border border-site-line bg-site-card p-6 lg:order-1">
+            <div className="flex items-center justify-between gap-3">
+              <p className="font-bold">Acme Co — delivery schedule</p>
+              <span className="rounded-full bg-site-accent-soft px-2.5 py-1 font-site-mono text-xs text-site-accent">Active</span>
+            </div>
+            <div className="mt-[18px] grid grid-cols-2 gap-3">
+              <div className="rounded-[10px] bg-site-tile p-3">
+                <p className="font-site-mono text-[11px] uppercase text-site-muted">Frequency</p>
+                <p className="mt-1 font-semibold">Monthly · 1st · 8:00</p>
               </div>
-              <div className="mt-4 grid grid-cols-2 gap-3 text-left">
-                <div className="rounded-lg bg-surface-band p-3">
-                  <p className="text-[10px] uppercase tracking-wide text-ink-500">Frequency</p>
-                  <p className="mt-0.5 text-sm font-medium text-ink-800">Monthly · 1st · 8:00</p>
-                </div>
-                <div className="rounded-lg bg-surface-band p-3">
-                  <p className="text-[10px] uppercase tracking-wide text-ink-500">Recipients</p>
-                  <p className="mt-0.5 text-sm font-medium text-ink-800">sarah@acme.co</p>
-                </div>
-              </div>
-              <div className="mt-4 space-y-2">
-                {[
-                  { d: "Jun 1", s: "Sent", c: "text-success-600 bg-success-50" },
-                  { d: "May 1", s: "Sent", c: "text-success-600 bg-success-50" },
-                  { d: "Apr 1", s: "Sent", c: "text-success-600 bg-success-50" },
-                ].map((r) => (
-                  <div key={r.d} className="flex items-center justify-between rounded-lg border border-ink-200 px-3 py-2 text-xs">
-                    <span className="flex items-center gap-2 text-ink-600">
-                      <FileBarChart2 size={13} className="text-ink-500" aria-hidden /> Performance report · {r.d}
-                    </span>
-                    <span className={`rounded-full px-2 py-0.5 font-semibold ${r.c}`}>{r.s} · PDF attached</span>
-                  </div>
-                ))}
+              <div className="rounded-[10px] bg-site-tile p-3">
+                <p className="font-site-mono text-[11px] uppercase text-site-muted">Recipients</p>
+                <p className="mt-1 font-semibold">sarah@acme.co</p>
               </div>
             </div>
-          </div>
-          <div className="order-1 lg:order-2">
-            <Eyebrow icon={CalendarClock}>Autopilot</Eyebrow>
-            <h2 className="mt-4 text-3xl font-semibold tracking-tight">Set the schedule once. Never chase a report again.</h2>
-            <p className="mt-4 leading-relaxed text-ink-500">
-              Pick a cadence per client — weekly, monthly or quarterly, down to the day and hour. Anavyst generates
-              the report, writes the insights, and emails it from your domain with a branded PDF attached. Delivery
-              history shows exactly what went out, and when.
-            </p>
-            <ul className="mt-6 space-y-3">
-              {[
-                "Weekly, monthly or quarterly — per client",
-                "Branded email + PDF attachment, sent from your domain",
-                "Send a test to yourself before it ever reaches a client",
-                "Full delivery history with sent / failed status",
-              ].map((t) => (
-                <li key={t} className="flex items-start gap-2.5 text-sm text-ink-700">
-                  <Check size={16} className="mt-0.5 shrink-0 text-ink-400" aria-hidden /> {t}
+            <ul className="mt-3.5">
+              {["Jun 1", "May 1", "Apr 1"].map((d) => (
+                <li key={d} className="flex flex-wrap justify-between gap-x-3 gap-y-1 border-t border-site-line py-3 text-sm">
+                  <span className="font-medium">Performance report · {d}</span>
+                  <span className="font-site-mono text-xs text-site-accent">Sent · PDF attached</span>
                 </li>
               ))}
             </ul>
           </div>
-        </div>
-      </section>
-
-      {/* ── 7. Product tour: white-label ── */}
-      <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-24 lg:grid-cols-2">
-        <div className="order-2 lg:order-1">
-          <div className="overflow-hidden rounded-2xl border border-ink-200 shadow-sm">
-            <div className="flex items-center gap-3 px-6 py-6 text-white" style={{ background: "linear-gradient(135deg, rgb(var(--brand-500)), rgb(var(--brand-700)))" }}>
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/95 text-sm font-bold text-brand-solid">N</div>
-              <span className="font-semibold">Northbeam Digital</span>
-              <span className="ml-auto rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-medium">Performance Report</span>
-            </div>
-            <div className="space-y-3 bg-surface p-6">
-              <div className="grid grid-cols-3 gap-2">
-                {["Clicks", "Sessions", "Conversions"].map((k) => (
-                  <div key={k} className="rounded-lg bg-surface-band p-3">
-                    <p className="text-[10px] text-ink-500">{k}</p>
-                    <div className="mt-1 h-4 w-12 rounded bg-ink-200" />
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-end gap-1.5" aria-hidden>
-                {[40, 55, 48, 70, 62, 85, 78].map((h, i) => (
-                  <div key={i} className="flex-1 rounded-t bg-brand-500/80" style={{ height: h }} />
-                ))}
-              </div>
-              <p className="pt-1 text-center text-[10px] text-ink-500">
-                Prepared by Northbeam Digital · northbeamdigital.example
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="order-1 lg:order-2">
-          <Eyebrow icon={Palette}>White-label</Eyebrow>
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight">It&apos;s your brand on every report — not ours</h2>
-          <p className="mt-4 leading-relaxed text-ink-500">
-            Upload your logo, set your brand colour, add your footer and verify your own sending domain. Clients see a
-            polished report from <span className="font-medium text-ink-700">your agency</span> — your brand on the
-            report, the PDF, and the email sender, not ours.
-          </p>
-          <ul className="mt-6 space-y-3">
-            {[
-              "Your logo, colours & footer on reports, emails and PDFs",
-              "Send from your verified domain",
-              "Shareable live link + downloadable PDF export",
-            ].map((t) => (
-              <li key={t} className="flex items-start gap-2.5 text-sm text-ink-700">
-                <Check size={16} className="mt-0.5 shrink-0 text-ink-400" aria-hidden /> {t}
-              </li>
-            ))}
-          </ul>
-          <Link href="/sample-report" className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700">
-            See the full sample report <ArrowRight size={15} aria-hidden />
-          </Link>
-        </div>
-      </section>
-
-      {/* ── 8. Integrations ── */}
-      <section id="integrations" className="scroll-mt-20 border-y border-surface-band-edge bg-surface-band py-24">
-        <div className="mx-auto max-w-6xl px-5">
-          <SectionHeading
-            eyebrow="Integrations"
-            title="Connect the platforms your clients live on"
-            subtitle="Every plan includes every integration as it ships — no feature gates, no upgrade prompts."
-          />
-          <div className="mx-auto mt-14 grid max-w-4xl grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            {MARKETING_INTEGRATIONS.map((it) => {
-              const Icon = it.icon;
-              // Live/soon comes from the registry (credentials + LIVE_INTEGRATIONS),
-              // never a hand-maintained flag — so this page can't tell prospects an
-              // integration is "coming soon" while the app is already offering it.
-              const live = isLive(it.id);
-              return (
-                <div key={it.id} className="rounded-xl border border-ink-200 bg-surface p-4 text-center">
-                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-ink-100 text-ink-700">
-                    <Icon size={18} aria-hidden />
-                  </div>
-                  <p className="mt-3 text-sm font-medium text-ink-800">{it.n}</p>
-                  <span
-                    // ink-600, not ink-500: at 10px this label needs the full
-                    // 4.5:1, and ink-500 on the ink-100 chip measured 4.39.
-                    className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                      live ? "bg-success-50 text-success-700" : "bg-ink-100 text-ink-600"
-                    }`}
-                  >
-                    {live ? "Live" : "Coming soon"}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials: removed until real, attributable customer quotes exist.
-          The launch placeholders were invented ("Illustrative quotes"), which
-          is not something to put in front of paid traffic (audit 2026-09-28). */}
-
-      {/* ── 11. Trust / security band ── */}
-      <section aria-label="Security and data practices" className="mx-auto max-w-6xl px-5 py-24">
-        <div className="rounded-3xl border border-ink-200 bg-surface p-8 sm:p-12">
-          <div className="mx-auto max-w-2xl text-center">
-            <Eyebrow icon={ShieldCheck}>Trust &amp; security</Eyebrow>
-            <h2 className="mt-4 text-3xl font-semibold tracking-tight">Your clients&apos; data, handled like it&apos;s ours</h2>
-            <p className="mt-3 text-ink-500">
-              Your clients&apos; data is used only to generate your reports — never sold, never used for advertising, never
-              used to train AI models.
+          <div className="order-1 lg:order-2">
+            <Eyebrow>Autopilot</Eyebrow>
+            <H2 size="sm">Set the schedule once. Never chase a report again.</H2>
+            <p className="mb-6 mt-[18px] text-[17px] leading-[1.6] text-site-muted">
+              Pick a cadence per client — weekly, monthly or quarterly, down to the day and hour. Anavyst generates
+              the report, writes the insights, and emails it from your domain with a branded PDF attached. Delivery
+              history shows exactly what went out, and when.
             </p>
-          </div>
-          <div className="mt-10 grid gap-6 text-center sm:grid-cols-3">
-            {[
-              { icon: EyeOff, t: "Read-only access", x: "Anavyst can never change anything in your Google or Meta accounts." },
-              { icon: Lock, t: "Encrypted connections", x: "OAuth tokens encrypted at rest with AES-256; all traffic over TLS." },
-              { icon: Zap, t: "Delete anytime", x: "Disconnect any source and its stored data is deleted instantly." },
-            ].map((s) => {
-              const Icon = s.icon;
-              return (
-                <div key={s.t}>
-                  <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-ink-100 text-ink-700">
-                    <Icon size={20} aria-hidden />
-                  </div>
-                  <h3 className="mt-3 font-semibold text-ink-900">{s.t}</h3>
-                  <p className="mx-auto mt-1 max-w-xs text-sm leading-relaxed text-ink-500">{s.x}</p>
-                </div>
-              );
-            })}
-          </div>
-          <p className="mt-8 text-center text-xs text-ink-500">
-            Read the details: <Link href="/security" className="font-medium text-brand-600 hover:underline">Data &amp; Security</Link> ·{" "}
-            <Link href="/privacy" className="font-medium text-brand-600 hover:underline">Privacy Policy</Link>
-          </p>
-        </div>
-      </section>
-
-      {/* ── 12. Pricing ── */}
-      {/* Wider than the other sections: the grid carries five cards, Free
-          included. The cards themselves are the same component /pricing uses,
-          which is in turn shaped like the signed-in billing page — so the
-          layout a visitor compares prices in is the one they keep after they
-          sign up. */}
-      <section id="pricing" className="scroll-mt-20 border-y border-surface-band-edge bg-surface-band py-24">
-        <div className="mx-auto max-w-7xl px-5">
-          <SectionHeading
-            eyebrow="Pricing"
-            title="Every plan includes every feature."
-            subtitle={`Upgrade only when you need more active clients.${savingPct ? ` Save up to ${savingPct}% by paying every 3 months.` : ""} New accounts start with a ${PAID_TRIAL_DAYS}-day free trial.`}
-          />
-          <div className="mt-14">
-            <PricingPlans
-              plans={pricing.map((p) => ({
-                id: p.id,
-                name: p.name,
-                maxClients: p.maxClients,
-                monthly: p.monthly?.formatted ?? null,
-                quarterly: p.quarterly?.formatted ?? null,
-                trialAvailable: p.trialAvailable,
-              }))}
-              headlineSavingPct={savingPct}
-              trialDays={PAID_TRIAL_DAYS}
-              showAssurances={false}
+            <CheckList
+              items={[
+                "Weekly, monthly or quarterly — per client",
+                "Branded email + PDF attachment, sent from your domain",
+                "Send a test to yourself before it ever reaches a client",
+                "Full delivery history with sent / failed status",
+              ]}
             />
           </div>
-          <p className="mt-8 text-center text-sm text-ink-500">
-            AgencyAnalytics at 20 clients ≈ $240/mo. Whatagraph from ~$249/mo. Anavyst at 20 clients: $149/mo —
-            every feature included. <Link href="/pricing" className="font-medium text-brand-600 hover:underline">See full pricing →</Link>
-          </p>
-        </div>
-      </section>
+        </section>
 
-      {/* ── 13. FAQ ── */}
-      <section id="faq" className="mx-auto max-w-3xl scroll-mt-20 px-5 py-24">
-        <SectionHeading eyebrow="FAQ" title="Questions, answered" />
-        <div className="mt-10 divide-y divide-ink-100 rounded-2xl border border-ink-200 bg-surface">
-          {faqs(pricing, savingPct).map((f) => (
-            <details key={f.q} className="group p-5">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium text-ink-800 marker:hidden">
-                {f.q}
-                <span className="shrink-0 text-ink-500 transition group-open:rotate-45" aria-hidden>+</span>
+        {/* ── 7. Product tour: white-label ── */}
+        <section className={`${container} pb-[96px] lg:pb-[110px] ${split}`}>
+          <div>
+            <Eyebrow>White-label</Eyebrow>
+            <H2 size="sm">It&apos;s your brand on every report — not ours</H2>
+            <p className="mb-6 mt-[18px] text-[17px] leading-[1.6] text-site-muted">
+              Upload your logo, set your brand colour, add your footer and verify your own sending domain. Clients see a
+              polished report from your agency — your brand on the report, the PDF, and the email sender, not ours.
+            </p>
+            <CheckList
+              items={[
+                "Your logo, colours & footer on reports, emails and PDFs",
+                "Send from your verified domain",
+                "Shareable live link + downloadable PDF export",
+              ]}
+            />
+            <Link href="/sample-report" className={`${textLink} mt-7`}>See the full sample report →</Link>
+          </div>
+          <div className="rounded-[20px] bg-site-demo p-7 text-site-demo-fg">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-site-demo-fg text-lg font-extrabold text-site-demo">N</span>
+              <div>
+                <p className="font-bold">Northbeam Digital</p>
+                <p className="text-[13px] text-site-demo-muted">Performance Report</p>
+              </div>
+            </div>
+            <div className="mt-[22px] grid grid-cols-3 gap-2.5">
+              {[
+                { k: "Clicks", w: "w-[70%]" },
+                { k: "Sessions", w: "w-[85%]" },
+                { k: "Conversions", w: "w-[55%]" },
+              ].map((m) => (
+                <div key={m.k} className="rounded-[10px] bg-site-demo-fg/10 p-3.5 text-[13px]">
+                  {m.k}
+                  <div className={`mt-3 h-1.5 rounded-[3px] bg-site-demo-fg ${m.w}`} />
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 flex h-[110px] items-end gap-1.5" aria-hidden>
+              {[40, 52, 48, 63, 70, 82, 94].map((h, i) => (
+                <div
+                  key={i}
+                  className={`flex-1 rounded-[3px] ${i >= 5 ? "bg-site-demo-fg" : "bg-site-demo-fg/30"}`}
+                  style={{ height: `${h}%` }}
+                />
+              ))}
+            </div>
+            <p className="mt-[18px] border-t border-site-demo-fg/20 pt-3.5 text-xs text-site-demo-muted">
+              Prepared by Northbeam Digital · northbeamdigital.example
+            </p>
+          </div>
+        </section>
+
+        {/* ── 8. Integrations ── */}
+        <section id="integrations" className="scroll-mt-24 bg-site-dark text-site-dark-fg">
+          <div className={`${container} ${sectionY}`}>
+            <Eyebrow onDark>Integrations</Eyebrow>
+            <H2 className="max-w-[720px]">Connect the platforms your clients live on</H2>
+            <p className="mt-4 text-lg text-site-dark-muted">
+              Every plan includes every integration as it ships — no feature gates, no upgrade prompts.
+            </p>
+            <ul className="mt-12 grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr))]">
+              {MARKETING_INTEGRATIONS.map((it) => {
+                const Icon = it.icon;
+                // Live/soon comes from the registry (credentials + LIVE_INTEGRATIONS),
+                // never a hand-maintained flag — so this page can't tell prospects an
+                // integration is "coming soon" while the app is already offering it.
+                const live = isLive(it.id);
+                return (
+                  <li key={it.id} className="flex flex-col gap-3.5 rounded-[14px] bg-site-dark-card p-5">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-[9px] bg-site-dark-line" aria-hidden>
+                      <Icon size={17} />
+                    </span>
+                    <p className="font-semibold">{it.n}</p>
+                    <p className={`font-site-mono text-[11px] ${live ? "text-site-dark-accent" : "text-site-dark-muted"}`}>
+                      <span aria-hidden>● </span>{live ? "Live" : "Coming soon"}
+                    </p>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </section>
+
+        {/* Testimonials: removed until real, attributable customer quotes exist.
+            The launch placeholders were invented ("Illustrative quotes"), which
+            is not something to put in front of paid traffic (audit 2026-09-28). */}
+
+        {/* ── 9. Trust / security ── */}
+        <section aria-label="Security and data practices" className={`${container} ${sectionY}`}>
+          <Eyebrow>Trust &amp; security</Eyebrow>
+          <H2 className="max-w-[720px]">Your clients&apos; data, handled like it&apos;s ours</H2>
+          <p className="mt-4 max-w-[640px] text-lg leading-[1.55] text-site-muted">
+            Your clients&apos; data is used only to generate your reports — never sold, never used for advertising, never
+            used to train AI models.
+          </p>
+          <div className="mt-[52px] grid gap-10 [grid-template-columns:repeat(auto-fit,minmax(260px,1fr))]">
+            {[
+              { t: "Read-only access", x: "Anavyst can never change anything in your Google or Meta accounts." },
+              { t: "Encrypted connections", x: "OAuth tokens encrypted at rest with AES-256; all traffic over TLS." },
+              { t: "Delete anytime", x: "Disconnect any source and its stored data is deleted instantly." },
+            ].map((s) => (
+              <div key={s.t} className="border-t-2 border-site-fg pt-5">
+                <h3 className="mb-2 text-xl font-bold">{s.t}</h3>
+                <p className="leading-[1.55] text-site-muted">{s.x}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-9 text-[15px] text-site-muted">
+            Read the details:{" "}
+            <Link href="/security" className="font-semibold text-site-fg underline hover:text-site-accent">Data &amp; Security</Link> ·{" "}
+            <Link href="/privacy" className="font-semibold text-site-fg underline hover:text-site-accent">Privacy Policy</Link>
+          </p>
+        </section>
+
+        {/* ── 10. Pricing teaser ── */}
+        <section id="pricing" className="scroll-mt-24 bg-site-band">
+          <div className={`${container} ${sectionY}`}>
+            <div className="flex flex-wrap items-end justify-between gap-6">
+              <div>
+                <Eyebrow>Pricing</Eyebrow>
+                <H2>Every plan includes every feature.</H2>
+                <p className="mt-4 max-w-[600px] text-[17px] leading-[1.55] text-site-muted">
+                  Upgrade only when you need more active clients.{savingPct ? ` Save up to ${savingPct}% by paying every 3 months.` : ""} New
+                  accounts start with a {PAID_TRIAL_DAYS}-day free trial.
+                </p>
+              </div>
+              <Link href="/pricing" className={textLink}>See full pricing →</Link>
+            </div>
+            <ul className="mt-11 grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr))]">
+              {[
+                { id: "free", name: "Free", price: "$0", clients: FREE_LIMITS.maxClients },
+                ...pricing.map((p) => ({ id: p.id, name: p.name, price: p.monthly?.formatted ?? "—", clients: p.maxClients })),
+              ].map((p) => (
+                <li key={p.id}>
+                  <Link href="/pricing" className="block h-full rounded-[14px] bg-site-page p-5 transition-colors hover:bg-site-card">
+                    <p className="font-bold">{p.name}</p>
+                    <p className="mt-2.5 text-3xl font-extrabold tracking-[-0.04em]">
+                      {p.price}
+                      <span className="text-sm font-medium tracking-normal text-site-muted"> /month</span>
+                    </p>
+                    <p className="mt-1.5 text-[13px] text-site-muted">
+                      Up to {p.clients} active client{p.clients === 1 ? "" : "s"}
+                    </p>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-6 text-sm leading-[1.55] text-site-muted">
+              AgencyAnalytics at 20 clients ≈ $240/mo. Whatagraph from ~$249/mo. Anavyst at 20 clients:{" "}
+              <strong className="text-site-fg">$149/mo</strong> — every feature included.
+            </p>
+          </div>
+        </section>
+
+        {/* ── 11. FAQ ── */}
+        <section id="faq" className={`mx-auto w-full max-w-[860px] scroll-mt-24 px-6 ${sectionY}`}>
+          <Eyebrow>FAQ</Eyebrow>
+          <H2 className="mb-9">Questions, answered</H2>
+          {/* One open at a time: details sharing a `name` form an exclusive
+              accordion, natively, with no client script. */}
+          {faqs(pricing, savingPct).map((f, i) => (
+            <details key={f.q} name="faq" open={i === 0} className="group border-t border-site-line-strong py-[22px]">
+              <summary className="flex cursor-pointer list-none justify-between gap-4 text-lg font-semibold [&::-webkit-details-marker]:hidden">
+                <span>{f.q}</span>
+                <span className="font-site-mono text-xl leading-none text-site-accent" aria-hidden>
+                  <span className="group-open:hidden">+</span>
+                  <span className="hidden group-open:inline">−</span>
+                </span>
               </summary>
-              <p className="mt-3 text-sm leading-relaxed text-ink-500">{f.a}</p>
+              <p className="mt-3 max-w-[720px] text-base leading-[1.65] text-site-muted">{f.a}</p>
             </details>
           ))}
-        </div>
-        <p className="mt-6 text-center text-sm text-ink-500">
-          Something else? <Link href="/contact" className="font-medium text-brand-600 hover:underline">Talk to us</Link> — we read everything.
-        </p>
-      </section>
-
-      {/* ── 14. Final CTA ── */}
-      <section className="mx-auto max-w-6xl px-5 pb-24">
-        <div className="overflow-hidden rounded-3xl px-8 py-16 text-center text-white sm:px-16" style={{ background: "linear-gradient(135deg, rgb(var(--brand-500)), rgb(var(--brand-700)))" }}>
-          <h2 className="mx-auto max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">
-            Your next client report could send itself
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-white/80">
-            Free for {PAID_TRIAL_DAYS} days. Connect a client, and have a fully branded, AI-written report in your
-            hands before your coffee goes cold.
+          <p className="border-t border-site-line-strong pt-6 text-site-muted">
+            Something else?{" "}
+            <Link href="/contact" className="font-semibold text-site-fg underline hover:text-site-accent">Talk to us</Link> — we read
+            everything.
           </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href="/signup" className="inline-flex items-center gap-2 rounded-lg bg-white px-7 py-3.5 font-medium text-brand-solid transition hover:bg-white/90">
-              Start free <ArrowRight size={18} aria-hidden />
-            </Link>
-            <Link href="/sample-report" className="rounded-lg border border-white/30 px-7 py-3.5 font-medium text-white transition hover:bg-white/10">
-              View a sample report
-            </Link>
-          </div>
-          <p className="mt-6 text-xs text-on-brand-subtle">Every feature on every plan · {PAID_TRIAL_DAYS}-day free trial · Cancel anytime</p>
-        </div>
-      </section>
+        </section>
+
+        {/* ── 12. Final CTA ── */}
+        <CtaPanel
+          title="Your next client report could send itself"
+          body={
+            <>
+              Free for {PAID_TRIAL_DAYS} days. Connect a client, and have a fully branded, AI-written report in your hands
+              before your coffee goes cold.
+            </>
+          }
+          cta={{ href: "/signup", label: "Start free" }}
+          footnote={<>Every feature on every plan · {PAID_TRIAL_DAYS}-day free trial · Cancel anytime</>}
+        />
+      </main>
 
       <SiteFooter />
     </div>
   );
 }
 
-/* ── helpers ── */
-function SectionHeading({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle?: string }) {
-  return (
-    <div className="mx-auto max-w-2xl text-center">
-      <p className="text-sm font-semibold text-brand-600">{eyebrow}</p>
-      <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h2>
-      {subtitle && <p className="mt-3 leading-relaxed text-ink-500">{subtitle}</p>}
-    </div>
-  );
-}
+// Two columns from 840px up, stacked below.
+const split = "grid items-center gap-14 [grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))]";
 
-function Eyebrow({ icon: Icon, children }: { icon: typeof Sparkles; children: React.ReactNode }) {
+// Hero product mock — a stylised report so the value is visible above the fold.
+function HeroMock() {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
-      <Icon size={13} aria-hidden /> {children}
-    </span>
-  );
-}
-
-function BrowserBar({ url }: { url: string }) {
-  return (
-    <div className="flex items-center gap-2 border-b border-ink-200 bg-surface-band px-4 py-2.5" aria-hidden>
-      <span className="flex gap-1.5">
-        <span className="h-2.5 w-2.5 rounded-full bg-ink-200" />
-        <span className="h-2.5 w-2.5 rounded-full bg-ink-200" />
-        <span className="h-2.5 w-2.5 rounded-full bg-ink-200" />
-      </span>
-      <span className="mx-auto flex items-center gap-1.5 rounded-md bg-surface px-3 py-1 text-[11px] text-ink-500 ring-1 ring-ink-200">
-        <Lock size={10} /> {url}
-      </span>
-    </div>
-  );
-}
-
-// Inline hero mock — a stylised report so the value is visible above the fold.
-function ReportMock() {
-  return (
-    <div>
-      <div className="flex items-center gap-3 px-6 py-5 text-white" style={{ background: "linear-gradient(135deg, rgb(var(--brand-500)), rgb(var(--brand-700)))" }}>
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-sm font-bold text-brand-solid">A</div>
-        <div className="text-left">
-          <p className="text-sm font-semibold leading-tight">Acme Co — Performance Report</p>
-          <p className="text-[11px] text-on-brand-muted">Prepared by Your Agency · Last 28 days</p>
+    <div className="flex min-w-0 flex-col gap-3">
+      <div className="overflow-hidden rounded-[18px] border border-site-line bg-site-card shadow-[0_30px_60px_-30px_rgb(var(--site-fg)/0.25)]">
+        <div className="flex items-center gap-2 border-b border-site-line bg-site-tile px-3.5 py-2.5 font-site-mono text-xs text-site-muted" aria-hidden>
+          <span className="h-[9px] w-[9px] rounded-full bg-site-line-strong" />
+          <span className="h-[9px] w-[9px] rounded-full bg-site-line-strong" />
+          <span className="ml-2 truncate">reports.youragency.com/acme-co</span>
         </div>
-        <span className="ml-auto rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-medium">Live</span>
-      </div>
-      <div className="grid grid-cols-2 gap-3 p-5 text-left sm:grid-cols-4">
-        {[
-          { l: "Clicks", v: "14,820", d: "+18%" },
-          { l: "Sessions", v: "21,502", d: "+14%" },
-          { l: "Conversions", v: "486", d: "+22%" },
-          { l: "Avg Position", v: "9.8", d: "+13%" },
-        ].map((m) => (
-          <div key={m.l} className="rounded-xl border border-ink-200 bg-surface-band p-3">
-            <p className="text-[11px] text-ink-500">{m.l}</p>
-            <p className="mt-0.5 text-lg font-semibold text-ink-900">{m.v}</p>
-            <p className="text-[10px] font-medium text-success-600">▲ {m.d} vs prev.</p>
+        <div className="p-5">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-site-cta font-bold text-site-cta-fg">A</span>
+            <div className="min-w-0 flex-1">
+              <p className="font-bold">Acme Co — Performance Report</p>
+              <p className="text-[13px] text-site-muted">Prepared by Your Agency · Last 28 days</p>
+            </div>
+            <span className="flex items-center gap-1.5 font-site-mono text-xs text-site-accent">
+              <span className="h-[7px] w-[7px] rounded-full bg-site-accent" />
+              Live
+            </span>
           </div>
-        ))}
+          <div className="mt-[18px] grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(110px,1fr))]">
+            {[
+              { l: "Clicks", v: "14,820", d: "+18%" },
+              { l: "Sessions", v: "21,502", d: "+14%" },
+              { l: "Conversions", v: "486", d: "+22%" },
+              { l: "Avg Position", v: "9.8", d: "+13%" },
+            ].map((m) => (
+              <div key={m.l} className="rounded-[10px] bg-site-tile p-3">
+                <p className="text-xs text-site-muted">{m.l}</p>
+                <p className="mt-1 text-[22px] font-bold tracking-[-0.03em]">{m.v}</p>
+                <p className="mt-0.5 text-[11px] text-site-accent">▲ {m.d} vs prev.</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 rounded-xl bg-site-dark p-4 text-site-dark-fg">
+            <p className="mb-1.5 font-site-mono text-[11px] text-site-dark-accent">AI summary</p>
+            <p className="text-sm leading-[1.55]">
+              Organic clicks up 18% this month, led by premium product terms — and that growth is converting: conversions
+              rose 22%. Average position improved ~1.5 spots; momentum is building.
+            </p>
+          </div>
+        </div>
       </div>
-      <div className="flex items-end gap-1.5 px-5 pb-3" aria-hidden>
-        {[34, 48, 42, 60, 52, 71, 64, 80, 73, 90].map((h, i) => (
-          <div key={i} className="flex-1 rounded-t bg-brand-500/70" style={{ height: h }} />
-        ))}
-      </div>
-      <div className="mx-5 mb-5 rounded-xl border border-brand-100 bg-brand-50/50 p-3 text-left">
-        <p className="flex items-center gap-1.5 text-xs font-semibold text-brand-600">
-          <Sparkles size={12} aria-hidden /> AI summary
-        </p>
-        <p className="mt-1 text-[11px] leading-relaxed text-ink-600">
-          Organic clicks up 18% this month, led by premium product terms — and that growth is converting: conversions
-          rose 22%. Average position improved ~1.5 spots; momentum is building.
-        </p>
+      <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
+        <div className="rounded-[14px] bg-site-accent-soft px-4 py-3.5">
+          <p className="font-site-mono text-[11px] text-site-accent">AI insight</p>
+          <p className="mt-1 text-sm leading-[1.45]">
+            &ldquo;Carbon plate shoes&rdquo; is one spot off page one — a beginner&apos;s guide should tip it over.
+          </p>
+        </div>
+        <div className="rounded-[14px] border border-site-line bg-site-card px-4 py-3.5">
+          <p className="font-site-mono text-[11px] text-site-muted">Report delivered</p>
+          <p className="mt-1 text-sm leading-[1.45]">
+            Monthly report emailed to Acme Co with branded PDF attached — automatically.
+          </p>
+        </div>
       </div>
     </div>
   );

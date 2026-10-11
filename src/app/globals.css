@@ -190,6 +190,47 @@
   --chart-5: 139 92 246;
   --chart-6: 113 113 122;
 
+  /* ── Logo (components/Brand.tsx) ──
+     The dog-ear mark is an ink tile on light surfaces and the reversed cream
+     tile on dark ones (the approved 2a pair), so it never sinks into a dark
+     rail. Fold and insight dot are fixed brand colours in both. */
+  --mark-tile: 18 23 28; /* #12171C */
+  --mark-line: 244 241 234; /* #F4F1EA */
+  --mark-cream: 244 241 234;
+  --mark-ink: 18 23 28;
+  --mark-fold: 15 122 108; /* #0F7A6C */
+  --mark-dot: 229 167 95; /* #E5A75F */
+
+  /* ── Public site: the marketing pages only ──
+     Warm paper, ink and the logo's teal, so the site and the mark read as one
+     brand. The signed-in app keeps its own palette above. `dark` is the ink
+     band (integrations, final CTA, footer) and stays dark in both themes. */
+  --site-page: 250 248 244; /* #FAF8F4 paper */
+  --site-band: 239 236 229; /* #EFECE5 warm band */
+  --site-tile: 246 244 239; /* #F6F4EF inset tile inside a card */
+  --site-card: 255 255 255;
+  --site-line: 230 226 218; /* #E6E2DA hairline */
+  --site-line-strong: 217 212 202; /* #D9D4CA rule */
+  --site-fg: 18 23 28; /* #12171C */
+  --site-muted: 93 98 112; /* #5D6270 */
+  --site-accent: 13 111 98; /* #0D6F62: teal deep enough for text on the band */
+  --site-accent-soft: 227 240 237; /* #E3F0ED */
+  --site-cta: 18 23 28;
+  --site-cta-fg: 250 248 244;
+  --site-cta-hover: 15 122 108; /* #0F7A6C */
+  --site-cta-hover-fg: 250 248 244;
+  --site-dark: 18 23 28;
+  --site-dark-fg: 244 241 234;
+  --site-dark-muted: 180 184 194; /* #B4B8C2 */
+  --site-dark-card: 30 34 41; /* #1E2229 */
+  --site-dark-line: 52 57 66;
+  --site-dark-accent: 127 209 195; /* #7FD1C3 */
+  --site-amber: 229 167 95; /* #E5A75F */
+  /* The example agency colour in the white-label mock. */
+  --site-demo: 42 74 140; /* #2A4A8C */
+  --site-demo-fg: 255 255 255;
+  --site-demo-muted: 201 212 238;
+
   --ring: 79 70 229; /* #4F46E5: every focus indicator, 6.03:1 on #FAFAFB */
   color-scheme: light;
 }
@@ -302,6 +343,32 @@
     --chart-5: 167 139 250;
     --chart-6: 161 161 170;
 
+    /* Logo: the reversed tile on dark surfaces. */
+    --mark-tile: 244 241 234;
+    --mark-line: 18 23 28;
+
+    /* Public site: ink paper, cream text, a lighter teal. */
+    --site-page: 14 16 19;
+    --site-band: 20 23 27;
+    --site-tile: 30 34 40;
+    --site-card: 24 27 32;
+    --site-line: 40 44 51;
+    --site-line-strong: 56 61 70;
+    --site-fg: 244 241 234;
+    --site-muted: 163 168 179;
+    --site-accent: 95 196 178;
+    --site-accent-soft: 17 46 42;
+    --site-cta: 244 241 234;
+    --site-cta-fg: 18 23 28;
+    --site-cta-hover: 95 196 178;
+    --site-cta-hover-fg: 18 23 28;
+    --site-dark: 22 26 31;
+    --site-dark-fg: 244 241 234;
+    --site-dark-muted: 163 168 179;
+    --site-dark-card: 32 37 44;
+    --site-dark-line: 52 57 66;
+    --site-demo: 52 88 158;
+
     --ring: 129 140 248;
     color-scheme: dark;
   }
@@ -403,6 +470,32 @@
   --chart-5: 167 139 250;
   --chart-6: 161 161 170;
 
+  /* Logo: the reversed tile on dark surfaces. */
+  --mark-tile: 244 241 234;
+  --mark-line: 18 23 28;
+
+  /* Public site: ink paper, cream text, a lighter teal. */
+  --site-page: 14 16 19;
+  --site-band: 20 23 27;
+  --site-tile: 30 34 40;
+  --site-card: 24 27 32;
+  --site-line: 40 44 51;
+  --site-line-strong: 56 61 70;
+  --site-fg: 244 241 234;
+  --site-muted: 163 168 179;
+  --site-accent: 95 196 178;
+  --site-accent-soft: 17 46 42;
+  --site-cta: 244 241 234;
+  --site-cta-fg: 18 23 28;
+  --site-cta-hover: 95 196 178;
+  --site-cta-hover-fg: 18 23 28;
+  --site-dark: 22 26 31;
+  --site-dark-fg: 244 241 234;
+  --site-dark-muted: 163 168 179;
+  --site-dark-card: 32 37 44;
+  --site-dark-line: 52 57 66;
+  --site-demo: 52 88 158;
+
   --ring: 129 140 248;
   color-scheme: dark;
 }
@@ -465,6 +558,12 @@ textarea {
 ::placeholder {
   color: rgb(var(--ink-400));
   opacity: 1;
+}
+
+/* The marketing pages (components/site/ui `sitePage`): keyboard focus takes
+   the site teal instead of the app indigo. */
+.site-root {
+  --ring: var(--site-accent);
 }
 
 /* Tighter tracking on headings — the single cheapest thing that makes a

@@ -1,7 +1,7 @@
 "use client";
 
-// The public pricing grid — used by both the marketing landing section
-// (#pricing) and /pricing.
+// The public pricing grid on /pricing (the landing page shows a compact plan
+// strip instead and links here).
 //
 // Deliberately mirrors the signed-in billing page (components/BillingPlans):
 // one interval toggle drives every card, the price is quoted per the cycle that
@@ -21,9 +21,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Check, X, Sparkles, ShieldCheck } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { FREE_LIMITS, PAID_FEATURES } from "@/lib/billing/config";
 import { cn } from "@/lib/utils";
 
@@ -68,7 +65,7 @@ export function PricingPlans({
   headlineSavingPct: number | null;
   /** Paid-plan trial length; 0 when no trial prices are configured. */
   trialDays: number;
-  /** The landing page carries its own footnotes, so it hides these. */
+  /** Hide the guarantee row when the page carries its own footnotes. */
   showAssurances?: boolean;
 }) {
   const [interval, setInterval] = useState<"monthly" | "quarterly">("monthly");
@@ -103,7 +100,7 @@ export function PricingPlans({
       <div
         role="group"
         aria-label="Billing interval"
-        className="mx-auto flex w-fit items-center justify-center gap-1 rounded-full border border-ink-200 bg-surface p-1 text-sm"
+        className="mx-auto flex w-fit max-w-full flex-wrap items-center justify-center gap-1 rounded-full bg-site-band p-1 text-sm"
       >
         {(["monthly", "quarterly"] as const).map((iv) => (
           <button
@@ -112,13 +109,13 @@ export function PricingPlans({
             onClick={() => setInterval(iv)}
             aria-pressed={interval === iv}
             className={cn(
-              "focus-ring rounded-full px-4 py-1.5 font-medium transition-colors",
-              interval === iv ? "bg-brand-solid text-white" : "text-ink-500 hover:text-ink-800"
+              "whitespace-nowrap rounded-full px-4 py-2.5 font-semibold transition-colors sm:px-5",
+              interval === iv ? "bg-site-cta text-site-cta-fg" : "text-site-fg hover:text-site-accent"
             )}
           >
             {INTERVAL_LABEL[iv]}
             {iv === "quarterly" && headlineSavingPct != null && headlineSavingPct > 0 && (
-              <span className={cn("ml-1.5 text-xs", interval === iv ? "text-white/80" : "text-success-600")}>
+              <span className={cn("ml-1.5", interval === iv ? "text-site-cta-fg/80" : "text-site-accent")}>
                 save {headlineSavingPct}%
               </span>
             )}
@@ -128,92 +125,113 @@ export function PricingPlans({
 
       {/* Plan cards. Free leads: it is the offer that asks for nothing, so it
           is the first thing a visitor should be able to say yes to. */}
-      <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="mt-[52px] grid items-stretch gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))]">
         {/* Free */}
-        <Card className="flex flex-col">
-          <CardContent className="flex flex-1 flex-col p-6">
-            <div className="flex items-center justify-between gap-2">
-              <p className="font-semibold text-ink-900">Free</p>
-              <Badge variant="muted">No card</Badge>
-            </div>
-            {/* Free is free on either cycle, so it is always quoted per month —
-                "$0/quarter" would only make the toggle look broken. */}
-            <p className="mt-3">
-              <span className="text-3xl font-semibold text-ink-900">$0</span>{" "}
-              <span className="text-sm text-ink-500">/month</span>
-            </p>
-            <p className="mt-1 text-sm text-ink-500">
-              Up to {FREE_LIMITS.maxClients} active client — no card, no time limit.
-            </p>
-            <ul className="mb-6 mt-5 flex-1 space-y-2.5 text-sm text-ink-700">
-              {FREE_INCLUDED.map((f) => (
-                <li key={f} className="flex gap-2">
-                  <Check size={16} className="mt-0.5 shrink-0 text-success-500" aria-hidden /> {f}
-                </li>
-              ))}
-              {FREE_MISSING.map((f) => (
-                <li key={f} className="flex gap-2 text-ink-400">
-                  <X size={16} className="mt-0.5 shrink-0" aria-hidden /> {f}
-                </li>
-              ))}
-            </ul>
-            <Button variant="outline" asChild>
-              <Link href="/signup">Start on Free</Link>
-            </Button>
-            <p className="mt-2 text-center text-xs text-ink-500">Free forever. Upgrade whenever you need more.</p>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col gap-4 rounded-[18px] border border-site-line-strong p-6">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-xl font-bold">Free</h3>
+            <span className="whitespace-nowrap rounded-full bg-site-band px-[9px] py-1 font-site-mono text-[11px]">No card</span>
+          </div>
+          {/* Free is free on either cycle, so it is always quoted per month —
+              "$0/quarter" would only make the toggle look broken. */}
+          <p>
+            <span className="text-[40px] font-extrabold leading-none tracking-[-0.04em]">$0</span>{" "}
+            <span className="text-site-muted">/month</span>
+          </p>
+          <p className="text-sm leading-[1.45] text-site-muted">
+            Up to {FREE_LIMITS.maxClients} active client — no card, no time limit.
+          </p>
+          <ul className="flex flex-1 flex-col gap-2 text-sm">
+            {FREE_INCLUDED.map((f) => (
+              <li key={f} className="flex gap-2">
+                <Check size={16} className="mt-0.5 shrink-0 text-site-accent" aria-hidden /> {f}
+              </li>
+            ))}
+            {FREE_MISSING.map((f) => (
+              <li key={f} className="flex gap-2 text-site-muted">
+                <X size={16} className="mt-0.5 shrink-0" aria-hidden /> {f}
+              </li>
+            ))}
+          </ul>
+          <Link
+            href="/signup"
+            className="whitespace-nowrap rounded-full border border-site-fg px-4 py-[13px] text-center font-semibold transition-colors hover:bg-site-cta hover:text-site-cta-fg"
+          >
+            Start on Free
+          </Link>
+          <p className="text-xs leading-[1.45] text-site-muted">Free forever. Upgrade whenever you need more.</p>
+        </div>
 
-        {/* Paid plans */}
+        {/* Paid plans. The popular plan is the inverted dark card. */}
         {plans.map((plan) => {
           // Comes straight from Paddle; a dash when the catalog couldn't be
           // reached, never a guessed or stale number.
           const price = interval === "quarterly" ? plan.quarterly : plan.monthly;
           const featured = plan.id === "pro";
           const showTrial = trialOffered && plan.trialAvailable;
+          const quiet = featured ? "text-site-dark-muted" : "text-site-muted";
 
           return (
-            <Card key={plan.id} className={cn("flex flex-col", featured && "border-2 border-brand-500 shadow-md")}>
-              <CardContent className="flex flex-1 flex-col p-6">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-semibold text-ink-900">{plan.name}</p>
-                  {featured && <Badge>Most popular</Badge>}
-                </div>
-                <p className="mt-3" aria-live="polite">
-                  <span className="text-3xl font-semibold text-ink-900">{price ?? "—"}</span>{" "}
-                  <span className="text-sm text-ink-500">/{unit}</span>
-                </p>
-                <p className="mt-1 text-sm text-ink-500">
-                  Up to {plan.maxClients} active client{plan.maxClients === 1 ? "" : "s"} — every feature included.
-                </p>
-                <ul className="mb-6 mt-5 flex-1 space-y-2.5 text-sm text-ink-700">
-                  {IN_EVERY_PLAN.map((f) => (
-                    <li key={f} className="flex gap-2">
-                      <Check size={16} className="mt-0.5 shrink-0 text-success-500" aria-hidden /> {f}
-                    </li>
-                  ))}
-                </ul>
-
-                <Button
-                  variant={featured ? "default" : "outline"}
-                  disabled={busy !== null}
-                  onClick={() => startCheckout(plan.id)}
-                  aria-label={`Choose the ${plan.name} plan`}
-                >
-                  {busy === plan.id
-                    ? "Opening checkout…"
-                    : showTrial
-                      ? `Start ${trialDays}-day free trial`
-                      : `Choose ${plan.name}`}
-                </Button>
-                {showTrial && (
-                  <p className="mt-2 text-center text-xs text-ink-500">
-                    Free for {trialDays} days, then {price ?? "—"}/{unit}. Cancel before it ends and you won&apos;t be
-                    charged.
-                  </p>
+            <div
+              key={plan.id}
+              className={cn(
+                "flex flex-col gap-4 rounded-[18px] border p-6",
+                featured ? "border-site-dark bg-site-dark text-site-dark-fg" : "border-site-line-strong"
+              )}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-xl font-bold">{plan.name}</h3>
+                {featured && (
+                  <span className="whitespace-nowrap rounded-full bg-site-dark-accent px-[9px] py-1 font-site-mono text-[11px] text-site-dark">
+                    Most popular
+                  </span>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+              <p aria-live="polite">
+                <span className="text-[40px] font-extrabold leading-none tracking-[-0.04em]">{price ?? "—"}</span>{" "}
+                <span className={quiet}>/{unit}</span>
+              </p>
+              <p className={cn("text-sm leading-[1.45]", quiet)}>
+                Up to {plan.maxClients} active client{plan.maxClients === 1 ? "" : "s"} — every feature included.
+              </p>
+              <ul className="flex flex-1 flex-col gap-2 text-sm">
+                {IN_EVERY_PLAN.map((f) => (
+                  <li key={f} className="flex gap-2">
+                    <Check
+                      size={16}
+                      className={cn("mt-0.5 shrink-0", featured ? "text-site-dark-accent" : "text-site-accent")}
+                      aria-hidden
+                    />{" "}
+                    {f}
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                type="button"
+                disabled={busy !== null}
+                onClick={() => startCheckout(plan.id)}
+                aria-label={`Choose the ${plan.name} plan`}
+                className={cn(
+                  "whitespace-nowrap rounded-full px-4 py-[13px] text-center font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                  featured
+                    ? "bg-site-dark-accent text-site-dark hover:bg-site-dark-fg"
+                    : "bg-site-cta text-site-cta-fg hover:bg-site-cta-hover hover:text-site-cta-hover-fg"
+                )}
+              >
+                {busy === plan.id
+                  ? "Opening checkout…"
+                  : showTrial
+                    ? `Start ${trialDays}-day free trial`
+                    : `Choose ${plan.name}`}
+              </button>
+              {showTrial && (
+                <p className={cn("text-xs leading-[1.45]", quiet)}>
+                  Free for {trialDays} days, then {price ?? "—"}/{unit}. Cancel before it ends and you won&apos;t be
+                  charged.
+                </p>
+              )}
+            </div>
           );
         })}
       </div>
@@ -223,23 +241,23 @@ export function PricingPlans({
           cannot be read as an open-ended refund window or as applying to
           renewals. */}
       {showAssurances && (
-        <div className="mt-8 flex flex-col items-center gap-3">
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-ink-600">
+        <div className="mt-9 flex flex-col items-center gap-3.5">
+          <div className="flex flex-wrap items-center justify-center gap-x-7 gap-y-2.5 font-semibold">
             <span className="inline-flex items-center gap-1.5">
-              <Check size={15} className="text-success-500" aria-hidden /> Cancel anytime
+              <Check size={16} className="text-site-accent" aria-hidden /> Cancel anytime
             </span>
             {trialOffered && (
               <span className="inline-flex items-center gap-1.5">
-                <Sparkles size={15} className="text-success-500" aria-hidden /> {trialDays}-day free trial
+                <Sparkles size={16} className="text-site-accent" aria-hidden /> {trialDays}-day free trial
               </span>
             )}
             <span className="inline-flex items-center gap-1.5">
-              <ShieldCheck size={15} className="text-success-500" aria-hidden /> 100% money-back guarantee
+              <ShieldCheck size={16} className="text-site-accent" aria-hidden /> 100% money-back guarantee
             </span>
           </div>
-          <p className="max-w-xl text-center text-xs leading-relaxed text-ink-500">
+          <p className="max-w-[720px] text-center text-[13px] leading-[1.55] text-site-muted">
             Prices in USD, billed by Paddle. The money-back guarantee covers your{" "}
-            <span className="font-medium text-ink-500">first payment only</span>, refundable in full if you ask within 14
+            <span className="font-medium">first payment only</span>, refundable in full if you ask within 14
             days of that charge. Cancelling later stops future renewals but does not refund past ones.
           </p>
         </div>

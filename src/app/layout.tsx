@@ -1,10 +1,19 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
+import { Bricolage_Grotesque } from "next/font/google";
 import { COMPANY } from "@/lib/company";
 import { AnalyticsProvider } from "@/components/AnalyticsProvider";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { MetaPixel } from "@/components/MetaPixel";
 import "./globals.css";
+
+// Wordmark face only — exposed as --font-brand and read by <Brand />.
+const brandFont = Bricolage_Grotesque({
+  subsets: ["latin"],
+  weight: ["700"],
+  variable: "--font-brand",
+  display: "swap",
+});
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? COMPANY.website;
 
@@ -33,7 +42,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={brandFont.variable}>
       <body className="font-sans antialiased">
         {/* Applies the saved theme before the page paints. A plain classic
             script, not next/script: beforeInteractive only emitted a preload

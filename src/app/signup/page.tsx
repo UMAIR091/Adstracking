@@ -26,7 +26,7 @@ export default function SignupPage({
       : undefined;
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
+    <main className="site-root flex min-h-screen flex-col items-center justify-center bg-site-page px-6 py-16">
       <AuthForm mode="signup" next={next} />
       <AuthLegalNote />
     </main>

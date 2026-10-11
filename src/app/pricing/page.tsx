@@ -1,20 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  BadgeCheck,
-  Check,
-  CreditCard,
-  EyeOff,
-  Lock,
-  ShieldCheck,
-  TrendingUp,
-} from "lucide-react";
-import { Brand } from "@/components/Brand";
+import { Check } from "lucide-react";
 import { PLAN_DISPLAY, PAID_TRIAL_DAYS } from "@/lib/billing/config";
 import { getPlanPricing, headlineSavingPct, type PlanPricing } from "@/lib/billing/prices";
 import { SiteFooter } from "@/components/SiteFooter";
+import { SiteHeader } from "@/components/site/SiteHeader";
+import { CtaPanel, Eyebrow, sitePage } from "@/components/site/ui";
 import { PricingPlans } from "@/components/PricingPlans";
-import { Button } from "@/components/ui/button";
 import { COMPANY } from "@/lib/company";
 
 const PAGE_TITLE = `Pricing — ${COMPANY.product}`;
@@ -202,48 +194,41 @@ function jsonLd(pricing: PlanPricing[]) {
 // static for SEO while guaranteeing the displayed price is one Paddle honours.
 export const revalidate = 3600;
 
+const h2 = "text-[clamp(28px,4vw,44px)] font-bold leading-[1.08] tracking-[-0.035em] [text-wrap:balance]";
+const inlineLink = "font-semibold text-site-fg underline hover:text-site-accent";
+
 export default async function PricingPage() {
   const pricing = await getPlanPricing();
   const saving = headlineSavingPct(pricing);
   const priceById = new Map<string, PlanPricing>(pricing.map((p) => [p.id as string, p]));
   const trialOffered = pricing.some((p) => p.trialAvailable);
   return (
-    <div className="flex min-h-screen flex-col bg-surface-page">
+    <div className={`${sitePage} flex flex-col`}>
       <script
         type="application/ld+json"
         // Structured data is static, server-rendered content — safe to inline.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(pricing)) }}
       />
 
-      <header className="border-b border-ink-100">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
-          <Link href="/" aria-label={`${COMPANY.product} home`}><Brand /></Link>
-          <nav className="flex items-center gap-5 text-sm text-ink-500" aria-label="Main">
-            <Link href="/contact" className="hover:text-ink-800">Support</Link>
-            <Link href="/login" className="hover:text-ink-800">Sign in</Link>
-            <Button asChild size="sm"><Link href="/signup">Start free</Link></Button>
-          </nav>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="w-full flex-1">
         {/* ── Hero ── */}
         {/* Wider than the rest of the page: the grid carries five cards now
             that Free is one of them. */}
-        <section className="mx-auto max-w-7xl px-5 pt-14 sm:pt-20">
-          <div className="mx-auto max-w-3xl text-center">
-            <p className="text-sm font-semibold text-brand-600">Pricing</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink-900 sm:text-4xl">
-              Every plan includes every feature.
-              <span className="block text-ink-500 sm:mt-1">Upgrade only when you need more active clients.</span>
+        <section className="mx-auto w-full max-w-[1240px] px-6 pb-10 pt-16 sm:pt-20">
+          <div className="text-center">
+            <Eyebrow className="!mb-[18px]">Pricing</Eyebrow>
+            <h1 className="mx-auto max-w-[820px] text-[clamp(38px,5.5vw,66px)] font-extrabold leading-none tracking-[-0.045em] [text-wrap:balance]">
+              Every plan includes every feature. Upgrade only when you need more active clients.
             </h1>
-            <p className="mt-4 text-lg text-ink-500">
+            <p className="mx-auto mt-[22px] max-w-[620px] text-lg leading-[1.55] text-site-muted">
               No feature gates, no per-client fees, no surprises. Pick the plan that fits your roster today — change it
               anytime as you grow.
             </p>
           </div>
 
-          <div className="mt-10 sm:mt-12">
+          <div className="mt-8">
             <PricingPlans
               plans={pricing.map((p) => ({
                 id: p.id,
@@ -260,39 +245,31 @@ export default async function PricingPage() {
         </section>
 
         {/* ── Feature comparison table ── */}
-        <section aria-labelledby="compare-heading" className="mx-auto max-w-6xl px-5 py-16 sm:py-20">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 id="compare-heading" className="text-2xl font-semibold tracking-tight text-ink-900 sm:text-3xl">
-              Compare plans, feature by feature
-            </h2>
-            <p className="mt-3 text-ink-500">
-              Spoiler: the rows are identical. The only thing that changes is the number of active clients.
-            </p>
-          </div>
+        <section aria-labelledby="compare-heading" className="mx-auto w-full max-w-[1100px] px-6 py-20">
+          <h2 id="compare-heading" className={h2}>
+            Compare plans, feature by feature
+          </h2>
+          <p className="mb-8 mt-3 text-[17px] text-site-muted">
+            Spoiler: the rows are identical. The only thing that changes is the number of active clients.
+          </p>
 
-          <div className="mt-10 overflow-x-auto">
-            <table className="w-full min-w-[720px] border-separate border-spacing-0 text-sm">
+          {/* Scrolls sideways under 720px rather than squeezing five columns.
+              `relative` makes this box the containing block of the sr-only
+              "Included" labels, so they scroll with the table instead of
+              widening the page. */}
+          <div className="relative overflow-x-auto rounded-2xl border border-site-line-strong">
+            <table className="w-full min-w-[720px] border-collapse text-sm">
               <caption className="sr-only">
                 Feature comparison across the Pro, Pro Plus, Growth and Agency plans. All features are identical;
                 only the active client limit differs.
               </caption>
               <thead>
-                <tr>
-                  <th scope="col" className="w-[32%] p-4 text-left font-medium text-ink-500">Features</th>
+                <tr className="bg-site-band">
+                  <th scope="col" className="w-[36%] px-5 py-[18px] text-left text-[15px] font-bold">Features</th>
                   {PLAN_COLUMNS.map((p) => (
-                    <th
-                      key={p.name}
-                      scope="col"
-                      className={`p-4 text-center ${
-                        p.featured ? "rounded-t-xl bg-brand-solid text-white" : "text-ink-700"
-                      }`}
-                    >
-                      <span className="block font-semibold">{p.name}</span>
-                      {/* On the featured card this sits on a brand-500 fill,
-                          which stays deep in both themes — so a white tint is
-                          correct. `text-brand-100` inverted to near-black in
-                          dark mode and dropped this to 2.67:1. */}
-                      <span className={`mt-0.5 block text-xs font-normal ${p.featured ? "text-white/80" : "text-ink-500"}`}>
+                    <th key={p.name} scope="col" className="px-3 py-[18px] text-left text-[15px] font-bold">
+                      <span className="block">{p.name}</span>
+                      <span className="mt-0.5 block text-[13px] font-normal text-site-muted">
                         {priceById.get(p.id)?.monthly?.formatted ?? "—"}/mo
                       </span>
                     </th>
@@ -303,39 +280,45 @@ export default async function PricingPage() {
                 {FEATURE_GROUPS.map((group) => (
                   <FeatureGroupRows key={group.heading} group={group} />
                 ))}
-                <tr>
-                  <td className="p-4" />
+                <tr className="border-t border-site-line bg-site-card">
+                  <td className="px-5 py-4" />
                   {PLAN_COLUMNS.map((p) => (
-                    <td key={p.name} className={`p-4 text-center ${p.featured ? "rounded-b-xl border-x border-b border-brand-100 bg-brand-50/40" : ""}`}>
-                      <Button asChild size="sm" variant={p.featured ? "default" : "outline"}>
-                        <Link href={`/signup?plan=${p.id}`} aria-label={`Choose the ${p.name} plan`}>Choose {p.name}</Link>
-                      </Button>
+                    <td key={p.name} className="px-3 py-4">
+                      <Link
+                        href={`/signup?plan=${p.id}`}
+                        aria-label={`Choose the ${p.name} plan`}
+                        className={`inline-block whitespace-nowrap rounded-full px-4 py-2 text-[13px] font-semibold transition-colors ${
+                          p.featured
+                            ? "bg-site-cta text-site-cta-fg hover:bg-site-cta-hover hover:text-site-cta-hover-fg"
+                            : "border border-site-fg hover:bg-site-cta hover:text-site-cta-fg"
+                        }`}
+                      >
+                        Choose {p.name}
+                      </Link>
                     </td>
                   ))}
                 </tr>
               </tbody>
             </table>
           </div>
-          <p className="mt-4 text-center text-xs text-ink-500">
+          <p className="mt-3.5 text-[13px] text-site-muted">
             All prices in USD. Cancel anytime.
           </p>
         </section>
 
         {/* ── Transparent pricing vs competitors ── */}
-        <section aria-labelledby="transparent-heading" className="bg-surface-alt py-16 sm:py-20">
-          <div className="mx-auto max-w-6xl px-5">
-            <div className="mx-auto max-w-2xl text-center">
-              <p className="text-sm font-semibold text-brand-600">Transparent by design</p>
-              <h2 id="transparent-heading" className="mt-2 text-2xl font-semibold tracking-tight text-ink-900 sm:text-3xl">
-                Flat pricing that doesn&apos;t punish you for growing
-              </h2>
-              <p className="mt-3 text-ink-500">
-                Most reporting tools charge per client or per report, so your bill climbs every time you win business.
-                Anavyst is a flat monthly price — win as many clients as your plan holds, pay the same.
-              </p>
-            </div>
+        <section aria-labelledby="transparent-heading" className="bg-site-band">
+          <div className="mx-auto w-full max-w-[1100px] px-6 py-[100px]">
+            <Eyebrow>Transparent by design</Eyebrow>
+            <h2 id="transparent-heading" className={`${h2} max-w-[640px]`}>
+              Flat pricing that doesn&apos;t punish you for growing
+            </h2>
+            <p className="mt-4 max-w-[680px] text-[17px] leading-[1.6] text-site-muted">
+              Most reporting tools charge per client or per report, so your bill climbs every time you win business.
+              Anavyst is a flat monthly price — win as many clients as your plan holds, pay the same.
+            </p>
 
-            <div className="mx-auto mt-10 grid max-w-4xl gap-5 sm:grid-cols-3">
+            <div className="mt-10 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">
               {[
                 {
                   name: "Per-client tools",
@@ -361,146 +344,111 @@ export default async function PricingPage() {
               ].map((c) => (
                 <div
                   key={c.name}
-                  className={`flex flex-col rounded-2xl p-6 text-center ${
-                    c.highlight
-                      ? "border-2 border-brand-500 bg-surface shadow-lg shadow-brand-500/10"
-                      : "border border-ink-200 bg-surface"
-                  }`}
+                  className={`rounded-2xl p-6 ${c.highlight ? "bg-site-dark text-site-dark-fg" : "bg-site-page"}`}
                 >
-                  <p className={`text-sm font-semibold ${c.highlight ? "text-brand-600" : "text-ink-500"}`}>{c.name}</p>
-                  <p className="mt-0.5 text-xs text-ink-500">{c.example}</p>
-                  <p className={`mt-3 text-3xl font-semibold tracking-tight ${c.highlight ? "text-brand-600" : "text-ink-900"}`}>
-                    {c.price}
-                  </p>
-                  <p className="mt-2 text-sm leading-relaxed text-ink-500">{c.detail}</p>
+                  <p className={`font-site-mono text-xs ${c.highlight ? "text-site-dark-accent" : "text-site-muted"}`}>{c.name}</p>
+                  <p className="mt-2.5 font-bold">{c.example}</p>
+                  <p className="mt-1.5 text-[34px] font-extrabold leading-tight tracking-[-0.04em]">{c.price}</p>
+                  <p className={`mt-1.5 text-sm ${c.highlight ? "text-site-dark-muted" : "text-site-muted"}`}>{c.detail}</p>
                 </div>
               ))}
             </div>
 
-            <div className="mx-auto mt-8 flex max-w-3xl flex-col gap-4 rounded-2xl border border-brand-100 bg-brand-50/40 p-6 sm:flex-row sm:items-start sm:p-8">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-solid text-white">
-                <TrendingUp size={19} aria-hidden />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-ink-900">The math at 20 clients</p>
-                <p className="mt-1.5 text-sm leading-relaxed text-ink-600">
-                  Per-client tools raise your bill every time you win a client: at 20 clients, AgencyAnalytics runs
-                  ≈ $240/mo and Whatagraph starts around $249/mo. On Anavyst, 25 clients is the $149 Growth plan —
-                  with every feature included. That&apos;s money back in your margin, every month.
-                </p>
-                <p className="mt-2 text-xs text-ink-500">
-                  Competitor pricing reflects public rates at time of writing and may change.
-                </p>
-              </div>
-            </div>
+            <h3 className="mb-2 mt-10 text-xl font-bold">The math at 20 clients</h3>
+            <p className="max-w-[760px] text-base leading-[1.6] text-site-muted">
+              Per-client tools raise your bill every time you win a client: at 20 clients, AgencyAnalytics runs
+              ≈ $240/mo and Whatagraph starts around $249/mo. On Anavyst, 25 clients is the $149 Growth plan —
+              with every feature included. That&apos;s money back in your margin, every month.
+            </p>
+            <p className="mt-3.5 text-xs text-site-muted">
+              Competitor pricing reflects public rates at time of writing and may change.
+            </p>
           </div>
         </section>
 
         {/* ── FAQs ── */}
-        <section aria-labelledby="faq-heading" className="mx-auto max-w-3xl px-5 py-16 sm:py-20">
-          <div className="text-center">
-            <p className="text-sm font-semibold text-brand-600">FAQ</p>
-            <h2 id="faq-heading" className="mt-2 text-2xl font-semibold tracking-tight text-ink-900 sm:text-3xl">
-              Billing questions, answered
-            </h2>
-          </div>
-          <div className="mt-8 divide-y divide-ink-100 rounded-2xl border border-ink-200 bg-surface px-6">
-            {FAQS.map((item) => (
-              <details key={item.q} className="group py-4">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-medium text-ink-800 [&::-webkit-details-marker]:hidden">
-                  {item.q}
-                  <span
-                    aria-hidden
-                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-muted text-ink-500 transition-transform duration-150 group-open:rotate-45"
-                  >
-                    +
-                  </span>
-                </summary>
-                <p className="mt-2 pr-10 text-sm leading-relaxed text-ink-500">
-                  {item.q === "Do you offer refunds?" ? (
-                    <>
-                      Yes — a 14-day money-back guarantee on your first payment. If you&apos;re not satisfied, request a
-                      refund within 14 days of that charge and we&apos;ll refund it in full. See our{" "}
-                      <Link href="/refund" className="font-medium text-brand-600 hover:underline">
-                        Refund &amp; Cancellation Policy
-                      </Link>{" "}
-                      for details.
-                    </>
-                  ) : (
-                    item.a
-                  )}
-                </p>
-              </details>
-            ))}
-          </div>
-          <p className="mt-6 text-center text-sm text-ink-500">
-            By subscribing you agree to our{" "}
-            <Link href="/terms" className="font-medium text-brand-600 hover:underline">Terms of Service</Link>,{" "}
-            <Link href="/refund" className="font-medium text-brand-600 hover:underline">Refund Policy</Link>, and{" "}
-            <Link href="/privacy" className="font-medium text-brand-600 hover:underline">Privacy Policy</Link>.
-          </p>
+        <section aria-labelledby="faq-heading" className="mx-auto w-full max-w-[860px] px-6 py-[100px]">
+          <Eyebrow>FAQ</Eyebrow>
+          <h2 id="faq-heading" className={`${h2} mb-9`}>
+            Billing questions, answered
+          </h2>
+          {/* One open at a time: details sharing a `name` form a native
+              exclusive accordion. */}
+          {FAQS.map((item) => (
+            <details key={item.q} name="billing-faq" className="group border-t border-site-line-strong py-[22px] last-of-type:border-b">
+              <summary className="flex cursor-pointer list-none justify-between gap-4 text-lg font-semibold [&::-webkit-details-marker]:hidden">
+                <span>{item.q}</span>
+                <span className="font-site-mono text-xl leading-none text-site-accent" aria-hidden>
+                  <span className="group-open:hidden">+</span>
+                  <span className="hidden group-open:inline">−</span>
+                </span>
+              </summary>
+              <p className="mt-3 max-w-[720px] text-base leading-[1.65] text-site-muted">
+                {item.q === "Do you offer refunds?" ? (
+                  <>
+                    Yes — a 14-day money-back guarantee on your first payment. If you&apos;re not satisfied, request a
+                    refund within 14 days of that charge and we&apos;ll refund it in full. See our{" "}
+                    <Link href="/refund" className={inlineLink}>
+                      Refund &amp; Cancellation Policy
+                    </Link>{" "}
+                    for details.
+                  </>
+                ) : (
+                  item.a
+                )}
+              </p>
+            </details>
+          ))}
         </section>
 
         {/* ── Trust, security & payments ── */}
-        <section aria-label="Trust, security and accepted payment methods" className="mx-auto max-w-6xl px-5 pb-16 sm:pb-20">
-          <div className="rounded-3xl border border-ink-200 bg-surface p-8 sm:p-12">
-            <div className="mx-auto max-w-2xl text-center">
-              <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600">
-                <ShieldCheck size={16} aria-hidden /> Trust &amp; security
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-ink-900">
-                Pay safely. Sleep soundly.
-              </h2>
-            </div>
-            <div className="mt-8 grid gap-6 text-center sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                { icon: CreditCard, t: "Secure checkout", x: "Payments handled by Paddle, our PCI-DSS compliant merchant of record. Card details never touch our servers." },
-                { icon: Lock, t: "Encrypted everywhere", x: "All traffic over TLS; OAuth tokens encrypted at rest with AES-256." },
-                { icon: EyeOff, t: "Read-only access", x: "Anavyst can never change anything in your Google or Meta accounts." },
-                { icon: BadgeCheck, t: "No lock-in", x: "Cancel anytime in two clicks. Your data is yours — export or delete it whenever you like." },
-              ].map((s) => {
-                const Icon = s.icon;
-                return (
-                  <div key={s.t}>
-                    <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
-                      <Icon size={20} aria-hidden />
-                    </div>
-                    <h3 className="mt-3 text-sm font-semibold text-ink-900">{s.t}</h3>
-                    <p className="mx-auto mt-1 max-w-[16rem] text-xs leading-relaxed text-ink-500">{s.x}</p>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-2" aria-label="Accepted payment methods">
-              {["Visa", "Mastercard", "American Express", "Discover", "PayPal"].map((m) => (
-                <span key={m} className="rounded-lg border border-ink-200 bg-surface-subtle px-3 py-1.5 text-xs font-medium text-ink-600">
-                  {m}
-                </span>
-              ))}
-            </div>
-            <p className="mt-4 text-center text-xs text-ink-500">
-              Prices in USD · Sales tax / VAT handled at checkout · Read more in{" "}
-              <Link href="/security" className="font-medium text-brand-600 hover:underline">Data &amp; Security</Link>
-            </p>
+        <section aria-label="Trust, security and accepted payment methods" className="mx-auto w-full max-w-[1100px] px-6 pb-[100px]">
+          <Eyebrow>Trust &amp; security</Eyebrow>
+          <h2 className={h2}>Pay safely. Sleep soundly.</h2>
+          <div className="mt-10 grid gap-8 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
+            {[
+              { t: "Secure checkout", x: "Payments handled by Paddle, our PCI-DSS compliant merchant of record. Card details never touch our servers." },
+              { t: "Encrypted everywhere", x: "All traffic over TLS; OAuth tokens encrypted at rest with AES-256." },
+              { t: "Read-only access", x: "Anavyst can never change anything in your Google or Meta accounts." },
+              { t: "No lock-in", x: "Cancel anytime in two clicks. Your data is yours — export or delete it whenever you like." },
+            ].map((s) => (
+              <div key={s.t} className="border-t-2 border-site-fg pt-[18px]">
+                <h3 className="mb-2 text-lg font-bold">{s.t}</h3>
+                <p className="text-[15px] leading-[1.55] text-site-muted">{s.x}</p>
+              </div>
+            ))}
           </div>
+          <div className="mt-9 flex flex-wrap gap-2" role="list" aria-label="Accepted payment methods">
+            {["Visa", "Mastercard", "American Express", "Discover", "PayPal"].map((m) => (
+              <span key={m} role="listitem" className="rounded-lg border border-site-line-strong px-3.5 py-2 text-[13px] font-semibold">
+                {m}
+              </span>
+            ))}
+          </div>
+          <p className="mt-4 text-[13px] text-site-muted">
+            Prices in USD · Sales tax / VAT handled at checkout · Read more in{" "}
+            <Link href="/security" className={inlineLink}>Data &amp; Security</Link>
+          </p>
+          <p className="mt-2 text-[13px] text-site-muted">
+            By subscribing you agree to our{" "}
+            <Link href="/terms" className={inlineLink}>Terms of Service</Link>,{" "}
+            <Link href="/refund" className={inlineLink}>Refund Policy</Link>, and{" "}
+            <Link href="/privacy" className={inlineLink}>Privacy Policy</Link>.
+          </p>
         </section>
 
         {/* ── Final CTA ── */}
-        <section className="bg-surface-alt py-16 text-center sm:py-20">
-          <div className="mx-auto max-w-2xl px-5">
-            <h2 className="text-2xl font-semibold tracking-tight text-ink-900 sm:text-3xl">
-              Send your first white-label report today
-            </h2>
-            <p className="mt-3 text-ink-500">
+        <CtaPanel
+          title="Send your first white-label report today"
+          body={
+            <>
               Start free for 3 days with every feature unlocked. If it doesn&apos;t save you a reporting weekend, walk
               away — cancel in one click.
-            </p>
-            <div className="mt-6">
-              <Button asChild size="lg"><Link href="/signup">Start Your {PAID_TRIAL_DAYS}-Day Free Trial</Link></Button>
-            </div>
-            <p className="mt-3 text-sm text-ink-500">3-day free trial · Every feature on every plan · Cancel anytime</p>
-          </div>
-        </section>
+            </>
+          }
+          cta={{ href: "/signup", label: <>Start Your {PAID_TRIAL_DAYS}-Day Free Trial</> }}
+          footnote="3-day free trial · Every feature on every plan · Cancel anytime"
+        />
       </main>
 
       <SiteFooter />
@@ -508,39 +456,31 @@ export default async function PricingPage() {
   );
 }
 
-// Renders one feature group: a heading row plus one row per feature.
-// The Pro column keeps the highlighted treatment from the table header.
+// Renders one feature group: a mono heading row plus one row per feature.
 function FeatureGroupRows({ group }: { group: { heading: string; rows: FeatureRow[] } }) {
   return (
     <>
-      <tr>
+      <tr className="border-t border-site-line bg-site-tile">
         <th
           scope="colgroup"
           colSpan={PLAN_COLUMNS.length + 1}
-          className="border-b border-ink-200 px-4 pb-2 pt-6 text-left text-xs font-semibold uppercase tracking-wide text-ink-500"
+          className="px-5 py-[13px] text-left font-site-mono text-xs font-medium uppercase text-site-muted"
         >
           {group.heading}
         </th>
       </tr>
       {group.rows.map((row) => (
-        <tr key={row.label}>
-          <th scope="row" className="border-b border-ink-100 p-4 text-left font-medium text-ink-700">
+        <tr key={row.label} className="border-t border-site-line bg-site-card">
+          <th scope="row" className="px-5 py-[13px] text-left font-normal">
             {row.label}
           </th>
           {PLAN_COLUMNS.map((p, i) => (
-            <td
-              key={p.name}
-              className={`border-b p-4 text-center ${
-                p.featured ? "border-x border-brand-100 bg-brand-50/40" : "border-ink-100"
-              }`}
-            >
+            <td key={p.name} className="px-3 py-[13px] text-site-accent">
               {row.values ? (
-                <span className={`text-sm font-semibold ${p.featured ? "text-brand-700" : "text-ink-800"}`}>
-                  {row.values[i]}
-                </span>
+                <span className="font-semibold">{row.values[i]}</span>
               ) : (
                 <>
-                  <Check size={17} className={`mx-auto ${p.featured ? "text-brand-600" : "text-brand-500"}`} aria-hidden />
+                  <Check size={17} aria-hidden />
                   <span className="sr-only">Included</span>
                 </>
               )}
