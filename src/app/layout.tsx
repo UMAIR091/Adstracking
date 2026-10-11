@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
-import { Bricolage_Grotesque } from "next/font/google";
+import { Unbounded } from "next/font/google";
 import { COMPANY } from "@/lib/company";
 import { AnalyticsProvider } from "@/components/AnalyticsProvider";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
@@ -8,9 +8,9 @@ import { MetaPixel } from "@/components/MetaPixel";
 import "./globals.css";
 
 // Wordmark face only — exposed as --font-brand and read by <Brand />.
-const brandFont = Bricolage_Grotesque({
+const brandFont = Unbounded({
   subsets: ["latin"],
-  weight: ["700"],
+  weight: ["600"],
   variable: "--font-brand",
   display: "swap",
 });

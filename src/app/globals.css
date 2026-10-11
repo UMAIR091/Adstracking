@@ -191,15 +191,11 @@
   --chart-6: 113 113 122;
 
   /* ── Logo (components/Brand.tsx) ──
-     The dog-ear mark is an ink tile on light surfaces and the reversed cream
-     tile on dark ones (the approved 2a pair), so it never sinks into a dark
-     rail. Fold and insight dot are fixed brand colours in both. */
-  --mark-tile: 18 23 28; /* #12171C */
-  --mark-line: 244 241 234; /* #F4F1EA */
-  --mark-cream: 244 241 234;
-  --mark-ink: 18 23 28;
-  --mark-fold: 15 122 108; /* #0F7A6C */
-  --mark-dot: 229 167 95; /* #E5A75F */
+     The "Live A" mark: its three lower bars are currentColor, so they follow
+     the text colour; the top bar is the brand accent. Teal on light surfaces,
+     the brighter green of the app icon on dark ones, where teal sinks. */
+  --mark-accent: 15 122 108; /* #0F7A6C */
+  --mark-accent-on-dark: 61 220 151; /* #3DDC97, the app icon's top bar */
 
   /* ── Public site: the marketing pages only ──
      Warm paper, ink and the logo's teal, so the site and the mark read as one
@@ -343,9 +339,8 @@
     --chart-5: 167 139 250;
     --chart-6: 161 161 170;
 
-    /* Logo: the reversed tile on dark surfaces. */
-    --mark-tile: 244 241 234;
-    --mark-line: 18 23 28;
+    /* Logo: the icon's green top bar on dark surfaces. */
+    --mark-accent: 61 220 151;
 
     /* Public site: ink paper, cream text, a lighter teal. */
     --site-page: 14 16 19;
@@ -470,9 +465,8 @@
   --chart-5: 167 139 250;
   --chart-6: 161 161 170;
 
-  /* Logo: the reversed tile on dark surfaces. */
-  --mark-tile: 244 241 234;
-  --mark-line: 18 23 28;
+  /* Logo: the icon's green top bar on dark surfaces. */
+  --mark-accent: 61 220 151;
 
   /* Public site: ink paper, cream text, a lighter teal. */
   --site-page: 14 16 19;
@@ -564,6 +558,46 @@ textarea {
    the site teal instead of the app indigo. */
 .site-root {
   --ring: var(--site-accent);
+}
+
+/* BrandLoader (components/Brand.tsx): the bars build like a chart rendering,
+   then the top bar lands. Reduced motion shows the static mark. */
+.av-bar,
+.av-top {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.av-bar {
+  animation: av-bar 3.2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite both;
+}
+.av-top {
+  animation: av-top 3.2s cubic-bezier(0.3, 1.6, 0.5, 1) infinite both;
+}
+@keyframes av-bar {
+  0% {
+    transform: scaleX(0);
+  }
+  22%,
+  100% {
+    transform: scaleX(1);
+  }
+}
+@keyframes av-top {
+  0% {
+    transform: translateY(-14px);
+    opacity: 0;
+  }
+  18%,
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .av-bar,
+  .av-top {
+    animation: none;
+  }
 }
 
 /* Tighter tracking on headings — the single cheapest thing that makes a
