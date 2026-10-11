@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { PLAN_DISPLAY, PAID_TRIAL_DAYS } from "@/lib/billing/config";
-import { getPlanPricing, headlineSavingPct, type PlanPricing } from "@/lib/billing/prices";
+import { getPlanPricing, headlineSavingPct, planForClients, type PlanPricing } from "@/lib/billing/prices";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { CtaPanel, Eyebrow, sitePage } from "@/components/site/ui";
@@ -202,6 +202,8 @@ export default async function PricingPage() {
   const saving = headlineSavingPct(pricing);
   const priceById = new Map<string, PlanPricing>(pricing.map((p) => [p.id as string, p]));
   const trialOffered = pricing.some((p) => p.trialAvailable);
+  // The plan quoted against competitors "at 20 clients", priced from Paddle.
+  const at20 = planForClients(pricing, 20);
   return (
     <div className={`${sitePage} flex flex-col`}>
       <script
@@ -329,9 +331,11 @@ export default async function PricingPage() {
                 },
                 {
                   name: "Anavyst",
-                  example: "Agency plan",
-                  price: "$149/mo",
-                  detail: "flat, for up to 25 active clients — every feature included.",
+                  example: at20 ? `${at20.name} plan` : "Every plan",
+                  price: at20 ? `${at20.monthly.formatted}/mo` : "Flat",
+                  detail: at20
+                    ? `flat, for up to ${at20.maxClients} active clients — every feature included.`
+                    : "every feature included.",
                   highlight: true,
                 },
                 {
@@ -357,8 +361,14 @@ export default async function PricingPage() {
             <h3 className="mb-2 mt-10 text-xl font-bold">The math at 20 clients</h3>
             <p className="max-w-[760px] text-base leading-[1.6] text-site-muted">
               Per-client tools raise your bill every time you win a client: at 20 clients, AgencyAnalytics runs
-              ≈ $240/mo and Whatagraph starts around $249/mo. On Anavyst, 25 clients is the $149 Growth plan —
-              with every feature included. That&apos;s money back in your margin, every month.
+              ≈ $240/mo and Whatagraph starts around $249/mo.
+              {at20 && (
+                <>
+                  {" "}On Anavyst, {at20.maxClients} clients is the {at20.monthly.formatted} {at20.name} plan — with every
+                  feature included.
+                </>
+              )}{" "}
+              That&apos;s money back in your margin, every month.
             </p>
             <p className="mt-3.5 text-xs text-site-muted">
               Competitor pricing reflects public rates at time of writing and may change.

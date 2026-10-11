@@ -4,7 +4,7 @@ import {
   Search, BarChart3, Facebook, Linkedin, Music, Megaphone, MapPin, LineChart, Instagram, Image as ImageIcon,
 } from "lucide-react";
 import { isLive } from "@/lib/integrations/registry";
-import { getPlanPricing, headlineSavingPct, type PlanPricing } from "@/lib/billing/prices";
+import { cheapestMonthly, getPlanPricing, headlineSavingPct, planForClients, type PlanPricing } from "@/lib/billing/prices";
 import { FREE_LIMITS, PAID_TRIAL_DAYS } from "@/lib/billing/config";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
@@ -12,17 +12,21 @@ import {
   CheckList, CtaPanel, Eyebrow, H2, btnOutline, btnPrimary, container, sitePage, textLink,
 } from "@/components/site/ui";
 
-export const metadata: Metadata = {
-  title: "Anavyst — White-label client reports on autopilot, written by AI",
-  description:
-    "The client-reporting tool for marketing agencies. Connect Search Console, GA4 and Meta Ads, and send beautiful white-label reports with AI-written insights — every feature on every plan, from $49/mo, live in 5 minutes.",
-  alternates: { canonical: "/" },
-  openGraph: {
-    title: "Anavyst — White-label client reports on autopilot",
-    description:
-      "Connect a client's marketing data and send agency-grade, AI-written reports under your brand. Every feature on every plan, from $49/mo.",
-  },
-};
+// The "from" price in the search and share descriptions is the cheapest live
+// Paddle price, like every other figure on the page.
+export async function generateMetadata(): Promise<Metadata> {
+  const from = cheapestMonthly(await getPlanPricing());
+  const fromLine = from ? `, from ${from.formatted}/mo` : "";
+  return {
+    title: "Anavyst — White-label client reports on autopilot, written by AI",
+    description: `The client-reporting tool for marketing agencies. Connect Search Console, GA4 and Meta Ads, and send beautiful white-label reports with AI-written insights — every feature on every plan${fromLine}, live in 5 minutes.`,
+    alternates: { canonical: "/" },
+    openGraph: {
+      title: "Anavyst — White-label client reports on autopilot",
+      description: `Connect a client's marketing data and send agency-grade, AI-written reports under your brand. Every feature on every plan${fromLine}.`,
+    },
+  };
+}
 
 // Curated marketing shortlist. Which of these show "Live" is decided by the
 // registry at render time (credentials + LIVE_INTEGRATIONS), so the public page
@@ -42,7 +46,7 @@ const MARKETING_INTEGRATIONS = [
 
 // Copy that quotes a price is built from the live Paddle amounts, so prose
 // can't drift out of step with the plan cards after a price change.
-// "50 clients costs $299/mo", from the largest plan's live limit and price.
+// "50 clients costs $329/mo", from the largest plan's live limit and price.
 function scaleLine(pricing: PlanPricing[]): string {
   const top = pricing[pricing.length - 1];
   return top?.monthly ? `${top.maxClients} clients costs ${top.monthly.formatted}/mo` : "large rosters stay flat-priced";
@@ -132,6 +136,8 @@ export default async function LandingPage() {
   const pricing = await getPlanPricing();
   const savingPct = headlineSavingPct(pricing);
   const liveMarketingCount = MARKETING_INTEGRATIONS.filter((i) => isLive(i.id)).length;
+  const from = cheapestMonthly(pricing);
+  const at20 = planForClients(pricing, 20);
   return (
     <div className={sitePage}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(pricing, savingPct)) }} />
@@ -172,7 +178,7 @@ export default async function LandingPage() {
           <div className="grid border-y border-site-line-strong [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
             {[
               { v: "5 min", l: "from signup to first report" },
-              { v: "$49/mo", l: "to start — every feature included" },
+              { v: `${from?.formatted ?? "—"}/mo`, l: "to start — every feature included" },
               { v: `${liveMarketingCount} live`, l: `integrations, ${MARKETING_INTEGRATIONS.length - liveMarketingCount} more coming` },
               { v: "100%", l: "your brand, not ours" },
             ].map((s) => (
@@ -474,8 +480,13 @@ export default async function LandingPage() {
               ))}
             </ul>
             <p className="mt-6 text-sm leading-[1.55] text-site-muted">
-              AgencyAnalytics at 20 clients ≈ $240/mo. Whatagraph from ~$249/mo. Anavyst at 20 clients:{" "}
-              <strong className="text-site-fg">$149/mo</strong> — every feature included.
+              AgencyAnalytics at 20 clients ≈ $240/mo. Whatagraph from ~$249/mo.
+              {at20 && (
+                <>
+                  {" "}Anavyst at 20 clients: <strong className="text-site-fg">{at20.monthly.formatted}/mo</strong> — every
+                  feature included.
+                </>
+              )}
             </p>
           </div>
         </section>

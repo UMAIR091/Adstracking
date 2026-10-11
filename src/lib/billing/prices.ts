@@ -214,6 +214,24 @@ export function headlineSavingPct(plans: PlanPricing[]): number | null {
   return values.length ? Math.min(...values) : null;
 }
 
+// For marketing copy that quotes a price ("from $54/mo", "Anavyst at 20
+// clients: $164/mo"), so the prose moves with Paddle instead of going stale
+// after a price change. Both return null when Paddle couldn't be read.
+
+/** The cheapest live monthly price. */
+export function cheapestMonthly(plans: PlanPricing[]): Money | null {
+  const monthly = plans.map((p) => p.monthly).filter((m): m is Money => m != null);
+  return monthly.length ? monthly.reduce((a, b) => (b.amount < a.amount ? b : a)) : null;
+}
+
+/** The smallest plan that holds `clients` active clients, with its live monthly price. */
+export function planForClients(plans: PlanPricing[], clients: number): (PlanPricing & { monthly: Money }) | null {
+  const fits = plans
+    .filter((p): p is PlanPricing & { monthly: Money } => p.monthly != null && p.maxClients >= clients)
+    .sort((a, b) => a.maxClients - b.maxClients);
+  return fits[0] ?? null;
+}
+
 // The trial price to check out, or null when there isn't a usable one.
 //
 // A configured trial price id is only a candidate: Paddle rejects an archived
