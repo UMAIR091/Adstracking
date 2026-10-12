@@ -36,6 +36,8 @@ export type GscInsights = {
 export type Ga4InsightsData = {
   totals: Ga4Totals;
   previousTotals?: Ga4Totals | null;
+  /** Totals not measured for this window; they read 0 but have no value. */
+  unavailableMetrics?: (keyof Ga4Totals)[];
   trafficSources?: Ga4Dim[];
   topLandingPages?: Ga4Dim[];
   devices?: Ga4Dim[];
@@ -60,6 +62,9 @@ export type InsightsInput = {
   // on these and — crucially — never to call an anomaly the arithmetic did not
   // find. Kept as a flat shape so this module stays free of that import.
   signals?: PromptSignal[] | null;
+  // Plain-sentence limits of the data: sources left out and why, partial
+  // coverage, per-platform date windows, figures a rebuilt period lacks.
+  dataQuality?: string[] | null;
 };
 
 // One pre-computed anomaly flag, already phrased and already graded.
@@ -77,6 +82,20 @@ export type ReportInsights = {
   issuesDetected: string[];
   growthOpportunities: string[];
   recommendedActions: string[];
+  /**
+   * What the post-generation check removed (lib/ai/verify.ts). Absent on
+   * insights generated before the check existed.
+   */
+  verification?: InsightsVerification;
+};
+
+export type InsightsVerification = {
+  /** Sentences dropped because a number in them is not in the data. */
+  removedClaims: number;
+  /** True when the summary sentence itself failed and was dropped. */
+  summaryRemoved: boolean;
+  /** The unsupported figures, for diagnostics. */
+  unsupported: string[];
 };
 
 export type CompletionRequest = {

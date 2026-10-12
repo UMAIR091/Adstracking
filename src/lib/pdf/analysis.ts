@@ -4,6 +4,7 @@
 // projection where it projects.
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import { deltaPct } from "./format";
+import { ga4Has } from "@/lib/reports/dataQuality";
 
 // ── Overall performance score (0–100) ────────────────────────────────────────
 // Weighted average of period-over-period movement across the key metrics,
@@ -26,10 +27,11 @@ export function performanceScore(gsc: GscReportFull | null, ga4: Ga4ReportFull |
   }
   if (ga4) {
     push(ga4.totals.sessions, ga4.previousTotals?.sessions, 1.0);
-    push(ga4.totals.users, ga4.previousTotals?.users, 0.8);
-    push(ga4.totals.engagementRate, ga4.previousTotals?.engagementRate, 0.7);
-    push(ga4.totals.conversions, ga4.previousTotals?.conversions, 1.3);
-    if (ga4.totals.totalRevenue > 0) push(ga4.totals.totalRevenue, ga4.previousTotals?.totalRevenue, 1.5);
+    // Unmeasured totals (a rebuilt period) carry placeholder zeros: skipped.
+    if (ga4Has(ga4, "users")) push(ga4.totals.users, ga4.previousTotals?.users, 0.8);
+    if (ga4Has(ga4, "engagementRate")) push(ga4.totals.engagementRate, ga4.previousTotals?.engagementRate, 0.7);
+    if (ga4Has(ga4, "conversions")) push(ga4.totals.conversions, ga4.previousTotals?.conversions, 1.3);
+    if (ga4Has(ga4, "totalRevenue") && ga4.totals.totalRevenue > 0) push(ga4.totals.totalRevenue, ga4.previousTotals?.totalRevenue, 1.5);
   }
   if (parts.length < 2) return null;
   const wsum = parts.reduce((a, p) => a + p.weight, 0);

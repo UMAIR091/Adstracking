@@ -15,6 +15,7 @@
 // components (it only `import type`s from lib/google).
 import type { GscReportFull, GscDay } from "@/lib/google";
 import type { Ga4ReportFull } from "@/lib/google";
+import { ga4Has } from "@/lib/reports/dataQuality";
 
 export type SignalKind =
   | "winning_keyword"
@@ -241,8 +242,11 @@ export function detectSignals(
     const t = ga4.totals;
     const prev = ga4.previousTotals;
 
-    // Conversion opportunity — only when there is genuinely traffic to convert.
-    if (t.sessions > 0) {
+    // Conversion opportunity — only when there is genuinely traffic to convert,
+    // and only when conversions were measured at all. A rebuilt period has no
+    // conversion figure; its placeholder 0 used to raise "Sessions aren't
+    // converting yet" for a site that may convert perfectly well.
+    if (t.sessions > 0 && ga4Has(ga4, "conversions")) {
       const rate = t.sessions > 0 ? (t.conversions / t.sessions) * 100 : 0;
       const prevRate = prev && prev.sessions > 0 ? (prev.conversions / prev.sessions) * 100 : null;
       const change = prevRate != null && prevRate > 0 ? ((rate - prevRate) / prevRate) * 100 : null;

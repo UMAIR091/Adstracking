@@ -1,6 +1,7 @@
 "use client";
 
 import { normalizeReportData, periodDayCount } from "@/lib/report";
+import { ga4Has, sourceNotes } from "@/lib/reports/dataQuality";
 import { formatBlockValue, type BlockKpi } from "@/lib/integrations/blocks";
 import { detectSignals } from "@/lib/insights/signals";
 import { allSoWhat, allActions, NO_EVIDENCE_NOTE } from "@/lib/reports/soWhat";
@@ -185,12 +186,18 @@ export function ReportDocument({
   // GA4 KPI cards. Engagement and conversions have no daily series, so they
   // carry no sparkline.
   const ga4SessionsD = ga4 ? delta(ga4.totals.sessions, ga4.previousTotals?.sessions) : null;
-  const ga4ConversionsD = ga4 ? delta(ga4.totals.conversions, ga4.previousTotals?.conversions) : null;
+  // A total a rebuilt period could not measure (ga4Has) reads "—" with no
+  // delta and no sparkline: its 0 is a placeholder, and "0 conversions" would
+  // tell the client nothing converted.
+  const hasUsers = ga4Has(ga4, "users");
+  const hasEngagement = ga4Has(ga4, "engagementRate");
+  const hasConversions = ga4Has(ga4, "conversions");
+  const ga4ConversionsD = ga4 && hasConversions ? delta(ga4.totals.conversions, ga4.previousTotals?.conversions) : null;
   const ga4Kpis = ga4 ? [
-    { l: "Users", v: fmt(ga4.totals.users), d: delta(ga4.totals.users, ga4.previousTotals?.users), s: ga4Spark((d) => d.users) },
+    { l: "Users", v: hasUsers ? fmt(ga4.totals.users) : "—", d: hasUsers ? delta(ga4.totals.users, ga4.previousTotals?.users) : null, s: hasUsers ? ga4Spark((d) => d.users) : null },
     { l: "Sessions", v: fmt(ga4.totals.sessions), d: ga4SessionsD, s: ga4Spark((d) => d.sessions) },
-    { l: "Engagement", v: pct1(ga4.totals.engagementRate), d: delta(ga4.totals.engagementRate, ga4.previousTotals?.engagementRate), s: null },
-    { l: "Conversions", v: fmt(ga4.totals.conversions), d: ga4ConversionsD, s: null },
+    { l: "Engagement", v: hasEngagement ? pct1(ga4.totals.engagementRate) : "—", d: hasEngagement ? delta(ga4.totals.engagementRate, ga4.previousTotals?.engagementRate) : null, s: null },
+    { l: "Conversions", v: hasConversions ? fmt(ga4.totals.conversions) : "—", d: ga4ConversionsD, s: null },
   ] : [];
 
   // Average position moves in spots, which is how a client reads it; only
@@ -216,7 +223,7 @@ export function ReportDocument({
   const landingMax = Math.max(1, ...landing.map((r) => r.sessions ?? r.clicks ?? 0));
   const organic = ga4?.trafficSources?.find((s) => /organic search/i.test(s.key)) ?? null;
   const organicShare = ga4 && ga4.totals.sessions > 0 && organic ? organic.sessions / ga4.totals.sessions : null;
-  const convRate = ga4 && ga4.totals.sessions > 0 ? ga4.totals.conversions / ga4.totals.sessions : null;
+  const convRate = ga4 && hasConversions && ga4.totals.sessions > 0 ? ga4.totals.conversions / ga4.totals.sessions : null;
   // Shares are of all sessions, so the breakdowns add up to the total the
   // KPI cards show rather than to the rows that happen to be listed.
   const sessionsTotal = ga4 ? (ga4.totals.sessions || (ga4.trafficSources ?? []).reduce((s, r) => s + r.sessions, 0)) : 0;
@@ -233,7 +240,7 @@ export function ReportDocument({
   } else if (gscClicksD?.good) {
     callouts.push({ tone: "good", title: "Key win", text: `Search clicks up ${Math.abs(gscClicksD.pct).toFixed(0)}%.` });
   } else if (ga4 && ga4.totals.sessions > 0) {
-    callouts.push({ tone: "good", title: "Key win", text: `${fmt(ga4.totals.sessions)} sessions, ${pct1(ga4.totals.engagementRate)} engaged.` });
+    callouts.push({ tone: "good", title: "Key win", text: hasEngagement ? `${fmt(ga4.totals.sessions)} sessions, ${pct1(ga4.totals.engagementRate)} engaged.` : `${fmt(ga4.totals.sessions)} sessions.` });
   }
 
   if (decliners[0]) {
@@ -270,7 +277,7 @@ export function ReportDocument({
   const addCell = (c: GlanceCell) => {
     if (glance.length < 4 && !glance.some((g) => g.label === c.label)) glance.push(c);
   };
-  if (ga4 && ga4.totals.conversions > 0) addCell({ label: "Conversions", value: fmt(ga4.totals.conversions), delta: deltaLabel(ga4ConversionsD) });
+  if (ga4 && hasConversions && ga4.totals.conversions > 0) addCell({ label: "Conversions", value: fmt(ga4.totals.conversions), delta: deltaLabel(ga4ConversionsD) });
   if (gsc) addCell({ label: "Search clicks", value: fmt(gsc.totals.clicks), delta: deltaLabel(gscClicksD) });
   if (ga4) addCell({ label: "Sessions", value: fmt(ga4.totals.sessions), delta: deltaLabel(ga4SessionsD) });
   if (gsc) addCell({ label: "Avg Position", value: gsc.totals.position.toFixed(1), delta: posDelta });
@@ -346,6 +353,9 @@ export function ReportDocument({
       const short = shortPeriodNote(requested);
       if (short) lines.push(short);
     }
+    // Sources left out (stale, disconnected, no data) or covering only part
+    // of the period, and the dates each platform's figures cover.
+    lines.push(...sourceNotes(m.sources, m.requested));
     return lines.length > 0 ? lines.join(" ") : null;
   })();
 
@@ -431,8 +441,8 @@ export function ReportDocument({
             {gsc && ga4 && (
               <Note className="mt-4 text-sm">
                 <strong className="font-semibold text-report-ink">{fmt(gsc.totals.clicks)}</strong> organic search clicks drove a site that saw{" "}
-                <strong className="font-semibold text-report-ink">{fmt(ga4.totals.sessions)}</strong> sessions at{" "}
-                <strong className="font-semibold text-report-ink">{pct1(ga4.totals.engagementRate)}</strong> engagement
+                <strong className="font-semibold text-report-ink">{fmt(ga4.totals.sessions)}</strong> sessions
+                {hasEngagement && <> at <strong className="font-semibold text-report-ink">{pct1(ga4.totals.engagementRate)}</strong> engagement</>}
                 {organicShare != null && <> — organic search is <strong className="font-semibold text-report-ink">{pct1(organicShare)}</strong> of all sessions</>}.
               </Note>
             )}
@@ -456,8 +466,8 @@ export function ReportDocument({
               <TileGrid min={140} className="mb-4">
                 <MiniStat label="Organic sessions" value={organic ? fmt(organic.sessions) : "—"} />
                 <MiniStat label="Organic share" value={organicShare != null ? pct1(organicShare) : "—"} />
-                <MiniStat label="New users" value={fmt(ga4.totals.newUsers)} />
-                <MiniStat label="Avg engagement" value={fmtDuration(ga4.totals.avgEngagementTime)} />
+                <MiniStat label="New users" value={ga4Has(ga4, "newUsers") ? fmt(ga4.totals.newUsers) : "—"} />
+                <MiniStat label="Avg engagement" value={ga4Has(ga4, "avgEngagementTime") ? fmtDuration(ga4.totals.avgEngagementTime) : "—"} />
               </TileGrid>
             )}
             {(gscTrend || ga4Trend) && (

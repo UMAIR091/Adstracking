@@ -192,9 +192,27 @@ function totalsFrom(row: InsightRow | undefined): MetaAdsTotals {
   };
 }
 
-async function insights(accessToken: string, accountId: string, params: Record<string, string>): Promise<InsightRow[]> {
-  const data = await graphGet<{ data?: InsightRow[] }>(`/${accountId}/insights`, { access_token: accessToken, ...params });
-  return data.data ?? [];
+// The insights edge pages its results, 25 rows to a page by default. Only the
+// first page used to be read, so a 28- or 90-day daily breakdown stopped after
+// 25 days: the trend chart, every custom-period rebuild and the metric_daily
+// archive silently lost the rest of the window. Follows the cursor to the end,
+// with a bound so a misbehaving cursor cannot loop forever.
+const INSIGHTS_PAGE_SIZE = "100";
+const MAX_INSIGHTS_PAGES = 20;
+
+export async function insights(accessToken: string, accountId: string, params: Record<string, string>): Promise<InsightRow[]> {
+  const rows: InsightRow[] = [];
+  let after: string | undefined;
+  for (let page = 0; page < MAX_INSIGHTS_PAGES; page++) {
+    const data = await graphGet<{ data?: InsightRow[]; paging?: { next?: string; cursors?: { after?: string } } }>(
+      `/${accountId}/insights`,
+      { access_token: accessToken, limit: INSIGHTS_PAGE_SIZE, ...params, ...(after ? { after } : {}) }
+    );
+    rows.push(...(data.data ?? []));
+    after = data.paging?.next ? data.paging.cursors?.after : undefined;
+    if (!after) return rows;
+  }
+  throw new Error("Meta API error: insights paging did not finish");
 }
 
 // Fetches a real insights report for one ad account and period, plus the prior
@@ -212,14 +230,19 @@ export async function fetchMetaAdsReport(accessToken: string, accountId: string,
     insights(accessToken, accountId, { time_range: range(since, until), fields: totalsFields }),
     insights(accessToken, accountId, { time_range: range(prevSince, prevUntil), fields: totalsFields }).catch(() => []),
     insights(accessToken, accountId, { time_range: range(since, until), time_increment: "1", fields: "spend,impressions,clicks" }),
-    insights(accessToken, accountId, { time_range: range(since, until), level: "campaign", fields: "campaign_name,spend,impressions,clicks,ctr", limit: "10" }),
+    insights(accessToken, accountId, { time_range: range(since, until), level: "campaign", fields: "campaign_name,spend,impressions,clicks,ctr" }),
   ]);
+
+  // "Top campaigns" means top by spend. The API was asked for the first 10 rows
+  // in its own order, which is not a ranking, so every campaign is read and the
+  // ranking is done here.
+  const topCampaignRows = campaignRows.slice().sort((a, b) => num(b.spend) - num(a.spend)).slice(0, 10);
 
   return {
     currency,
     totals: totalsFrom(totalsRows[0]),
     previousTotals: prevRows.length ? totalsFrom(prevRows[0]) : null,
     byDate: dailyRows.map((r) => ({ date: r.date_start ?? "", spend: num(r.spend), impressions: num(r.impressions), clicks: num(r.clicks) })),
-    topCampaigns: campaignRows.map((r) => ({ name: r.campaign_name ?? "—", spend: num(r.spend), impressions: num(r.impressions), clicks: num(r.clicks), ctr: num(r.ctr) / 100 })),
+    topCampaigns: topCampaignRows.map((r) => ({ name: r.campaign_name ?? "—", spend: num(r.spend), impressions: num(r.impressions), clicks: num(r.clicks), ctr: num(r.ctr) / 100 })),
   };
 }

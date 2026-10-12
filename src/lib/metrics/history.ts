@@ -103,12 +103,26 @@ export type HistoryQuery = {
   to: string;   // inclusive ISO date
   clientId?: string | null;
   dataSourceId?: string | null;
+  /**
+   * Only these data sources. A report must read the archive of the sources it
+   * is built from — never every row the client ever had, which would fold a
+   * replaced or disconnected source's history into the totals.
+   */
+  dataSourceIds?: string[] | null;
   provider?: string | null;
 };
 
 // Raw daily rows for a range, oldest first. Supabase caps a single response at
 // 1000 rows by default, so this pages explicitly — a multi-year range across
 // several sources exceeds that easily.
+//
+// Two properties the pager depends on:
+//   · a TOTAL order. Ordering by date alone left rows sharing a date (one per
+//     source) in no fixed order, so offset pages could skip one source's day
+//     and repeat another's. (data_source_id, date) is the table's unique key.
+//   · a failed page THROWS. It used to `break`, returning whatever pages had
+//     arrived as though they were the whole range, and a report would then
+//     state partial totals as complete ones.
 export async function fetchHistory(supabase: SupabaseClient, q: HistoryQuery): Promise<HistoryRow[]> {
   const PAGE = 1000;
   const out: HistoryRow[] = [];
@@ -121,14 +135,17 @@ export async function fetchHistory(supabase: SupabaseClient, q: HistoryQuery): P
       .gte("date", q.from)
       .lte("date", q.to)
       .order("date", { ascending: true })
+      .order("data_source_id", { ascending: true })
       .range(offset, offset + PAGE - 1);
 
     if (q.clientId) query = query.eq("client_id", q.clientId);
     if (q.dataSourceId) query = query.eq("data_source_id", q.dataSourceId);
+    if (q.dataSourceIds) query = query.in("data_source_id", q.dataSourceIds);
     if (q.provider) query = query.eq("provider", q.provider);
 
     const { data, error } = await query;
-    if (error || !data) break;
+    if (error) throw new Error(`metric_daily read failed: ${error.message}`);
+    if (!data) break;
     out.push(...(data as HistoryRow[]));
     if (data.length < PAGE) break;
   }

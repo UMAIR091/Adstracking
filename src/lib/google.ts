@@ -253,28 +253,52 @@ export async function fetchGscReport(
 export type GscReportFull = GscReport & {
   previousTotals: GscReport["totals"] | null;
   movers: GscMovers | null;
+  /**
+   * The inclusive dates the totals were requested for, and the comparison
+   * window. Optional: snapshots synced before these were recorded have
+   * neither, and readers infer the window from the sync time instead.
+   */
+  window?: ReportWindow;
+  previousWindow?: ReportWindow | null;
 };
 
+export type ReportWindow = { start: string; end: string };
+
+// UTC calendar days. The old version took the LOCAL date and printed it in
+// UTC, which on a machine east of UTC gave yesterday's date before dawn.
 function isoDaysAgo(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
+  return new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
 }
 
 // Fetches the report for the last `periodDays` plus the equal-length window
 // immediately before it, so period-over-period deltas and winning/declining
-// keywords are baked into the cached snapshot. Search Console data lags ~2 days,
-// so every window ends 2 days ago. The comparison parts degrade gracefully:
-// if they fail, the report still has current-period data.
+// keywords are baked into the cached snapshot. The comparison parts degrade
+// gracefully: if they fail, the report still has current-period data.
+//
+// WINDOW: exactly `periodDays` days ending 3 days ago. This used to run from
+// periodDays+2 to 2 days ago — periodDays+1 days — against a previous window of
+// periodDays. Search Console only returns FINAL data, which at the 06:00 UTC
+// sync reaches 3 days back, so the extra day was usually empty and the totals
+// happened to cover 28 days; whenever it had landed, the current period had one
+// day more than the period it was compared with and every delta read ~3.6%
+// high. Ending on the last final day makes both windows the same length by
+// construction.
+/** Search Console's current and comparison windows: equal length, contiguous. */
+export function gscWindows(periodDays: number) {
+  return {
+    start: isoDaysAgo(periodDays + 2),
+    end: isoDaysAgo(3),
+    prevStart: isoDaysAgo(periodDays * 2 + 2),
+    prevEnd: isoDaysAgo(periodDays + 3),
+  };
+}
+
 export async function fetchGscReportWithComparison(
   accessToken: string,
   siteUrl: string,
   periodDays: number
 ): Promise<GscReportFull> {
-  const start = isoDaysAgo(periodDays + 2);
-  const end = isoDaysAgo(2);
-  const prevStart = isoDaysAgo(periodDays * 2 + 2);
-  const prevEnd = isoDaysAgo(periodDays + 3);
+  const { start, end, prevStart, prevEnd } = gscWindows(periodDays);
 
   const [report, previousTotals, movers] = await Promise.all([
     fetchGscReport(accessToken, siteUrl, start, end),
@@ -282,7 +306,13 @@ export async function fetchGscReportWithComparison(
     fetchGscQueryMovers(accessToken, siteUrl, start, end, prevStart, prevEnd).catch(() => null),
   ]);
 
-  return { ...report, previousTotals, movers };
+  return {
+    ...report,
+    previousTotals,
+    movers,
+    window: { start, end },
+    previousWindow: previousTotals ? { start: prevStart, end: prevEnd } : null,
+  };
 }
 
 // ─── Google Analytics 4 ──────────────────────────────────────────────────────
@@ -330,7 +360,19 @@ export type Ga4Report = {
   devices: Ga4Dim[];
   countries: Ga4Dim[];
 };
-export type Ga4ReportFull = Ga4Report & { previousTotals: Ga4Totals | null };
+export type Ga4ReportFull = Ga4Report & {
+  previousTotals: Ga4Totals | null;
+  /** Inclusive dates requested; absent on snapshots synced before it existed. */
+  window?: ReportWindow;
+  previousWindow?: ReportWindow | null;
+  /**
+   * Totals that could NOT be measured for this window. A report rebuilt from
+   * daily rows has no unique-user, engagement, conversion or revenue figures,
+   * and those fields hold 0 only because the type is numeric. Every reader must
+   * treat a listed metric as "not available", never as a measured zero.
+   */
+  unavailableMetrics?: (keyof Ga4Totals)[];
+};
 
 type Ga4Row = { dimensionValues?: { value: string }[]; metricValues?: { value: string }[] };
 
@@ -432,20 +474,36 @@ export async function fetchGa4Report(
 // Mirrors fetchGscReportWithComparison: the period plus the equal-length window
 // before it, so the cached snapshot carries period-over-period deltas. GA4 data
 // finalizes within ~24h, so windows end 1 day ago.
+//
+// WINDOW: exactly `periodDays` days. It used to start periodDays+1 days ago —
+// periodDays+1 days of data compared against a previous window of periodDays —
+// so every GA4 period-over-period change was overstated by about 1/periodDays.
+/** GA4's current and comparison windows: equal length, contiguous. */
+export function ga4Windows(periodDays: number) {
+  return {
+    start: isoDaysAgo(periodDays),
+    end: isoDaysAgo(1),
+    prevStart: isoDaysAgo(periodDays * 2),
+    prevEnd: isoDaysAgo(periodDays + 1),
+  };
+}
+
 export async function fetchGa4ReportWithComparison(
   accessToken: string,
   propertyId: string,
   periodDays: number
 ): Promise<Ga4ReportFull> {
-  const start = isoDaysAgo(periodDays + 1);
-  const end = isoDaysAgo(1);
-  const prevStart = isoDaysAgo(periodDays * 2 + 1);
-  const prevEnd = isoDaysAgo(periodDays + 2);
+  const { start, end, prevStart, prevEnd } = ga4Windows(periodDays);
 
   const [report, previousTotals] = await Promise.all([
     fetchGa4Report(accessToken, propertyId, start, end),
     fetchGa4Totals(accessToken, propertyId, prevStart, prevEnd).catch(() => null),
   ]);
 
-  return { ...report, previousTotals };
+  return {
+    ...report,
+    previousTotals,
+    window: { start, end },
+    previousWindow: previousTotals ? { start: prevStart, end: prevEnd } : null,
+  };
 }

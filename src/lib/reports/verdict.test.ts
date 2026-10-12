@@ -132,13 +132,13 @@ describe("buildVerdict", () => {
   it("falls back to visitors when nothing else is measured", () => {
     const v = buildVerdict({ ...base, ga4: ga4({ sessions: 31000 }, { sessions: 27000 }) })!;
 
-    expect(v.lines[0]).toMatch(/31,000 people visited your website/);
+    expect(v.lines[0]).toMatch(/Your website had 31,000 visits/);
     expect(v.comparison).toMatch(/Up 15%/);
   });
 
   it("uses search clicks when there is no analytics at all", () => {
     const v = buildVerdict({ ...base, gsc: gsc(14841, 11968) })!;
-    expect(v.lines[0]).toMatch(/found you through Google search/);
+    expect(v.lines[0]).toMatch(/Google search sent 14,841 clicks to your website/);
   });
 
   it("returns null rather than inventing a headline over an empty report", () => {
@@ -155,7 +155,7 @@ describe("buildVerdict", () => {
     })!;
 
     expect(v.lines[0]).not.toMatch(/brought in/);
-    expect(v.lines[0]).toMatch(/900 people visited/);
+    expect(v.lines[0]).toMatch(/had 900 visits/);
   });
 
   it("refuses to add up totals across mixed currencies", () => {

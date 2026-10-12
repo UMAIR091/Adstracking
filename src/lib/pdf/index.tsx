@@ -9,7 +9,8 @@
 // tokens in ./theme.ts.
 import React from "react";
 import { Document, Page, View, Text, Font, renderToBuffer } from "@react-pdf/renderer";
-import { normalizeReportData, periodDayCount } from "@/lib/report";
+import { normalizeReportData, periodDayCount, dataQualityLines } from "@/lib/report";
+import { ga4Has } from "@/lib/reports/dataQuality";
 import { safeFetch } from "@/lib/ssrf";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import { makeStyles, safeColor, tint, tones, seriesColors, ink, up, down, type Tone } from "./theme";
@@ -223,13 +224,13 @@ function buildHighlights(gsc: GscReportFull | null, ga4: Ga4ReportFull | null): 
     );
   }
   if (ga4) {
-    cands.push(
-      { label: "Users", cur: ga4.totals.users, prev: ga4.previousTotals?.users, format: fmt },
-      { label: "Sessions", cur: ga4.totals.sessions, prev: ga4.previousTotals?.sessions, format: fmt },
-      { label: "Engagement rate", cur: ga4.totals.engagementRate, prev: ga4.previousTotals?.engagementRate, format: pct1 },
-      { label: "Conversions", cur: ga4.totals.conversions, prev: ga4.previousTotals?.conversions, format: fmt },
-    );
-    if (ga4.totals.totalRevenue > 0) {
+    // A total a rebuilt period could not measure is not a candidate: its 0 is
+    // a placeholder, not a result (lib/reports/dataQuality ga4Has).
+    if (ga4Has(ga4, "users")) cands.push({ label: "Users", cur: ga4.totals.users, prev: ga4.previousTotals?.users, format: fmt });
+    cands.push({ label: "Sessions", cur: ga4.totals.sessions, prev: ga4.previousTotals?.sessions, format: fmt });
+    if (ga4Has(ga4, "engagementRate")) cands.push({ label: "Engagement rate", cur: ga4.totals.engagementRate, prev: ga4.previousTotals?.engagementRate, format: pct1 });
+    if (ga4Has(ga4, "conversions")) cands.push({ label: "Conversions", cur: ga4.totals.conversions, prev: ga4.previousTotals?.conversions, format: fmt });
+    if (ga4Has(ga4, "totalRevenue") && ga4.totals.totalRevenue > 0) {
       cands.push({ label: "Revenue", cur: ga4.totals.totalRevenue, prev: ga4.previousTotals?.totalRevenue, format: fmt });
     }
   }
@@ -302,9 +303,15 @@ function ReportPdfDoc({ data, branding, logoSrc, clientLogoSrc, clientName, titl
   const badge = badgeRepeatsTitle(badgeLabel, title) ? "" : badgeLabel;
   const chrome = { s, branding, title, generatedAt, logoSrc };
 
-  const revenue = ga4 && ga4.totals.totalRevenue > 0 ? ga4.totals.totalRevenue : null;
-  const convRate = ga4 && ga4.totals.sessions > 0 ? ga4.totals.conversions / ga4.totals.sessions : null;
-  const prevConvRate = ga4?.previousTotals && ga4.previousTotals.sessions > 0 ? ga4.previousTotals.conversions / ga4.previousTotals.sessions : null;
+  const revenue = ga4 && ga4Has(ga4, "totalRevenue") && ga4.totals.totalRevenue > 0 ? ga4.totals.totalRevenue : null;
+  const hasConv = ga4Has(ga4, "conversions");
+  const convRate = ga4 && hasConv && ga4.totals.sessions > 0 ? ga4.totals.conversions / ga4.totals.sessions : null;
+  const prevConvRate = hasConv && ga4?.previousTotals && ga4.previousTotals.sessions > 0 ? ga4.previousTotals.conversions / ga4.previousTotals.sessions : null;
+  // A GA4 card for a total this period could not measure reads "—", not 0.
+  const ga4Card = (key: "users" | "newUsers" | "engagementRate" | "conversions", format: (n: number) => string) =>
+    ga4 && ga4Has(ga4, key)
+      ? { value: format(ga4.totals[key]), delta: deltaPct(ga4.totals[key], ga4.previousTotals?.[key]) }
+      : { value: "—", delta: null };
 
   // Hero KPIs for the dashboard: the four metrics that matter most to an
   // executive, built from whatever this report actually has. ROAS needs ad
@@ -315,9 +322,9 @@ function ReportPdfDoc({ data, branding, logoSrc, clientLogoSrc, clientName, titl
   if (convRate != null) heroKpis.push({ icon: "checkCircle", label: "Conversion Rate", value: pct1(convRate), delta: deltaPct(convRate, prevConvRate) });
   if (ga4) heroKpis.push({ icon: "activity", label: "Traffic (sessions)", value: fmt(ga4.totals.sessions), delta: deltaPct(ga4.totals.sessions, ga4.previousTotals?.sessions) });
   else if (gsc) heroKpis.push({ icon: "clicks", label: "Organic Clicks", value: fmt(gsc.totals.clicks), delta: deltaPct(gsc.totals.clicks, gsc.previousTotals?.clicks) });
-  if (ga4 && revenue == null) heroKpis.push({ icon: "users", label: "Users", value: fmt(ga4.totals.users), delta: deltaPct(ga4.totals.users, ga4.previousTotals?.users) });
+  if (ga4 && revenue == null && ga4Has(ga4, "users")) heroKpis.push({ icon: "users", label: "Users", value: fmt(ga4.totals.users), delta: deltaPct(ga4.totals.users, ga4.previousTotals?.users) });
   else if (gsc) heroKpis.push({ icon: "eye", label: "Impressions", value: fmt(gsc.totals.impressions), delta: deltaPct(gsc.totals.impressions, gsc.previousTotals?.impressions) });
-  else if (ga4) heroKpis.push({ icon: "target", label: "Conversions", value: fmt(ga4.totals.conversions), delta: deltaPct(ga4.totals.conversions, ga4.previousTotals?.conversions) });
+  else if (ga4 && hasConv) heroKpis.push({ icon: "target", label: "Conversions", value: fmt(ga4.totals.conversions), delta: deltaPct(ga4.totals.conversions, ga4.previousTotals?.conversions) });
   const allHeroKpis = heroKpis.slice(0, 4);
 
   // The chips used to restate the hero cards: a rich report showed REVENUE +20%
@@ -406,7 +413,10 @@ function ReportPdfDoc({ data, branding, logoSrc, clientLogoSrc, clientName, titl
       const short = shortPeriodNote(requested);
       if (short) coverageLines.push(short);
     }
-    for (const u of meta.unavailable ?? []) coverageLines.push(`${u.section}: ${u.reason}`);
+    // Sources left out or covering part of the period, per-platform windows,
+    // and figures a rebuilt period can't show — the same list the web report
+    // and the AI prompt read.
+    coverageLines.push(...dataQualityLines(meta));
   }
 
   // MIN_TREND_POINTS is shared with the composition assessment so the page
@@ -519,10 +529,10 @@ function ReportPdfDoc({ data, branding, logoSrc, clientLogoSrc, clientName, titl
               <View wrap={false}>
                 <Text style={s.groupLabel}>Website engagement · Google Analytics 4</Text>
                 <View style={s.kpiRow}>
-                  <KpiCard s={s} color={color} icon="users" label="Users" value={fmt(ga4.totals.users)} delta={deltaPct(ga4.totals.users, ga4.previousTotals?.users)} />
+                  <KpiCard s={s} color={color} icon="users" label="Users" {...ga4Card("users", fmt)} />
                   <KpiCard s={s} color={color} icon="activity" label="Sessions" value={fmt(ga4.totals.sessions)} delta={deltaPct(ga4.totals.sessions, ga4.previousTotals?.sessions)} />
-                  <KpiCard s={s} color={color} icon="zap" label="Engagement Rate" value={pct1(ga4.totals.engagementRate)} delta={deltaPct(ga4.totals.engagementRate, ga4.previousTotals?.engagementRate)} />
-                  <KpiCard s={s} color={color} icon="checkCircle" label="Conversions" value={fmt(ga4.totals.conversions)} delta={deltaPct(ga4.totals.conversions, ga4.previousTotals?.conversions)} />
+                  <KpiCard s={s} color={color} icon="zap" label="Engagement Rate" {...ga4Card("engagementRate", pct1)} />
+                  <KpiCard s={s} color={color} icon="checkCircle" label="Conversions" {...ga4Card("conversions", fmt)} />
                 </View>
               </View>
             ) : null}
@@ -532,7 +542,7 @@ function ReportPdfDoc({ data, branding, logoSrc, clientLogoSrc, clientName, titl
                 <View style={s.kpiRow}>
                   <KpiCard s={s} color={color} icon="dollar" label="Total Revenue" value={fmt(revenue)} delta={deltaPct(revenue, ga4.previousTotals?.totalRevenue)} />
                   <KpiCard s={s} color={color} icon="percent" label="Conversion Rate" value={convRate != null ? pct1(convRate) : "—"} delta={convRate != null ? deltaPct(convRate, prevConvRate) : null} />
-                  <KpiCard s={s} color={color} icon="userPlus" label="New Users" value={fmt(ga4.totals.newUsers)} delta={deltaPct(ga4.totals.newUsers, ga4.previousTotals?.newUsers)} />
+                  <KpiCard s={s} color={color} icon="userPlus" label="New Users" {...ga4Card("newUsers", fmt)} />
                   <KpiCard s={s} color={color} icon="file" label="Pageviews" value={fmt(ga4.totals.views)} delta={deltaPct(ga4.totals.views, ga4.previousTotals?.views)} />
                 </View>
               </View>

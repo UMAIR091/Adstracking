@@ -25,6 +25,7 @@
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import type { ReportBlock, BlockKpi } from "@/lib/integrations/blocks";
 import { formatBlockValue } from "@/lib/integrations/blocks";
+import { ga4Has } from "@/lib/reports/dataQuality";
 
 const fmt = (n: number) => Math.round(n).toLocaleString("en-US");
 const pct1 = (n: number) => `${(n * 100).toFixed(1)}%`;
@@ -118,13 +119,15 @@ function gscClause(gsc: GscReportFull): string {
 function ga4Clause(ga4: Ga4ReportFull): string {
   const t = ga4.totals;
   const d = deltaPct(t.sessions, ga4.previousTotals?.sessions);
-  let out = `the website recorded ${fmt(t.sessions)} sessions from ${fmt(t.users)} users`;
+  // A rebuilt period has no unique-user, conversion or revenue figures; their
+  // zeros are placeholders (ga4Has), so the clause names only what was measured.
+  let out = `the website recorded ${fmt(t.sessions)} sessions` + (ga4Has(ga4, "users") ? ` from ${fmt(t.users)} users` : "");
   if (d != null) out += ` (${d >= 0 ? "up" : "down"} ${abs0(d)})`;
-  if (t.conversions > 0) {
+  if (ga4Has(ga4, "conversions") && t.conversions > 0) {
     out += `, converting ${fmt(t.conversions)} times`;
     if (t.sessions > 0) out += ` (${pct1(t.conversions / t.sessions)} of sessions)`;
     if (t.totalRevenue > 0) out += ` on ${fmt(t.totalRevenue)} in tracked revenue`;
-  } else if (t.totalRevenue > 0) {
+  } else if (ga4Has(ga4, "totalRevenue") && t.totalRevenue > 0) {
     out += ` on ${fmt(t.totalRevenue)} in tracked revenue`;
   }
   return out;
@@ -191,9 +194,9 @@ function movements(input: SummaryInput): Movement[] {
   }
   if (ga4) {
     push("sessions", ga4.totals.sessions, ga4.previousTotals?.sessions, fmt(ga4.totals.sessions));
-    push("users", ga4.totals.users, ga4.previousTotals?.users, fmt(ga4.totals.users));
-    push("conversions", ga4.totals.conversions, ga4.previousTotals?.conversions, fmt(ga4.totals.conversions));
-    if (ga4.totals.totalRevenue > 0) {
+    if (ga4Has(ga4, "users")) push("users", ga4.totals.users, ga4.previousTotals?.users, fmt(ga4.totals.users));
+    if (ga4Has(ga4, "conversions")) push("conversions", ga4.totals.conversions, ga4.previousTotals?.conversions, fmt(ga4.totals.conversions));
+    if (ga4Has(ga4, "totalRevenue") && ga4.totals.totalRevenue > 0) {
       push("tracked revenue", ga4.totals.totalRevenue, ga4.previousTotals?.totalRevenue, fmt(ga4.totals.totalRevenue));
     }
   }

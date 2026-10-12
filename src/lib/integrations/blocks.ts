@@ -557,15 +557,22 @@ export function snapshotToBlock(sourceId: string | null | undefined, snapshot: u
   return null;
 }
 
+const CATEGORY_ORDER: BlockCategory[] = ["paid", "organic", "analytics", "social", "commerce", "crm", "email", "calls", "video", "local", "other"];
+
+/** Blocks in reading order: paid first, then organic, analytics, social, … */
+export function orderBlocks(blocks: ReportBlock[]): ReportBlock[] {
+  return blocks.slice().sort((a, b) => CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category));
+}
+
 /** Projects many snapshots at once, dropping the ones with no usable content. */
 export function snapshotsToBlocks(
   entries: { type: string | null | undefined; snapshot: unknown }[]
 ): ReportBlock[] {
-  const order: BlockCategory[] = ["paid", "organic", "analytics", "social", "commerce", "crm", "email", "calls", "video", "local", "other"];
-  return entries
-    .map((e) => snapshotToBlock(e.type, e.snapshot))
-    .filter((b): b is ReportBlock => b !== null && (b.kpis.length > 0 || b.tables.length > 0))
-    .sort((a, b) => order.indexOf(a.category) - order.indexOf(b.category));
+  return orderBlocks(
+    entries
+      .map((e) => snapshotToBlock(e.type, e.snapshot))
+      .filter((b): b is ReportBlock => b !== null && (b.kpis.length > 0 || b.tables.length > 0))
+  );
 }
 
 // ── Cross-source aggregation ─────────────────────────────────
@@ -683,14 +690,29 @@ export function blocksToPromptText(blocks: ReportBlock[]): string {
     for (const k of b.kpis) {
       // A KPI with no valid denominator is stated as such. Passing "0" would
       // invite the model to write about a cost per click that never existed.
+      // Both changes are printed — percentage and absolute — so the model can
+      // cite either without arithmetic of its own, which the post-generation
+      // check (lib/ai/verify.ts) would reject. A prior of exactly 0 is a real
+      // baseline with no percentage change, not a missing one.
+      const lower = k.lowerBetter ? " [lower is better]" : "";
       if (k.value === null) {
         lines.push(`- ${k.label}: not calculable this period (no denominator — e.g. no clicks, spend or impressions)`);
-      } else if (k.previous === null || k.previous === 0) {
-        lines.push(`- ${k.label}: ${fmt(k.value, k.format)} (no prior-period baseline)`);
+      } else if (k.previous === null) {
+        lines.push(`- ${k.label}: ${fmt(k.value, k.format)} (no prior-period baseline)${lower}`);
+      } else if (k.previous === 0) {
+        lines.push(
+          k.value === 0
+            ? `- ${k.label}: 0 vs 0 prior (unchanged)${lower}`
+            : `- ${k.label}: ${fmt(k.value, k.format)} vs 0 prior (new this period; no percentage change from zero)${lower}`
+        );
       } else {
         const delta = ((k.value - k.previous) / Math.abs(k.previous)) * 100;
         const dir = delta >= 0 ? "+" : "";
-        lines.push(`- ${k.label}: ${fmt(k.value, k.format)} vs ${fmt(k.previous, k.format)} prior (${dir}${delta.toFixed(1)}%)${k.lowerBetter ? " [lower is better]" : ""}`);
+        const diff = k.value - k.previous;
+        const absText = pctLike(k.format)
+          ? `${diff >= 0 ? "+" : "-"}${(Math.abs(diff) * 100).toFixed(2)} percentage points`
+          : `${diff >= 0 ? "+" : "-"}${fmt(Math.abs(diff), k.format)}`;
+        lines.push(`- ${k.label}: ${fmt(k.value, k.format)} vs ${fmt(k.previous, k.format)} prior (${dir}${delta.toFixed(1)}%, ${absText})${lower}`);
       }
     }
 

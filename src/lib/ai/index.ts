@@ -6,6 +6,7 @@
 import crypto from "node:crypto";
 import { AnthropicProvider } from "./providers/anthropic";
 import { SYSTEM, SCHEMA, buildPrompt } from "./prompt";
+import { verifyInsights } from "./verify";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AIProvider, InsightsInput, ReportInsights } from "./types";
 
@@ -37,19 +38,27 @@ export async function generateReportInsights(input: InsightsInput): Promise<Repo
   if (!provider.isConfigured()) return null;
 
   try {
-    const text = await provider.complete({ system: SYSTEM, prompt: buildPrompt(input), schema: SCHEMA });
+    const prompt = buildPrompt(input);
+    const text = await provider.complete({ system: SYSTEM, prompt, schema: SCHEMA });
     if (!text) return null;
 
     const parsed = JSON.parse(text) as Partial<ReportInsights>;
     if (!parsed.executiveSummary) return null;
 
-    return {
-      executiveSummary: parsed.executiveSummary,
-      keyWins: toStringArray(parsed.keyWins),
-      issuesDetected: toStringArray(parsed.issuesDetected),
-      growthOpportunities: toStringArray(parsed.growthOpportunities),
-      recommendedActions: toStringArray(parsed.recommendedActions),
-    };
+    // Every sentence is checked against the figures the model was given, and
+    // any carrying a number that isn't in them is removed (./verify.ts). Done
+    // here, before the result is cached or stored, so generation and
+    // regeneration get the same guarantee.
+    return verifyInsights(
+      {
+        executiveSummary: parsed.executiveSummary,
+        keyWins: toStringArray(parsed.keyWins),
+        issuesDetected: toStringArray(parsed.issuesDetected),
+        growthOpportunities: toStringArray(parsed.growthOpportunities),
+        recommendedActions: toStringArray(parsed.recommendedActions),
+      },
+      prompt
+    );
   } catch (err) {
     // Never fail report generation because of the AI step.
     console.error("AI insights generation failed:", (err as Error).message);

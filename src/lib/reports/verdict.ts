@@ -284,10 +284,13 @@ export function buildVerdict(input: VerdictInput): Verdict | null {
     const clicks = gsc?.totals.clicks ?? null;
 
     if (sessions != null && sessions > 0) {
-      lines.push(`${count(sessions)} people visited your website this period.`);
+      // Sessions are visits, not people: one person visiting three times is
+      // three sessions. Calling them "people" overstated the audience.
+      lines.push(`Your website had ${count(sessions)} visits this period.`);
       delta = pctChange(sessions, ga4?.previousTotals?.sessions ?? null);
     } else if (clicks != null && clicks > 0) {
-      lines.push(`${count(clicks)} people found you through Google search this period.`);
+      // Clicks, not people, for the same reason.
+      lines.push(`Google search sent ${count(clicks)} clicks to your website this period.`);
       delta = pctChange(clicks, gsc?.previousTotals?.clicks ?? null);
     }
 

@@ -8,6 +8,9 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.ts"],
   },
+  // tsconfig keeps `jsx: preserve` for Next; a test that renders a component
+  // (ReportDocument) needs the JSX compiled, with React's automatic runtime.
+  oxc: { jsx: { runtime: "automatic" } },
   resolve: {
     alias: { "@": path.resolve(__dirname, "src") },
   },

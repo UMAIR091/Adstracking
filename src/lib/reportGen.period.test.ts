@@ -51,6 +51,7 @@ function archiveRows(from: string, to: string) {
 function stubSupabase(opts: { gscByDate?: ReturnType<typeof gscDays>; archive?: ReturnType<typeof archiveRows> } = {}) {
   const inserted: Insert[] = [];
   const dataSourceFilters: [string, unknown][] = [];
+  const archiveIds: string[] = [];
   const byDate = opts.gscByDate ?? gscDays();
   const archive = opts.archive ?? [];
 
@@ -96,6 +97,7 @@ function stubSupabase(opts: { gscByDate?: ReturnType<typeof gscDays>; archive?: 
       Object.assign(q, {
         select: () => q,
         eq: () => q,
+        in: (_c: string, v: string[]) => { archiveIds.push(...v); return q; },
         gte: (_c: string, v: string) => { from = v; return q; },
         lte: (_c: string, v: string) => { to = v; return q; },
         order: () => q,
@@ -111,7 +113,7 @@ function stubSupabase(opts: { gscByDate?: ReturnType<typeof gscDays>; archive?: 
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return { client: { from: (n: string) => table(n) } as any, inserted, dataSourceFilters };
+  return { client: { from: (n: string) => table(n) } as any, inserted, dataSourceFilters, archiveIds };
 }
 
 const generate = async (opts: Record<string, unknown>, stub = stubSupabase()) => {

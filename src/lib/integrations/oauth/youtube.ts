@@ -50,10 +50,9 @@ function humanize(code: string): string {
     .join(" ");
 }
 
+// UTC calendar days, matching dayRange() below.
 function isoDaysAgo(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
+  return new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
 }
 
 async function ytGet<T>(url: string, accessToken: string): Promise<T> {
@@ -170,10 +169,13 @@ function totalsFrom(rows: AnalyticsRow[], hasDay: boolean, subscribers: number):
 // equal-length period for comparison. accountId = the YouTube channel id.
 export async function fetchYoutubeReport(accessToken: string, channelId: string, periodDays: number): Promise<VideoReport> {
   // YouTube Analytics finalizes with a lag; end the window 2 days back.
-  const start = isoDaysAgo(periodDays + 2);
+  // Exactly periodDays days, the same days dayRange(periodDays, 2) lays out
+  // below and the same length as the previous window. The start used to be one
+  // day earlier: periodDays+1 days of totals against periodDays before.
+  const start = isoDaysAgo(periodDays + 1);
   const end = isoDaysAgo(2);
-  const prevStart = isoDaysAgo(periodDays * 2 + 2);
-  const prevEnd = isoDaysAgo(periodDays + 3);
+  const prevStart = isoDaysAgo(periodDays * 2 + 1);
+  const prevEnd = isoDaysAgo(periodDays + 2);
 
   const [subscribers, dailyRows, prevRows, trafficRows, geoRows, deviceRows, videoRows] = await Promise.all([
     subscriberCount(accessToken, channelId),

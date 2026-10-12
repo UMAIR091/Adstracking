@@ -26,9 +26,9 @@
 //
 // Those are surfaced through `unavailable`, which the report renders as an
 // explicit "not available for this period" state. Nothing here is estimated.
-import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
+import type { GscReportFull, Ga4ReportFull, Ga4Totals } from "@/lib/google";
 import type { ReportBlock, BlockSeries } from "@/lib/integrations/blocks";
-import { dayCount } from "@/lib/reports/periods";
+import { addDays, dayCount } from "@/lib/reports/periods";
 
 export type Window = { start: string; end: string };
 
@@ -42,6 +42,71 @@ export type DeriveOutcome<T> = {
 
 const inWindow = (date: string, w: Window) => date >= w.start && date <= w.end;
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+
+/**
+ * One row per date, the LAST occurrence winning. A day that reaches a series
+ * twice — a re-sync appended rather than replaced, or a snapshot overlaid on
+ * the archive — would otherwise be summed twice. Sorted by date.
+ */
+export function dedupeByDate<T extends { date: string }>(rows: T[]): T[] {
+  const byDate = new Map<string, T>();
+  for (const r of rows) if (r?.date) byDate.set(r.date, r);
+  return Array.from(byDate.values()).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+}
+
+/** `base` rows with `overlay` rows replacing any on the same date. */
+export function mergeByDate<T extends { date: string }>(base: T[], overlay: T[]): T[] {
+  return dedupeByDate([...base, ...overlay]);
+}
+
+/** Merges two series lists by label, the overlay's points winning per date. */
+export function mergeSeries(base: BlockSeries[], overlay: BlockSeries[]): BlockSeries[] {
+  const out = new Map<string, BlockSeries>();
+  for (const sr of [...base, ...overlay]) {
+    const key = sr.label.toLowerCase();
+    const prev = out.get(key);
+    out.set(key, {
+      label: prev?.label ?? sr.label,
+      format: prev?.format ?? sr.format,
+      points: mergeByDate(prev?.points ?? [], sr.points),
+    });
+  }
+  return Array.from(out.values());
+}
+
+/**
+ * The days a period-over-period comparison may be computed over, or null when
+ * the history can't support a fair one.
+ *
+ * A source's daily history may omit days with no activity (Search Console does
+ * not return a zero day), so a missing date INSIDE the history's extent is a
+ * zero, while a date outside it is unknown. A comparison is therefore allowed
+ * only when the history's extent reaches back to the start of the previous
+ * window, and forward to within `maxLagDays` of the current window's end.
+ *
+ * When the newest data stops short of the period end (providers settle on
+ * different lags), the current window holds data only up to that last day, so
+ * the previous window is cut to the same number of days and the two are
+ * compared like for like.
+ */
+export function comparisonWindows(
+  dates: string[],
+  current: Window,
+  previous: Window,
+  maxLagDays = 3
+): { current: Window; previous: Window } | null {
+  const extent = seriesCoverage(dates);
+  if (!extent) return null;
+  if (extent.start > previous.start) return null;
+  if (extent.end >= current.end) return { current, previous };
+  if (extent.end < addDays(current.end, -maxLagDays) || extent.end < current.start) return null;
+  const days = dayCount(current.start, extent.end);
+  const prevEnd = addDays(previous.start, days - 1);
+  return {
+    current: { start: current.start, end: extent.end },
+    previous: { start: previous.start, end: prevEnd < previous.end ? prevEnd : previous.end },
+  };
+}
 
 /** Coverage of a daily series, or null when it has no dated rows. */
 export function seriesCoverage(dates: string[]): Window | null {
@@ -110,7 +175,7 @@ export const MIN_PERIOD_COVERAGE = 0.5;
 // Everything those functions mark unavailable stays unavailable here — the
 // archive stores daily totals, not dimension breakdowns.
 
-export type ArchiveRow = { date: string; provider: string; metrics: Record<string, number> };
+export type ArchiveRow = { date: string; provider: string; data_source_id?: string; metrics: Record<string, number> };
 
 const pick = (m: Record<string, number>, key: string) => num(m[key]);
 
@@ -145,59 +210,80 @@ export function archiveToGa4ByDate(rows: ArchiveRow[]): { date: string; users: n
  * Metric keys are capitalised into the labels deriveBlock recognises.
  */
 export function archiveToBlockSeries(rows: ArchiveRow[]): Map<string, BlockSeries[]> {
+  const byProvider = new Map<string, ArchiveRow[]>();
+  for (const r of rows) {
+    if (r.provider === "gsc" || r.provider === "ga4") continue;
+    byProvider.set(r.provider, [...(byProvider.get(r.provider) ?? []), r]);
+  }
+  // Array.from rather than for-of over the Map: this file compiles for the
+  // browser and the project targets ES5 downlevel iteration.
+  const out = new Map<string, BlockSeries[]>();
+  Array.from(byProvider.entries()).forEach(([provider, list]) => out.set(provider, archiveRowsToSeries(list)));
+  return out;
+}
+
+/**
+ * One source's archive rows as named block series. Callers pass the rows of a
+ * single data source: grouping by provider alone would add two accounts of the
+ * same platform — or a replaced connection and its successor — into one line.
+ */
+export function archiveRowsToSeries(rows: ArchiveRow[]): BlockSeries[] {
   const CURRENCY_KEYS = new Set(["spend", "revenue", "cost"]);
   const LABELS: Record<string, string> = {
     spend: "Spend", impressions: "Impressions", clicks: "Clicks",
     conversions: "Conversions", orders: "Orders", revenue: "Revenue",
   };
-  const byProvider = new Map<string, Map<string, { date: string; value: number }[]>>();
-
+  const series = new Map<string, { date: string; value: number }[]>();
   for (const r of rows) {
-    if (r.provider === "gsc" || r.provider === "ga4") continue;
-    const series = byProvider.get(r.provider) ?? new Map();
-    for (const [key, value] of Object.entries(r.metrics)) {
+    for (const [key, value] of Object.entries(r.metrics ?? {})) {
       if (!(key in LABELS) || !Number.isFinite(value)) continue;
       const points = series.get(key) ?? [];
       points.push({ date: r.date, value });
       series.set(key, points);
     }
-    byProvider.set(r.provider, series);
   }
-
-  // Array.from rather than for-of over the Map: this file compiles for the
-  // browser and the project targets ES5 downlevel iteration.
-  const out = new Map<string, BlockSeries[]>();
-  Array.from(byProvider.entries()).forEach(([provider, series]) => {
-    const built: BlockSeries[] = Array.from(series.entries()).map(([key, points]) => ({
-      label: LABELS[key],
-      format: CURRENCY_KEYS.has(key) ? ("currency" as const) : ("number" as const),
-      points,
-    }));
-    out.set(provider, built);
-  });
-  return out;
+  return Array.from(series.entries()).map(([key, points]) => ({
+    label: LABELS[key],
+    format: CURRENCY_KEYS.has(key) ? ("currency" as const) : ("number" as const),
+    points: dedupeByDate(points),
+  }));
 }
 
 // ── Search Console ──────────────────────────────────────────────────────────
 
-export function deriveGsc(full: GscReportFull | null, w: Window): DeriveOutcome<GscReportFull> {
-  if (!full?.byDate?.length) return { data: null, unavailable: [] };
-
-  const days = full.byDate.filter((d) => inWindow(d.date, w));
-  if (days.length === 0) return { data: null, unavailable: [] };
-
+function gscTotalsOf(days: GscReportFull["byDate"]): GscReportFull["totals"] {
   const clicks = days.reduce((a, d) => a + num(d.clicks), 0);
   const impressions = days.reduce((a, d) => a + num(d.impressions), 0);
   // Search Console's average position is impression-weighted; averaging the
   // daily figures unweighted would misreport it.
   const posWeighted = days.reduce((a, d) => a + num(d.position) * num(d.impressions), 0);
-
-  const totals = {
+  return {
     clicks,
     impressions,
     ctr: impressions > 0 ? clicks / impressions : 0,
     position: impressions > 0 ? posWeighted / impressions : 0,
   };
+}
+
+/** A previous-window pair approved by comparisonWindows(). */
+export type Compare = { current: Window; previous: Window } | null | undefined;
+
+/**
+ * `compare`, when given, is the pair of windows comparisonWindows() approved.
+ * Previous totals are rebuilt from the same daily rows, so a calendar or custom
+ * period gets a period-over-period change wherever the history supports one.
+ * The current totals need no trimming: the history has no rows after its last
+ * day, so they already cover exactly `compare.current`.
+ */
+export function deriveGsc(full: GscReportFull | null, w: Window, compare?: Compare): DeriveOutcome<GscReportFull> {
+  if (!full?.byDate?.length) return { data: null, unavailable: [] };
+
+  const all = dedupeByDate(full.byDate);
+  const days = all.filter((d) => inWindow(d.date, w));
+  if (days.length === 0) return { data: null, unavailable: [] };
+
+  const totals = gscTotalsOf(days);
+  const previousTotals = compare ? gscTotalsOf(all.filter((d) => inWindow(d.date, compare.previous))) : null;
 
   return {
     data: {
@@ -210,7 +296,9 @@ export function deriveGsc(full: GscReportFull | null, w: Window): DeriveOutcome<
       topPages: [],
       topCountries: [],
       topDevices: [],
-      previousTotals: null,
+      previousTotals,
+      previousWindow: compare ? compare.previous : null,
+      window: { start: w.start, end: w.end },
       movers: null,
     },
     unavailable: [
@@ -222,40 +310,50 @@ export function deriveGsc(full: GscReportFull | null, w: Window): DeriveOutcome<
 
 // ── GA4 ─────────────────────────────────────────────────────────────────────
 
-export function deriveGa4(full: Ga4ReportFull | null, w: Window): DeriveOutcome<Ga4ReportFull> {
+/**
+ * GA4 totals a daily rebuild cannot produce. Listed on the result as
+ * `unavailableMetrics`: the fields hold 0 only because the type is numeric,
+ * and every renderer, summary and the AI prompt read the list and show "not
+ * available" instead of a zero that would say nobody converted.
+ */
+export const GA4_DAILY_UNAVAILABLE: (keyof Ga4Totals)[] = [
+  "users", "newUsers", "engagedSessions", "engagementRate", "avgEngagementTime", "conversions", "totalRevenue",
+];
+
+function ga4TotalsOf(days: Ga4ReportFull["byDate"]): Ga4Totals {
+  return {
+    sessions: days.reduce((a, d) => a + num(d.sessions), 0),
+    views: days.reduce((a, d) => a + num(d.views), 0),
+    users: 0,
+    newUsers: 0,
+    engagedSessions: 0,
+    engagementRate: 0,
+    avgEngagementTime: 0,
+    conversions: 0,
+    totalRevenue: 0,
+  };
+}
+
+export function deriveGa4(full: Ga4ReportFull | null, w: Window, compare?: Compare): DeriveOutcome<Ga4ReportFull> {
   if (!full?.byDate?.length) return { data: null, unavailable: [] };
 
-  const days = full.byDate.filter((d) => inWindow(d.date, w));
+  const all = dedupeByDate(full.byDate);
+  const days = all.filter((d) => inWindow(d.date, w));
   if (days.length === 0) return { data: null, unavailable: [] };
-
-  const sessions = days.reduce((a, d) => a + num(d.sessions), 0);
-  const views = days.reduce((a, d) => a + num(d.views), 0);
 
   return {
     data: {
       ...full,
-      totals: {
-        ...full.totals,
-        sessions,
-        views,
-        // Unique-visitor and engagement metrics are NOT reconstructable from
-        // daily rows. Zero would read as "nobody visited", so they are zeroed
-        // only alongside the explicit unavailable notice below, which the
-        // report renders instead of the figures.
-        users: 0,
-        newUsers: 0,
-        engagedSessions: 0,
-        engagementRate: 0,
-        avgEngagementTime: 0,
-        conversions: 0,
-        totalRevenue: 0,
-      },
+      totals: ga4TotalsOf(days),
+      unavailableMetrics: GA4_DAILY_UNAVAILABLE.slice(),
       byDate: days,
       topLandingPages: [],
       trafficSources: [],
       devices: [],
       countries: [],
-      previousTotals: null,
+      previousTotals: compare ? ga4TotalsOf(all.filter((d) => inWindow(d.date, compare.previous))) : null,
+      previousWindow: compare ? compare.previous : null,
+      window: { start: w.start, end: w.end },
     },
     unavailable: [
       { section: "Users and new users", reason: "These count unique people, and adding up each day's figures would count anyone who visited on more than one day twice — so they can't be rebuilt for a custom range." },
@@ -272,52 +370,67 @@ export function deriveGa4(full: Ga4ReportFull | null, w: Window): DeriveOutcome<
  * points inside the window per series. KPIs that were period-scoped aggregates
  * are dropped: without their components there is no honest way to restate them.
  */
-export function deriveBlock(block: ReportBlock, w: Window): DeriveOutcome<ReportBlock> {
+type BlockSums = Record<"spend" | "impressions" | "clicks" | "conversions" | "orders" | "revenue", number | null>;
+
+function blockSums(series: BlockSeries[], w: Window): BlockSums {
+  const sumOf = (label: string) => {
+    const sr = series.find((x) => x.label.toLowerCase() === label.toLowerCase());
+    return sr ? dedupeByDate(sr.points).filter((p) => inWindow(p.date, w)).reduce((a, p) => a + num(p.value), 0) : null;
+  };
+  return {
+    spend: sumOf("Spend"),
+    impressions: sumOf("Impressions"),
+    clicks: sumOf("Clicks"),
+    conversions: sumOf("Conversions"),
+    orders: sumOf("Orders"),
+    revenue: sumOf("Revenue"),
+  };
+}
+
+const ratioOf = (n: number | null, d: number | null) => (n === null || d === null || d <= 0 ? null : n / d);
+
+export function deriveBlock(block: ReportBlock, w: Window, compare?: Compare): DeriveOutcome<ReportBlock> {
   const series = block.series
-    .map((s) => ({ ...s, points: s.points.filter((p) => inWindow(p.date, w)) }))
-    .filter((s) => s.points.length > 0);
+    .map((sr) => ({ ...sr, points: dedupeByDate(sr.points).filter((p) => inWindow(p.date, w)) }))
+    .filter((sr) => sr.points.length > 0);
 
   if (series.length === 0) return { data: null, unavailable: [] };
 
-  const sumOf = (label: string) => {
-    const s = series.find((x) => x.label.toLowerCase() === label.toLowerCase());
-    return s ? s.points.reduce((a, p) => a + num(p.value), 0) : null;
-  };
-
   // Rebuild only the KPIs whose components are present as daily series, and
-  // recompute the ratios from those sums.
-  const spend = sumOf("Spend");
-  const impressions = sumOf("Impressions");
-  const clicks = sumOf("Clicks");
-  const conversions = sumOf("Conversions");
-  const orders = sumOf("Orders");
-  const revenue = sumOf("Revenue");
+  // recompute the ratios from those sums. Previous figures come from the same
+  // series over the approved comparison window, or stay null.
+  const cur = blockSums(series, w);
+  const prev = compare ? blockSums(block.series, compare.previous) : null;
+  type Format = ReportBlock["kpis"][number]["format"];
 
   const kpis: ReportBlock["kpis"] = [];
-  const push = (label: string, value: number | null, format: ReportBlock["kpis"][number]["format"], lowerBetter = false) => {
+  const push = (label: string, key: keyof BlockSums, format: Format) => {
+    const value = cur[key];
     if (value === null) return;
-    kpis.push({ label, value, previous: null, format, ...(lowerBetter ? { lowerBetter: true } : {}) });
+    kpis.push({ label, value, previous: prev ? prev[key] : null, format });
   };
+  push("Spend", "spend", "currency");
+  push("Impressions", "impressions", "number");
+  push("Clicks", "clicks", "number");
+  push("Conversions", "conversions", "number");
+  push("Orders", "orders", "number");
+  push("Revenue", "revenue", "currency");
 
-  push("Spend", spend, "currency");
-  push("Impressions", impressions, "number");
-  push("Clicks", clicks, "number");
-  push("Conversions", conversions, "number");
-  push("Orders", orders, "number");
-  push("Revenue", revenue, "currency");
   // Ratios recomputed from the sums above, null when the denominator is zero.
-  if (clicks !== null && impressions !== null) {
-    kpis.push({ label: "CTR", value: impressions > 0 ? clicks / impressions : null, previous: null, format: "percent" });
-  }
-  if (spend !== null && clicks !== null) {
-    kpis.push({ label: "CPC", value: clicks > 0 ? spend / clicks : null, previous: null, format: "currency", lowerBetter: true });
-  }
-  if (spend !== null && conversions !== null) {
-    kpis.push({ label: "Cost per conversion", value: conversions > 0 ? spend / conversions : null, previous: null, format: "currency", lowerBetter: true });
-  }
-  if (revenue !== null && orders !== null) {
-    kpis.push({ label: "Avg order value", value: orders > 0 ? revenue / orders : null, previous: null, format: "currency" });
-  }
+  const ratio = (label: string, n: keyof BlockSums, d: keyof BlockSums, format: Format, lowerBetter = false) => {
+    if (cur[n] === null || cur[d] === null) return;
+    kpis.push({
+      label,
+      value: ratioOf(cur[n], cur[d]),
+      previous: prev ? ratioOf(prev[n], prev[d]) : null,
+      format,
+      ...(lowerBetter ? { lowerBetter: true } : {}),
+    });
+  };
+  ratio("CTR", "clicks", "impressions", "percent");
+  ratio("CPC", "spend", "clicks", "currency", true);
+  ratio("Cost per conversion", "spend", "conversions", "currency", true);
+  ratio("Avg order value", "revenue", "orders", "currency");
 
   const unavailable: Unavailable[] = [];
   if (block.tables.length > 0) {
@@ -327,8 +440,16 @@ export function deriveBlock(block: ReportBlock, w: Window): DeriveOutcome<Report
     });
   }
 
+  // The snapshot's notes describe the snapshot's window, not this one, so they
+  // are restated for this window. A paid channel with no spend and no
+  // impressions here measured a real zero, and says so in words — the same
+  // sentence the snapshot projection uses (integrations/blocks.ts).
+  const notes = block.category === "paid" && !cur.spend && !cur.impressions ? ["No ads ran in this period."] : [];
+
   return {
-    data: { ...block, kpis, series, tables: [], notes: block.notes },
+    // An all-zero line is not a trend; charts get the series that moved, the
+    // KPIs above still state the zeros.
+    data: { ...block, kpis, series: series.filter((sr) => sr.points.some((p) => p.value !== 0)), tables: [], notes },
     unavailable,
   };
 }

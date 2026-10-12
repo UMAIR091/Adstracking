@@ -6,6 +6,7 @@ import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import type { ReportInsights, InsightsInput } from "@/lib/ai";
 import type { ReportBlock } from "@/lib/integrations/blocks";
 import { detectSignals } from "@/lib/insights/signals";
+import { sourceNotes, type ReportSourceStatus } from "@/lib/reports/dataQuality";
 
 // The unified payload stored in reports.data and rendered by ReportDocument.
 // Either Google source may be null (only one connected). `insightsHash`
@@ -60,7 +61,27 @@ export type ReportMeta = {
    * silently omitted and never approximated.
    */
   unavailable?: { section: string; reason: string }[];
+  /**
+   * Every connected source and what it contributed: included, partial, or
+   * left out as stale / without data / not yet synced, with the dates its
+   * figures cover. Absent on reports generated before it existed.
+   */
+  sources?: ReportSourceStatus[];
 };
+
+/**
+ * Everything a reader of this report needs to know about the data behind it,
+ * as plain sentences: sources left out and why, sources covering only part of
+ * the period, per-platform date windows, and figures a rebuilt period cannot
+ * show. One list for the web report, the PDF and the AI prompt.
+ */
+export function dataQualityLines(meta: ReportMeta | null | undefined): string[] {
+  if (!meta) return [];
+  return [
+    ...sourceNotes(meta.sources, meta.requested),
+    ...(meta.unavailable ?? []).map((u) => `${u.section}: ${u.reason}`),
+  ];
+}
 
 // Stable, dependency-free hash (FNV-1a) of exactly the metrics the AI analyzes.
 function fnv1a(s: string): string {
@@ -192,6 +213,7 @@ export function toInsightsInput(data: ReportData, clientName: string, periodLabe
       ? {
           totals: data.ga4.totals,
           previousTotals: data.ga4.previousTotals ?? null,
+          unavailableMetrics: data.ga4.unavailableMetrics ?? [],
           trafficSources: data.ga4.trafficSources,
           topLandingPages: data.ga4.topLandingPages,
           devices: data.ga4.devices,
@@ -199,6 +221,10 @@ export function toInsightsInput(data: ReportData, clientName: string, periodLabe
         }
       : null,
     blocks: data.blocks?.length ? data.blocks : null,
+    // What the model must know about the data's limits — sources left out,
+    // partial coverage, per-platform windows, figures a rebuilt period lacks —
+    // so it hedges or stays silent rather than reading a gap as a zero.
+    dataQuality: dataQualityLines(data.meta),
     // The same anomalies the report renders, handed to the model so its prose
     // agrees with the figures printed beside it — and so it has no reason to
     // invent an anomaly of its own.

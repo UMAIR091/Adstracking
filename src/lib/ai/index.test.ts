@@ -36,7 +36,14 @@ import type { InsightsInput, ReportInsights } from "./types";
 const INPUT: InsightsInput = {
   clientName: "Acme",
   periodLabel: "Last 14 days",
-  gsc: { totals: { clicks: 0, impressions: 86, ctr: 0, position: 18 }, topQueries: [], topPages: [] },
+  // 102 vs 50 impressions is +104.0%, so the figure the answer below cites is
+  // in the data and survives the post-generation check (./verify.ts).
+  gsc: {
+    totals: { clicks: 0, impressions: 102, ctr: 0, position: 18 },
+    previousTotals: { clicks: 0, impressions: 50, ctr: 0, position: 20 },
+    topQueries: [],
+    topPages: [],
+  },
   ga4: null,
   blocks: null,
 };
@@ -48,6 +55,10 @@ const FULL: ReportInsights = {
   growthOpportunities: ["Target near-page-one queries"],
   recommendedActions: ["Improve titles"],
 };
+
+// What a live generation returns: the answer plus the record of the check,
+// which removed nothing because every figure in FULL is in INPUT.
+const VERIFIED: ReportInsights = { ...FULL, verification: { removedClaims: 0, summaryRemoved: false, unsupported: [] } };
 
 // A chainable stub of the admin client's ai_insights_cache access.
 function cacheClient() {
@@ -94,13 +105,16 @@ describe("generateReportInsights", () => {
 
   it("parses and returns the model's structured answer", async () => {
     const out = await generateReportInsights(INPUT);
-    expect(out).toEqual(FULL);
+    expect(out).toEqual(VERIFIED);
   });
 
   it("normalizes missing optional groups to arrays", async () => {
     h.complete.mockResolvedValue(JSON.stringify({ executiveSummary: "Only a summary." }));
     const out = await generateReportInsights(INPUT);
-    expect(out).toEqual({ executiveSummary: "Only a summary.", keyWins: [], issuesDetected: [], growthOpportunities: [], recommendedActions: [] });
+    expect(out).toEqual({
+      executiveSummary: "Only a summary.", keyWins: [], issuesDetected: [], growthOpportunities: [], recommendedActions: [],
+      verification: { removedClaims: 0, summaryRemoved: false, unsupported: [] },
+    });
   });
 
   it("returns null (never throws) when the API call fails", async () => {
@@ -144,10 +158,10 @@ describe("generateReportInsightsCached", () => {
 
     const out = await generateReportInsightsCached(INPUT);
 
-    expect(out).toEqual({ insights: FULL, cached: false });
+    expect(out).toEqual({ insights: VERIFIED, cached: false });
     expect(h.complete).toHaveBeenCalledTimes(1);
     expect(h.inserts).toHaveLength(1);
-    expect((h.inserts[0] as { insights: ReportInsights }).insights).toEqual(FULL);
+    expect((h.inserts[0] as { insights: ReportInsights }).insights).toEqual(VERIFIED);
   });
 
   it("does not write the cache when generation yields null", async () => {
@@ -202,8 +216,9 @@ describe("the cache wrapper honours the never-throw contract", () => {
     });
 
     const result = await generateReportInsightsCached(INPUT);
+    // The check ran even though the cache could not be reached.
 
-    expect(result).toEqual({ insights: FULL, cached: false });
+    expect(result).toEqual({ insights: VERIFIED, cached: false });
     expect(h.complete).toHaveBeenCalledTimes(1);
   });
 

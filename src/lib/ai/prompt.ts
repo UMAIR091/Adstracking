@@ -29,9 +29,14 @@ RULES
 4. Never call something an anomaly without a given flag; never soften one you were given.
 5. Plain language for a non-marketer end client — spell out any jargon in parentheses on first use ("the ads are getting clicked more often (click-through rate)").
 6. No exclamation points, no "great news", no filler enthusiasm.
+7. Every figure you write must be one printed in the data below, or a natural rounding of one. Do not compute new ratios, totals, differences, shares or projections of your own. Each sentence is checked against the data after you write it, and a sentence with a figure that is not there is deleted.
+8. A metric marked "not available", and a channel listed under DATA QUALITY as not included, has NO value. Never describe it as zero, low, absent or declining, and never infer anything from its absence.
+9. Where DATA QUALITY says a channel covers only part of the period, or different dates from the others, write about that channel in hedge mode only, and do not correlate it day-for-day with the others.
+10. State the measured fact first, then the interpretation — the interpretation always hedged ("suggests", "reads as", "likely"). A recommendation names the figure that justifies it.
 
 READING THE DATA
-- Cite the change against the previous period in both absolute and percentage terms: "spend rose 18% (£4,210 → £4,980) while cost per conversion fell 9%", never "paid performance improved".
+- Cite the change against the previous period in both absolute and percentage terms, using the change printed beside each metric: "spend rose 18% (£4,210 → £4,980) while cost per conversion fell 9%", never "paid performance improved".
+- "No prior-period baseline" means there is nothing to compare with: describe the current figure only, never a change.
 - Use the currency stated for each monetary channel. Never assume dollars.
 - Where a metric is marked [lower is better] (cost per conversion, CPC, CPM, unsubscribes, average search position), a fall is an improvement.
 - Name channels by what they are ("paid social", "organic search", "email") rather than the tools the data came from, except where naming the platform is what makes a recommendation actionable.
@@ -63,12 +68,26 @@ export const SCHEMA = {
 const pct = (v: number) => `${(v * 100).toFixed(2)}%`;
 const num = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
 
-function deltaLine(label: string, cur: number, prev: number | null | undefined, asPct = false) {
+// Each KPI line carries the current value, the prior value, and BOTH changes —
+// percentage and absolute — so the model can cite either without doing its
+// own arithmetic (rule 7: a computed figure is not in the data and is removed).
+// A prior of exactly 0 is a real baseline with no percentage change, not a
+// missing one.
+export function deltaLine(label: string, cur: number, prev: number | null | undefined, asPct = false) {
   const fmt = (n: number) => (asPct ? pct(n) : num(n));
-  if (prev == null || prev === 0) return `- ${label}: ${fmt(cur)} (no prior-period baseline)`;
-  const change = ((cur - prev) / prev) * 100;
+  if (prev == null) return `- ${label}: ${fmt(cur)} (no prior-period baseline)`;
+  const diff = cur - prev;
+  const abs = asPct ? `${(Math.abs(diff) * 100).toFixed(2)} percentage points` : num(Math.abs(diff));
+  if (prev === 0) {
+    return cur === 0
+      ? `- ${label}: 0 vs 0 prior (unchanged)`
+      : `- ${label}: ${fmt(cur)} vs 0 prior (new this period, up ${abs}; no percentage change from zero)`;
+  }
+  const change = (diff / prev) * 100;
   const dir = change === 0 ? "flat" : change > 0 ? "up" : "down";
-  return `- ${label}: ${fmt(cur)} vs ${fmt(prev)} prior (${dir} ${Math.abs(change).toFixed(1)}%)`;
+  return change === 0
+    ? `- ${label}: ${fmt(cur)} vs ${fmt(prev)} prior (flat)`
+    : `- ${label}: ${fmt(cur)} vs ${fmt(prev)} prior (${dir} ${Math.abs(change).toFixed(1)}%, ${dir} ${abs})`;
 }
 
 function gscSection(gsc: NonNullable<InsightsInput["gsc"]>): string {
@@ -109,27 +128,46 @@ Declining queries: ${decliners === "none" ? "none" : "\n  " + decliners}
 Near-page-one opportunities: ${opps === "none" ? "none" : "\n  " + opps}`;
 }
 
+const GA4_LABELS: Record<keyof Ga4Totals, string> = {
+  users: "Users",
+  newUsers: "New users",
+  sessions: "Sessions",
+  engagedSessions: "Engaged sessions",
+  engagementRate: "Engagement rate",
+  avgEngagementTime: "Avg engagement time (s)",
+  views: "Views",
+  conversions: "Conversions",
+  totalRevenue: "Total revenue",
+};
+
 function ga4Section(ga4: NonNullable<InsightsInput["ga4"]>): string {
   const t = ga4.totals;
   const p = ga4.previousTotals;
+  const missing = new Set(ga4.unavailableMetrics ?? []);
   const dim = (rows?: { key: string; sessions: number; users: number }[]) =>
     rows?.length ? rows.slice(0, 6).map((r) => `${r.key} — ${r.sessions} sessions, ${r.users} users`).join("\n  ") : "none";
+  // An unmeasured total holds 0 only because the type is numeric. It is left
+  // out of the figures and named below as not available, so the model can't
+  // report "no conversions" for a period that simply has no conversion data.
+  const line = (key: keyof Ga4Totals, asPct = false) =>
+    missing.has(key) ? null : deltaLine(GA4_LABELS[key], t[key], p ? p[key] : null, asPct);
 
   const kpis = [
-    deltaLine("Users", t.users, p?.users),
-    deltaLine("New users", t.newUsers, p?.newUsers),
-    deltaLine("Sessions", t.sessions, p?.sessions),
-    deltaLine("Engaged sessions", t.engagedSessions, p?.engagedSessions),
-    deltaLine("Engagement rate", t.engagementRate, p?.engagementRate, true),
-    deltaLine("Avg engagement time (s)", t.avgEngagementTime, p?.avgEngagementTime),
-    deltaLine("Views", t.views, p?.views),
-    deltaLine("Conversions", t.conversions, p?.conversions),
-    t.totalRevenue > 0 ? deltaLine("Total revenue", t.totalRevenue, p?.totalRevenue) : null,
+    line("users"),
+    line("newUsers"),
+    line("sessions"),
+    line("engagedSessions"),
+    line("engagementRate", true),
+    line("avgEngagementTime"),
+    line("views"),
+    line("conversions"),
+    t.totalRevenue > 0 ? line("totalRevenue") : null,
   ].filter(Boolean).join("\n");
+  const notAvailable = Array.from(missing).map((k) => GA4_LABELS[k]).join(", ");
 
   return `GA4 (website engagement & conversions)
 KPIs (current vs previous period):
-${kpis}
+${kpis}${notAvailable ? `\nNot available for this period (no value — do not mention or estimate): ${notAvailable}` : ""}
 Traffic sources (channels):
   ${dim(ga4.trafficSources)}
 Top landing pages:
@@ -159,6 +197,11 @@ export function buildPrompt(input: InsightsInput): string {
     ? input.signals.map((s) => `- ${s.title} — ${s.detail} (${s.metric}; ${s.confidence} confidence)`).join("\n")
     : "- None. The anomaly check ran and raised nothing for this period, so do not describe any movement as a spike, drop or anomaly.";
   sections.push(`DETERMINISTIC ANOMALY FLAGS (pre-computed — do not add your own)\n${signalText}`);
+
+  // The data's own limits, stated before the model writes a word about it.
+  if (input.dataQuality?.length) {
+    sections.push(`DATA QUALITY (limits of the data above — respect every one)\n${input.dataQuality.map((l) => `- ${l}`).join("\n")}`);
+  }
 
   const channelCount = (input.gsc ? 1 : 0) + (input.ga4 ? 1 : 0) + (input.blocks?.length ?? 0);
   const guidance = channelCount > 1

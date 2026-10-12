@@ -9,10 +9,11 @@ import { checkReportLimit } from "@/lib/billing/limits";
 import { featuresForPlan } from "@/lib/billing/config";
 import { ARCHIVED_CLIENT_ERROR } from "@/lib/archivedClients";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
-import { snapshotsToBlocks, type ReportBlock } from "@/lib/integrations/blocks";
-import { resolvePeriod, isPeriodPreset, type PeriodPreset, type ResolveResult } from "@/lib/reports/periods";
-import { deriveGsc, deriveGa4, deriveBlock, seriesCoverage, covers, distinctDaysWithin, MIN_PERIOD_COVERAGE, archiveToGscByDate, archiveToGa4ByDate, archiveToBlockSeries, type Unavailable } from "@/lib/reports/derive";
-import { fetchHistory } from "@/lib/metrics/history";
+import { snapshotToBlock, orderBlocks, type ReportBlock } from "@/lib/integrations/blocks";
+import { resolvePeriod, isPeriodPreset, previousWindow, dayCount, type PeriodPreset, type ResolveResult } from "@/lib/reports/periods";
+import { deriveGsc, deriveGa4, deriveBlock, seriesCoverage, covers, distinctDaysWithin, MIN_PERIOD_COVERAGE, archiveToGscByDate, archiveToGa4ByDate, archiveRowsToSeries, mergeByDate, mergeSeries, comparisonWindows, type Unavailable } from "@/lib/reports/derive";
+import { assessSnapshotSource, assessDerivedSource, dominantWindow, sourceNotes, type ReportSourceStatus } from "@/lib/reports/dataQuality";
+import { fetchHistory, extractDailySeries } from "@/lib/metrics/history";
 import { inferReportType, isReportType, suggestReportTitle, type ReportType } from "@/lib/reports/types";
 import { hasCalculableKpis } from "@/lib/reports/summary";
 import { assembleReport, isGscEmpty, isGa4Empty, isReportEmpty, dataCoverage, periodLabel, insightsPeriodPhrase, toInsightsInput, type ReportData } from "@/lib/report";
@@ -78,7 +79,7 @@ export async function createClientReport(
   // behave exactly as before. A `period` preset takes precedence.
   const resolved = resolveRequestedPeriod(opts);
   if (!resolved.ok) return { ok: false, status: 400, error: resolved.error };
-  const period = resolved.period;
+  let period = resolved.period;
 
   // Which cached snapshot to read. A window of 28 rolling days matches the
   // 28-day snapshot exactly and is served at full fidelity; anything else is
@@ -105,7 +106,7 @@ export async function createClientReport(
   // refuses a client from another agency, but the cron runs this with the
   // service role, where RLS isn't there to catch a mismatched pair.
   const { data: sources } = await supabase
-    .from("data_sources").select("id, type, config").eq("client_id", clientId).eq("agency_id", agencyId);
+    .from("data_sources").select("id, type, config, status").eq("client_id", clientId).eq("agency_id", agencyId);
   const gscDs = sources?.find((s) => s.type === "gsc");
   const ga4Ds = sources?.find((s) => s.type === "ga4");
   const gscReady = Boolean((gscDs?.config as { site_url?: string } | undefined)?.site_url);
@@ -116,36 +117,99 @@ export async function createClientReport(
     return { ok: false, status: 400, error: "Connect at least one data source for this client first." };
   }
 
+  // Each snapshot is read with its sync time: whether it may describe this
+  // period at all is decided from when its data ends (lib/reports/dataQuality).
+  type SnapRow = { data: unknown; synced_at: string | null };
   let gscData: GscReportFull | null = null;
+  let gscSnap: SnapRow | null = null;
   if (gscReady && gscDs) {
     const { data: snap } = await supabase
-      .from("gsc_snapshots").select("data").eq("data_source_id", gscDs.id).eq("period_days", snapshotDays).maybeSingle();
+      .from("gsc_snapshots").select("data, synced_at").eq("data_source_id", gscDs.id).eq("period_days", snapshotDays).maybeSingle();
+    gscSnap = (snap as SnapRow | null) ?? null;
     const s = (snap?.data as GscReportFull | undefined) ?? null;
     gscData = isGscEmpty(s) ? null : s;
   }
 
   let ga4Data: Ga4ReportFull | null = null;
+  let ga4Snap: SnapRow | null = null;
   if (ga4Ready && ga4Ds) {
     const { data: snap } = await supabase
-      .from("ga4_snapshots").select("data").eq("data_source_id", ga4Ds.id).eq("period_days", snapshotDays).maybeSingle();
+      .from("ga4_snapshots").select("data, synced_at").eq("data_source_id", ga4Ds.id).eq("period_days", snapshotDays).maybeSingle();
+    ga4Snap = (snap as SnapRow | null) ?? null;
     const s = (snap?.data as Ga4ReportFull | undefined) ?? null;
     ga4Data = isGa4Empty(s) ? null : s;
   }
 
   // Every non-Google source, projected into blocks. One query for all of them.
-  let blocks: ReportBlock[] = [];
+  // Each block stays paired with the data source it came from, so its archive
+  // history is looked up by that source rather than by platform: two accounts
+  // on one platform must never share a series.
+  type Channel = { dsId: string; type: string; status: string | null; syncedAt: string | null; snapshot: unknown; block: ReportBlock | null };
+  let channels: Channel[] = [];
   if (otherSources.length) {
     const { data: snaps } = await supabase
       .from("integration_snapshots")
-      .select("data_source_id, data")
+      .select("data_source_id, data, synced_at")
       .in("data_source_id", otherSources.map((s) => s.id))
       .eq("period_days", snapshotDays);
-    const byId = new Map((snaps ?? []).map((r) => [r.data_source_id as string, r.data]));
-    blocks = snapshotsToBlocks(otherSources.map((s) => ({ type: s.type as string, snapshot: byId.get(s.id as string) })));
+    const byId = new Map((snaps ?? []).map((r) => [r.data_source_id as string, r as SnapRow]));
+    channels = otherSources.map((src) => {
+      const row = byId.get(src.id as string);
+      const block = snapshotToBlock(src.type as string, row?.data);
+      return {
+        dsId: src.id as string,
+        type: src.type as string,
+        status: (src.status as string | null | undefined) ?? null,
+        syncedAt: row?.synced_at ?? null,
+        snapshot: row?.data ?? null,
+        block: block && (block.kpis.length > 0 || block.tables.length > 0) ? block : null,
+      };
+    });
   }
+  const blocksOf = (list: Channel[]) => orderBlocks(list.map((c) => c.block).filter((b): b is ReportBlock => b !== null));
+  let blocks = blocksOf(channels);
 
   if (isReportEmpty({ gsc: gscData, ga4: ga4Data, blocks })) {
     return { ok: false, status: 400, error: "No analytics data is available yet. Click “Refresh now” on the client's data source, then generate the report." };
+  }
+
+  // What each source contributes, and why any is left out. Rendered on the
+  // report and the PDF and handed to the AI, so a missing channel is never
+  // read as a channel with zero results.
+  const sourceStatus: ReportSourceStatus[] = [];
+
+  // ── A cached rolling snapshot stands in for the period only while fresh ──
+  // The snapshot path used to load every source whatever its state, so a
+  // connection revoked in August kept contributing its August figures to an
+  // October "Last 28 days". A snapshot whose data ends more than a few days
+  // before the period does is excluded and named instead.
+  if (!derived) {
+    const judge = (type: string, connection: string | null, snap: SnapRow | null | undefined, hasData: boolean) => {
+      const st = assessSnapshotSource({ type, connection, syncedAt: snap?.synced_at, snapshot: snap?.data, periodDays: snapshotDays, period });
+      if (st.included && !hasData) Object.assign(st, { included: false, state: "no_data", window: null });
+      sourceStatus.push(st);
+      return st.included;
+    };
+    if (gscReady && gscDs && !judge("gsc", (gscDs.status as string | null) ?? null, gscSnap, !!gscData)) gscData = null;
+    if (ga4Ready && ga4Ds && !judge("ga4", (ga4Ds.status as string | null) ?? null, ga4Snap, !!ga4Data)) ga4Data = null;
+    channels = channels.filter((c) => judge(c.type, c.status, c.snapshot ? { data: c.snapshot, synced_at: c.syncedAt } : null, !!c.block));
+    blocks = blocksOf(channels);
+
+    if (isReportEmpty({ gsc: gscData, ga4: ga4Data, blocks })) {
+      return {
+        ok: false,
+        status: 400,
+        error: `None of this client's sources has current data for ${period.start} to ${period.end}. ${sourceNotes(sourceStatus, period).join(" ")}`.trim(),
+      };
+    }
+
+    // The stated period is the window the figures actually cover. "Last 28
+    // days" was dated from the clock (ending two days back) while ad
+    // platforms' snapshots end yesterday and Search Console's three days back,
+    // so the cover named dates no source had measured exactly. It now names
+    // the window most sources share, and sourceNotes names any that differ.
+    const actual = dominantWindow(sourceStatus);
+    if (actual) period = { ...period, start: actual.start, end: actual.end, days: dayCount(actual.start, actual.end) };
   }
 
   // ── Rebuild the requested window from the cached daily series ─────────────
@@ -166,54 +230,75 @@ export async function createClientReport(
   // period they are named after, which is what the guard was really for.
   const unavailable: Unavailable[] = [];
   if (derived) {
-    const allDates = [
-      ...(gscData?.byDate ?? []).map((d) => d.date),
-      ...(ga4Data?.byDate ?? []).map((d) => d.date),
-      ...blocks.flatMap((b) => b.series.flatMap((s) => s.points.map((p) => p.date))),
+    // The comparison window is part of what has to be rebuilt: a calendar or
+    // custom period gets a period-over-period change wherever the daily
+    // history reaches back over it (comparisonWindows below).
+    const prev = previousWindow(period, opts.now);
+    const need = { start: prev.start, end: period.end };
+    const gscDates = () => (gscData?.byDate ?? []).map((d) => d.date);
+    const ga4Dates = () => (ga4Data?.byDate ?? []).map((d) => d.date);
+    const blockDates = (b: ReportBlock) => b.series.flatMap((sr) => sr.points.map((p) => p.date));
+
+    // Outside the rolling 90-day cache — a previous quarter almost always is —
+    // the durable metric_daily archive every sync writes to fills the gap. No
+    // provider call is made either way. Only the archive of THESE sources is
+    // read: the client's whole archive used to be fetched and grouped by
+    // platform, so a replaced or disconnected source's days were added to the
+    // current one's.
+    // Daily rows straight from each channel's snapshot, zeros included. The
+    // projected block keeps a series only if it moved (an all-zero line is not
+    // a chart), so rebuilding from it turned an account that genuinely spent
+    // nothing into one with "no stored data" — a zero result reported as
+    // missing data.
+    channels = channels.map((c) =>
+      c.block
+        ? {
+            ...c,
+            block: {
+              ...c.block,
+              series: mergeSeries(
+                c.block.series,
+                archiveRowsToSeries(extractDailySeries(c.snapshot).map((p) => ({ date: p.date, provider: c.type, metrics: p.metrics })))
+              ),
+            },
+          }
+        : c
+    );
+    blocks = blocksOf(channels);
+    const withData = channels.filter((c) => c.block);
+    const ids = [
+      ...(gscData && gscDs ? [gscDs.id as string] : []),
+      ...(ga4Data && ga4Ds ? [ga4Ds.id as string] : []),
+      ...withData.map((c) => c.dsId),
     ];
-    let cached = seriesCoverage(allDates);
+    const short = [
+      ...(gscData ? [gscDates()] : []),
+      ...(ga4Data ? [ga4Dates()] : []),
+      ...withData.map((c) => blockDates(c.block!)),
+    ].some((dates) => !covers(seriesCoverage(dates), need));
+    if (short && ids.length) {
+      const history = await fetchHistory(supabase, {
+        agencyId, clientId, from: need.start, to: need.end, dataSourceIds: ids,
+      }).catch(() => [] as Awaited<ReturnType<typeof fetchHistory>>);
+      const rowsFor = (id: string) => history.filter((r) => r.data_source_id === id);
+
+      // Archive rows first, the snapshot's own rows on top: the snapshot is the
+      // newest read of any day both hold, and merging by date means a day
+      // present in both is counted once.
+      if (gscData && gscDs) gscData = { ...gscData, byDate: mergeByDate(archiveToGscByDate(rowsFor(gscDs.id as string)), gscData.byDate) };
+      if (ga4Data && ga4Ds) ga4Data = { ...ga4Data, byDate: mergeByDate(archiveToGa4ByDate(rowsFor(ga4Ds.id as string)), ga4Data.byDate) };
+      channels = channels.map((c) =>
+        c.block ? { ...c, block: { ...c.block, series: mergeSeries(archiveRowsToSeries(rowsFor(c.dsId)), c.block.series) } } : c
+      );
+      blocks = blocksOf(channels);
+    }
+
+    const allDates = [...gscDates(), ...ga4Dates(), ...blocks.flatMap(blockDates)];
+    const cached = seriesCoverage(allDates);
     // Distinct days, not rows: several sources each reporting the same date
     // cover one day between them, and counting rows would let three sources
     // with a third of the window each look like full coverage.
-    let coveredDays = distinctDaysWithin(allDates, period);
-
-    // Outside the rolling 90-day cache — a previous quarter almost always is —
-    // fall back to the durable metric_daily archive every sync writes to. No
-    // provider call is made either way.
-    if (!covers(cached, period)) {
-      const history = await fetchHistory(supabase, {
-        agencyId, clientId, from: period.start, to: period.end,
-      }).catch(() => [] as Awaited<ReturnType<typeof fetchHistory>>);
-
-      const archiveDates = history.map((r) => r.date);
-      const archived = seriesCoverage(archiveDates);
-      // Re-seat whenever the archive knows MORE of this window than the
-      // snapshot does, not only when it spans the whole thing. A previous
-      // quarter is typically absent from the rolling cache entirely, so the
-      // old full-coverage condition threw away a nearly complete archive
-      // whenever it was a day short.
-      if (distinctDaysWithin(archiveDates, period) > coveredDays) {
-        // Re-seat each source's daily series on the archived rows, then let the
-        // same derive functions below do the arithmetic.
-        if (gscData) {
-          const byDate = archiveToGscByDate(history);
-          gscData = byDate.length ? { ...gscData, byDate } : null;
-        }
-        if (ga4Data) {
-          const byDate = archiveToGa4ByDate(history);
-          ga4Data = byDate.length ? { ...ga4Data, byDate } : null;
-        }
-        const seriesByProvider = archiveToBlockSeries(history);
-        blocks = blocks
-          .map((b) => {
-            const series = seriesByProvider.get(b.sourceId);
-            return series?.length ? { ...b, series } : null;
-          })
-          .filter((b): b is ReportBlock => b !== null);
-        cached = archived;
-        coveredDays = distinctDaysWithin(archiveDates, period);
-      }
-    }
+    const coveredDays = distinctDaysWithin(allDates, period);
 
     // Below the materiality bar — including zero days in the window — the
     // original refusal stands, unchanged.
@@ -235,21 +320,36 @@ export async function createClientReport(
       };
     }
 
-    const g = deriveGsc(gscData, period);
-    gscData = g.data;
-    unavailable.push(...g.unavailable);
-
-    const a = deriveGa4(ga4Data, period);
-    ga4Data = a.data;
-    unavailable.push(...a.unavailable);
+    // Per source: may it describe this period, and over which days can it be
+    // compared with the one before?
+    if (gscReady && gscDs) {
+      const dates = gscDates();
+      const st = assessDerivedSource({ type: "gsc", connection: (gscDs.status as string | null) ?? null, syncedAt: gscSnap?.synced_at, dates, period });
+      sourceStatus.push(st);
+      const g = st.included ? deriveGsc(gscData, period, comparisonWindows(dates, period, prev)) : { data: null, unavailable: [] };
+      gscData = g.data;
+      unavailable.push(...g.unavailable);
+    }
+    if (ga4Ready && ga4Ds) {
+      const dates = ga4Dates();
+      const st = assessDerivedSource({ type: "ga4", connection: (ga4Ds.status as string | null) ?? null, syncedAt: ga4Snap?.synced_at, dates, period });
+      sourceStatus.push(st);
+      const a = st.included ? deriveGa4(ga4Data, period, comparisonWindows(dates, period, prev)) : { data: null, unavailable: [] };
+      ga4Data = a.data;
+      unavailable.push(...a.unavailable);
+    }
 
     const rebuilt: ReportBlock[] = [];
-    for (const b of blocks) {
-      const r = deriveBlock(b, period);
+    for (const c of channels) {
+      const dates = c.block ? blockDates(c.block) : [];
+      const st = assessDerivedSource({ type: c.type, connection: c.status, syncedAt: c.syncedAt, dates, period });
+      sourceStatus.push(st);
+      if (!st.included || !c.block) continue;
+      const r = deriveBlock(c.block, period, comparisonWindows(dates, period, prev));
       if (r.data) rebuilt.push(r.data);
       unavailable.push(...r.unavailable);
     }
-    blocks = rebuilt;
+    blocks = orderBlocks(rebuilt);
 
     if (isReportEmpty({ gsc: gscData, ga4: ga4Data, blocks })) {
       return {
@@ -272,7 +372,18 @@ export async function createClientReport(
   // report through yesterday, Search Console two days back), which previously
   // let coverage run a day past the period end and read as though the report
   // covered dates outside its own stated range.
-  const rawCoverage = dataCoverage({ gsc: gscData, ga4: ga4Data, blocks });
+  //
+  // Measured from each included source's own window where it is known. The
+  // charted series used to stand in for it, and an all-zero line is never
+  // charted, so an ad account that reported every day at zero spend read as
+  // "no day-by-day data was returned" — a zero result described as missing.
+  const knownWindows = sourceStatus.filter((st) => st.included && st.window).map((st) => st.window!);
+  const rawCoverage = knownWindows.length
+    ? {
+        start: knownWindows.map((w) => w.start).sort()[0],
+        end: knownWindows.map((w) => w.end).sort()[knownWindows.length - 1],
+      }
+    : dataCoverage({ gsc: gscData, ga4: ga4Data, blocks });
   const coverage = rawCoverage
     ? {
         start: rawCoverage.start < period.start ? period.start : rawCoverage.start,
@@ -307,6 +418,7 @@ export async function createClientReport(
     periodLabel: period.label,
     periodInProgress: period.inProgress,
     unavailable: unavailable.length ? unavailable : undefined,
+    sources: sourceStatus.length ? sourceStatus : undefined,
   };
 
   // ── The report is produced from here on, so this is where it is counted ──
