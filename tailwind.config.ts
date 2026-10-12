@@ -200,12 +200,43 @@ const config: Config = {
           "demo-fg": withAlpha("--site-demo-fg"),
           "demo-muted": withAlpha("--site-demo-muted"),
         },
+        // The client report (light-only; the agency's brand colour supplies
+        // every accent beyond these).
+        report: {
+          ink: withAlpha("--report-ink"),
+          body: withAlpha("--report-body"),
+          secondary: withAlpha("--report-secondary"),
+          muted: withAlpha("--report-muted"),
+          meta: withAlpha("--report-meta"),
+          line: withAlpha("--report-line"),
+          "line-soft": withAlpha("--report-line-soft"),
+          "line-strong": withAlpha("--report-line-strong"),
+          fill: withAlpha("--report-fill"),
+          chip: withAlpha("--report-chip"),
+          good: withAlpha("--report-good"),
+          "good-bg": withAlpha("--report-good-bg"),
+          "good-soft": withAlpha("--report-good-soft"),
+          "good-line": withAlpha("--report-good-line"),
+          bad: withAlpha("--report-bad"),
+          "bad-soft": withAlpha("--report-bad-soft"),
+          "bad-line": withAlpha("--report-bad-line"),
+          watch: withAlpha("--report-watch"),
+          "watch-soft": withAlpha("--report-watch-soft"),
+          "watch-bg": withAlpha("--report-watch-bg"),
+          verdict: withAlpha("--report-verdict"),
+          "verdict-fg": withAlpha("--report-verdict-fg"),
+          "verdict-muted": withAlpha("--report-verdict-muted"),
+          "verdict-accent": withAlpha("--report-verdict-accent"),
+        },
       },
       fontFamily: {
         sans: ["ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"],
         // Marketing pages only, loaded by lib/siteFonts (next/font, self-hosted).
         site: ["var(--font-site)", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Arial", "sans-serif"],
         "site-mono": ["var(--font-site-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"],
+        // The client report, loaded by lib/reportFonts (Geist, self-hosted).
+        report: ["var(--font-geist-sans)", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Arial", "sans-serif"],
+        "report-mono": ["var(--font-geist-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"],
       },
       letterSpacing: {
         tightest: "-0.03em",

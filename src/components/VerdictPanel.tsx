@@ -1,6 +1,5 @@
 "use client";
 
-import { TrendingUp, TrendingDown, Target } from "lucide-react";
 import type { Verdict } from "@/lib/reports/verdict";
 
 /**
@@ -12,52 +11,69 @@ import type { Verdict } from "@/lib/reports/verdict";
  * and the one thing to do. Everything else in the report is the evidence for
  * these four lines, available to whoever wants it.
  *
+ * Laid out as the answers to three questions — "Is it working?" (the lines),
+ * "Did it improve?" (the comparison) and "What happens next?" (the action). A
+ * tile whose source is empty is omitted rather than filled with a stand-in.
+ *
  * Tone is a claim about performance, so it is only coloured when the verdict
  * had a baseline to judge against; "neutral" renders in plain ink rather than
  * implying a result the figures don't support.
  *
  * Shared by the live report and the sample/preview so the marketing page can
- * never show a panel the product doesn't actually produce.
+ * never show a panel the product doesn't actually produce. Always the dark
+ * card, whatever the agency colour: it is the one block that has to read
+ * first on any brand.
  */
-export function VerdictPanel({ v, color }: { v: Verdict; color: string }) {
-  const tones = {
-    good: { bar: "bg-success-500", head: "text-success-700", chip: "border-success-100 bg-success-50/70 text-success-700" },
-    attention: { bar: "bg-danger-500", head: "text-danger-600", chip: "border-danger-100 bg-danger-50/70 text-danger-600" },
-    mixed: { bar: "bg-warning-500", head: "text-warning-700", chip: "border-warning-100 bg-warning-50/70 text-warning-700" },
-    neutral: { bar: "bg-ink-300", head: "text-ink-900", chip: "border-ink-200 bg-ink-50 text-ink-600" },
-  } as const;
-  const t = tones[v.tone];
-  const Trend = v.comparisonGood ? TrendingUp : TrendingDown;
+const TONE_DOT = {
+  good: "#3DDC97",
+  attention: "#F2A27A",
+  mixed: "#E5A75F",
+  neutral: "#9FB3AA",
+} as const;
+
+// `color` is still accepted so callers stay unchanged; the panel no longer
+// needs the agency colour.
+export function VerdictPanel({ v }: { v: Verdict; color?: string }) {
+  const [first, ...rest] = v.lines;
+  const tiles: { q: string; a: React.ReactNode }[] = [];
+  if (first) {
+    tiles.push({
+      q: "Is it working?",
+      a: (
+        <>
+          {first}
+          {rest.map((l) => (
+            <span key={l} className="mt-1.5 block text-[13.5px] text-report-verdict-muted">{l}</span>
+          ))}
+        </>
+      ),
+    });
+  }
+  if (v.comparison) tiles.push({ q: "Did it improve?", a: v.comparison });
+  if (v.action) tiles.push({ q: "What happens next?", a: v.action });
 
   return (
-    <section className="break-inside-avoid overflow-hidden rounded-xl border border-ink-200">
-      <div className="flex">
-        <div className={`w-1.5 flex-shrink-0 ${t.bar}`} aria-hidden />
-        <div className="min-w-0 flex-1 p-5 sm:p-6">
-          <h2 className={`text-lg font-semibold leading-tight sm:text-xl ${t.head}`}>{v.headline}</h2>
-
-          {/* The money sentence carries the most weight on the page. */}
-          <p className="mt-2 text-base leading-relaxed text-ink-800 sm:text-lg">{v.lines[0]}</p>
-          {v.lines.slice(1).map((l) => (
-            <p key={l} className="mt-1.5 text-sm leading-relaxed text-ink-600">{l}</p>
-          ))}
-
-          {v.comparison && (
-            <p className={`mt-3 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${t.chip}`}>
-              <Trend size={13} /> {v.comparison}
-            </p>
-          )}
-
-          {v.action && (
-            <div className="mt-4 flex items-start gap-2 rounded-lg border border-ink-200 bg-ink-50 px-3.5 py-2.5">
-              <Target size={14} className="mt-0.5 flex-shrink-0" style={{ color }} />
-              <p className="text-xs leading-relaxed text-ink-700">
-                <span className="font-semibold text-ink-900">Next: </span>{v.action}
-              </p>
+    <section
+      id="rs-the-verdict"
+      data-report-section="—"
+      data-report-label="The verdict"
+      className="flex scroll-mt-24 break-inside-avoid flex-col gap-[18px] rounded-2xl bg-report-verdict p-7 text-report-verdict-fg"
+    >
+      <p className="flex items-center gap-2 font-report-mono text-[11px] uppercase tracking-[0.08em] text-report-verdict-accent">
+        <span className="h-2 w-2 rounded-full" style={{ background: TONE_DOT[v.tone] }} aria-hidden />
+        The verdict
+      </p>
+      <h2 className="text-[clamp(22px,3vw,30px)] font-semibold leading-[1.15] tracking-[-0.025em] [text-wrap:balance]">{v.headline}</h2>
+      {tiles.length > 0 && (
+        <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr))]">
+          {tiles.map((t) => (
+            <div key={t.q} className="rounded-xl bg-white/[0.06] px-4 py-3.5">
+              <p className="text-xs text-report-verdict-muted">{t.q}</p>
+              <p className="mt-1.5 text-[15px] leading-[1.45]">{t.a}</p>
             </div>
-          )}
+          ))}
         </div>
-      </div>
+      )}
     </section>
   );
 }

@@ -1,17 +1,12 @@
 "use client";
 
-import {
-  Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart,
-  ResponsiveContainer, Tooltip, XAxis, YAxis,
-} from "recharts";
-import {
-  TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Target,
-  Sparkles, CheckCircle2, StickyNote,
-} from "lucide-react";
-
 import { buildVerdict } from "@/lib/reports/verdict";
 import { VerdictPanel } from "@/components/VerdictPanel";
 import type { GscReportFull } from "@/lib/google";
+import {
+  CHART, Callout, EdgeKeywords, KpiCard, NotePanel, PositionChip, ReportBody, ReportCover, ReportFooter,
+  ReportPaper, Section, StepList, StepRow, T, TileGrid, TrendCard, brandTones, type GlanceCell,
+} from "@/components/report/ui";
 
 type Branding = { name: string; logo_url: string | null; brand_color: string; website: string | null; footer_text: string | null };
 
@@ -101,6 +96,7 @@ const sampleGsc = {
 
 export function ReportPreview({ branding }: { branding: Branding }) {
   const color = branding.brand_color || "#4f46e5";
+  const brand = brandTones(color);
 
   // "Last 28 days" is not a calendar month, so the headline correctly reads
   // "This period" rather than naming one.
@@ -110,127 +106,117 @@ export function ReportPreview({ branding }: { branding: Branding }) {
     watch: { action: actionPlan[0], because: "" },
   });
 
+  // At a glance, by the live report's rule for a Search Console-only report:
+  // search clicks and average position, each from the sample totals above.
+  const posSpots = sampleGsc.previousTotals!.position - sampleGsc.totals.position;
+  const glance: GlanceCell[] = [
+    { label: "Search clicks", value: fmt(totalClicks), delta: { text: `▲ ${kpis[0].delta.toFixed(0)}%`, good: true } },
+    { label: "Avg Position", value: sampleGsc.totals.position.toFixed(1), delta: { text: `▲ ${posSpots.toFixed(1)} spots`, good: true } },
+  ];
+
+  const sparks: Record<string, number[]> = {
+    Clicks: days.map((d) => d.clicks),
+    Impressions: days.map((d) => d.impressions),
+    "Avg Position": days.map((d) => -d.position),
+  };
+
   return (
     // Same rule as ReportDocument: the preview shows the deliverable, so it
     // keeps the light palette whatever the surrounding app is set to.
-    <div className="theme-light mx-auto max-w-3xl overflow-hidden rounded-2xl border border-ink-200 bg-white text-ink-900 shadow-sm">
-      {/* ── Cover ── */}
-      <div className="px-6 py-10 text-white sm:px-10 sm:py-12" style={{ background: `linear-gradient(135deg, ${color}, ${shade(color)})` }}>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg bg-white/95">
-              {branding.logo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={branding.logo_url} alt="" loading="lazy" decoding="async" className="max-h-full max-w-full object-contain" />
-              ) : (
-                <span className="text-lg font-bold" style={{ color }}>{(branding.name || "A").charAt(0)}</span>
-              )}
-            </div>
-            <span className="font-semibold">{branding.name || "Your Agency"}</span>
-          </div>
-          <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium">SEO Report</span>
-        </div>
-        <h1 className="mt-8 text-2xl font-semibold sm:mt-10 sm:text-3xl">Organic Search Performance</h1>
-        <p className="mt-2 text-sm text-white/80">Prepared for Acme Running Co · Last 28 days</p>
-      </div>
+    <ReportPaper>
+      <ReportCover
+        brand={brand}
+        agencyName={branding.name}
+        agencyLogoUrl={branding.logo_url}
+        agencyWebsite={branding.website}
+        badge="SEO Report"
+        title="Organic Search Performance"
+        clientName="Acme Running Co"
+        meta={["Last 28 days"]}
+        glance={glance}
+      />
 
-      <div className="space-y-10 p-6 sm:p-10">
+      <ReportBody>
         {/* The thirty-second answer, above every numbered section. */}
         {verdict && <VerdictPanel v={verdict} color={color} />}
 
         {/* 1 ── Executive Summary ── */}
-        <Section n={1} title="Executive Summary" subtitle="Performance at a glance" color={color}>
-          <p className="text-sm leading-relaxed text-ink-700">
-            Organic search had a <span className="font-semibold text-ink-900">strong month</span>. Clicks grew{" "}
-            <span className="font-semibold text-success-600">+18.4%</span> and impressions{" "}
-            <span className="font-semibold text-success-600">+12.1%</span>, while average position improved from 11.4 to{" "}
-            <span className="font-semibold text-ink-900">9.8</span>. Growth was led by high-intent product terms — “carbon plate running shoes” more than doubled its traffic — though a few budget-oriented keywords softened.
+        <Section n={1} title="Executive Summary" subtitle="Performance at a glance" brand={brand}>
+          <p className="max-w-[680px] text-[16.5px] leading-[1.7] text-report-body [text-wrap:pretty]">
+            Organic search had a <strong className="font-semibold text-report-ink">strong month</strong>. Clicks grew{" "}
+            <strong className="font-semibold text-report-good">+18.4%</strong> and impressions{" "}
+            <strong className="font-semibold text-report-good">+12.1%</strong>, while average position improved from 11.4 to{" "}
+            <strong className="font-semibold text-report-ink">9.8</strong>. Growth was led by high-intent product terms — “carbon plate running shoes” more than doubled its traffic — though a few budget-oriented keywords softened.
           </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <Callout tone="emerald" icon={TrendingUp} title="Key win" text="“Carbon plate running shoes” up 142%, now position 4.8." />
-            <Callout tone="rose" icon={TrendingDown} title="Watch" text="“Cheap running shoes” down 38% — intent shift on the SERP." />
-            <Callout tone="amber" icon={Target} title="Trend" text="Visibility rising — 4 keywords are one step from page one." />
-          </div>
+          <TileGrid min={200} className="mt-5">
+            <Callout tone="good" title="Key win" text="“Carbon plate running shoes” up 142%, now position 4.8." />
+            <Callout tone="bad" title="Watch" text="“Cheap running shoes” down 38% — intent shift on the SERP." />
+            <Callout tone="watch" title="Trend" text="Visibility rising — 4 keywords are one step from page one." />
+          </TileGrid>
         </Section>
 
         {/* 2 ── KPI Overview ── */}
-        <Section n={2} title="KPI Overview" subtitle="Period-over-period vs. the prior 28 days" color={color}>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Section n={2} title="KPI Overview" subtitle="Period-over-period vs. the prior 28 days" brand={brand}>
+          <TileGrid min={150}>
             {kpis.map((m) => (
-              <div key={m.label} className="rounded-xl border border-ink-100 bg-ink-50 p-4">
-                <p className="text-xs text-ink-500">{m.label}</p>
-                <p className="mt-1 text-2xl font-semibold" style={{ color }}>{m.value}</p>
-                <p className={`mt-1 inline-flex items-center gap-0.5 text-xs font-medium ${m.good ? "text-success-600" : "text-danger-500"}`}>
-                  {m.delta >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                  {Math.abs(m.delta).toFixed(1)}%
-                </p>
-              </div>
+              <KpiCard
+                key={m.label}
+                label={m.label}
+                value={m.value}
+                delta={{ text: `${m.delta >= 0 ? "▲" : "▼"} ${Math.abs(m.delta).toFixed(1)}%`, good: m.good }}
+                spark={sparks[m.label] ?? null}
+                brand={brand}
+              />
             ))}
-          </div>
+          </TileGrid>
         </Section>
 
         {/* 3 ── Traffic & Visibility Trends ── */}
-        <Section n={3} title="Traffic & Visibility Trends" subtitle="Daily clicks, impressions and ranking" color={color}>
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div>
-              <p className="mb-2 text-xs font-medium text-ink-600">Clicks & impressions</p>
-              <div className="h-44">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={days} margin={{ top: 6, right: 6, left: -12, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="rpClicks" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={color} stopOpacity={0.3} />
-                        <stop offset="100%" stopColor={color} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#eef1f5" vertical={false} />
-                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} interval={6} tickLine={false} axisLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
-                    <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }} />
-                    <Area type="monotone" dataKey="clicks" stroke={color} strokeWidth={2.5} fill="url(#rpClicks)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-            <div>
-              <p className="mb-2 text-xs font-medium text-ink-600">Average position (lower is better)</p>
-              <div className="h-44">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={days} margin={{ top: 6, right: 6, left: -12, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#eef1f5" vertical={false} />
-                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} interval={6} tickLine={false} axisLine={false} />
-                    <YAxis reversed tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} domain={["dataMin - 1", "dataMax + 1"]} />
-                    <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }} />
-                    <Line type="monotone" dataKey="position" stroke="#f59e0b" strokeWidth={2.5} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+        <Section n={3} title="Traffic & Visibility Trends" subtitle="Daily clicks, impressions and ranking" brand={brand}>
+          <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))]">
+            <TrendCard
+              title="Clicks & impressions"
+              total={fmt(totalClicks)}
+              delta={{ text: `▲ ${kpis[0].delta.toFixed(1)}%`, good: true }}
+              data={days}
+              dataKey="clicks"
+              color={brand.color}
+            />
+            <TrendCard
+              title="Average position (lower is better)"
+              total="9.8"
+              delta={{ text: `▲ ${posSpots.toFixed(1)} spots`, good: true }}
+              data={days}
+              dataKey="position"
+              color={CHART.position}
+              reversed
+            />
           </div>
-          <p className="mt-3 text-xs text-ink-500">Traffic is trending up steadily through the period, and average position has improved roughly two spots — a sign of compounding ranking gains.</p>
+          <p className="mt-3.5 text-[13.5px] leading-[1.55] text-report-muted">Traffic is trending up steadily through the period, and average position has improved roughly two spots — a sign of compounding ranking gains.</p>
         </Section>
 
         {/* 4 ── Top Performing Queries ── */}
-        <Section n={4} title="Top Performing Queries" subtitle="Your biggest traffic drivers" color={color}>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[460px] text-sm">
+        <Section n={4} title="Top Performing Queries" subtitle="Your biggest traffic drivers" brand={brand}>
+          <div className={T.wrap}>
+            <table className={`${T.table} min-w-[520px]`}>
               <thead>
-                <tr className="text-left text-xs text-ink-500">
-                  <th className="pb-2 font-medium">Query</th>
-                  <th className="pb-2 text-right font-medium">Clicks</th>
-                  <th className="pb-2 text-right font-medium">Impr.</th>
-                  <th className="pb-2 text-right font-medium">CTR</th>
-                  <th className="pb-2 text-right font-medium">Pos.</th>
+                <tr className={T.headRow}>
+                  {/* The query gets the room; the four figures are short. */}
+                  <th className={`${T.th} w-[46%]`}>Query</th>
+                  <th className={T.thNum}>Clicks</th>
+                  <th className={T.thNum}>Impr.</th>
+                  <th className={T.thNum}>CTR</th>
+                  <th className={T.thNum}>Pos.</th>
                 </tr>
               </thead>
               <tbody>
                 {topQueries.map((q) => (
-                  <tr key={q.q} className="border-t border-ink-100">
-                    <td className="max-w-0 truncate py-2 pr-3 font-medium text-ink-800">{q.q}</td>
-                    <td className="py-2 text-right text-ink-700">{fmt(q.clicks)}</td>
-                    <td className="py-2 text-right text-ink-600">{fmt(q.impr)}</td>
-                    <td className="py-2 text-right text-ink-600">{q.ctr}%</td>
-                    <td className="py-2 text-right text-ink-600">{q.pos}</td>
+                  <tr key={q.q} className={T.row}>
+                    <td className={`${T.td} max-w-0 truncate font-medium`}>{q.q}</td>
+                    <td className={`${T.tdNum} font-semibold`}>{fmt(q.clicks)}</td>
+                    <td className={`${T.tdNum} text-report-meta`}>{fmt(q.impr)}</td>
+                    <td className={`${T.tdNum} text-report-meta`}>{q.ctr}%</td>
+                    <td className={T.tdNum}><PositionChip position={q.pos} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -239,156 +225,87 @@ export function ReportPreview({ branding }: { branding: Branding }) {
         </Section>
 
         {/* 5 & 6 ── Winning / Declining Keywords ── */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Section n={5} title="Winning Keywords" subtitle="Strongest growth this period" color={color}>
-            <ul className="space-y-2">
-              {winners.map((k) => (
-                <li key={k.q} className="flex items-center justify-between gap-3 rounded-lg border border-success-100 bg-success-50/60 px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-ink-800">{k.q}</p>
-                    <p className="text-[11px] text-ink-500">Position {k.from} → {k.pos}</p>
-                  </div>
-                  <span className="inline-flex flex-shrink-0 items-center gap-0.5 rounded-full bg-success-100 px-2 py-0.5 text-xs font-semibold text-success-700"><ArrowUpRight size={12} /> {k.growth}%</span>
-                </li>
-              ))}
-            </ul>
+        <div className="grid gap-x-6 gap-y-14 [grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))]">
+          <Section n={5} title="Winning Keywords" subtitle="Strongest growth this period" brand={brand}>
+            <MoverList
+              good
+              rows={winners.map((k) => ({ key: k.q, sub: `Position ${k.from} → ${k.pos}`, pct: k.growth }))}
+            />
           </Section>
 
-          <Section n={6} title="Declining Keywords" subtitle="Losing traffic or rankings" color={color}>
-            <ul className="space-y-2">
-              {decliners.map((k) => (
-                <li key={k.q} className="flex items-center justify-between gap-3 rounded-lg border border-danger-100 bg-danger-50/60 px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-ink-800">{k.q}</p>
-                    <p className="text-[11px] text-ink-500">Position {k.from} → {k.pos}</p>
-                  </div>
-                  <span className="inline-flex flex-shrink-0 items-center gap-0.5 rounded-full bg-danger-100 px-2 py-0.5 text-xs font-semibold text-danger-600"><ArrowDownRight size={12} /> {k.drop}%</span>
-                </li>
-              ))}
-            </ul>
+          <Section n={6} title="Declining Keywords" subtitle="Losing traffic or rankings" brand={brand}>
+            <MoverList
+              good={false}
+              rows={decliners.map((k) => ({ key: k.q, sub: `Position ${k.from} → ${k.pos}`, pct: k.drop }))}
+            />
           </Section>
         </div>
 
         {/* 7 ── Growth Opportunities ── */}
-        <Section n={7} title="Growth Opportunities" subtitle="Keywords on the edge of page one — quick wins" color={color}>
-          <div className="h-40">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={opportunities} layout="vertical" margin={{ left: 8, right: 24 }}>
-                <XAxis type="number" hide domain={[0, "dataMax + 1500"]} />
-                <YAxis type="category" dataKey="q" width={160} tick={{ fontSize: 11, fill: "#64748b" }} tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }} cursor={{ fill: "#f8fafc" }} formatter={(v) => [`${fmt(Number(v))} impressions`, ""]} />
-                <Bar dataKey="impr" fill={color} radius={[0, 4, 4, 0]} barSize={16} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <ul className="mt-2 grid gap-2 sm:grid-cols-2">
-            {opportunities.map((o) => (
-              <li key={o.q} className="flex items-center justify-between rounded-lg bg-ink-50 px-3 py-2 text-sm">
-                <span className="truncate text-ink-700">{o.q}</span>
-                <span className="flex-shrink-0 text-xs font-medium text-warning-600">pos {o.pos}</span>
-              </li>
-            ))}
-          </ul>
+        <Section n={7} title="Growth Opportunities" subtitle="Keywords on the edge of page one — quick wins" brand={brand}>
+          <EdgeKeywords rows={opportunities.map((o) => ({ key: o.q, impressions: o.impr, position: o.pos }))} brand={brand} />
         </Section>
 
         {/* 8 ── AI Insights ── */}
-        <Section n={8} title="AI Insights" subtitle="Automated analysis of what matters" color={color}>
-          <div className="rounded-xl border p-4" style={{ borderColor: `${color}33`, background: `${color}0a` }}>
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold" style={{ color }}>
-              <Sparkles size={15} /> AI summary
-            </div>
-            <p className="text-sm leading-relaxed text-ink-700">
+        <Section n={8} title="AI Insights" subtitle="Automated analysis of what matters" brand={brand}>
+          <div className="rounded-[14px] p-5" style={{ background: brand.soft }}>
+            <p className="font-report-mono text-[11px] uppercase tracking-[0.06em]" style={{ color: brand.ink }}>AI summary</p>
+            <p className="mt-2 text-[15px] leading-[1.6] text-report-body">
               The account is in a healthy growth phase: rising impressions paired with improving CTR show your content is matching demand, not just appearing more often. Momentum is concentrated in premium product terms, which tend to convert well. The main risk is over-reliance on a few head terms — diversifying into the four near-page-one opportunities would broaden the traffic base and reduce volatility.
             </p>
           </div>
         </Section>
 
         {/* 9 ── Recommended Actions ── */}
-        <Section n={9} title="Recommended Actions" subtitle="Prioritised for impact" color={color}>
-          <ol className="space-y-2">
+        <Section n={9} title="Recommended Actions" subtitle="Prioritised for impact" brand={brand}>
+          <StepList>
             {recommendations.map((r, i) => (
-              <li key={i} className="flex gap-3 rounded-lg border border-ink-100 bg-white p-3">
-                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white" style={{ background: color }}>{i + 1}</span>
-                <div className="min-w-0">
-                  <span className={`mb-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${r.priority === "High" ? "bg-danger-50 text-danger-600" : "bg-warning-50 text-warning-600"}`}>{r.priority} priority</span>
-                  <p className="text-sm text-ink-700">{r.text}</p>
-                </div>
-              </li>
+              <StepRow key={i} n={i + 1} brand={brand} action={r.text} priority={`${r.priority} priority`} />
             ))}
-          </ol>
+          </StepList>
         </Section>
 
         {/* 10 ── Next Month Action Plan ── */}
-        <Section n={10} title="Next Month Action Plan" subtitle="What we'll execute next" color={color}>
-          <ul className="space-y-2">
+        <Section n={10} title="Next Month Action Plan" subtitle="What we'll execute next" brand={brand}>
+          <StepList>
             {actionPlan.map((a, i) => (
-              <li key={i} className="flex items-start gap-3 rounded-lg bg-ink-50 px-3 py-2.5">
-                <CheckCircle2 size={16} className="mt-0.5 flex-shrink-0" style={{ color }} />
-                <span className="text-sm text-ink-700">{a}</span>
-              </li>
+              <StepRow key={i} n={i + 1} brand={brand} action={a} />
             ))}
-          </ul>
+          </StepList>
         </Section>
 
         {/* 11 ── Agency Notes ── */}
-        <Section n={11} title="Agency Notes" subtitle="A personal note from your team" color={color}>
-          <div className="flex gap-3 rounded-xl border border-dashed border-ink-200 bg-ink-50/50 p-4">
-            <StickyNote size={18} className="mt-0.5 flex-shrink-0 text-ink-500" />
-            <p className="text-sm italic leading-relaxed text-ink-600">
+        <Section n={11} title="Agency Notes" subtitle="A personal note from your team" brand={brand}>
+          <NotePanel brand={brand} agencyName={branding.name} agencyLogoUrl={branding.logo_url}>
+            <p>
               “Great momentum this month, team. We&apos;re especially pleased with the carbon-plate category breaking into the top five — that aligns directly with the Q3 product push. Next month we&apos;ll focus on the beginner audience to widen the funnel. As always, reach out any time with questions.”
             </p>
-          </div>
+          </NotePanel>
         </Section>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between border-t border-ink-100 pt-5 text-xs text-ink-500">
-          <span>{branding.footer_text || `Prepared by ${branding.name || "Your Agency"}`}</span>
-          {branding.website && <span>{branding.website}</span>}
-        </div>
-      </div>
-    </div>
+        <ReportFooter left={branding.footer_text || `Prepared by ${branding.name || "Your Agency"}`} right={branding.website} />
+      </ReportBody>
+    </ReportPaper>
   );
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-function Section({ n, title, subtitle, color, children }: { n: number; title: string; subtitle?: string; color: string; children: React.ReactNode }) {
+// The sample keeps its winning and declining keywords as two numbered
+// sections, so each list is one tinted panel without a repeated title.
+function MoverList({ rows, good }: { rows: { key: string; sub: string; pct: number }[]; good: boolean }) {
   return (
-    <section>
-      <div className="mb-4 flex items-center gap-3">
-        <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white" style={{ background: color }}>{n}</span>
-        <div className="min-w-0">
-          <h2 className="text-base font-semibold leading-tight text-ink-900">{title}</h2>
-          {subtitle && <p className="text-xs text-ink-500">{subtitle}</p>}
-        </div>
-      </div>
-      {children}
-    </section>
+    <ul className={`rounded-[14px] px-4 py-2 ${good ? "bg-report-good-soft" : "bg-report-bad-soft"}`}>
+      {rows.map((k) => (
+        <li key={k.key} className={`flex justify-between gap-3 border-t py-2.5 text-sm first:border-t-0 ${good ? "border-report-good-line" : "border-report-bad-line"}`}>
+          <span className="min-w-0">
+            <span className="block truncate font-medium">{k.key}</span>
+            <span className="block text-[11.5px] text-report-meta">{k.sub}</span>
+          </span>
+          <span className={`shrink-0 whitespace-nowrap font-semibold ${good ? "text-report-good" : "text-report-bad"}`}>
+            {good ? "▲" : "▼"} {Math.abs(k.pct)}%
+          </span>
+        </li>
+      ))}
+    </ul>
   );
-}
-
-function Callout({ tone, icon: Icon, title, text }: { tone: "emerald" | "rose" | "amber"; icon: typeof TrendingUp; title: string; text: string }) {
-  const tones = {
-    emerald: "border-success-100 bg-success-50/60 text-success-700",
-    rose: "border-danger-100 bg-danger-50/60 text-danger-600",
-    amber: "border-warning-100 bg-warning-50/60 text-warning-700",
-  } as const;
-  return (
-    <div className={`rounded-lg border p-3 ${tones[tone]}`}>
-      <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold"><Icon size={13} /> {title}</div>
-      <p className="text-xs leading-snug text-ink-600">{text}</p>
-    </div>
-  );
-}
-
-// Darken a hex color a touch for the gradient.
-function shade(hex: string): string {
-  try {
-    const n = parseInt(hex.replace("#", ""), 16);
-    const r = Math.max(0, ((n >> 16) & 255) - 40);
-    const g = Math.max(0, ((n >> 8) & 255) - 40);
-    const b = Math.max(0, (n & 255) - 40);
-    return `rgb(${r},${g},${b})`;
-  } catch {
-    return hex;
-  }
 }

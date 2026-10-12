@@ -1,15 +1,7 @@
 "use client";
 
-import {
-  Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart,
-  ResponsiveContainer, Tooltip, XAxis, YAxis,
-} from "recharts";
-import {
-  TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Target,
-  StickyNote, Trophy, AlertTriangle, Lightbulb, Search, BarChart3,
-} from "lucide-react";
 import { normalizeReportData, periodDayCount } from "@/lib/report";
-import { formatBlockValue } from "@/lib/integrations/blocks";
+import { formatBlockValue, type BlockKpi } from "@/lib/integrations/blocks";
 import { detectSignals } from "@/lib/insights/signals";
 import { allSoWhat, allActions, NO_EVIDENCE_NOTE } from "@/lib/reports/soWhat";
 import { buildExecutiveSummary, blockHasComparison, hasCalculableKpis, periodSubtitle } from "@/lib/reports/summary";
@@ -19,6 +11,12 @@ import { agencyNote, cleanBullets, cleanCommentary } from "@/lib/reports/comment
 import { badgeRepeatsTitle, coverBadgeLabel } from "@/lib/reports/types";
 import { MAX_CHANNEL_KPIS, MIN_BREAKDOWN_ROWS, MIN_TREND_POINTS, shortPeriodNote } from "@/lib/reports/composition";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
+import {
+  CHART, Callout, EdgeKeywords, IdeaTile, KpiCard, MeaningCard, MiniStat, MoversPanels, Note, NotePanel,
+  PositionChip, ReportBody, ReportCover, ReportFooter, ReportPaper, Section, ShareBreakdown, ShareRows, StepList,
+  StepRow, SubHead, T, ThinBar, TileGrid, ToneTile, TrendCard, brandTones, sharePalette,
+  type Brand, type Delta, type GlanceCell, type Tone,
+} from "@/components/report/ui";
 
 type Branding = { name: string; logo_url: string | null; brand_color: string; website: string | null; footer_text: string | null };
 
@@ -48,13 +46,19 @@ function delta(cur: number, prev: number | null | undefined, lowerIsBetter = fal
   return { pct, good: lowerIsBetter ? pct < 0 : pct > 0 };
 }
 
-function shade(hex: string) {
-  try {
-    const n = parseInt(hex.replace("#", ""), 16);
-    return `rgb(${Math.max(0, ((n >> 16) & 255) - 40)},${Math.max(0, ((n >> 8) & 255) - 40)},${Math.max(0, (n & 255) - 40)})`;
-  } catch {
-    return hex;
-  }
+// The KPI delta as the cards print it: "▲ 18%", coloured by whether the move
+// is good for this metric (a lower position or cost is good).
+function deltaLabel(d: { pct: number; good: boolean } | null): Delta {
+  return d ? { text: `${d.pct >= 0 ? "▲" : "▼"} ${Math.abs(d.pct).toFixed(0)}%`, good: d.good } : null;
+}
+
+// A connected channel's KPI delta. An individual "—" beside real figures says
+// that metric has no denominator, so no delta is drawn for it.
+function blockDelta(k: BlockKpi): Delta {
+  const d = k.value === null || k.previous === null || k.previous === 0 ? null : (k.value - k.previous) / Math.abs(k.previous);
+  if (d === null) return null;
+  const good = k.lowerBetter ? d < 0 : d > 0;
+  return { text: `${d > 0 ? "▲" : "▼"} ${Math.abs(d * 100).toFixed(1)}%`, good };
 }
 
 // The cover of a client-facing deliverable shouldn't read "2026-07-15 →
@@ -143,6 +147,7 @@ export function ReportDocument({
   data: unknown;
 }) {
   const color = branding.brand_color || "#4f46e5";
+  const brand = brandTones(color);
   const { gsc, ga4, blocks, insights, meta } = normalizeReportData(data);
   // Every connected integration other than Search Console / GA4, already
   // projected into the neutral block vocabulary. Rendered generically below, so
@@ -154,24 +159,6 @@ export function ReportDocument({
   const decliners = gsc?.movers?.decliners ?? [];
   const opportunities = gsc?.movers?.opportunities ?? [];
 
-  // GSC KPI cards.
-  const gscClicksD = gsc ? delta(gsc.totals.clicks, gsc.previousTotals?.clicks) : null;
-  const gscPosD = gsc ? delta(gsc.totals.position, gsc.previousTotals?.position, true) : null;
-  const gscKpis = gsc ? [
-    { l: "Clicks", v: fmt(gsc.totals.clicks), d: gscClicksD },
-    { l: "Impressions", v: fmt(gsc.totals.impressions), d: delta(gsc.totals.impressions, gsc.previousTotals?.impressions) },
-    { l: "Avg CTR", v: pct1(gsc.totals.ctr), d: delta(gsc.totals.ctr, gsc.previousTotals?.ctr) },
-    { l: "Avg Position", v: gsc.totals.position.toFixed(1), d: gscPosD },
-  ] : [];
-
-  // GA4 KPI cards.
-  const ga4Kpis = ga4 ? [
-    { l: "Users", v: fmt(ga4.totals.users), d: delta(ga4.totals.users, ga4.previousTotals?.users) },
-    { l: "Sessions", v: fmt(ga4.totals.sessions), d: delta(ga4.totals.sessions, ga4.previousTotals?.sessions) },
-    { l: "Engagement", v: pct1(ga4.totals.engagementRate), d: delta(ga4.totals.engagementRate, ga4.previousTotals?.engagementRate) },
-    { l: "Conversions", v: fmt(ga4.totals.conversions), d: delta(ga4.totals.conversions, ga4.previousTotals?.conversions) },
-  ] : [];
-
   // A line needs enough points to be a line. The PDF has enforced this since
   // Phase 2B; the on-screen report did not, so three days of data drew a
   // "trend" chart here that the same data was refused in the document the
@@ -179,6 +166,40 @@ export function ReportDocument({
   const gscTrend = (gsc?.byDate?.length ?? 0) >= MIN_TREND_POINTS;
   const ga4Trend = (ga4?.byDate?.length ?? 0) >= MIN_TREND_POINTS;
   const hasTrendCharts = gscTrend || ga4Trend;
+
+  // Sparklines follow the same rule as the charts: only from a daily series
+  // long enough to be a trend. Position is negated so "up" reads as better.
+  const gscSpark = (pick: (d: GscReportFull["byDate"][number]) => number) => (gscTrend ? gsc!.byDate.map(pick) : null);
+  const ga4Spark = (pick: (d: Ga4ReportFull["byDate"][number]) => number) => (ga4Trend ? ga4!.byDate.map(pick) : null);
+
+  // GSC KPI cards.
+  const gscClicksD = gsc ? delta(gsc.totals.clicks, gsc.previousTotals?.clicks) : null;
+  const gscPosD = gsc ? delta(gsc.totals.position, gsc.previousTotals?.position, true) : null;
+  const gscKpis = gsc ? [
+    { l: "Clicks", v: fmt(gsc.totals.clicks), d: gscClicksD, s: gscSpark((d) => d.clicks) },
+    { l: "Impressions", v: fmt(gsc.totals.impressions), d: delta(gsc.totals.impressions, gsc.previousTotals?.impressions), s: gscSpark((d) => d.impressions) },
+    { l: "Avg CTR", v: pct1(gsc.totals.ctr), d: delta(gsc.totals.ctr, gsc.previousTotals?.ctr), s: gscSpark((d) => d.ctr) },
+    { l: "Avg Position", v: gsc.totals.position.toFixed(1), d: gscPosD, s: gscSpark((d) => -d.position) },
+  ] : [];
+
+  // GA4 KPI cards. Engagement and conversions have no daily series, so they
+  // carry no sparkline.
+  const ga4SessionsD = ga4 ? delta(ga4.totals.sessions, ga4.previousTotals?.sessions) : null;
+  const ga4ConversionsD = ga4 ? delta(ga4.totals.conversions, ga4.previousTotals?.conversions) : null;
+  const ga4Kpis = ga4 ? [
+    { l: "Users", v: fmt(ga4.totals.users), d: delta(ga4.totals.users, ga4.previousTotals?.users), s: ga4Spark((d) => d.users) },
+    { l: "Sessions", v: fmt(ga4.totals.sessions), d: ga4SessionsD, s: ga4Spark((d) => d.sessions) },
+    { l: "Engagement", v: pct1(ga4.totals.engagementRate), d: delta(ga4.totals.engagementRate, ga4.previousTotals?.engagementRate), s: null },
+    { l: "Conversions", v: fmt(ga4.totals.conversions), d: ga4ConversionsD, s: null },
+  ] : [];
+
+  // Average position moves in spots, which is how a client reads it; only
+  // stated when there is a previous position to measure from.
+  const posSpots = gsc && gsc.previousTotals && gsc.previousTotals.position > 0 ? gsc.previousTotals.position - gsc.totals.position : null;
+  const posDelta: Delta = posSpots != null && Math.abs(posSpots) >= 0.05
+    ? { text: `${posSpots > 0 ? "▲" : "▼"} ${Math.abs(posSpots).toFixed(1)} spots`, good: posSpots > 0 }
+    : null;
+
   // The traffic section is worth a heading when it has a chart, the GA4
   // mini-stats, or a channel breakdown — not merely because a byDate array
   // exists.
@@ -192,39 +213,43 @@ export function ReportDocument({
   const showTrafficSection = hasTrendCharts || hasChannels || !!ga4;
 
   const landing = mergeLandingPages(gsc, ga4);
+  const landingMax = Math.max(1, ...landing.map((r) => r.sessions ?? r.clicks ?? 0));
   const organic = ga4?.trafficSources?.find((s) => /organic search/i.test(s.key)) ?? null;
   const organicShare = ga4 && ga4.totals.sessions > 0 && organic ? organic.sessions / ga4.totals.sessions : null;
   const convRate = ga4 && ga4.totals.sessions > 0 ? ga4.totals.conversions / ga4.totals.sessions : null;
+  // Shares are of all sessions, so the breakdowns add up to the total the
+  // KPI cards show rather than to the rows that happen to be listed.
+  const sessionsTotal = ga4 ? (ga4.totals.sessions || (ga4.trafficSources ?? []).reduce((s, r) => s + r.sessions, 0)) : 0;
 
   // ── Executive-summary callouts, each requiring a measured fact ──────────
   // Built as a list rather than three fixed slots so a slot with nothing real
   // behind it simply doesn't appear. Nothing here is generated language: every
   // string interpolates a number that came from the client's own data.
-  type CalloutSpec = { tone: "emerald" | "rose" | "amber"; icon: typeof TrendingUp; title: string; text: string };
+  type CalloutSpec = { tone: Tone; title: string; text: string };
   const callouts: CalloutSpec[] = [];
 
   if (winners[0]) {
-    callouts.push({ tone: "emerald", icon: TrendingUp, title: "Key win", text: `“${winners[0].key}” up ${Math.round(winners[0].changePct)}%.` });
+    callouts.push({ tone: "good", title: "Key win", text: `“${winners[0].key}” up ${Math.round(winners[0].changePct)}%.` });
   } else if (gscClicksD?.good) {
-    callouts.push({ tone: "emerald", icon: TrendingUp, title: "Key win", text: `Search clicks up ${Math.abs(gscClicksD.pct).toFixed(0)}%.` });
+    callouts.push({ tone: "good", title: "Key win", text: `Search clicks up ${Math.abs(gscClicksD.pct).toFixed(0)}%.` });
   } else if (ga4 && ga4.totals.sessions > 0) {
-    callouts.push({ tone: "emerald", icon: TrendingUp, title: "Key win", text: `${fmt(ga4.totals.sessions)} sessions, ${pct1(ga4.totals.engagementRate)} engaged.` });
+    callouts.push({ tone: "good", title: "Key win", text: `${fmt(ga4.totals.sessions)} sessions, ${pct1(ga4.totals.engagementRate)} engaged.` });
   }
 
   if (decliners[0]) {
-    callouts.push({ tone: "rose", icon: TrendingDown, title: "Watch", text: `“${decliners[0].key}” down ${Math.abs(Math.round(decliners[0].changePct))}%.` });
+    callouts.push({ tone: "bad", title: "Watch", text: `“${decliners[0].key}” down ${Math.abs(Math.round(decliners[0].changePct))}%.` });
   } else if (ga4 && convRate != null && ga4.totals.sessions > 0) {
-    callouts.push({ tone: "rose", icon: TrendingDown, title: "Watch", text: `Conversion rate ${pct1(convRate)} of sessions.` });
+    callouts.push({ tone: "bad", title: "Watch", text: `Conversion rate ${pct1(convRate)} of sessions.` });
   }
 
   if (gscPosD && gsc) {
-    callouts.push({ tone: "amber", icon: Target, title: "Trend", text: `Average position ${gscPosD.good ? "improved" : "slipped"} to ${gsc.totals.position.toFixed(1)}.` });
+    callouts.push({ tone: "watch", title: "Trend", text: `Average position ${gscPosD.good ? "improved" : "slipped"} to ${gsc.totals.position.toFixed(1)}.` });
   } else if (organicShare != null) {
-    callouts.push({ tone: "amber", icon: Target, title: "Trend", text: `Organic search is ${pct1(organicShare)} of sessions.` });
+    callouts.push({ tone: "watch", title: "Trend", text: `Organic search is ${pct1(organicShare)} of sessions.` });
   } else if (opportunities.length > 0) {
     // Only when there ARE opportunities — "0 keywords near page one" was
     // presented to clients as a trend.
-    callouts.push({ tone: "amber", icon: Target, title: "Trend", text: `${opportunities.length} keyword${opportunities.length === 1 ? "" : "s"} near page one.` });
+    callouts.push({ tone: "watch", title: "Trend", text: `${opportunities.length} keyword${opportunities.length === 1 ? "" : "s"} near page one.` });
   }
 
   const unavailable = meta?.unavailable ?? [];
@@ -237,6 +262,28 @@ export function ReportDocument({
   // Dropped when the title already says it: the header carried the same phrase
   // twice, once as a pill and once in the title below it.
   const coverBadge = badgeRepeatsTitle(coverBadgeRaw, title) ? "" : coverBadgeRaw;
+
+  // ── At a glance: up to four headline figures, each one measured ─────────
+  // Only figures this report actually has. A cell with nothing behind it is
+  // left out rather than shown as a dash, and a single cell is not a strip.
+  const glance: GlanceCell[] = [];
+  const addCell = (c: GlanceCell) => {
+    if (glance.length < 4 && !glance.some((g) => g.label === c.label)) glance.push(c);
+  };
+  if (ga4 && ga4.totals.conversions > 0) addCell({ label: "Conversions", value: fmt(ga4.totals.conversions), delta: deltaLabel(ga4ConversionsD) });
+  if (gsc) addCell({ label: "Search clicks", value: fmt(gsc.totals.clicks), delta: deltaLabel(gscClicksD) });
+  if (ga4) addCell({ label: "Sessions", value: fmt(ga4.totals.sessions), delta: deltaLabel(ga4SessionsD) });
+  if (gsc) addCell({ label: "Avg Position", value: gsc.totals.position.toFixed(1), delta: posDelta });
+  for (const b of channelBlocks) {
+    for (const k of b.kpis.slice(0, MAX_CHANNEL_KPIS)) {
+      if (k.value !== null) addCell({ label: k.label, value: formatBlockValue(k.value, k.format, b.currency), delta: blockDelta(k) });
+    }
+  }
+  const glanceCells = glance.length >= 2 ? glance : [];
+
+  // "vs previous period" only when something in the report was actually
+  // compared with one.
+  const compared = !!(gsc?.previousTotals || ga4?.previousTotals || channelBlocks.some((b) => blockHasComparison(b)));
 
   // Same interpretation layer the PDF uses, so the on-screen report and the
   // document the client receives never disagree.
@@ -306,52 +353,29 @@ export function ReportDocument({
   const next = () => (n += 1);
 
   return (
-    // theme-light pins the whole document to the light palette: a report is a
+    // The sheet itself (ReportPaper) is pinned to theme-light: a report is a
     // deliverable that gets printed, exported to PDF and opened by a client, so
     // it stays on white paper regardless of the theme the app is being read in.
-    <div className="theme-light mx-auto max-w-3xl overflow-hidden rounded-2xl border border-ink-200 bg-white text-ink-900 shadow-sm print:border-0 print:shadow-none">
-      {/* Cover */}
-      <div className="px-6 py-10 text-white sm:px-10 sm:py-12" style={{ background: `linear-gradient(135deg, ${color}, ${shade(color)})` }}>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg bg-white/95">
-              {branding.logo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={branding.logo_url} alt="" decoding="async" className="max-h-full max-w-full object-contain" />
-              ) : (
-                <span className="text-lg font-bold" style={{ color }}>{(branding.name || "A").charAt(0)}</span>
-              )}
-            </div>
-            <span className="font-semibold">{branding.name || "Your Agency"}</span>
-          </div>
-          {/* Same rule as the PDF cover: the stored report type is
-              authoritative, with the actually-connected channels as the
-              fallback for reports generated before types existed. This used to
-              be `gsc && ga4 ? … : ga4 ? … : "SEO Report"`, which labelled every
-              cross-channel and ads-only report "SEO Report". */}
-          {coverBadge && (
-            <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium">
-              {coverBadge}
-            </span>
-          )}
-        </div>
-        <h1 className="mt-8 text-2xl font-semibold sm:mt-10 sm:text-3xl">{title}</h1>
-        {/* Who the report is for. The client's mark sits beside their name as
-            secondary identity — smaller than the agency logo above it and on the
-            agency's own cover colour, so it never reads as the publisher. Omitted
-            entirely when the client has no logo; never substituted. */}
-        <div className="mt-2 flex items-center gap-2.5">
-          {clientLogoUrl && (
-            <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-md bg-white/95">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={clientLogoUrl} alt="" decoding="async" className="max-h-full max-w-full object-contain" />
-            </span>
-          )}
-          <p className="text-sm text-white/80">Prepared for {clientName} · {formatPeriod(period.start, period.end)}</p>
-        </div>
-      </div>
+    <ReportPaper>
+      {/* Cover. Same rule as the PDF cover for the badge: the stored report
+          type is authoritative, with the actually-connected channels as the
+          fallback for reports generated before types existed. This used to be
+          `gsc && ga4 ? … : ga4 ? … : "SEO Report"`, which labelled every
+          cross-channel and ads-only report "SEO Report". */}
+      <ReportCover
+        brand={brand}
+        agencyName={branding.name}
+        agencyLogoUrl={branding.logo_url}
+        agencyWebsite={branding.website}
+        badge={coverBadge}
+        title={title}
+        clientName={clientName}
+        clientLogoUrl={clientLogoUrl}
+        meta={[formatPeriod(period.start, period.end), compared ? "vs previous period" : ""]}
+        glance={glanceCells}
+      />
 
-      <div className="space-y-10 p-6 sm:p-10">
+      <ReportBody>
         {/* The verdict. Unnumbered and above everything, because it is not a
             section of the report so much as the answer the report exists to
             give. A client who reads only this should still know whether the
@@ -365,22 +389,18 @@ export function ReportDocument({
             "0 keywords near page one" — reassurance the numbers never
             supported. A slot with no fact behind it is now omitted, and when
             nothing at all qualifies the section says so plainly. */}
-        <Section n={next()} title="Executive Summary" subtitle="Performance at a glance" color={color}>
-          <p className="text-sm leading-relaxed text-ink-700">{summaryText}</p>
+        <Section n={next()} title="Executive Summary" subtitle="Performance at a glance" brand={brand}>
+          <p className="max-w-[680px] text-[16.5px] leading-[1.7] text-report-body [text-wrap:pretty]">{summaryText}</p>
 
           {callouts.length > 0 && (
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <TileGrid min={200} className="mt-5">
               {callouts.map((c) => (
-                <Callout key={c.title} tone={c.tone} icon={c.icon} title={c.title} text={c.text} />
+                <Callout key={c.title} tone={c.tone} title={c.title} text={c.text} />
               ))}
-            </div>
+            </TileGrid>
           )}
 
-          {coverageNote && (
-            <p className="mt-4 rounded-lg border border-ink-200 bg-ink-50 px-3.5 py-2.5 text-xs leading-relaxed text-ink-600">
-              {coverageNote}
-            </p>
-          )}
+          {coverageNote && <Note className="mt-4">{coverageNote}</Note>}
 
           {/* What this period genuinely cannot show, and why. A custom or
               calendar window is rebuilt from daily history, and some figures —
@@ -388,33 +408,33 @@ export function ReportDocument({
               recovered from daily totals. Saying so is the honest alternative
               to omitting them silently or estimating them. */}
           {unavailable.length > 0 && (
-            <div className="mt-4 rounded-lg border border-ink-200 bg-ink-50 px-3.5 py-3">
-              <p className="text-xs font-semibold text-ink-700">Not available for this period</p>
+            <Note className="mt-4">
+              <p className="font-semibold text-report-ink">Not available for this period</p>
               <ul className="mt-1.5 space-y-1.5">
                 {unavailable.map((u) => (
-                  <li key={u.section} className="text-xs leading-relaxed text-ink-600">
-                    <span className="font-medium text-ink-700">{u.section}.</span> {u.reason}
+                  <li key={u.section}>
+                    <span className="font-medium text-report-ink">{u.section}.</span> {u.reason}
                   </li>
                 ))}
               </ul>
-            </div>
+            </Note>
           )}
         </Section>
 
         {/* SEO vs Website Performance — combined KPIs */}
         {(gsc || ga4) && (
-          <Section n={next()} title={gsc && ga4 ? "Search vs Website Performance" : gsc ? "Search Performance" : "Website Performance"} subtitle={gsc && ga4 ? "Search visibility and on-site results, side by side" : gsc ? "Search visibility for the reporting period" : "On-site results for the reporting period"} color={color}>
-            <div className="grid gap-6 lg:grid-cols-2">
-              {gsc && <KpiGroup label="Search Console" icon={Search} color={color} kpis={gscKpis} />}
-              {ga4 && <KpiGroup label="Website engagement (GA4)" icon={BarChart3} color={color} kpis={ga4Kpis} />}
+          <Section n={next()} title={gsc && ga4 ? "Search vs Website Performance" : gsc ? "Search Performance" : "Website Performance"} subtitle={gsc && ga4 ? "Search visibility and on-site results, side by side" : gsc ? "Search visibility for the reporting period" : "On-site results for the reporting period"} brand={brand}>
+            <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))]">
+              {gsc && <KpiGroup label="Search Console" kpis={gscKpis} brand={brand} />}
+              {ga4 && <KpiGroup label="Website engagement (GA4)" kpis={ga4Kpis} brand={brand} />}
             </div>
             {gsc && ga4 && (
-              <p className="mt-4 rounded-lg bg-ink-50 px-4 py-3 text-xs text-ink-600">
-                <span className="font-semibold text-ink-800">{fmt(gsc.totals.clicks)}</span> organic search clicks drove a site that saw{" "}
-                <span className="font-semibold text-ink-800">{fmt(ga4.totals.sessions)}</span> sessions at{" "}
-                <span className="font-semibold text-ink-800">{pct1(ga4.totals.engagementRate)}</span> engagement
-                {organicShare != null && <> — organic search is <span className="font-semibold text-ink-800">{pct1(organicShare)}</span> of all sessions</>}.
-              </p>
+              <Note className="mt-4 text-sm">
+                <strong className="font-semibold text-report-ink">{fmt(gsc.totals.clicks)}</strong> organic search clicks drove a site that saw{" "}
+                <strong className="font-semibold text-report-ink">{fmt(ga4.totals.sessions)}</strong> sessions at{" "}
+                <strong className="font-semibold text-report-ink">{pct1(ga4.totals.engagementRate)}</strong> engagement
+                {organicShare != null && <> — organic search is <strong className="font-semibold text-report-ink">{pct1(organicShare)}</strong> of all sessions</>}.
+              </Note>
             )}
           </Section>
         )}
@@ -430,44 +450,48 @@ export function ReportDocument({
             n={next()}
             title="Organic Traffic Overview"
             subtitle={hasTrendCharts ? "How traffic and visibility moved this period" : "Traffic composition for this period"}
-            color={color}
+            brand={brand}
           >
             {ga4 && (
-              <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <MiniStat label="Organic sessions" value={organic ? fmt(organic.sessions) : "—"} color={color} />
-                <MiniStat label="Organic share" value={organicShare != null ? pct1(organicShare) : "—"} color={color} />
-                <MiniStat label="New users" value={fmt(ga4.totals.newUsers)} color={color} />
-                <MiniStat label="Avg engagement" value={fmtDuration(ga4.totals.avgEngagementTime)} color={color} />
+              <TileGrid min={140} className="mb-4">
+                <MiniStat label="Organic sessions" value={organic ? fmt(organic.sessions) : "—"} />
+                <MiniStat label="Organic share" value={organicShare != null ? pct1(organicShare) : "—"} />
+                <MiniStat label="New users" value={fmt(ga4.totals.newUsers)} />
+                <MiniStat label="Avg engagement" value={fmtDuration(ga4.totals.avgEngagementTime)} />
+              </TileGrid>
+            )}
+            {(gscTrend || ga4Trend) && (
+              <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))]">
+                {gscTrend ? (
+                  <TrendCard title="Search clicks" total={fmt(gsc!.totals.clicks)} delta={deltaLabel(gscClicksD)} data={gsc!.byDate} dataKey="clicks" color={brand.color} />
+                ) : null}
+                {ga4Trend ? (
+                  <TrendCard title="Sessions" total={fmt(ga4!.totals.sessions)} delta={deltaLabel(ga4SessionsD)} data={ga4!.byDate} dataKey="sessions" color={CHART.second} />
+                ) : null}
               </div>
             )}
-            <div className="grid gap-6 lg:grid-cols-2">
-              {gscTrend ? (
-                <TrendChart title="Search clicks" data={gsc!.byDate} dataKey="clicks" color={color} />
-              ) : null}
-              {ga4Trend ? (
-                <TrendChart title="Sessions" data={ga4!.byDate} dataKey="sessions" color="#0ea5e9" />
-              ) : null}
-            </div>
             {gscTrend ? (
-              <div className="mt-6">
-                <p className="mb-2 text-xs font-medium text-ink-600">Average position (lower is better)</p>
-                <div className="h-40">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={gsc!.byDate} margin={{ top: 6, right: 6, left: -12, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#eef1f5" vertical={false} />
-                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} interval={Math.ceil(gsc!.byDate.length / 6)} tickLine={false} axisLine={false} tickFormatter={(d) => String(d).slice(5)} />
-                      <YAxis reversed tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} domain={["dataMin - 1", "dataMax + 1"]} />
-                      <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }} />
-                      <Line type="monotone" dataKey="position" stroke="#f59e0b" strokeWidth={2.5} dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
+              <div className="mt-4">
+                <TrendCard
+                  title="Average position (lower is better)"
+                  total={gsc!.totals.position.toFixed(1)}
+                  delta={posDelta}
+                  data={gsc!.byDate}
+                  dataKey="position"
+                  color={CHART.position}
+                  reversed
+                />
               </div>
             ) : null}
             {hasChannels ? (
               <div className="mt-6">
-                <p className="mb-2 text-xs font-medium text-ink-600">Traffic by channel</p>
-                <DimTable rows={ga4!.trafficSources!} label="Channel" />
+                <SubHead>Traffic by channel</SubHead>
+                <ShareBreakdown
+                  rows={ga4!.trafficSources!.slice(0, 6).map((r) => ({ key: r.key, value: r.sessions }))}
+                  total={sessionsTotal}
+                  colors={sharePalette(brand)}
+                  format={fmt}
+                />
               </div>
             ) : null}
           </Section>
@@ -475,26 +499,29 @@ export function ReportDocument({
 
         {/* Landing Page Performance */}
         {landing.length >= MIN_BREAKDOWN_ROWS && (
-          <Section n={next()} title="Landing Page Performance" subtitle="Where search traffic lands and how it engages" color={color}>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[520px] text-sm">
+          <Section n={next()} title="Landing Page Performance" subtitle="Where search traffic lands and how it engages" brand={brand}>
+            <div className={T.wrap}>
+              <table className={`${T.table} min-w-[560px]`}>
                 <thead>
-                  <tr className="text-left text-xs text-ink-500">
-                    <th className="pb-2 font-medium">Page</th>
-                    {gsc && <th className="pb-2 text-right font-medium">Clicks</th>}
-                    {gsc && <th className="pb-2 text-right font-medium">Impr.</th>}
-                    {ga4 && <th className="pb-2 text-right font-medium">Sessions</th>}
-                    {ga4 && <th className="pb-2 text-right font-medium">Users</th>}
+                  <tr className={T.headRow}>
+                    <th className={T.th}>Page</th>
+                    {gsc && <th className={T.thNum}>Clicks</th>}
+                    {gsc && <th className={T.thNum}>Impr.</th>}
+                    {ga4 && <th className={T.thNum}>Sessions</th>}
+                    {ga4 && <th className={T.thNum}>Users</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {landing.map((r) => (
-                    <tr key={r.path} className="border-t border-ink-100">
-                      <td className="max-w-0 truncate py-2 pr-3 text-ink-800" title={r.path}>{r.path}</td>
-                      {gsc && <td className="py-2 text-right text-ink-700">{r.clicks != null ? fmt(r.clicks) : "—"}</td>}
-                      {gsc && <td className="py-2 text-right text-ink-600">{r.impressions != null ? fmt(r.impressions) : "—"}</td>}
-                      {ga4 && <td className="py-2 text-right text-ink-700">{r.sessions != null ? fmt(r.sessions) : "—"}</td>}
-                      {ga4 && <td className="py-2 text-right text-ink-600">{r.users != null ? fmt(r.users) : "—"}</td>}
+                    <tr key={r.path} className={T.row}>
+                      <td className={`${T.td} max-w-0 w-[44%]`} title={r.path}>
+                        <span className="block truncate font-report-mono text-[13px]">{r.path}</span>
+                        <ThinBar share={(r.sessions ?? r.clicks ?? 0) / landingMax} color={brand.color} />
+                      </td>
+                      {gsc && <td className={T.tdNum}>{r.clicks != null ? fmt(r.clicks) : "—"}</td>}
+                      {gsc && <td className={`${T.tdNum} text-report-meta`}>{r.impressions != null ? fmt(r.impressions) : "—"}</td>}
+                      {ga4 && <td className={`${T.tdNum} font-semibold`}>{r.sessions != null ? fmt(r.sessions) : "—"}</td>}
+                      {ga4 && <td className={`${T.tdNum} text-report-meta`}>{r.users != null ? fmt(r.users) : "—"}</td>}
                     </tr>
                   ))}
                 </tbody>
@@ -505,59 +532,38 @@ export function ReportDocument({
 
         {/* Search Queries Driving Traffic */}
         {gsc && gsc.topQueries.length > 0 && (
-          <Section n={next()} title="Search Queries Driving Traffic" subtitle="Your biggest organic traffic drivers" color={color}>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[460px] text-sm">
+          <Section n={next()} title="Search Queries Driving Traffic" subtitle="Your biggest organic traffic drivers" brand={brand}>
+            <div className={T.wrap}>
+              <table className={`${T.table} min-w-[520px]`}>
                 <thead>
-                  <tr className="text-left text-xs text-ink-500">
-                    <th className="pb-2 font-medium">Query</th>
-                    <th className="pb-2 text-right font-medium">Clicks</th>
-                    <th className="pb-2 text-right font-medium">Impr.</th>
-                    <th className="pb-2 text-right font-medium">CTR</th>
-                    <th className="pb-2 text-right font-medium">Pos.</th>
+                  <tr className={T.headRow}>
+                    {/* The query gets the room; the four figures are short. */}
+                  <th className={`${T.th} w-[46%]`}>Query</th>
+                    <th className={T.thNum}>Clicks</th>
+                    <th className={T.thNum}>Impr.</th>
+                    <th className={T.thNum}>CTR</th>
+                    <th className={T.thNum}>Pos.</th>
                   </tr>
                 </thead>
                 <tbody>
                   {gsc.topQueries.slice(0, 8).map((q) => (
-                    <tr key={q.key} className="border-t border-ink-100">
-                      <td className="max-w-0 truncate py-2 pr-3 font-medium text-ink-800">{q.key}</td>
-                      <td className="py-2 text-right text-ink-700">{fmt(q.clicks)}</td>
-                      <td className="py-2 text-right text-ink-600">{fmt(q.impressions)}</td>
-                      <td className="py-2 text-right text-ink-600">{pct1(q.ctr)}</td>
-                      <td className="py-2 text-right text-ink-600">{q.position.toFixed(1)}</td>
+                    <tr key={q.key} className={T.row}>
+                      <td className={`${T.td} max-w-0 truncate font-medium`}>{q.key}</td>
+                      <td className={`${T.tdNum} font-semibold`}>{fmt(q.clicks)}</td>
+                      <td className={`${T.tdNum} text-report-meta`}>{fmt(q.impressions)}</td>
+                      <td className={`${T.tdNum} text-report-meta`}>{pct1(q.ctr)}</td>
+                      <td className={T.tdNum}><PositionChip position={q.position} /></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
             {(winners.length > 0 || decliners.length > 0) && (
-              <div className="mt-5 grid gap-6 lg:grid-cols-2">
-                {winners.length > 0 && (
-                  <div>
-                    <p className="mb-2 text-xs font-semibold text-success-700">Winning keywords</p>
-                    <ul className="space-y-2">
-                      {winners.map((k) => (
-                        <li key={k.key} className="flex items-center justify-between gap-3 rounded-lg border border-success-100 bg-success-50/60 px-3 py-2">
-                          <span className="min-w-0 truncate text-sm font-medium text-ink-800">{k.key}</span>
-                          <span className="inline-flex flex-shrink-0 items-center gap-0.5 rounded-full bg-success-100 px-2 py-0.5 text-xs font-semibold text-success-700"><ArrowUpRight size={12} /> {Math.round(k.changePct)}%</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {decliners.length > 0 && (
-                  <div>
-                    <p className="mb-2 text-xs font-semibold text-danger-600">Declining keywords</p>
-                    <ul className="space-y-2">
-                      {decliners.map((k) => (
-                        <li key={k.key} className="flex items-center justify-between gap-3 rounded-lg border border-danger-100 bg-danger-50/60 px-3 py-2">
-                          <span className="min-w-0 truncate text-sm font-medium text-ink-800">{k.key}</span>
-                          <span className="inline-flex flex-shrink-0 items-center gap-0.5 rounded-full bg-danger-100 px-2 py-0.5 text-xs font-semibold text-danger-600"><ArrowDownRight size={12} /> {Math.abs(Math.round(k.changePct))}%</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+              <div className="mt-[22px]">
+                <MoversPanels
+                  winners={winners.map((k) => ({ key: k.key, pct: k.changePct }))}
+                  decliners={decliners.map((k) => ({ key: k.key, pct: k.changePct }))}
+                />
               </div>
             )}
           </Section>
@@ -573,36 +579,24 @@ export function ReportDocument({
         {(opportunities.length > 0
           || (ins?.growthOpportunities.length ?? 0) > 0
           || (ga4 != null && (ga4.totals.conversions > 0 || ga4.totals.totalRevenue > 0))) && (
-          <Section n={next()} title="Conversion Opportunities" subtitle="Where the next gains are — quick wins" color={color}>
+          <Section n={next()} title="Conversion Opportunities" subtitle="Where the next gains are — quick wins" brand={brand}>
             {ga4 && (
-              <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <MiniStat label="Conversions" value={fmt(ga4.totals.conversions)} color={color} />
-                <MiniStat label="Conversion rate" value={convRate != null ? pct1(convRate) : "—"} color={color} />
-                {ga4.totals.totalRevenue > 0 && <MiniStat label="Total revenue" value={fmt(ga4.totals.totalRevenue)} color={color} />}
-              </div>
+              <TileGrid min={150} className="mb-5">
+                <MiniStat label="Conversions" value={fmt(ga4.totals.conversions)} />
+                <MiniStat label="Conversion rate" value={convRate != null ? pct1(convRate) : "—"} />
+                {ga4.totals.totalRevenue > 0 && <MiniStat label="Total revenue" value={fmt(ga4.totals.totalRevenue)} />}
+              </TileGrid>
             )}
             {opportunities.length > 0 && (
               <>
-                <p className="mb-2 text-xs font-medium text-ink-600">Keywords on the edge of page one</p>
-                <div className="h-40">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={opportunities} layout="vertical" margin={{ left: 8, right: 24 }}>
-                      <XAxis type="number" hide domain={[0, "dataMax + 100"]} />
-                      <YAxis type="category" dataKey="key" width={160} tick={{ fontSize: 11, fill: "#64748b" }} tickLine={false} axisLine={false} />
-                      <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }} cursor={{ fill: "#f8fafc" }} formatter={(v) => [`${fmt(Number(v))} impressions`, ""]} />
-                      <Bar dataKey="impressions" fill={color} radius={[0, 4, 4, 0]} barSize={16} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                <SubHead>Keywords on the edge of page one</SubHead>
+                <EdgeKeywords rows={opportunities.map((o) => ({ key: o.key, impressions: o.impressions, position: o.position }))} brand={brand} />
               </>
             )}
             {ins && ins.growthOpportunities.length > 0 && (
-              <ul className={`space-y-2 ${opportunities.length > 0 ? "mt-4" : ""}`}>
+              <ul className={`flex flex-col gap-2 ${opportunities.length > 0 ? "mt-[18px]" : ""}`}>
                 {ins.growthOpportunities.map((g, i) => (
-                  <li key={i} className="flex gap-2.5 rounded-lg border border-warning-100 bg-warning-50/40 px-3 py-2.5 text-sm text-ink-700">
-                    <Lightbulb size={15} className="mt-0.5 flex-shrink-0 text-warning-500" />
-                    <span>{g}</span>
-                  </li>
+                  <IdeaTile key={i}>{g}</IdeaTile>
                 ))}
               </ul>
             )}
@@ -611,18 +605,18 @@ export function ReportDocument({
 
         {/* Audience — GA4 devices & countries */}
         {ga4 && (hasDevices || hasCountries) && (
-          <Section n={next()} title="Audience" subtitle="How visitors reach the site — by device and country" color={color}>
-            <div className="grid gap-6 lg:grid-cols-2">
+          <Section n={next()} title="Audience" subtitle="How visitors reach the site — by device and country" brand={brand}>
+            <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]">
               {hasDevices && (
                 <div>
-                  <p className="mb-2 text-xs font-medium text-ink-600">Devices</p>
-                  <DimTable rows={ga4.devices!} label="Device" format={titleCase} />
+                  <SubHead className="!mb-1.5">Devices</SubHead>
+                  <ShareRows rows={ga4.devices!.slice(0, 6).map((r) => ({ key: r.key, value: r.sessions }))} total={sessionsTotal} brand={brand} format={fmt} label={titleCase} />
                 </div>
               )}
               {hasCountries && (
                 <div>
-                  <p className="mb-2 text-xs font-medium text-ink-600">Top countries</p>
-                  <DimTable rows={ga4.countries!} label="Country" />
+                  <SubHead className="!mb-1.5">Top countries</SubHead>
+                  <ShareRows rows={ga4.countries!.slice(0, 6).map((r) => ({ key: r.key, value: r.sessions }))} total={sessionsTotal} brand={brand} format={fmt} />
                 </div>
               )}
             </div>
@@ -636,65 +630,53 @@ export function ReportDocument({
             n={next()}
             title={block.sourceName}
             subtitle={periodSubtitle("Performance during this period", blockHasComparison(block))}
-            color={color}
+            brand={brand}
           >
             {/* Same rule as the PDF: an individual "—" beside real figures says
                 that metric has no denominator, but a whole row of them says
                 nothing, so the row is dropped rather than rendered empty. */}
             {hasCalculableKpis(block.kpis.slice(0, MAX_CHANNEL_KPIS)) && (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {block.kpis.slice(0, MAX_CHANNEL_KPIS).map((k) => {
-                  const d = k.value === null || k.previous === null || k.previous === 0 ? null : (k.value - k.previous) / Math.abs(k.previous);
-                  const good = d === null ? null : k.lowerBetter ? d < 0 : d > 0;
-                  return (
-                    <div key={k.label} className="rounded-xl border border-ink-200 bg-white p-3">
-                      <p className="text-xs text-ink-500">{k.label}</p>
-                      <p className="mt-1 text-lg font-semibold text-ink-900">
-                        {formatBlockValue(k.value, k.format, block.currency)}
-                      </p>
-                      {d !== null && (
-                        <p className={`mt-0.5 text-xs font-medium ${good ? "text-success-600" : "text-danger-600"}`}>
-                          {d > 0 ? "▲" : "▼"} {Math.abs(d * 100).toFixed(1)}%
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+              <TileGrid min={150}>
+                {block.kpis.slice(0, MAX_CHANNEL_KPIS).map((k) => (
+                  <KpiCard key={k.label} label={k.label} value={formatBlockValue(k.value, k.format, block.currency)} delta={blockDelta(k)} brand={brand} />
+                ))}
+              </TileGrid>
             )}
 
             {block.tables.map((table) => (
               table.rows.length >= MIN_BREAKDOWN_ROWS && (
-                <div key={table.title} className="mt-6 overflow-x-auto">
-                  <p className="mb-2 text-xs font-medium text-ink-600">{table.title}</p>
-                  <table className="w-full min-w-[420px] text-sm">
-                    <thead>
-                      <tr className="border-b border-ink-200 text-left text-xs text-ink-500">
-                        {table.columns.map((c) => (
-                          <th key={c.key} className="py-2 pr-3 font-medium">{c.label}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {table.rows.slice(0, 8).map((row, ri) => (
-                        <tr key={ri} className="border-b border-ink-100 last:border-0">
-                          {table.columns.map((c) => (
-                            <td key={c.key} className="py-2 pr-3 text-ink-700">
-                              {typeof row[c.key] === "number"
-                                ? formatBlockValue(row[c.key] as number, c.format, block.currency)
-                                : String(row[c.key] ?? "—")}
-                            </td>
+                <div key={table.title} className="mt-6">
+                  <SubHead>{table.title}</SubHead>
+                  <div className={T.wrap}>
+                    <table className={`${T.table} min-w-[500px]`}>
+                      <thead>
+                        <tr className={T.headRow}>
+                          {table.columns.map((c, ci) => (
+                            <th key={c.key} className={ci === 0 ? T.th : T.thNum}>{c.label}</th>
                           ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {table.rows.slice(0, 8).map((row, ri) => (
+                          <tr key={ri} className={T.row}>
+                            {table.columns.map((c, ci) => (
+                              <td key={c.key} className={ci === 0 ? `${T.td} max-w-0 truncate` : T.tdNum}>
+                                {typeof row[c.key] === "number"
+                                  ? formatBlockValue(row[c.key] as number, c.format, block.currency)
+                                  : String(row[c.key] ?? "—")}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )
             ))}
 
             {block.notes.map((note) => (
-              <p key={note} className="mt-3 text-xs text-ink-500">{note}</p>
+              <p key={note} className="mt-3 text-[13px] leading-normal text-report-meta">{note}</p>
             ))}
           </Section>
         ))}
@@ -707,49 +689,50 @@ export function ReportDocument({
             standing meaning of that pattern, so the client gets "and
             therefore…" rather than another table. */}
         {((ins && (ins.keyWins.length > 0 || ins.issuesDetected.length > 0)) || soWhat.length > 0) && (
-          <Section n={next()} title="What stood out, and what it means" subtitle="Highlights from the period, and what they point to" color={color}>
-            {ins && ins.keyWins.length > 0 && (
-              <>
-                <p className="mb-2 text-xs font-semibold text-success-700">Key wins</p>
-                <ul className="space-y-2">
-                  {ins.keyWins.map((w, i) => (
-                    <li key={i} className="flex gap-2.5 rounded-lg border border-success-100 bg-success-50/50 px-3 py-2.5 text-sm text-ink-700">
-                      <Trophy size={15} className="mt-0.5 flex-shrink-0 text-success-600" />
-                      <span>{w}</span>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-
-            {ins && ins.issuesDetected.length > 0 && (
-              <>
-                <p className={`mb-2 text-xs font-semibold text-danger-600 ${ins.keyWins.length > 0 ? "mt-5" : ""}`}>Issues detected</p>
-                <ul className="space-y-2">
-                  {ins.issuesDetected.map((it, i) => (
-                    <li key={i} className="flex gap-2.5 rounded-lg border border-danger-100 bg-danger-50/50 px-3 py-2.5 text-sm text-ink-700">
-                      <AlertTriangle size={15} className="mt-0.5 flex-shrink-0 text-danger-500" />
-                      <span>{it}</span>
-                    </li>
-                  ))}
-                </ul>
-              </>
+          <Section n={next()} title="What stood out, and what it means" subtitle="Highlights from the period, and what they point to" brand={brand}>
+            {ins && (ins.keyWins.length > 0 || ins.issuesDetected.length > 0) && (
+              <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]">
+                {ins.keyWins.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-[13px] font-semibold text-report-good">Key wins</p>
+                    <ul className="flex flex-col gap-2">
+                      {ins.keyWins.map((w, i) => (
+                        <ToneTile key={i} tone="good">{w}</ToneTile>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {ins.issuesDetected.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-[13px] font-semibold text-report-bad">Issues detected</p>
+                    <ul className="flex flex-col gap-2">
+                      {ins.issuesDetected.map((it, i) => (
+                        <ToneTile key={i} tone="bad">{it}</ToneTile>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             )}
 
             {soWhat.length > 0 && (
-              <div className={`space-y-4 ${ins && (ins.keyWins.length > 0 || ins.issuesDetected.length > 0) ? "mt-5" : ""}`}>
+              <div className={ins && (ins.keyWins.length > 0 || ins.issuesDetected.length > 0) ? "mt-6" : ""}>
                 {ins && (ins.keyWins.length > 0 || ins.issuesDetected.length > 0) && (
-                  <p className="text-xs font-semibold text-ink-600">What this means</p>
+                  <p className="mb-2.5 text-[13px] font-semibold text-report-secondary">What this means</p>
                 )}
-                {soWhat.map((w) => (
-                  <div key={w.observation} className="border-l-2 border-ink-200 pl-4">
-                    <p className="text-sm font-semibold text-ink-900">{w.observation}</p>
-                    <p className="mt-1 text-sm leading-relaxed text-ink-700">{w.meaning}</p>
-                    <p className="mt-1.5 text-xs text-ink-500">
-                      {w.metric} · {w.source} · {w.confidence} confidence — {w.confidenceReason}
-                    </p>
-                  </div>
-                ))}
+                <div className="flex flex-col gap-3">
+                  {soWhat.map((w) => (
+                    <MeaningCard
+                      key={w.observation}
+                      observation={w.observation}
+                      meaning={w.meaning}
+                      metric={w.metric}
+                      source={w.source}
+                      confidence={w.confidence}
+                      confidenceReason={w.confidenceReason}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </Section>
@@ -761,48 +744,35 @@ export function ReportDocument({
             commentary — it had its own heading before, which meant a heading
             could ship above a single malformed list item. */}
         {(evidenceActions.length > 0 || commentary.length > 0 || hasAnySource) && (
-          <Section n={next()} title="Recommended actions" subtitle={evidenceActions.length > 0 ? "Each step is prompted by a figure measured in this report" : "What this period's data does, and does not, support acting on"} color={color}>
+          <Section n={next()} title="Recommended actions" subtitle={evidenceActions.length > 0 ? "Each step is prompted by a figure measured in this report" : "What this period's data does, and does not, support acting on"} brand={brand}>
             {/* Nothing measured cleared the bar. Said outright, because a
                 section that silently disappears reads as an omission. */}
-            {evidenceActions.length === 0 && (
-              <p className="rounded-lg border border-ink-200 bg-ink-50 px-3.5 py-3 text-sm leading-relaxed text-ink-600">
-                {NO_EVIDENCE_NOTE}
-              </p>
-            )}
+            {evidenceActions.length === 0 && <Note className="text-sm">{NO_EVIDENCE_NOTE}</Note>}
 
             {evidenceActions.length > 0 && (
-              <ul className="space-y-3">
-                {evidenceActions.map((a) => (
-                  <li key={a.action} className="flex gap-3 rounded-lg border border-ink-100 bg-white p-3">
-                    <span
-                      className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                        a.priority === "High" ? "bg-warning-50 text-warning-700"
-                        : a.priority === "Medium" ? "bg-ink-100 text-ink-700"
-                        : "bg-ink-50 text-ink-500"
-                      }`}
-                    >
-                      {a.priority}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-sm text-ink-800">{a.action}</p>
-                      <p className="mt-0.5 text-xs text-ink-500">Because: {a.because} ({a.source})</p>
-                    </div>
-                  </li>
+              <StepList>
+                {evidenceActions.map((a, i) => (
+                  <StepRow
+                    key={a.action}
+                    n={i + 1}
+                    brand={brand}
+                    action={a.action}
+                    because={`Because: ${a.because} (${a.source})`}
+                    priority={a.priority}
+                  />
                 ))}
-              </ul>
+              </StepList>
             )}
 
+            {/* Always below something: the steps, or the no-evidence note. */}
             {commentary.length > 0 && (
-              <div className={evidenceActions.length > 0 ? "mt-5" : ""}>
-                <p className="mb-2 text-xs font-semibold text-ink-600">Further commentary</p>
-                <ol className="space-y-2">
+              <div className="mt-5">
+                <p className="mb-2.5 text-[13px] font-semibold text-report-secondary">Further commentary</p>
+                <StepList>
                   {commentary.map((r, i) => (
-                    <li key={i} className="flex gap-3 rounded-lg border border-ink-100 bg-white p-3">
-                      <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white" style={{ background: color }}>{i + 1}</span>
-                      <p className="text-sm text-ink-700">{r}</p>
-                    </li>
+                    <StepRow key={i} n={i + 1} brand={brand} action={r} />
                   ))}
-                </ol>
+                </StepList>
               </div>
             )}
           </Section>
@@ -813,131 +783,30 @@ export function ReportDocument({
             to render unconditionally, filling itself with a sentence the agency
             never said — in italics, under "A note from your team". */}
         {note && (
-          <Section n={next()} title="Agency Notes" subtitle="A note from your team" color={color}>
-            <div className="flex gap-3 rounded-xl border border-dashed border-ink-200 bg-ink-50/50 p-4">
-              <StickyNote size={18} className="mt-0.5 flex-shrink-0 text-ink-500" />
-              <p className="text-sm italic leading-relaxed text-ink-600">{note}</p>
-            </div>
+          <Section n={next()} title="Agency Notes" subtitle="A note from your team" brand={brand}>
+            <NotePanel brand={brand} agencyName={branding.name} agencyLogoUrl={branding.logo_url}>
+              <p>{note}</p>
+            </NotePanel>
           </Section>
         )}
 
-        {/* Footer */}
-        <div className="flex items-center justify-between border-t border-ink-100 pt-5 text-xs text-ink-500">
-          <span>Prepared by {branding.name || "Your Agency"}</span>
-          {branding.website && <span>{branding.website}</span>}
-        </div>
-      </div>
-    </div>
+        <ReportFooter left={<>Prepared by {branding.name || "Your Agency"}</>} right={branding.website} />
+      </ReportBody>
+    </ReportPaper>
   );
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-function Section({ n, title, subtitle, color, children }: { n: number; title: string; subtitle?: string; color: string; children: React.ReactNode }) {
+function KpiGroup({ label, kpis, brand }: { label: string; kpis: { l: string; v: string; d: { pct: number; good: boolean } | null; s: number[] | null }[]; brand: Brand }) {
   return (
-    <section className="break-inside-avoid">
-      <div className="mb-4 flex items-center gap-3">
-        <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white" style={{ background: color }}>{n}</span>
-        <div className="min-w-0">
-          <h2 className="text-base font-semibold leading-tight text-ink-900">{title}</h2>
-          {subtitle && <p className="text-xs text-ink-500">{subtitle}</p>}
-        </div>
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function Callout({ tone, icon: Icon, title, text }: { tone: "emerald" | "rose" | "amber"; icon: typeof TrendingUp; title: string; text: string }) {
-  const tones = {
-    emerald: "border-success-100 bg-success-50/60 text-success-700",
-    rose: "border-danger-100 bg-danger-50/60 text-danger-600",
-    amber: "border-warning-100 bg-warning-50/60 text-warning-700",
-  } as const;
-  return (
-    <div className={`rounded-lg border p-3 ${tones[tone]}`}>
-      <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold"><Icon size={13} /> {title}</div>
-      <p className="text-xs leading-snug text-ink-600">{text}</p>
-    </div>
-  );
-}
-
-function KpiGroup({ label, icon: Icon, color, kpis }: { label: string; icon: typeof Search; color: string; kpis: { l: string; v: string; d: { pct: number; good: boolean } | null }[] }) {
-  return (
-    <div>
-      <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold" style={{ color }}><Icon size={13} /> {label}</p>
-      <div className="grid grid-cols-2 gap-3">
+    <div className="min-w-0">
+      <p className="mb-2.5 text-[13px] font-semibold text-report-secondary">{label}</p>
+      <div className="grid grid-cols-2 gap-2.5">
         {kpis.map((m) => (
-          <div key={m.l} className="rounded-xl border border-ink-100 bg-ink-50 p-4">
-            <p className="text-xs text-ink-500">{m.l}</p>
-            <p className="mt-1 text-xl font-semibold" style={{ color }}>{m.v}</p>
-            {m.d && (
-              <p className={`mt-1 inline-flex items-center gap-0.5 text-xs font-medium ${m.d.good ? "text-success-600" : "text-danger-500"}`}>
-                {m.d.pct >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                {Math.abs(m.d.pct).toFixed(0)}%
-              </p>
-            )}
-          </div>
+          <KpiCard key={m.l} label={m.l} value={m.v} delta={deltaLabel(m.d)} spark={m.s} brand={brand} />
         ))}
       </div>
     </div>
-  );
-}
-
-function MiniStat({ label, value, color }: { label: string; value: string; color: string }) {
-  return (
-    <div className="rounded-xl border border-ink-100 bg-ink-50 p-3">
-      <p className="text-xs text-ink-500">{label}</p>
-      <p className="mt-0.5 text-lg font-semibold" style={{ color }}>{value}</p>
-    </div>
-  );
-}
-
-function TrendChart({ title, data, dataKey, color }: { title: string; data: { date: string }[]; dataKey: string; color: string }) {
-  const id = `rd-${dataKey}-${color.replace("#", "")}`;
-  return (
-    <div>
-      <p className="mb-2 text-xs font-medium text-ink-600">{title}</p>
-      <div className="h-44">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 6, right: 6, left: -12, bottom: 0 }}>
-            <defs>
-              <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={color} stopOpacity={0.3} />
-                <stop offset="100%" stopColor={color} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#eef1f5" vertical={false} />
-            <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} interval={Math.ceil(data.length / 6)} tickLine={false} axisLine={false} tickFormatter={(d) => String(d).slice(5)} />
-            <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
-            <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }} />
-            <Area type="monotone" dataKey={dataKey} stroke={color} strokeWidth={2.5} fill={`url(#${id})`} />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-function DimTable({ rows, label, format = (k) => k }: { rows: { key: string; sessions: number; users: number }[]; label: string; format?: (k: string) => string }) {
-  return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr className="text-left text-xs text-ink-500">
-          <th className="pb-2 font-medium">{label}</th>
-          <th className="pb-2 text-right font-medium">Sessions</th>
-          <th className="pb-2 text-right font-medium">Users</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.slice(0, 6).map((r) => (
-          <tr key={r.key} className="border-t border-ink-100">
-            <td className="max-w-0 truncate py-2 pr-3 text-ink-800">{format(r.key)}</td>
-            <td className="py-2 text-right text-ink-600">{fmt(r.sessions)}</td>
-            <td className="py-2 text-right text-ink-600">{fmt(r.users)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
   );
 }
 

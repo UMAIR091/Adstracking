@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ReportDocument } from "@/components/ReportDocument";
 import { ReportActions } from "@/components/ReportActions";
 import { DownloadPdf } from "@/components/DownloadPdf";
+import { ReportToc } from "@/components/report/ReportToc";
 import { loadReportForRender } from "@/lib/reports/branding";
 
 export const dynamic = "force-dynamic";
@@ -44,14 +45,29 @@ export default async function PublicReportPage({ params }: { params: { token: st
   const report = await loadSharedReport(params.token);
   if (!report) notFound();
 
+  // A client opening this link has one thing to do with it, so the download is
+  // the filled button and print/copy stay secondary.
+  const actions = (
+    <>
+      <DownloadPdf href={`/r/${params.token}/pdf`} filename="report.pdf" variant="default" />
+      <ReportActions shareUrl="" />
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-surface-muted py-8">
-      <div className="mx-auto max-w-3xl px-4">
-        {/* A client opening this link has one thing to do with it, so the
-            download is the filled button and print/copy stay secondary. */}
-        <div className="no-print mb-4 flex justify-end gap-2">
-          <ReportActions shareUrl="" />
-          <DownloadPdf href={`/r/${params.token}/pdf`} filename="report.pdf" variant="default" />
+      {/* From 1080px the contents rail sits beside the report, carrying the
+          actions; below that the actions stay above the report as before. No
+          Anavyst branding anywhere: this page is the agency's. */}
+      <div className="mx-auto flex max-w-[1200px] items-start gap-8 px-4 sm:px-6">
+        <ReportToc targetId="shared-report">
+          <div className="flex flex-col gap-2 [&_.no-print]:flex-col [&_.no-print]:items-stretch [&_a]:w-full [&_button]:w-full">
+            {actions}
+          </div>
+        </ReportToc>
+        <div id="shared-report" className="min-w-0 flex-1">
+        <div className="no-print mx-auto mb-4 flex max-w-[880px] flex-wrap justify-end gap-2 min-[1080px]:hidden">
+          {actions}
         </div>
         <ReportDocument
           branding={{
@@ -68,6 +84,7 @@ export default async function PublicReportPage({ params }: { params: { token: st
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           data={report.data as any}
         />
+        </div>
       </div>
     </div>
   );

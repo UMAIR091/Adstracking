@@ -227,6 +227,37 @@
   --site-demo-fg: 255 255 255;
   --site-demo-muted: 201 212 238;
 
+  /* ── Client report (components/ReportDocument, ReportPreview) ──
+     The deliverable an agency sends its client. Pinned to the light palette
+     by `theme-light`, so there is no dark counterpart. Warm neutrals; every
+     accent beyond these comes from the agency's own brand colour. */
+  --report-ink: 18 23 28; /* #12171C */
+  --report-body: 44 50 56; /* #2C3238 */
+  --report-secondary: 61 67 75; /* #3D434B */
+  --report-muted: 90 96 104; /* #5A6068 */
+  /* The handoff asked for #7A8088; that measured 3.98:1 on white and 3.65:1
+     on the soft fill, under AA for the small labels it is used on. */
+  --report-meta: 106 112 120; /* #6A7078: 5.0:1 on white, 4.58:1 on the fill */
+  --report-line: 238 236 232; /* #EEECE8 */
+  --report-line-soft: 240 238 234; /* #F0EEEA */
+  --report-line-strong: 230 228 223; /* #E6E4DF, table header rule */
+  --report-fill: 246 245 242; /* #F6F5F2 */
+  --report-chip: 239 238 235; /* #EFEEEB */
+  --report-good: 11 107 71; /* #0B6B47 */
+  --report-good-bg: 230 244 238; /* #E6F4EE */
+  --report-good-soft: 242 250 246; /* #F2FAF6 */
+  --report-good-line: 221 239 230; /* #DDEFE6 */
+  --report-bad: 178 58 42; /* #B23A2A */
+  --report-bad-soft: 252 243 241; /* #FCF3F1 */
+  --report-bad-line: 243 222 217; /* #F3DED9 */
+  --report-watch: 138 90 18; /* #8A5A12 */
+  --report-watch-soft: 253 246 234; /* #FDF6EA */
+  --report-watch-bg: 253 240 220; /* #FDF0DC */
+  --report-verdict: 14 26 22; /* #0E1A16 */
+  --report-verdict-fg: 244 241 234; /* #F4F1EA */
+  --report-verdict-muted: 159 179 170; /* #9FB3AA */
+  --report-verdict-accent: 127 224 180; /* #7FE0B4 */
+
   --ring: 79 70 229; /* #4F46E5: every focus indicator, 6.03:1 on #FAFAFB */
   color-scheme: light;
 }
