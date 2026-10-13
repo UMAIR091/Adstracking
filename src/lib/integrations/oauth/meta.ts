@@ -4,6 +4,7 @@
 // and store the result as both access and refresh token.
 import crypto from "node:crypto";
 import type { OAuthProvider, TokenSet, IntegrationAccount } from "../types";
+import { adWindows, windowFields } from "../metrics";
 
 const API_VERSION = process.env.META_API_VERSION || "v21.0";
 const GRAPH = `https://graph.facebook.com/${API_VERSION}`;
@@ -136,6 +137,10 @@ export type MetaAdsReport = {
   previousTotals: MetaAdsTotals | null;
   byDate: MetaAdsDay[];
   topCampaigns: MetaAdsCampaign[];
+  /** Inclusive dates requested, in the ad account's own calendar. */
+  window?: { start: string; end: string };
+  previousWindow?: { start: string; end: string } | null;
+  timeZone?: string | null;
 };
 
 // The ad account's reporting currency. Meta already returns this on the account
@@ -143,23 +148,21 @@ export type MetaAdsReport = {
 // every Meta report to be rendered as USD downstream. Best-effort: an error here
 // must not fail the whole sync, so it degrades to undefined and the UI omits the
 // symbol rather than inventing one.
-async function metaAccountCurrency(accessToken: string, accountId: string): Promise<string | undefined> {
+//
+// The account's time zone comes from the same call: Meta's insights are bucketed
+// by the ad account's calendar, so the report window is computed in it.
+async function metaAccountDetail(accessToken: string, accountId: string): Promise<{ currency?: string; timeZone?: string }> {
   try {
-    const data = await graphGet<{ currency?: string }>(`/${accountId}`, {
-      fields: "currency",
+    const data = await graphGet<{ currency?: string; timezone_name?: string }>(`/${accountId}`, {
+      fields: "currency,timezone_name",
       access_token: accessToken,
     });
-    return data.currency || undefined;
+    return { currency: data.currency || undefined, timeZone: data.timezone_name || undefined };
   } catch {
-    return undefined;
+    return {};
   }
 }
 
-function isoDaysAgo(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
-}
 
 type InsightRow = {
   date_start?: string;
@@ -218,15 +221,15 @@ export async function insights(accessToken: string, accountId: string, params: R
 // Fetches a real insights report for one ad account and period, plus the prior
 // equal-length period for comparison. No mock data.
 export async function fetchMetaAdsReport(accessToken: string, accountId: string, periodDays: number): Promise<MetaAdsReport> {
-  const since = isoDaysAgo(periodDays);
-  const until = isoDaysAgo(1);
-  const prevSince = isoDaysAgo(periodDays * 2);
-  const prevUntil = isoDaysAgo(periodDays + 1);
+  // The window ends on the account's last complete day (adWindows): read the
+  // account's time zone first, because the dates depend on it.
+  const { currency, timeZone } = await metaAccountDetail(accessToken, accountId);
+  const w = adWindows(periodDays, timeZone);
+  const { since, until, prevSince, prevUntil } = w;
   const range = (s: string, u: string) => JSON.stringify({ since: s, until: u });
   const totalsFields = "spend,impressions,clicks,ctr,cpc,reach,actions";
 
-  const [currency, totalsRows, prevRows, dailyRows, campaignRows] = await Promise.all([
-    metaAccountCurrency(accessToken, accountId),
+  const [totalsRows, prevRows, dailyRows, campaignRows] = await Promise.all([
     insights(accessToken, accountId, { time_range: range(since, until), fields: totalsFields }),
     insights(accessToken, accountId, { time_range: range(prevSince, prevUntil), fields: totalsFields }).catch(() => []),
     insights(accessToken, accountId, { time_range: range(since, until), time_increment: "1", fields: "spend,impressions,clicks" }),
@@ -242,6 +245,7 @@ export async function fetchMetaAdsReport(accessToken: string, accountId: string,
     currency,
     totals: totalsFrom(totalsRows[0]),
     previousTotals: prevRows.length ? totalsFrom(prevRows[0]) : null,
+    ...windowFields(w, prevRows.length > 0),
     byDate: dailyRows.map((r) => ({ date: r.date_start ?? "", spend: num(r.spend), impressions: num(r.impressions), clicks: num(r.clicks) })),
     topCampaigns: topCampaignRows.map((r) => ({ name: r.campaign_name ?? "—", spend: num(r.spend), impressions: num(r.impressions), clicks: num(r.clicks), ctr: num(r.ctr) / 100 })),
   };

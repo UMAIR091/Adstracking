@@ -1,5 +1,7 @@
 // Pure HTTP helpers for Google OAuth + Search Console. No DB access here.
 
+import { lastCompleteDay } from "@/lib/integrations/metrics";
+
 const OAUTH_AUTH = "https://accounts.google.com/o/oauth2/v2/auth";
 const OAUTH_TOKEN = "https://oauth2.googleapis.com/token";
 const OAUTH_REVOKE = "https://oauth2.googleapis.com/revoke";
@@ -478,14 +480,36 @@ export async function fetchGa4Report(
 // WINDOW: exactly `periodDays` days. It used to start periodDays+1 days ago —
 // periodDays+1 days of data compared against a previous window of periodDays —
 // so every GA4 period-over-period change was overstated by about 1/periodDays.
-/** GA4's current and comparison windows: equal length, contiguous. */
-export function ga4Windows(periodDays: number) {
-  return {
-    start: isoDaysAgo(periodDays),
-    end: isoDaysAgo(1),
-    prevStart: isoDaysAgo(periodDays * 2),
-    prevEnd: isoDaysAgo(periodDays + 1),
-  };
+//
+// GA4 dates are the PROPERTY's calendar days, so the window ends on the last
+// day that has fully ended in the property's time zone (lastCompleteDay). At
+// the 06:00 UTC sync, "yesterday in UTC" is still running for a property in
+// the Americas.
+/**
+ * GA4's current and comparison windows: equal length, contiguous, ending on the
+ * property's last complete day. An unknown zone ends on a day that has ended
+ * everywhere.
+ */
+export function ga4Windows(periodDays: number, timeZone?: string | null, now: number = Date.now()) {
+  const end = lastCompleteDay(timeZone, now);
+  const shift = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+  const start = shift(end, -(periodDays - 1));
+  const prevEnd = shift(start, -1);
+  return { start, end, prevStart: shift(prevEnd, -(periodDays - 1)), prevEnd };
+}
+
+/** The property's reporting time zone (IANA), or null when it can't be read. */
+async function ga4PropertyTimeZone(accessToken: string, propertyId: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${GA4_ADMIN}/properties/${encodeURIComponent(propertyId)}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { timeZone?: unknown };
+    return typeof body.timeZone === "string" && body.timeZone ? body.timeZone : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchGa4ReportWithComparison(
@@ -493,7 +517,7 @@ export async function fetchGa4ReportWithComparison(
   propertyId: string,
   periodDays: number
 ): Promise<Ga4ReportFull> {
-  const { start, end, prevStart, prevEnd } = ga4Windows(periodDays);
+  const { start, end, prevStart, prevEnd } = ga4Windows(periodDays, await ga4PropertyTimeZone(accessToken, propertyId));
 
   const [report, previousTotals] = await Promise.all([
     fetchGa4Report(accessToken, propertyId, start, end),

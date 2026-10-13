@@ -11,7 +11,7 @@
 // Both are parsed defensively so an unexpected shape fails cleanly (empty/zero)
 // rather than corrupting a snapshot.
 import type { IntegrationAccount, OAuthProvider, TokenSet } from "../types";
-import { adsTotals, dayRange, withRetry, type AdsDay, type AdsReport } from "../metrics";
+import { adWindows, adsTotals, windowFields, withRetry, type AdsDay, type AdsReport } from "../metrics";
 
 const ADS_API = "https://ads-api.reddit.com/api/v3";
 const OAUTH = "https://www.reddit.com/api/v1";
@@ -151,10 +151,13 @@ const n = (v: string | number | undefined): number => {
   return typeof x === "number" && Number.isFinite(x) ? x : 0;
 };
 
-// Reddit report timestamps must be hour-aligned (…THH:00:00Z).
-function hourAligned(daysAgo: number): string {
-  const d = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
-  return `${d.toISOString().slice(0, 13)}:00:00Z`;
+// Reddit report timestamps must be hour-aligned (…THH:00:00Z). Reports are
+// requested in GMT (time_zone_id below), so a day is midnight to midnight UTC.
+// The bounds used to be "this hour, N days ago" to "this hour, now": the first
+// day was cut short at the sync's hour and today's partial hours were fetched
+// and dropped. Whole UTC days now: midnight of `since` to midnight after `until`.
+function utcMidnight(isoDay: string, plusDays = 0): string {
+  return `${new Date(Date.parse(`${isoDay}T00:00:00Z`) + plusDays * 86_400_000).toISOString().slice(0, 10)}T00:00:00Z`;
 }
 
 async function runReport(
@@ -188,15 +191,18 @@ function toDay(r: ReportRow): AdsDay {
 export async function fetchRedditAdsReport(
   accessToken: string, adAccountId: string, periodDays: number
 ): Promise<AdsReport> {
+  const w = adWindows(periodDays, "UTC");
+  const from = utcMidnight(w.since);
+  const to = utcMidnight(w.until, 1);
   const [currency, dailyRows, prevRows, campaignRows] = await Promise.all([
     redditAccountCurrency(accessToken, adAccountId),
-    runReport(accessToken, adAccountId, hourAligned(periodDays), hourAligned(0), ["DATE"]),
-    runReport(accessToken, adAccountId, hourAligned(periodDays * 2), hourAligned(periodDays), ["DATE"]).catch(() => [] as ReportRow[]),
-    runReport(accessToken, adAccountId, hourAligned(periodDays), hourAligned(0), ["CAMPAIGN_ID"]).catch(() => [] as ReportRow[]),
+    runReport(accessToken, adAccountId, from, to, ["DATE"]),
+    runReport(accessToken, adAccountId, utcMidnight(w.prevSince), utcMidnight(w.prevUntil, 1), ["DATE"]).catch(() => [] as ReportRow[]),
+    runReport(accessToken, adAccountId, from, to, ["CAMPAIGN_ID"]).catch(() => [] as ReportRow[]),
   ]);
 
   const byDay = new Map<string, AdsDay>();
-  for (const d of dayRange(periodDays)) byDay.set(d, { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
+  for (const d of w.days) byDay.set(d, { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
   for (const r of dailyRows) {
     const day = byDay.get((r.date ?? "").slice(0, 10));
     if (!day) continue;
@@ -228,6 +234,7 @@ export async function fetchRedditAdsReport(
     currency,
     totals: adsTotals(byDate),
     previousTotals: prevRows.length ? adsTotals(prevRows.map(toDay)) : null,
+    ...windowFields(w, prevRows.length > 0),
     byDate,
     topCampaigns,
   };

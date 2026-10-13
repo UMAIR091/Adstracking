@@ -7,7 +7,7 @@
 // level (Test, Explorer, Basic, Standard). GOOGLE_ADS_DEVELOPER_TOKEN is still
 // sent when set, but the API ignores it.
 import type { IntegrationAccount } from "../types";
-import { adsTotals, dayRange, isoDay, withRetry, type AdsDay, type AdsReport } from "../metrics";
+import { adWindows, adsTotals, windowFields, withRetry, type AdsDay, type AdsReport } from "../metrics";
 
 // Google retires each version about a year after release, and a retired
 // version answers every call with a 404 (v21 already does). Keep this on a
@@ -54,7 +54,7 @@ async function adsError(res: Response): Promise<Error> {
 }
 
 type GaqlRow = {
-  customer?: { id?: string; descriptiveName?: string; currencyCode?: string; manager?: boolean };
+  customer?: { id?: string; descriptiveName?: string; currencyCode?: string; timeZone?: string; manager?: boolean };
   customerClient?: { id?: string; descriptiveName?: string; manager?: boolean; status?: string };
   campaign?: { name?: string };
   segments?: { date?: string };
@@ -168,14 +168,16 @@ export async function fetchGoogleAdsReport(
   accountId: string,
   periodDays: number
 ): Promise<AdsReport> {
-  const since = isoDay(periodDays);
-  const until = isoDay(1);
-  const prevSince = isoDay(periodDays * 2);
-  const prevUntil = isoDay(periodDays + 1);
+  // `segments.date` is the account's own calendar day, so the window is
+  // computed in the account's time zone (adWindows) — read first, because the
+  // dates depend on it.
+  const meta = await gaql(accessToken, accountId, "SELECT customer.currency_code, customer.time_zone FROM customer LIMIT 1")
+    .catch(() => [] as GaqlRow[]);
+  const w = adWindows(periodDays, meta[0]?.customer?.timeZone);
+  const { since, until, prevSince, prevUntil } = w;
   const metricsFields = "metrics.cost_micros, metrics.impressions, metrics.clicks, metrics.conversions, metrics.conversions_value";
 
-  const [meta, dailyRows, prevRows, campaignRows] = await Promise.all([
-    gaql(accessToken, accountId, "SELECT customer.currency_code FROM customer LIMIT 1").catch(() => [] as GaqlRow[]),
+  const [dailyRows, prevRows, campaignRows] = await Promise.all([
     gaql(accessToken, accountId,
       `SELECT segments.date, ${metricsFields} FROM customer WHERE segments.date BETWEEN '${since}' AND '${until}'`),
     gaql(accessToken, accountId,
@@ -187,7 +189,7 @@ export async function fetchGoogleAdsReport(
   ]);
 
   const byDay = new Map<string, AdsDay>();
-  for (const d of dayRange(periodDays)) byDay.set(d, { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
+  for (const d of w.days) byDay.set(d, { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
   let revenue = 0;
   for (const r of dailyRows) {
     const d = r.segments?.date;
@@ -220,6 +222,7 @@ export async function fetchGoogleAdsReport(
     currency: meta[0]?.customer?.currencyCode ?? "",
     totals: adsTotals(byDate, revenue),
     previousTotals,
+    ...windowFields(w, previousTotals !== null),
     byDate,
     topCampaigns: campaignRows.map((r) => ({
       name: r.campaign?.name ?? "—",

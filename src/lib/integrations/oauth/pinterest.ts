@@ -3,7 +3,7 @@
 // token plus a refresh token, so this plugs into the shared refresh flow. Ad
 // performance is normalized into the shared AdsReport rendered by AdsAnalytics.
 import type { IntegrationAccount, OAuthProvider, TokenSet } from "../types";
-import { adsTotals, dayRange, isoDay, withRetry, type AdsDay, type AdsReport } from "../metrics";
+import { adWindows, adsTotals, windowFields, withRetry, type AdsDay, type AdsReport } from "../metrics";
 
 const API = "https://api.pinterest.com/v5";
 // Read-only scopes: ad metrics + the account identity used to label the connection.
@@ -245,13 +245,16 @@ async function topCampaigns(accessToken: string, adAccountId: string, start: str
 export async function fetchPinterestAdsReport(
   accessToken: string, adAccountId: string, periodDays: number
 ): Promise<AdsReport> {
-  const since = isoDay(periodDays);
-  const until = isoDay(1);
+  // This API's day buckets follow the ad account's calendar and the account's
+  // time zone isn't read here, so the window ends on the newest day that has
+  // ended everywhere (adWindows with no zone) — never on a day still running.
+  const w = adWindows(periodDays, null);
+  const { since, until } = w;
 
   const [currency, daily, prev, campaigns] = await Promise.all([
     adAccountCurrency(accessToken, adAccountId),
     accountAnalytics(accessToken, adAccountId, since, until),
-    accountAnalytics(accessToken, adAccountId, isoDay(periodDays * 2), isoDay(periodDays + 1))
+    accountAnalytics(accessToken, adAccountId, w.prevSince, w.prevUntil)
       .catch(() => ({ rows: [] as AnalyticsRow[], revenueApplied: false })),
     topCampaigns(accessToken, adAccountId, since, until).catch(() => [] as AdsReport["topCampaigns"]),
   ]);
@@ -260,7 +263,7 @@ export async function fetchPinterestAdsReport(
   const prevRows = prev.rows;
 
   const byDay = new Map<string, AdsDay>();
-  for (const d of dayRange(periodDays)) byDay.set(d, { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
+  for (const d of w.days) byDay.set(d, { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
   for (const r of dailyRows) {
     const day = byDay.get((r.DATE ?? "").slice(0, 10));
     if (!day) continue;
@@ -279,6 +282,7 @@ export async function fetchPinterestAdsReport(
     currency,
     totals: adsTotals(byDate, daily.revenueApplied ? sumRevenue(dailyRows) : 0),
     previousTotals,
+    ...windowFields(w, previousTotals !== null),
     byDate,
     topCampaigns: campaigns,
   };

@@ -6,7 +6,7 @@
 // Fills the normalized AdsReport rendered by the shared AdsAnalytics block.
 import type { IntegrationAccount, OAuthProvider, TokenSet } from "../types";
 import {
-  adsTotals, dayRange, isoDay, withRetry,
+  adWindows, adsTotals, windowFields, withRetry,
   type AdsCampaign, type AdsDay, type AdsReport, type AdsVideoTotals,
 } from "../metrics";
 
@@ -152,16 +152,19 @@ export async function listTiktokAdvertisers(accessToken: string): Promise<Integr
 // The advertiser's reporting currency. Spend in the report payload is expressed
 // in it, so reports must not assume USD — a GBP advertiser showing "$" would be
 // wrong in a client-facing document. Best-effort: falls back to USD.
-async function advertiserCurrency(accessToken: string, advertiserId: string): Promise<string> {
+// The advertiser's currency and time zone. TikTok buckets `stat_time_day` by
+// the advertiser's own calendar, so the report window is computed in it.
+async function advertiserDetail(accessToken: string, advertiserId: string): Promise<{ currency: string; timeZone: string | null }> {
   try {
-    const { data } = await ttRequest<{ list?: { currency?: string }[] }>("/advertiser/info/", accessToken, {
+    const { data } = await ttRequest<{ list?: { currency?: string; timezone?: string }[] }>("/advertiser/info/", accessToken, {
       advertiser_ids: JSON.stringify([advertiserId]),
-      fields: JSON.stringify(["currency", "advertiser_id", "advertiser_name"]),
+      fields: JSON.stringify(["currency", "timezone", "advertiser_id", "advertiser_name"]),
     });
-    return data.list?.[0]?.currency || "";
+    return { currency: data.list?.[0]?.currency || "", timeZone: data.list?.[0]?.timezone || null };
   } catch {
-    // Unknown, not "probably dollars" — the UI omits the symbol instead.
-    return "";
+    // Unknown, not "probably dollars" — the UI omits the symbol instead — and
+    // an unknown zone makes adWindows end on a day that has ended everywhere.
+    return { currency: "", timeZone: null };
   }
 }
 
@@ -291,13 +294,13 @@ function toBreakdown(rows: ReportRow[], nameKey: string, idKey: string): AdsCamp
 export async function fetchTiktokAdsReport(
   accessToken: string, advertiserId: string, periodDays: number
 ): Promise<AdsReport> {
-  const since = isoDay(periodDays);
-  const until = isoDay(1);
+  const { currency, timeZone } = await advertiserDetail(accessToken, advertiserId);
+  const w = adWindows(periodDays, timeZone);
+  const { since, until } = w;
 
-  const [currency, daily, prev, campaigns, adGroups, ads] = await Promise.all([
-    advertiserCurrency(accessToken, advertiserId),
+  const [daily, prev, campaigns, adGroups, ads] = await Promise.all([
     reportWithOptional(accessToken, advertiserId, since, until, "AUCTION_ADVERTISER", ["stat_time_day"], [...REVENUE_METRICS, ...VIDEO_METRICS]),
-    reportWithOptional(accessToken, advertiserId, isoDay(periodDays * 2), isoDay(periodDays + 1), "AUCTION_ADVERTISER", ["stat_time_day"], REVENUE_METRICS)
+    reportWithOptional(accessToken, advertiserId, w.prevSince, w.prevUntil, "AUCTION_ADVERTISER", ["stat_time_day"], REVENUE_METRICS)
       .catch(() => ({ rows: [] as ReportRow[], optionalApplied: false })),
     report(accessToken, advertiserId, since, until, "AUCTION_CAMPAIGN", ["campaign_id"], [...CORE_METRICS, "campaign_name"])
       .catch(() => [] as ReportRow[]),
@@ -309,7 +312,7 @@ export async function fetchTiktokAdsReport(
 
   // Zero-fill the period so charts don't skip days TikTok omits.
   const byDay = new Map<string, AdsDay>();
-  for (const d of dayRange(periodDays)) byDay.set(d, { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
+  for (const d of w.days) byDay.set(d, { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
   for (const r of daily.rows) {
     const row = byDay.get((r.dimensions?.stat_time_day ?? "").slice(0, 10));
     if (!row) continue;
@@ -342,6 +345,7 @@ export async function fetchTiktokAdsReport(
     currency,
     totals: adsTotals(byDate, revenue),
     previousTotals,
+    ...windowFields(w, previousTotals !== null),
     byDate,
     topCampaigns: toBreakdown(campaigns, "campaign_name", "campaign_id"),
     topAdGroups: toBreakdown(adGroups, "adgroup_name", "adgroup_id"),

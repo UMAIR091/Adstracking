@@ -7,7 +7,7 @@
 // need that manager in the login-customer-id header on every call.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fetchGoogleAdsReport, listGoogleAdsAccounts, parseGoogleAdsAccountId } from "./googleAds";
-import { isoDay } from "../metrics";
+import { lastCompleteDay } from "../metrics";
 
 type Call = { url: string; body: { query?: string; pageToken?: string; pageSize?: number } | null; login: string | null };
 
@@ -126,10 +126,12 @@ describe("listGoogleAdsAccounts", () => {
 
 describe("fetchGoogleAdsReport", () => {
   it("queries a client account through its manager, without pageSize, following every page", async () => {
-    const yesterday = isoDay(1);
+    // The account's newest complete day in its own time zone: the window ends
+    // there (adWindows), not on yesterday in UTC.
+    const yesterday = lastCompleteDay("Asia/Karachi");
     fakeApi(({ body }) => {
       const q = body?.query ?? "";
-      if (q.includes("customer.currency_code")) return json(200, { results: [{ customer: { currencyCode: "PKR" } }] });
+      if (q.includes("customer.currency_code")) return json(200, { results: [{ customer: { currencyCode: "PKR", timeZone: "Asia/Karachi" } }] });
       if (q.includes("segments.date,") && !body?.pageToken) {
         return json(200, {
           results: [{ segments: { date: yesterday }, metrics: { costMicros: "1500000", impressions: "100", clicks: "10", conversions: 1 } }],

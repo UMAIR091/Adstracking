@@ -4,7 +4,7 @@
 // AdsReport rendered by AdsAnalytics. Spend is reported in micro-currency and a
 // "swipe" is Snapchat's click equivalent.
 import type { IntegrationAccount, OAuthProvider, TokenSet } from "../types";
-import { adsTotals, dayRange, withRetry, type AdsDay, type AdsReport } from "../metrics";
+import { adWindows, adsTotals, windowFields, withRetry, type AdsDay, type AdsReport } from "../metrics";
 
 const API = "https://adsapi.snapchat.com/v1";
 const AUTH = "https://accounts.snapchat.com/login/oauth2";
@@ -301,9 +301,13 @@ export async function fetchSnapchatAdsReport(
     topCampaigns(accessToken, adAccountId, start.iso, end.iso).catch(() => [] as AdsReport["topCampaigns"]),
   ]);
 
-  // Zero-fill the day range so charts don't skip omitted days.
+  // Zero-fill the day range so charts don't skip omitted days. The days are
+  // the ACCOUNT's calendar days — the same ones the requests above cover
+  // (midnight local today minus N, to midnight local today). Keying them by
+  // UTC dates dropped the newest local day whenever the two calendars differ.
+  const w = adWindows(periodDays, timezone);
   const byDay = new Map<string, AdsDay>();
-  for (const d of dayRange(periodDays)) byDay.set(d, { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
+  for (const d of w.days) byDay.set(d, { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
   for (const r of dailyRows) if (byDay.has(r.date)) byDay.set(r.date, r);
   const byDate = Array.from(byDay.values());
 
@@ -312,6 +316,7 @@ export async function fetchSnapchatAdsReport(
     currency,
     totals: adsTotals(byDate),
     previousTotals: prevRows.length ? adsTotals(prevRows) : null,
+    ...windowFields(w, prevRows.length > 0),
     byDate,
     topCampaigns: campaigns,
   };

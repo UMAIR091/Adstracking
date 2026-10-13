@@ -3,7 +3,7 @@
 // with versioned headers. Fills the normalized AdsReport so LinkedIn renders
 // in the same dashboards/reports as every other ad platform.
 import type { IntegrationAccount, OAuthProvider, TokenSet } from "../types";
-import { adsTotals, dayRange, isoDay, withRetry, type AdsDay, type AdsReport } from "../metrics";
+import { adWindows, adsTotals, windowFields, withRetry, type AdsDay, type AdsReport } from "../metrics";
 
 const API = "https://api.linkedin.com";
 // LinkedIn ships a Marketing API version every month and supports each for
@@ -145,13 +145,16 @@ const rowKey = (r: AnalyticsRow) => {
 export async function fetchLinkedinAdsReport(
   accessToken: string, accountId: string, periodDays: number
 ): Promise<AdsReport> {
-  const since = isoDay(periodDays);
-  const until = isoDay(1);
+  // This API's day buckets follow the ad account's calendar and the account's
+  // time zone isn't read here, so the window ends on the newest day that has
+  // ended everywhere (adWindows with no zone) — never on a day still running.
+  const w = adWindows(periodDays, null);
+  const { since, until } = w;
 
   const [account, dailyRows, prevRows, campaignRows, campaignNames] = await Promise.all([
     liGet<{ currency?: string }>(`/rest/adAccounts/${accountId}`, accessToken).catch(() => ({} as { currency?: string })),
     analytics(accessToken, accountId, since, until, "ACCOUNT", "DAILY"),
-    analytics(accessToken, accountId, isoDay(periodDays * 2), isoDay(periodDays + 1), "ACCOUNT", "ALL").catch(() => [] as AnalyticsRow[]),
+    analytics(accessToken, accountId, w.prevSince, w.prevUntil, "ACCOUNT", "ALL").catch(() => [] as AnalyticsRow[]),
     analytics(accessToken, accountId, since, until, "CAMPAIGN", "ALL").catch(() => [] as AnalyticsRow[]),
     liGet<{ elements?: { id: number; name?: string }[] }>(
       `/rest/adAccounts/${accountId}/adCampaigns?q=search&pageSize=100`, accessToken
@@ -160,7 +163,7 @@ export async function fetchLinkedinAdsReport(
   ]);
 
   const byDay = new Map<string, AdsDay>();
-  for (const d of dayRange(periodDays)) byDay.set(d, { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
+  for (const d of w.days) byDay.set(d, { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
   for (const r of dailyRows) {
     const row = byDay.get(rowKey(r));
     if (!row) continue;
@@ -206,6 +209,7 @@ export async function fetchLinkedinAdsReport(
     currency: account.currency ?? "",
     totals: adsTotals(byDate),
     previousTotals,
+    ...windowFields(w, previousTotals !== null),
     byDate,
     topCampaigns,
   };

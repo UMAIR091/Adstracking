@@ -12,7 +12,7 @@
 // AMAZON_ADS_REGION=EU|FE for accounts in those regions.
 import { gunzipSync } from "node:zlib";
 import type { IntegrationAccount, OAuthProvider, TokenSet } from "../types";
-import { adsTotals, dayRange, isoDay, withRetry, type AdsDay, type AdsReport } from "../metrics";
+import { adWindows, adsTotals, windowFields, withRetry, type AdsDay, type AdsReport } from "../metrics";
 
 const REGIONS = {
   NA: { api: "https://advertising-api.amazon.com", authorize: "https://www.amazon.com/ap/oa", token: "https://api.amazon.com/auth/o2/token" },
@@ -118,14 +118,15 @@ export const amazonOAuth: OAuthProvider = {
   callbackPath: "/api/amazon/callback",
 };
 
-type Profile = { profileId: number; countryCode?: string; currencyCode?: string; accountInfo?: { name?: string; type?: string } };
+type Profile = { profileId: number; countryCode?: string; currencyCode?: string; timezone?: string; accountInfo?: { name?: string; type?: string } };
 
-async function listProfiles(accessToken: string): Promise<{ id: string; name: string; currency: string }[]> {
+async function listProfiles(accessToken: string): Promise<{ id: string; name: string; currency: string; timeZone: string | null }[]> {
   const data = await adsFetch<Profile[]>("/v2/profiles", accessToken);
   return (data ?? []).map((p) => ({
     id: String(p.profileId),
     name: p.accountInfo?.name ? `${p.accountInfo.name}${p.countryCode ? ` (${p.countryCode})` : ""}` : `Profile ${p.profileId}`,
     currency: p.currencyCode ?? "",
+    timeZone: p.timezone ?? null,
   }));
 }
 
@@ -191,17 +192,20 @@ const n = (v: number | string | undefined): number => {
 export async function fetchAmazonAdsReport(
   accessToken: string, profileId: string, periodDays: number
 ): Promise<AdsReport> {
-  const startDate = isoDay(periodDays);
-  const endDate = isoDay(1);
-
   const profiles = await listProfiles(accessToken).catch(() => []);
-  const currency = profiles.find((p) => p.id === profileId)?.currency ?? "";
+  const profile = profiles.find((p) => p.id === profileId);
+  const currency = profile?.currency ?? "";
+  // Amazon reports by the profile's own calendar; its time zone comes with the
+  // profile. Unknown, the window ends on a day that has ended everywhere.
+  const w = adWindows(periodDays, profile?.timeZone ?? null);
+  const startDate = w.since;
+  const endDate = w.until;
 
   const reportId = await createReport(accessToken, profileId, startDate, endDate);
   const rows = await awaitReport(accessToken, profileId, reportId);
 
   const byDay = new Map<string, AdsDay>();
-  for (const d of dayRange(periodDays)) byDay.set(d, { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
+  for (const d of w.days) byDay.set(d, { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
   const byCampaign = new Map<string, { name: string; spend: number; impressions: number; clicks: number; conversions: number }>();
   let revenue = 0;
 
@@ -235,6 +239,7 @@ export async function fetchAmazonAdsReport(
     currency,
     totals: { ...adsTotals(byDate, revenue) },
     previousTotals: null,
+    ...windowFields(w, false),
     byDate,
     topCampaigns,
   };

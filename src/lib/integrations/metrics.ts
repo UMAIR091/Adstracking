@@ -59,6 +59,15 @@ export type AdsReport = {
   topAdGroups?: AdsCampaign[];
   topAds?: AdsCampaign[];
   video?: AdsVideoTotals;
+  /**
+   * The inclusive dates requested, in the account's own calendar (see
+   * adWindows). Optional: snapshots synced before it existed have none, and
+   * readers infer the window from the sync time instead.
+   */
+  window?: { start: string; end: string };
+  previousWindow?: { start: string; end: string } | null;
+  /** The account time zone the window was computed in; null when unknown. */
+  timeZone?: string | null;
 };
 
 export function adsTotals(rows: AdsDay[], revenue = 0): AdsTotals {
@@ -299,6 +308,76 @@ export function dayRange(periodDays: number, endOffset = 1): string[] {
   const out: string[] = [];
   for (let i = periodDays + endOffset - 1; i >= endOffset; i--) out.push(isoDay(i));
   return out;
+}
+
+// ── Ad-account day windows ───────────────────────────────────
+//
+// Ad platforms bucket their daily figures by the AD ACCOUNT's calendar, not
+// UTC. Windows used to end on "yesterday in UTC", which at the 06:00 UTC sync
+// is still in progress for any account west of UTC (23:00 the day before in
+// Los Angeles), so a US account's newest day was a partial one: its totals,
+// its last chart point and its archived row all came up short until a later
+// sync happened to overwrite them.
+//
+// A window now ends on the newest day that has FULLY ended in the account's
+// own time zone. When the zone is unknown it ends on the newest day that has
+// ended everywhere (UTC−12): sometimes a day staler than necessary, never a
+// partial day. The previous window is the equal-length block right before.
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+function shiftDay(iso: string, n: number): string {
+  return new Date(Date.parse(`${iso}T00:00:00Z`) + n * DAY_MS).toISOString().slice(0, 10);
+}
+
+/** Today's calendar date in an IANA time zone, or null for an unknown zone. */
+export function localToday(timeZone: string | null | undefined, now: number = Date.now()): string | null {
+  if (!timeZone) return null;
+  try {
+    const d = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(now));
+    return ISO_DAY.test(d) ? d : null;
+  } catch {
+    return null; // RangeError: not a zone this runtime knows
+  }
+}
+
+/** The newest calendar day that has fully ended in `timeZone` (see above). */
+export function lastCompleteDay(timeZone?: string | null, now: number = Date.now()): string {
+  const local = localToday(timeZone, now);
+  if (local) return shiftDay(local, -1);
+  // Unknown zone: a day has ended everywhere once it has ended at UTC−12.
+  return shiftDay(new Date(now - 12 * 60 * 60 * 1000).toISOString().slice(0, 10), -1);
+}
+
+export type AdWindows = {
+  since: string;
+  until: string;
+  prevSince: string;
+  prevUntil: string;
+  /** Every date of the current window, oldest first, for zero-filling. */
+  days: string[];
+  /** The zone the window was computed in, when it was known. */
+  timeZone: string | null;
+};
+
+/** A periodDays-long window ending on the account's last complete day. */
+export function adWindows(periodDays: number, timeZone?: string | null, now: number = Date.now()): AdWindows {
+  const until = lastCompleteDay(timeZone, now);
+  const since = shiftDay(until, -(periodDays - 1));
+  const prevUntil = shiftDay(since, -1);
+  const prevSince = shiftDay(prevUntil, -(periodDays - 1));
+  const days: string[] = [];
+  for (let d = since; d <= until; d = shiftDay(d, 1)) days.push(d);
+  return { since, until, prevSince, prevUntil, days, timeZone: localToday(timeZone, now) ? timeZone! : null };
+}
+
+/** The window fields an AdsReport records about itself. */
+export function windowFields(w: AdWindows, hasPrevious: boolean): Pick<AdsReport, "window" | "previousWindow" | "timeZone"> {
+  return {
+    window: { start: w.since, end: w.until },
+    previousWindow: hasPrevious ? { start: w.prevSince, end: w.prevUntil } : null,
+    timeZone: w.timeZone,
+  };
 }
 
 // Retry helper for transient provider failures (rate limits, 5xx). Retries on

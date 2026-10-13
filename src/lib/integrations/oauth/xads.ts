@@ -12,7 +12,7 @@
 // with a far-future expiry since 1.0a tokens don't expire or refresh.
 import crypto from "node:crypto";
 import type { IntegrationAccount } from "../types";
-import { adsTotals, dayRange, isoDay, withRetry, type AdsDay, type AdsReport } from "../metrics";
+import { adWindows, adsTotals, windowFields, withRetry, type AdsDay, type AdsReport } from "../metrics";
 
 // v12 is the current Ads API version (no deprecation date announced), and
 // ads-api.x.com is its canonical host — the ads-api.twitter.com name still
@@ -227,9 +227,11 @@ async function campaignStats(stored: string, accountId: string, ids: string[], s
 // Fetches the normalized ads report for one account and period. accountId = the
 // X ad account id; `stored` is the packed "<token>:<secret>" credential.
 export async function fetchXAdsReport(stored: string, accountId: string, periodDays: number): Promise<AdsReport> {
-  // X requires day-aligned UTC boundaries for DAY granularity.
-  const start = `${isoDay(periodDays)}T00:00:00Z`;
-  const end = `${isoDay(0)}T00:00:00Z`;
+  // X requires day-aligned UTC boundaries for DAY granularity, so the days are
+  // UTC days ending on the last complete one.
+  const w = adWindows(periodDays, "UTC");
+  const start = `${w.since}T00:00:00Z`;
+  const end = `${new Date(Date.parse(`${w.until}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10)}T00:00:00Z`;
 
   const currency = await xAccountCurrency(stored, accountId);
 
@@ -238,7 +240,7 @@ export async function fetchXAdsReport(stored: string, accountId: string, periodD
   const items = campaigns.data ?? [];
   const names = new Map(items.map((c) => [c.id, c.name ?? c.id]));
 
-  const days = dayRange(periodDays);
+  const days = w.days;
   const byDay = new Map<string, AdsDay>();
   for (const d of days) byDay.set(d, { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
 
@@ -273,6 +275,7 @@ export async function fetchXAdsReport(stored: string, accountId: string, periodD
     currency,
     totals: adsTotals(byDate),
     previousTotals: null,
+    ...windowFields(w, false),
     byDate,
     topCampaigns: topCampaigns.sort((a, b) => b.spend - a.spend).slice(0, 10),
   };

@@ -9,7 +9,7 @@
 // built to the documented v13 contracts and verified against live credentials.
 import JSZip from "jszip";
 import type { IntegrationAccount, OAuthProvider, TokenSet } from "../types";
-import { adsTotals, dayRange, isoDay, withRetry, type AdsDay, type AdsReport } from "../metrics";
+import { adWindows, adsTotals, windowFields, withRetry, type AdsDay, type AdsReport } from "../metrics";
 import { getGoogleEmail } from "@/lib/google";
 
 // Microsoft Advertising accepts two identity providers (see the v13 auth docs):
@@ -411,17 +411,20 @@ const num = (v: string | undefined) => {
 // equal-length period for comparison. accountId = "customerId:accountId".
 export async function fetchMicrosoftAdsReport(accessToken: string, packedId: string, periodDays: number, provider?: string): Promise<AdsReport> {
   const [customerId, accountId] = packedId.split(":");
-  const since = isoDay(periodDays);
-  const until = isoDay(1);
+  // This API's day buckets follow the ad account's calendar and the account's
+  // time zone isn't read here, so the window ends on the newest day that has
+  // ended everywhere (adWindows with no zone) — never on a day still running.
+  const w = adWindows(periodDays, null);
+  const { since, until } = w;
 
   const [csv, prevCsv] = await Promise.all([
     generateReportCsv(accessToken, customerId, accountId, since, until, provider),
-    generateReportCsv(accessToken, customerId, accountId, isoDay(periodDays * 2), isoDay(periodDays + 1), provider).catch(() => ""),
+    generateReportCsv(accessToken, customerId, accountId, w.prevSince, w.prevUntil, provider).catch(() => ""),
   ]);
 
   const rows = parseCsv(csv);
   const byDay = new Map<string, AdsDay>();
-  for (const d of dayRange(periodDays)) byDay.set(d, { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
+  for (const d of w.days) byDay.set(d, { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
   let revenue = 0;
   // Filled from the report's CurrencyCode column; stays unknown if absent
   // rather than defaulting to dollars.
@@ -458,6 +461,7 @@ export async function fetchMicrosoftAdsReport(accessToken: string, packedId: str
     currency,
     totals: adsTotals(byDate, revenue),
     previousTotals,
+    ...windowFields(w, previousTotals !== null),
     byDate,
     topCampaigns: [], // account-level report; campaign breakdown omitted to keep one report call.
   };
