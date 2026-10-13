@@ -65,12 +65,21 @@ export default function CookiesPage() {
             </td>
             <td>90 days</td>
           </tr>
+          <tr>
+            <td><code>anavyst_ref</code></td>
+            <td>{COMPANY.product} (first-party)</td>
+            <td>
+              Remembers which partner&apos;s referral link (<code>?ref=…</code>) brought you to us, so we can credit that
+              partner if you sign up. Cleared once you are signed in.
+            </td>
+            <td>60 days</td>
+          </tr>
         </tbody>
       </table>
       <ul>
         <li>
-          The Meta Pixel is not loaded for visitors in the European Economic Area, the United Kingdom or Switzerland, or in
-          browsers that send a Global Privacy Control signal.
+          The Meta Pixel is not loaded, and the referral cookie is not set, for visitors in the European Economic Area, the
+          United Kingdom or Switzerland, or in browsers that send a Global Privacy Control signal.
         </li>
         <li>
           To opt out, turn on Global Privacy Control, block third-party cookies or scripts in your browser, or use the ad

@@ -98,8 +98,14 @@ export default function PrivacyPage() {
           identifiers. If you never pay, we delete them after 60 days.
         </li>
         <li>
-          We do not load the Meta Pixel for visitors in the European Economic Area, the United Kingdom or Switzerland,
-          or in browsers that send a Global Privacy Control signal. Under some US state laws this measurement may count
+          If you arrive through a partner&apos;s referral link (<code>?ref=…</code>), we set a first-party cookie,{" "}
+          <code>anavyst_ref</code>, for up to 60 days. If you then sign up, we record which partner referred your
+          account and, when you pay, the commission we owe them. Partners never see your account or your data; we pay
+          them ourselves. The cookie is set under the same rules as the Meta Pixel below.
+        </li>
+        <li>
+          We do not load the Meta Pixel, or set the referral cookie, for visitors in the European Economic Area, the
+          United Kingdom or Switzerland, or in browsers that send a Global Privacy Control signal. Under some US state laws this measurement may count
           as &quot;sharing&quot; personal information for advertising; we treat Global Privacy Control as your opt-out.
         </li>
         <li>
