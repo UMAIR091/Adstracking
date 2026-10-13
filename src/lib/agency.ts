@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { attachReferral } from "@/lib/affiliates/attach";
 
 export type AgencyRole = "owner" | "admin" | "member";
 
@@ -83,7 +84,12 @@ export async function getCurrentUserAndAgency() {
     .select("*")
     .single();
 
-  if (created) await ensureOwnerMembership(supabase, created.id, user.id);
+  if (created) {
+    await ensureOwnerMembership(supabase, created.id, user.id);
+    // The agency exists from this moment, so this is where an affiliate's
+    // referral is attached — for email and Google signup alike. Never throws.
+    await attachReferral(created.id, user.email);
+  }
 
   return { user, agency: (created ?? null) as Agency | null, role: created ? ("owner" as AgencyRole) : null };
 }
