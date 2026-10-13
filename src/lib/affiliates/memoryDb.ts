@@ -35,15 +35,18 @@ export function memoryDb(tables: Record<string, Row[]> = {}, opts: { label?: str
       }
       const list = Array.isArray(payload) ? payload : [payload as Row];
       const key = upsertOpts.onConflict;
+      const written: Row[] = [];
       for (const p of list) {
         const clash = key ? db[table].find((r) => key.split(",").every((k) => r[k] === p[k])) : undefined;
         if (clash) {
           if (op === "upsert" && !upsertOpts.ignoreDuplicates) Object.assign(clash, p);
           continue;
         }
-        db[table].push({ id: `${table}_${db[table].length + 1}`, created_at: new Date().toISOString(), ...(opts.defaults?.[table] ?? {}), ...p });
+        const row = { id: `${table}_${db[table].length + 1}`, created_at: new Date().toISOString(), ...(opts.defaults?.[table] ?? {}), ...p };
+        db[table].push(row);
+        written.push(row);
       }
-      return { data: null, error: null };
+      return { data: returning ? written.map((r) => ({ ...r })) : null, error: null };
     };
 
     const chain: Record<string, unknown> = {
