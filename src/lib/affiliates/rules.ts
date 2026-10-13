@@ -80,7 +80,7 @@ export function commissionMinor(netMinor: number, pct: number | string): number 
   const bp = pctToBasisPoints(pct);
   if (bp === null) throw new Error(`invalid commission rate: ${pct}`);
   if (!Number.isInteger(netMinor) || netMinor < 0) throw new Error(`invalid net amount: ${netMinor}`);
-  return Number((BigInt(netMinor) * BigInt(bp) * 2n + 10_000n) / 20_000n);
+  return Number((BigInt(netMinor) * BigInt(bp) * BigInt(2) + BigInt(10_000)) / BigInt(20_000));
 }
 
 /**

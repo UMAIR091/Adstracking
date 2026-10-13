@@ -17,6 +17,7 @@ import { LIVE_SUBSCRIPTION_STATUSES as LIVE } from "@/lib/billing/subscription";
 import { captureServer } from "@/lib/analyticsServer";
 import { ANALYTICS } from "@/lib/analytics";
 import { reportFirstPurchase } from "@/lib/metaCapi";
+import { applyAdjustment, recordCommission } from "@/lib/affiliates/commissions";
 
 // The auth user id behind an agency — used as the analytics distinct id so
 // server money-events stitch to the same person as client-side events.
@@ -39,6 +40,7 @@ export const dynamic = "force-dynamic";
 //   transaction.completed
 //   subscription.created, subscription.updated, subscription.canceled,
 //   subscription.paused, subscription.resumed, subscription.past_due
+//   adjustment.created, adjustment.updated   (affiliate commission refunds)
 //
 // Retry contract: a 2xx acknowledges the event. Anything we can't attribute is
 // acknowledged (retrying won't supply missing data); genuine failures return
@@ -86,6 +88,14 @@ async function handleEvent(admin: SupabaseClient, event: EventEntity): Promise<H
 
     case "transaction.completed":
       return recordPayment(admin, event.data);
+
+    // Refunds and chargebacks. Billing state is already handled by the
+    // subscription.* events; these only correct affiliate commissions, and
+    // never fail the webhook (lib/affiliates/commissions.ts).
+    case "adjustment.created":
+    case "adjustment.updated":
+      await applyAdjustment(admin, event.data);
+      return { ok: true };
 
     default:
       // Acknowledge everything else so Paddle stops retrying events we don't
@@ -369,6 +379,11 @@ async function recordPayment(admin: SupabaseClient, tx: TransactionLike): Promis
       renewsAt: null,
     });
   }
+
+  // Affiliate commission for a referred agency's payment, after the billing
+  // work above has succeeded. Isolated: it catches and reports its own
+  // errors, so it can never fail or endlessly retry this webhook.
+  await recordCommission(admin, { agencyId, tx });
 
   return { ok: true };
 }

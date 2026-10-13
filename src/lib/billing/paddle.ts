@@ -419,9 +419,12 @@ export type TransactionLike = {
   subscriptionId: string | null;
   items: { price: { id: string } | null }[];
   customData: unknown;
-  // Amount in the currency's minor units, as Paddle sends it ("4900").
-  details?: { totals?: { total?: string } | null } | null;
+  // Amounts in the currency's minor units, as Paddle sends them ("4900").
+  // subtotal − discount is the pre-tax amount charged (affiliate commissions).
+  details?: { totals?: { total?: string; subtotal?: string; discount?: string; currencyCode?: string } | null } | null;
   currencyCode?: string | null;
+  billedAt?: string | null;
+  createdAt?: string | null;
 };
 
 export function readSubscription(sub: SubscriptionLike): SubscriptionFacts {
