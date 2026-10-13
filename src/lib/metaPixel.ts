@@ -31,6 +31,11 @@ const ALLOWED_PREFIXES = [
   "/dashboard/billing",
 ];
 
+/** Visitors from these countries need prior consent we don't ask for. */
+export function countryRequiresConsent(country: string): boolean {
+  return CONSENT_REQUIRED.has(country.toUpperCase());
+}
+
 export function pixelAllowedOnPath(pathname: string): boolean {
   if (pathname === "/") return true;
   return ALLOWED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
@@ -45,7 +50,7 @@ export function visitorAllowsAdMeasurement(): boolean {
   const nav = navigator as Navigator & { globalPrivacyControl?: boolean };
   if (nav.globalPrivacyControl === true) return false;
   const country = readCookie(COUNTRY_COOKIE);
-  if (country) return !CONSENT_REQUIRED.has(country.toUpperCase());
+  if (country) return !countryRequiresConsent(country);
   // No country (the cookie was blocked, or the request never passed through
   // middleware): fall back to the time zone, erring towards not loading.
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";

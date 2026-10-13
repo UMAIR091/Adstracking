@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { applyReferralCookie } from "@/lib/affiliates/capture";
 
 // Builds a Content-Security-Policy (audit #8/#10).
 //
@@ -165,11 +166,13 @@ export async function updateSession(request: NextRequest) {
   );
 
   const authRelevant = path.startsWith("/dashboard") || path === "/login" || path === "/signup";
+  let signedInOnDashboard = false;
 
   if (authRelevant) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    signedInOnDashboard = Boolean(user) && path.startsWith("/dashboard");
 
     if (!user && path.startsWith("/dashboard")) {
       const url = request.nextUrl.clone();
@@ -200,6 +203,10 @@ export async function updateSession(request: NextRequest) {
   if (country && request.cookies.get(COUNTRY_COOKIE)?.value !== country) {
     response.cookies.set(COUNTRY_COOKIE, country, { path: "/", sameSite: "lax", secure: true, maxAge: 60 * 60 * 24 });
   }
+
+  // Affiliate referral (lib/affiliates/capture.ts). Set on the final response
+  // so the Supabase session cookies written above are kept alongside it.
+  applyReferralCookie(request, response, { signedInOnDashboard });
 
   response.headers.set("content-security-policy", csp);
   return response;
