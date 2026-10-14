@@ -1,7 +1,7 @@
 // Disconnecting one Google integration must not break the others.
 //
-// Google issues ONE grant per (OAuth client, Google account) and
-// `include_granted_scopes` accumulates every product's scopes into it, so one
+// Google issues ONE grant per (OAuth client, Google account), holding every
+// scope the account has approved for the app across consents, so one
 // account's Search Console, GA4, Google Ads, Business Profile, Sheets, BigQuery
 // and Google-signed-in Microsoft Ads connections all sit on a single grant.
 // Revocation is grant-wide. Revoking on every disconnect therefore killed every

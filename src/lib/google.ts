@@ -26,6 +26,14 @@ function env(key: string): string {
 
 // Optional scope override lets scope-specific OAuth backends (Google Ads,
 // Business Profile, Sheets) reuse this flow with their own consent scopes.
+//
+// Each connection asks for ITS OWN scopes only. `include_granted_scopes` used
+// to be set, which folds every scope the account ever granted Anavyst into
+// each new request — so once someone had connected YouTube (scope still under
+// Google review) or Sheets, connecting even Search Console or Google Ads
+// showed "Google hasn't verified this app", because the request now carried
+// the unverified scope too. Every token is used only for its own product, so
+// nothing needs the accumulated scopes.
 export function getAuthUrl(state: string, scopes: string[] = SCOPES): string {
   const params = new URLSearchParams({
     client_id: env("GOOGLE_CLIENT_ID"),
@@ -33,7 +41,6 @@ export function getAuthUrl(state: string, scopes: string[] = SCOPES): string {
     response_type: "code",
     scope: scopes.join(" "),
     access_type: "offline",
-    include_granted_scopes: "true",
     prompt: "consent",
     state,
   });
