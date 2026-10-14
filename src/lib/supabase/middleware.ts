@@ -22,9 +22,15 @@ const PADDLE_CONNECT =
 const PADDLE_FRAME = "https://buy.paddle.com https://sandbox-buy.paddle.com";
 
 // Google Analytics (gtag.js): script loads from googletagmanager.com; beacons
-// go to *.google-analytics.com / *.analytics.google.com.
+// go to *.google-analytics.com / *.analytics.google.com. Google's documented
+// GA4 policy also needs the bare analytics.google.com (a wildcard doesn't
+// match the apex), and, with Google Signals / the conversion linker on,
+// www.google.com and *.g.doubleclick.net. Without those, the hits Google
+// routes there were refused by this policy and never counted.
 const GA_SCRIPT = "https://www.googletagmanager.com";
-const GA_CONNECT = "https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com";
+const GA_CONNECT =
+  "https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com https://*.analytics.google.com " +
+  "https://*.googletagmanager.com https://www.google.com https://*.g.doubleclick.net";
 
 // Meta Pixel (lib/metaPixel.ts): fbevents.js loads from connect.facebook.net and
 // reports to www.facebook.com/tr. Image beacons are already covered by img-src.
