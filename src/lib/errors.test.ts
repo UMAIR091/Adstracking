@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 // Monitoring must not be required for these pure checks.
 vi.mock("@/lib/monitoring", () => ({ captureException: () => {} }));
 
-import { isSafeMessage, publicError } from "./errors";
+import { isSafeMessage, logDetail, publicError, UserFacingError } from "./errors";
 
 describe("isSafeMessage", () => {
   it("allows short, user-fixable messages", () => {
@@ -32,5 +32,18 @@ describe("publicError", () => {
     expect(r.error).toContain("Something went wrong.");
     expect(r.error).toContain(r.errorId);
     expect(r.error).not.toContain("relation");
+  });
+});
+
+describe("UserFacingError", () => {
+  it("is shown verbatim even when longer than the safe-message limit", () => {
+    const msg = "x".repeat(40) + " sign in with the account that owns it, or go back and choose the other sign-in option. " + "y".repeat(80);
+    const r = publicError(new UserFacingError(msg, "Code=105"), "Fallback.");
+    expect(r.error).toBe(msg);
+  });
+
+  it("logs the technical detail, not the rewritten message", () => {
+    expect(logDetail(new UserFacingError("Friendly.", "Code=105 InvalidCredentials"))).toBe("Code=105 InvalidCredentials");
+    expect(logDetail(new Error("raw"))).toBe("raw");
   });
 });

@@ -11,6 +11,7 @@ import JSZip from "jszip";
 import type { IntegrationAccount, OAuthProvider, TokenSet } from "../types";
 import { adWindows, adsTotals, windowFields, withRetry, type AdsDay, type AdsReport } from "../metrics";
 import { getGoogleEmail } from "@/lib/google";
+import { UserFacingError } from "@/lib/errors";
 
 // Microsoft Advertising accepts two identity providers (see the v13 auth docs):
 //  • Microsoft identity (Entra) — personal MSA *and* work/school accounts. Use
@@ -225,15 +226,17 @@ async function soapCall(
       // access + developer tokens) so the exact fault is visible in Vercel logs.
       console.error(`[microsoft-ads] SOAP fault on ${action} (HTTP ${res.status}):\n${text}`);
       const detail = parseSoapFault(text);
+      const technical = `Microsoft Ads API error [${action}]: ${detail}`;
       // Wrong sign-in provider for this account (error 126): the user picked the
       // Microsoft button for a Google-sign-in account or vice-versa. Give a plain
       // instruction to switch buttons instead of the raw Bing Ads message.
       if (/IdentityTypeMismatch/i.test(detail) || /\bCode=126\b/.test(detail)) {
-        throw new Error(
-          'This Microsoft Advertising account uses a different sign-in method. Go back and choose the other option — if you clicked "Continue with Microsoft", use "Continue with Google" instead (or vice-versa).'
+        throw new UserFacingError(
+          'This Microsoft Advertising account uses a different sign-in method. Go back and choose the other option — if you clicked "Continue with Microsoft", use "Continue with Google" instead (or vice-versa).',
+          technical
         );
       }
-      throw new Error(`Microsoft Ads API error [${action}]: ${detail}`);
+      throw new Error(technical);
     }
     return text;
   });
@@ -302,10 +305,30 @@ function userIdFromGetUser(xml: string): string | undefined {
   return tag(withoutContact, "Id");
 }
 
+// GetUser right after sign-in fails with 105 InvalidCredentials when the login
+// itself worked but has no active Microsoft Advertising user behind it, e.g.
+// someone signs in with a different Microsoft or Google account than the one
+// that owns the ads account. "Please try again" can't fix that, so say which
+// login to use instead.
+function noAdvertisingUser(err: unknown, provider?: string): unknown {
+  const message = err instanceof Error ? err.message : String(err);
+  if (!/\bCode=105\b|InvalidCredentials/.test(message)) return err;
+  return new UserFacingError(
+    provider === PROVIDER_GOOGLE
+      ? 'The Google account you chose isn\'t linked to an active Microsoft Advertising account. Sign in with the Google account you use for Microsoft Advertising, or go back and choose "Continue with Microsoft".'
+      : 'The Microsoft account you signed in with has no active Microsoft Advertising account. If you sign in to Microsoft Advertising with Google, go back and choose "Continue with Google".',
+    message
+  );
+}
+
 // Lists the ad accounts the authenticated user can access. The account id is
 // packed as "customerId:accountId" because reporting needs both in its headers.
 export async function listMicrosoftAdsAccounts(accessToken: string, provider?: string): Promise<IntegrationAccount[]> {
-  const userXml = await soapCall(CUSTOMER_MGMT, CM_NS, "GetUser", accessToken, "", `<GetUserRequest xmlns="${CM_NS}"><UserId i:nil="true"/></GetUserRequest>`, provider);
+  const userXml = await soapCall(CUSTOMER_MGMT, CM_NS, "GetUser", accessToken, "", `<GetUserRequest xmlns="${CM_NS}"><UserId i:nil="true"/></GetUserRequest>`, provider).catch(
+    (err) => {
+      throw noAdvertisingUser(err, provider);
+    }
+  );
   const userId = userIdFromGetUser(userXml);
   if (!userId) throw new Error("Couldn't read the Microsoft Ads user.");
 

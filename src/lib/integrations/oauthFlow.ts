@@ -13,7 +13,7 @@ import { getIntegration, getOAuthProvider, isLive } from "./registry";
 import { classifyIntegrationError } from "./errors";
 import { revalidateIntegrationHealth } from "@/lib/integrationHealth";
 import { logError } from "@/lib/errorLog";
-import { publicMessage } from "@/lib/errors";
+import { logDetail, publicMessage } from "@/lib/errors";
 import { checkIntegrationLimit } from "@/lib/billing/limits";
 import type { IntegrationConfig, IntegrationDef, OAuthProvider } from "./types";
 
@@ -161,7 +161,7 @@ export async function handleCallback(req: Request): Promise<Response> {
       agencyId: agency.id,
       provider: def.id,
       errorType: classifyIntegrationError(err),
-      message: (err as Error).message,
+      message: logDetail(err),
     });
     return fail(publicMessage(err, `Couldn't connect ${def.name}. Please try again.`, { provider: def.id }));
   }

@@ -27,6 +27,25 @@ const SAFE_PATTERNS: RegExp[] = [
   /unsupported/i,
 ];
 
+// An error whose message we wrote for the end user: plain, actionable, no
+// internals. publicError shows it verbatim, whatever its length. `detail` keeps
+// the technical cause (provider codes etc.) for the logs.
+export class UserFacingError extends Error {
+  readonly detail?: string;
+  constructor(message: string, detail?: string) {
+    super(message);
+    this.name = "UserFacingError";
+    this.detail = detail;
+  }
+}
+
+// The text to log for an error: the technical detail when the message shown to
+// the user was rewritten, otherwise the message itself.
+export function logDetail(err: unknown): string {
+  if (err instanceof UserFacingError && err.detail) return err.detail;
+  return rawMessage(err);
+}
+
 function rawMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   if (typeof err === "string") return err;
@@ -53,7 +72,8 @@ export function publicError(
   const errorId = crypto.randomUUID().slice(0, 8);
   const raw = rawMessage(err);
   captureException(err, { errorId, ...context });
-  return { error: isSafeMessage(raw) ? raw : `${fallback} (ref: ${errorId})`, errorId };
+  const safe = err instanceof UserFacingError || isSafeMessage(raw);
+  return { error: safe ? raw : `${fallback} (ref: ${errorId})`, errorId };
 }
 
 // Redirect-flow variant: returns a single user-facing string (safe message, or
