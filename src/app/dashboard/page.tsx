@@ -80,11 +80,12 @@ export default async function DashboardPage() {
   monthStart.setUTCHours(0, 0, 0, 0);
 
   const [
-    { count: clientCount }, { count: reportCount }, { count: reportsThisMonth }, { count: scheduleCount },
+    { count: clientCount, data: activeClientRows }, { count: reportCount }, { count: reportsThisMonth }, { count: scheduleCount },
     { data: clientsRaw }, { data: snaps }, { data: gscSources }, { data: allSources },
     { data: reportsRaw }, { data: schedulesRaw }, { data: emailsRaw },
   ] = await Promise.all([
-    supabase.from("clients").select("id", { count: "exact", head: true }).eq("archived", false),
+    // Ids too, so "still need a data source" can be checked per client.
+    supabase.from("clients").select("id", { count: "exact" }).eq("archived", false),
     supabase.from("reports").select("id", { count: "exact", head: true }),
     supabase.from("reports").select("id", { count: "exact", head: true }).gte("created_at", monthStart.toISOString()),
     supabase.from("report_schedules").select("id", { count: "exact", head: true }).eq("enabled", true),
@@ -113,15 +114,18 @@ export default async function DashboardPage() {
 
   // Client connections — connected / pending / ready.
   const sources = (gscSources ?? []) as { id: string; client_id: string | null; config: { site_url?: string | null } | null; clients: JoinedName }[];
-  const connectedIds = new Set(sources.map((s) => s.client_id).filter(Boolean));
-  const connectedCount = connectedIds.size;
   const readyCount = new Set(sources.filter((s) => s.config?.site_url).map((s) => s.client_id)).size;
-  const pendingCount = Math.max(0, (clientCount ?? 0) - connectedCount);
 
   const everySource = (allSources ?? []) as {
     client_id: string | null; type: string; created_at: string;
     last_synced_at: string | null; last_sync_error: string | null;
   }[];
+
+  // Active clients with no data source of ANY kind. This used to subtract
+  // only the clients with Search Console, so a client reporting from LinkedIn
+  // or Meta Ads was still counted as "needs a data source".
+  const withAnySource = new Set(everySource.map((s) => s.client_id).filter(Boolean));
+  const pendingCount = ((activeClientRows ?? []) as { id: string }[]).filter((c) => !withAnySource.has(c.id)).length;
 
   // Performance — aggregated strictly from real cached snapshots. When there
   // is nothing to aggregate the KPI block is not rendered at all: Anavyst
@@ -173,9 +177,9 @@ export default async function DashboardPage() {
   // already fetched above — no extra queries, and nothing is tracked or
   // remembered that the workspace doesn't already record.
   //
-  // "Connect a data source" counts every integration type, not just Search
-  // Console: `connectedCount` above is GSC-only because the performance
-  // aggregate is, but setup is complete as soon as any source is connected.
+  // "Connect a data source" and "See your first synced data" count every
+  // integration type, not just Search Console: only the performance aggregate
+  // (`hasReal`) is Search Console-specific.
   const steps: OnboardingStep[] = [
     {
       label: "Add your first client",
@@ -193,7 +197,8 @@ export default async function DashboardPage() {
     },
     {
       label: "See your first synced data",
-      done: hasReal,
+      // Any source's first completed sync, not just Search Console's.
+      done: hasReal || everySource.some((s) => Boolean(s.last_synced_at)),
       href: "/dashboard/clients",
       cta: "View performance",
       description: "The first sync usually lands within a few minutes. Metrics then appear on the client page.",

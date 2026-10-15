@@ -108,7 +108,8 @@ export default async function ReportsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+      {/* The side column only exists when there is something queued to show. */}
+      <div className={`grid grid-cols-1 items-start gap-5 ${schedules.length > 0 ? "xl:grid-cols-[minmax(0,1fr)_300px]" : ""}`}>
         <div className="min-w-0">
           <ReportsBrowser initialRows={rows} initialHasMore={hasMore} clients={clients} hasAny={rows.length > 0} />
         </div>

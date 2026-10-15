@@ -135,6 +135,9 @@ function SidebarBody({ data, pathname, onNavigate, mobile }: { data: SidebarData
   ];
   const settingsActive = SETTINGS_PATHS.some((p) => isActive(pathname, p));
   const pct = data.clientLimit ? Math.min(100, Math.round((data.clientCount / data.clientLimit) * 100)) : 0;
+  // Green with room to spare, amber at the limit, red once over it (a plan
+  // downgrade can leave more active clients than the plan allows).
+  const meter = !data.clientLimit || data.clientCount < data.clientLimit ? "bg-nav-electric" : data.clientCount === data.clientLimit ? "bg-warning-500" : "bg-danger-500";
   const usage = data.clientLimit ? `${data.clientCount} / ${data.clientLimit}` : `${data.clientCount}`;
 
   return (
@@ -225,7 +228,7 @@ function SidebarBody({ data, pathname, onNavigate, mobile }: { data: SidebarData
             aria-valuenow={data.clientCount}
             className="mt-2 block h-[5px] overflow-hidden rounded-[3px] bg-nav-line"
           >
-            <span className="block h-[5px] rounded-[3px] bg-nav-electric" style={{ width: `${pct}%` }} />
+            <span className={`block h-[5px] rounded-[3px] ${meter}`} style={{ width: `${pct}%` }} />
           </span>
         ) : null}
       </Link>

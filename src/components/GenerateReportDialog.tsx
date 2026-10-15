@@ -139,7 +139,9 @@ export function GenerateReportDialog({ clients }: { clients: GenClient[] }) {
       setClientId((cur) => {
         const pick = wanted ?? cur;
         if (pick && clients.some((c) => c.id === pick && c.ready)) return pick;
-        return readyClients[0]?.id ?? null;
+        // Default to a client whose sources are all healthy, so the dialog
+        // doesn't open on one whose data may be out of date.
+        return (readyClients.find((c) => c.sources.every((src) => !src.note)) ?? readyClients[0])?.id ?? null;
       });
       if (wanted) { setType(null); setTitle(""); }
     };
