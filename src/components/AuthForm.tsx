@@ -10,6 +10,7 @@ import { track, ANALYTICS } from "@/lib/analytics";
 import { metaTrack } from "@/lib/metaPixel";
 import { authCallbackUrl } from "@/lib/authRedirect";
 import { holdSignupCredentials } from "@/lib/verifyEmailFlow";
+import { markSignupBrowser } from "@/lib/signupMarker";
 import { siteFonts } from "@/lib/siteFonts";
 
 const inputClass =
@@ -78,6 +79,7 @@ export function AuthForm({
         // In memory only: lets the verification screen sign this browser in
         // when the link is opened on another device (lib/verifyEmailFlow).
         holdSignupCredentials(email, password);
+        markSignupBrowser();
         router.push(`/verify-email?email=${encodeURIComponent(email)}`);
         return;
       }
@@ -90,6 +92,7 @@ export function AuthForm({
       // resend the link and continues by itself once it's clicked anywhere.
       if (error?.code === "email_not_confirmed") {
         holdSignupCredentials(email, password);
+        markSignupBrowser();
         router.push(`/verify-email?email=${encodeURIComponent(email)}&from=login`);
         return;
       }

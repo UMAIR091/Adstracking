@@ -48,7 +48,28 @@ describe("auth callback", () => {
     const res = await call("?token_hash=hash-xyz&type=signup&next=%2Fdashboard");
 
     expect(verifyOtp).toHaveBeenCalledWith({ type: "signup", token_hash: "hash-xyz" });
+    expect(res.status).toBe(307);
+  });
+
+  it("only confirms a signup opened outside the signup browser — setup stays in the original window", async () => {
+    const res = await call("?token_hash=hash-xyz&type=signup&next=%2Fdashboard");
+    expect(locationOf(res)).toBe(`${ORIGIN}/email-verified?next=%2Fdashboard`);
+  });
+
+  it("continues into the app when the signup browser opens its own link, and drops the marker", async () => {
+    const res = await GET(
+      new Request(`${ORIGIN}/auth/callback?token_hash=hash-xyz&type=signup&next=%2Fdashboard`, {
+        headers: { cookie: "other=1; anv_signup_pending=1" },
+      })
+    );
     expect(locationOf(res)).toBe(`${ORIGIN}/dashboard`);
+    expect(res.headers.get("set-cookie")).toMatch(/anv_signup_pending=;.*Max-Age=0/i);
+  });
+
+  it("does not stop at the verified page when the confirmation fails", async () => {
+    verifyOtp.mockResolvedValue({ error: { message: "Token has expired or is invalid" } });
+    const res = await call("?token_hash=old&type=signup&next=%2Fdashboard");
+    expect(locationOf(res)).toContain("/login?error=");
   });
 
   it("handles a recovery token_hash for password reset", async () => {

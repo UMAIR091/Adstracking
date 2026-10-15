@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { safeNext } from "@/lib/safeNext";
 import { logError } from "@/lib/errorLog";
+import { SIGNUP_MARKER, hasSignupMarker } from "@/lib/signupMarker";
 
 // Handles every link that returns a user to the app with a session to claim:
 // Google OAuth, email confirmation, and password reset.
@@ -57,8 +58,21 @@ export async function GET(request: Request) {
 
   if (tokenHash && isOtpType(type)) {
     const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
-    if (!error) return NextResponse.redirect(`${origin}${next}`);
-    return fail(`verifyOtp(${type}): ${error.message}`, FAILED);
+    if (error) return fail(`verifyOtp(${type}): ${error.message}`, FAILED);
+
+    if (type === "signup") {
+      // Opened somewhere other than the browser that signed up: confirm and
+      // stop here. The signup window continues into setup by itself, so going
+      // on would open a second copy of it. The session is kept, so "Continue on
+      // this device" works if the original window is gone.
+      if (!hasSignupMarker(request.headers.get("cookie"))) {
+        return NextResponse.redirect(`${origin}/email-verified?next=${encodeURIComponent(next)}`);
+      }
+      const res = NextResponse.redirect(`${origin}${next}`);
+      res.cookies.set(SIGNUP_MARKER, "", { path: "/", maxAge: 0 });
+      return res;
+    }
+    return NextResponse.redirect(`${origin}${next}`);
   }
 
   return fail("callback carried neither code nor token_hash", FAILED);

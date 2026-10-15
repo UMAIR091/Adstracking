@@ -21,6 +21,7 @@ import {
   heldCredentials,
   resendOutcome,
 } from "@/lib/verifyEmailFlow";
+import { clearSignupMarker } from "@/lib/signupMarker";
 
 // Supabase rate-limits password sign-ins per IP, so the background poll tries
 // the password at most this often; a tab focus or a button press may try sooner.
@@ -47,6 +48,7 @@ export function VerifyEmail({ email, justSent = true }: { email: string; justSen
   const goOnVerified = useCallback(() => {
     if (redirected.current) return;
     redirected.current = true;
+    clearSignupMarker();
     track(ANALYTICS.emailVerified);
     setVerified(true);
     // The dashboard layout routes un-onboarded users to /onboarding, so this
