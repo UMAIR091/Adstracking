@@ -28,11 +28,11 @@ describe("app palette blocks", () => {
   const explicitDark = tokens(block(':root[data-theme="dark"]:has(.app-root)'));
 
   it("restate every light token in the system-dark block", () => {
-    expect([...light].filter((t) => !systemDark.has(t))).toEqual([]);
+    expect(Array.from(light).filter((t) => !systemDark.has(t))).toEqual([]);
   });
 
   it("restate every light token in the explicit-dark block", () => {
-    expect([...light].filter((t) => !explicitDark.has(t))).toEqual([]);
+    expect(Array.from(light).filter((t) => !explicitDark.has(t))).toEqual([]);
   });
 
   it("keep both dark blocks identical", () => {
