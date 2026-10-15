@@ -78,8 +78,7 @@ function liveAllowlist(): Set<string> | null {
 // Remove an id only once its approval is confirmed AND a production sync has
 // returned real data. Syncing of sources already connected is unaffected.
 // On 30 Sep the owner confirmed every other integration works in production and
-// narrowed the hold to these three:
-//   pinterest_ads      Standard access pending (27 Sep); no ad data ever retrieved
+// narrowed the hold to these:
 //   bigquery           scope not Google-verified
 //   callrail           held by the owner
 // Added 15 Oct 2026 at the owner's request:
@@ -87,8 +86,10 @@ function liveAllowlist(): Set<string> | null {
 //                      verification, so connecting showed "Google hasn't
 //                      verified this app"
 //   hubspot            HubSpot app not approved/listed for public use
+// Released 15 Oct 2026: pinterest_ads, once Pinterest granted Standard access
+// (owner-confirmed). Its ad data has still never been read in production:
+// Pinterest doesn't allow ad accounts in Pakistan, so the owner can't test it.
 export const AWAITING_PROVIDER_APPROVAL = new Set([
-  "pinterest_ads",
   "bigquery",
   "callrail",
   "sheets",

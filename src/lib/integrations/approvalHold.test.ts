@@ -34,4 +34,8 @@ describe("integrations awaiting provider approval", () => {
     const gsc = getIntegration("gsc")!;
     expect(effectiveStatus(gsc)).toBe("live");
   });
+
+  it("releases Pinterest Ads now that Standard access is granted (15 Oct 2026)", () => {
+    expect(AWAITING_PROVIDER_APPROVAL.has("pinterest_ads")).toBe(false);
+  });
 });
