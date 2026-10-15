@@ -82,10 +82,17 @@ function liveAllowlist(): Set<string> | null {
 //   pinterest_ads      Standard access pending (27 Sep); no ad data ever retrieved
 //   bigquery           scope not Google-verified
 //   callrail           held by the owner
+// Added 15 Oct 2026 at the owner's request:
+//   sheets             spreadsheets.readonly not submitted for Google
+//                      verification, so connecting showed "Google hasn't
+//                      verified this app"
+//   hubspot            HubSpot app not approved/listed for public use
 export const AWAITING_PROVIDER_APPROVAL = new Set([
   "pinterest_ads",
   "bigquery",
   "callrail",
+  "sheets",
+  "hubspot",
 ]);
 
 // The status a user actually sees/experiences, after applying the allowlist.

@@ -20,6 +20,15 @@ describe("integrations awaiting provider approval", () => {
     }
   });
 
+  it("holds Google Sheets and HubSpot at coming soon (owner, 15 Oct 2026)", () => {
+    process.env.LIVE_INTEGRATIONS = "sheets,hubspot,gsc";
+    for (const id of ["sheets", "hubspot"]) {
+      const def = getIntegration(id)!;
+      expect(effectiveStatus(def), id).toBe("soon");
+      expect(isConnectable(def), id).toBe(false);
+    }
+  });
+
   it("leaves approved integrations governed by the allowlist", () => {
     process.env.LIVE_INTEGRATIONS = "gsc";
     const gsc = getIntegration("gsc")!;
