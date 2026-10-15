@@ -7,7 +7,7 @@ const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLI
       type={type}
       ref={ref}
       className={cn(
-        "field flex h-9 w-full py-2",
+        "field flex h-[var(--input-h)] w-full py-2",
         className
       )}
       {...props}

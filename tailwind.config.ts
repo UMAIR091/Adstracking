@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 
 // Every scale resolves to a CSS variable defined in globals.css, so the palette
 // lives in one file and components never carry a literal hex.
@@ -126,6 +127,36 @@ const config: Config = {
         // Every keyboard focus indicator: #4F46E5 in light, the indigo it always
         // was in dark.
         focus: withAlpha("--ring"),
+        // The one filled action per view. Ink with a teal hover in the signed-in
+        // app; elsewhere the brand fill it always was (globals.css).
+        primary: {
+          DEFAULT: withAlpha("--primary"),
+          fg: withAlpha("--primary-fg"),
+          hover: withAlpha("--primary-hover"),
+        },
+        // Segmented-control track.
+        segment: withAlpha("--segment"),
+        // Outline buttons and fields: the old ink-200/700 steps outside the app,
+        // the handoff's #DAD7D0 line with an ink hover inside it.
+        control: {
+          line: withAlpha("--control-line"),
+          "line-hover": withAlpha("--control-line-hover"),
+          fg: withAlpha("--control-fg"),
+          "hover-bg": withAlpha("--control-hover-bg"),
+        },
+        // The app sidebar: ink in both themes.
+        nav: {
+          bg: withAlpha("--nav-bg"),
+          fg: withAlpha("--nav-fg"),
+          strong: withAlpha("--nav-strong"),
+          dim: withAlpha("--nav-dim"),
+          line: withAlpha("--nav-line"),
+          panel: withAlpha("--nav-panel"),
+          hover: withAlpha("--nav-hover"),
+          active: withAlpha("--nav-active"),
+          mark: withAlpha("--nav-mark"),
+          electric: withAlpha("--nav-electric"),
+        },
         // Quiet text on a brand fill (the CTA footnote, the mock caption). Mapped
         // without <alpha-value> because the dark values carry their own alpha.
         "on-brand": {
@@ -237,6 +268,9 @@ const config: Config = {
         // The client report, loaded by lib/reportFonts (Geist, self-hosted).
         report: ["var(--font-geist-sans)", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Arial", "sans-serif"],
         "report-mono": ["var(--font-geist-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"],
+        // Eyebrows, counts, kbd and account ids in the signed-in app (the UI face
+        // itself is set on .app-root in globals.css).
+        "app-mono": ["var(--font-geist-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"],
       },
       letterSpacing: {
         tightest: "-0.03em",
@@ -246,6 +280,11 @@ const config: Config = {
         lg: "0.5rem",
         xl: "0.75rem",
         "2xl": "1rem",
+        // Token-driven, so the app redesign's 10/14/18px shapes stay inside the
+        // app and shared primitives keep their old radii on public pages.
+        control: "var(--radius-control)",
+        card: "var(--radius-card)",
+        dialog: "var(--radius-dialog)",
       },
       boxShadow: {
         // Shallow and layered, cast in obsidian rather than a blue-black.
@@ -258,6 +297,12 @@ const config: Config = {
         md: "0 2px 6px -1px rgb(9 9 11 / 0.07), 0 1px 3px -1px rgb(9 9 11 / 0.05)",
         lg: "0 8px 20px -6px rgb(9 9 11 / 0.10), 0 3px 8px -3px rgb(9 9 11 / 0.05)",
         xl: "0 18px 36px -10px rgb(9 9 11 / 0.15)",
+        // Shared primitives (components/ui): the old shadows outside the app,
+        // flat inside it. See the --*-shadow variables in globals.css.
+        btn: "var(--btn-shadow)",
+        "btn-outline": "var(--btn-outline-shadow)",
+        card: "var(--card-shadow)",
+        field: "var(--field-shadow)",
       },
       keyframes: {
         "fade-in": {
@@ -277,7 +322,15 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // `app:` applies a utility only while the signed-in app is on the page
+    // (`.app-root`, see globals.css), portalled dialogs included. Shared
+    // primitives use it for the app redesign's shapes so the public pages
+    // that reuse them (error, not-found, invite, Help) keep their look.
+    plugin(({ addVariant }) => {
+      addVariant("app", ":root:has(.app-root) &");
+    }),
+  ],
 };
 
 export default config;
