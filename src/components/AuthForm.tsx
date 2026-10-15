@@ -9,6 +9,7 @@ import { PasswordField, passwordChecks } from "@/components/ui/password-field";
 import { track, ANALYTICS } from "@/lib/analytics";
 import { metaTrack } from "@/lib/metaPixel";
 import { authCallbackUrl } from "@/lib/authRedirect";
+import { holdSignupCredentials } from "@/lib/verifyEmailFlow";
 import { siteFonts } from "@/lib/siteFonts";
 
 const inputClass =
@@ -74,6 +75,9 @@ export function AuthForm({
       // verification screen, which auto-detects confirmation and continues (no
       // manual re-login). If confirmation is off, go straight in.
       if (!data.session) {
+        // In memory only: lets the verification screen sign this browser in
+        // when the link is opened on another device (lib/verifyEmailFlow).
+        holdSignupCredentials(email, password);
         router.push(`/verify-email?email=${encodeURIComponent(email)}`);
         return;
       }
@@ -82,6 +86,13 @@ export function AuthForm({
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       setLoading(false);
+      // Unconfirmed address: send them to the verification screen, which can
+      // resend the link and continues by itself once it's clicked anywhere.
+      if (error?.code === "email_not_confirmed") {
+        holdSignupCredentials(email, password);
+        router.push(`/verify-email?email=${encodeURIComponent(email)}&from=login`);
+        return;
+      }
       if (error) return setError(error.message);
       router.push(next);
       router.refresh();

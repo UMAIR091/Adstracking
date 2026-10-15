@@ -14,18 +14,35 @@ import { createClient } from "@/lib/supabase/client";
 import { Brand } from "@/components/Brand";
 import { track, ANALYTICS } from "@/lib/analytics";
 import { authCallbackUrl } from "@/lib/authRedirect";
+import {
+  RESEND_COOLDOWN,
+  checkVerified,
+  clearSignupCredentials,
+  heldCredentials,
+  resendOutcome,
+} from "@/lib/verifyEmailFlow";
 
-const RESEND_COOLDOWN = 45; // seconds
+// Supabase rate-limits password sign-ins per IP, so the background poll tries
+// the password at most this often; a tab focus or a button press may try sooner.
+const SIGN_IN_EVERY_MS = 15_000;
+const SIGN_IN_SOON_MS = 3_000;
 
-export function VerifyEmail({ email }: { email: string }) {
+export function VerifyEmail({ email, justSent = true }: { email: string; justSent?: boolean }) {
   const router = useRouter();
   const supabase = createClient();
   const [verified, setVerified] = useState(false);
   const [checking, setChecking] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
+  // Straight after signup the email went out moments ago, and Supabase refuses
+  // another within a minute, so the resend button starts on its cooldown.
+  const [cooldown, setCooldown] = useState(justSent ? RESEND_COOLDOWN : 0);
   const [resending, setResending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const redirected = useRef(false);
+  // The password the user just signed up with, if this screen was reached from
+  // the form in this tab (memory only — see lib/verifyEmailFlow).
+  const creds = useRef(heldCredentials(email));
+  const lastSignIn = useRef(0);
+  const backoffUntil = useRef(0);
 
   const goOnVerified = useCallback(() => {
     if (redirected.current) return;
@@ -37,27 +54,40 @@ export function VerifyEmail({ email }: { email: string }) {
     setTimeout(() => { router.push("/dashboard"); router.refresh(); }, 900);
   }, [router]);
 
-  // Detect verification: a confirmed email produces a session (same browser,
-  // shared cookies) or a user with email_confirmed_at.
-  const check = useCallback(async (): Promise<boolean> => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) { goOnVerified(); return true; }
-    const { data: { user } } = await supabase.auth.getUser();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (user && (user as any).email_confirmed_at) { goOnVerified(); return true; }
+  // Detect verification. Link opened in this browser: its session shows up
+  // here. Link opened on another device (e.g. the phone): this browser has no
+  // session to see, so sign in with the held password, which works as soon as
+  // the address is confirmed.
+  const check = useCallback(async (soon = false): Promise<boolean> => {
+    const now = Date.now();
+    const gap = soon ? SIGN_IN_SOON_MS : SIGN_IN_EVERY_MS;
+    const tryPassword = !!creds.current && now >= backoffUntil.current && now - lastSignIn.current >= gap;
+    if (tryPassword) lastSignIn.current = now;
+    const result = await checkVerified(supabase, tryPassword ? creds.current : null);
+    if (result === "verified") { clearSignupCredentials(); goOnVerified(); return true; }
+    if (result === "rate_limited") backoffUntil.current = now + 60_000;
+    if (result === "wrong_password") { creds.current = null; clearSignupCredentials(); }
     return false;
   }, [supabase, goOnVerified]);
 
-  // Auto-poll every few seconds, and also when the tab regains focus.
+  // Auto-poll every few seconds, and check straight away when the user comes
+  // back to this tab (typically right after tapping the link on their phone).
   useEffect(() => {
-    const id = setInterval(check, 4000);
-    const onFocus = () => check();
+    const id = setInterval(() => check(), 4000);
+    const onFocus = () => check(true);
+    const onVisible = () => { if (document.visibilityState === "visible") check(true); };
     window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
     // Auth state change fires instantly if verification happens in this tab.
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       if (session) goOnVerified();
     });
-    return () => { clearInterval(id); window.removeEventListener("focus", onFocus); sub.subscription.unsubscribe(); };
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+      sub.subscription.unsubscribe();
+    };
   }, [check, supabase, goOnVerified]);
 
   // Cooldown ticker for the resend button.
@@ -70,15 +100,23 @@ export function VerifyEmail({ email }: { email: string }) {
   async function manualCheck() {
     setChecking(true);
     setNotice(null);
-    const ok = await check();
+    const ok = await check(true);
     setChecking(false);
-    if (!ok) setNotice("Not verified yet — click the link in your email, then this page will continue automatically.");
+    if (ok) return;
+    setNotice(
+      creds.current
+        ? "Not verified yet. Click the link in your email, on any device, and this page continues automatically."
+        : "Not verified in this browser yet. If you clicked the link on another device, you're verified: sign in to continue."
+    );
   }
 
   async function resend() {
     if (cooldown > 0 || resending) return;
     setResending(true);
     setNotice(null);
+    // Already confirmed on another device? Supabase would answer "sent" and send
+    // nothing, so carry on instead of resending.
+    if (await check(true)) { setResending(false); return; }
     const { error } = await supabase.auth.resend({
       type: "signup",
       email,
@@ -88,8 +126,9 @@ export function VerifyEmail({ email }: { email: string }) {
       options: { emailRedirectTo: authCallbackUrl("/dashboard") },
     });
     setResending(false);
-    setCooldown(RESEND_COOLDOWN);
-    setNotice(error && !/rate/i.test(error.message) ? error.message : "Verification email sent. Check your inbox (and spam).");
+    const outcome = resendOutcome(error, !!creds.current);
+    setCooldown(outcome.cooldown);
+    setNotice(outcome.notice);
   }
 
   if (verified) {
@@ -114,8 +153,10 @@ export function VerifyEmail({ email }: { email: string }) {
         </div>
         <h1 className="text-xl font-semibold text-ink-900">Verify your email</h1>
         <p className="mt-2 text-sm leading-relaxed text-ink-500">
-          We sent a verification link to <span className="font-medium text-ink-700">{email || "your email"}</span>. Click it
-          and this page continues automatically — no need to come back and sign in.
+          We sent a verification link to <span className="font-medium text-ink-700">{email || "your email"}</span>.{" "}
+          {creds.current
+            ? "Click it on any device, even your phone, and this page continues automatically."
+            : "Click it and you'll be signed in on the device you open it on."}
         </p>
       </div>
 
