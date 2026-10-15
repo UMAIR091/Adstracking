@@ -52,6 +52,16 @@ const STAGES = [
   { label: "Building the branded report", ms: 0 },
 ];
 
+// "17 Sep – 14 Oct 2026": exact days, read straight from the YYYY-MM-DD
+// strings so no time zone can shift them.
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function days(start: string, end: string): string {
+  const [ys, ms, ds] = start.split("-").map(Number);
+  const [ye, me, de] = end.split("-").map(Number);
+  const a = `${ds} ${MONTHS[ms - 1]}${ys !== ye ? ` ${ys}` : ""}`;
+  return start === end ? `${a} ${ye}` : `${a} – ${de} ${MONTHS[me - 1]} ${ye}`;
+}
+
 const QUICK: { value: string; label: string }[] = [
   { value: "previous_month", label: "Last month" },
   { value: "last_28", label: "Last 28 days" },
@@ -109,8 +119,9 @@ export function GenerateReportDialog({ clients }: { clients: GenClient[] }) {
   const note = useMemo(() => {
     if (!planned) return resolved.ok ? "" : resolved.error;
     const prev = previousWindow(planned);
-    const days = `${planned.days} day${planned.days === 1 ? "" : "s"}${planned.inProgress ? ", still in progress" : ""}`;
-    return `${periodLabel(planned.start, planned.end)} (${days}), compared with ${periodLabel(prev.start, prev.end)}.`;
+    const length = `${planned.days} day${planned.days === 1 ? "" : "s"}${planned.inProgress ? ", still in progress" : ""}`;
+    const what = planned.kind === "calendar" ? `${planned.label}: ${days(planned.start, planned.end)}` : days(planned.start, planned.end);
+    return `${what} (${length}), compared with ${days(prev.start, prev.end)}.`;
   }, [planned, resolved]);
 
   const inferredType = inferReportType((client?.sources ?? []).map((s) => s.type));

@@ -12,20 +12,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { format, isSameMonth, isToday, isYesterday } from "date-fns";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import {
-  FileBarChart2, Search, MoreHorizontal, Eye, Share2, Download, Trash2, Loader2,
+  Search, MoreHorizontal, Eye, Share2, Download, Trash2, Loader2,
   X, ArrowUpDown, Sparkles, Send, CheckCircle2, AlertCircle, Clock, Inbox,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { periodLabel } from "@/lib/report";
 import { reportTypeLabel, sourceNames } from "@/lib/reports/types";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { EmptyState } from "@/components/EmptyState";
+import { Segmented } from "@/components/ui/segmented";
+import { StatusDot, type StatusTone } from "@/components/ui/status-chip";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useDismissable } from "@/lib/useDismissable";
 
@@ -43,6 +42,24 @@ export type ReportRow = {
   sourceIds?: string[] | null;
   sentCount?: number;
   failedCount?: number;
+  /** The latest delivery attempt, when the page loaded it (first page only). */
+  lastTo?: string | null;
+  lastAt?: string | null;
+};
+
+type Delivery = "all" | "sent" | "unsent" | "failed";
+
+/** Delivery state from email_logs counts: any failure wins, then any send. */
+export function deliveryOf(r: Pick<ReportRow, "sentCount" | "failedCount">): Exclude<Delivery, "all"> {
+  if ((r.failedCount ?? 0) > 0) return "failed";
+  if ((r.sentCount ?? 0) > 0) return "sent";
+  return "unsent";
+}
+
+const DELIVERY: Record<Exclude<Delivery, "all">, { tone: StatusTone; cta: string }> = {
+  sent: { tone: "success", cta: "Open" },
+  failed: { tone: "danger", cta: "Resend" },
+  unsent: { tone: "muted", cta: "Review" },
 };
 
 export type ClientOption = { id: string; name: string };
@@ -69,20 +86,14 @@ const STATUS: Record<string, { label: string; dot: string; text: string; icon: t
 function StatusPill({ status }: { status: string }) {
   const s = STATUS[status] ?? { label: status, dot: "bg-ink-300", text: "text-ink-600", icon: Clock };
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full bg-surface-muted px-2.5 py-1 text-xs font-medium ${s.text}`}>
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-surface-muted px-[9px] py-[3px] text-xs font-medium ${s.text}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} aria-hidden />
       {s.label}
     </span>
   );
 }
 
-/** "Today" / "Yesterday" / "March 2026" — the heading a scanner expects. */
-function groupLabel(iso: string): string {
-  const d = new Date(iso);
-  if (isToday(d)) return "Today";
-  if (isYesterday(d)) return "Yesterday";
-  return isSameMonth(d, new Date()) ? "This month" : format(d, "MMMM yyyy");
-}
+const GRID = "grid grid-cols-[minmax(0,2.4fr)_minmax(0,1.4fr)_minmax(0,1.1fr)_minmax(0,1.8fr)_auto] items-center gap-3";
 
 export function ReportsBrowser({
   initialRows,
@@ -104,6 +115,7 @@ export function ReportsBrowser({
   const [clientId, setClientId] = useState("");
   const [status, setStatus] = useState("");
   const [sort, setSort] = useState<string>("newest");
+  const [delivery, setDelivery] = useState<Delivery>("all");
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -148,7 +160,7 @@ export function ReportsBrowser({
   }
 
   function clearFilters() {
-    setQuery(""); setClientId(""); setStatus(""); setSort("newest");
+    setQuery(""); setClientId(""); setStatus(""); setSort("newest"); setDelivery("all");
   }
 
   async function remove(id: string, title: string) {
@@ -170,38 +182,49 @@ export function ReportsBrowser({
     }
   }
 
-  // Month/day buckets, preserving server order within each group.
-  const groups = useMemo(() => {
-    const out: { label: string; rows: ReportRow[] }[] = [];
-    for (const r of rows) {
-      const label = groupLabel(sort === "period" && r.period_end ? r.period_end : r.created_at);
-      const last = out[out.length - 1];
-      if (last && last.label === label) last.rows.push(r);
-      else out.push({ label, rows: [r] });
-    }
-    return out;
-  }, [rows, sort]);
+  // Delivery state comes from email_logs counts the list already carries. The
+  // list API can't filter on it, so this filter applies to the reports loaded
+  // so far; "Load more" stays available and the note below says so.
+  const shown = useMemo(() => (delivery === "all" ? rows : rows.filter((r) => deliveryOf(r) === delivery)), [rows, delivery]);
+  const counts = useMemo(() => {
+    const c = { sent: 0, unsent: 0, failed: 0 };
+    for (const r of rows) c[deliveryOf(r)]++;
+    return c;
+  }, [rows]);
 
   // A workspace with no reports at all is a different problem from a filter
   // that matched nothing, and needs a different answer.
   if (!hasAny) {
     return (
-      <EmptyState
-        icon={FileBarChart2}
-        title="No reports yet"
-        description="Reports turn a client's synced data into a branded, shareable document with an AI-written summary. Open a client with a connected data source to generate your first one."
-        action={
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button asChild><Link href="/dashboard/clients">Go to clients</Link></Button>
-            <Button asChild variant="outline"><Link href="/dashboard/reports/preview">See a sample</Link></Button>
-          </div>
-        }
-      />
+      <div className="rounded-2xl border border-dashed border-ink-300 bg-surface px-6 py-14 text-center">
+        <h2 className="text-lg font-semibold text-ink-900">No reports yet</h2>
+        <p className="mx-auto mt-1.5 max-w-[420px] text-sm leading-relaxed text-ink-500">
+          Reports are generated per client. Add a client and connect a data source, then your first branded report is
+          one click away.
+        </p>
+        <div className="mt-[18px] flex flex-wrap justify-center gap-2">
+          <Button asChild><Link href="/dashboard/clients">Go to clients</Link></Button>
+          <Button asChild variant="outline"><Link href="/dashboard/reports/preview">Open sample report</Link></Button>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
+      <Segmented<Delivery>
+        label="Filter reports by delivery"
+        value={delivery}
+        onChange={setDelivery}
+        className="self-start"
+        options={[
+          { value: "all", label: "All" },
+          { value: "sent", label: "Delivered", count: counts.sent },
+          { value: "unsent", label: "Not sent", count: counts.unsent },
+          { value: "failed", label: "Failed delivery", count: counts.failed },
+        ]}
+      />
+
       {/* Controls */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="relative flex-1">
@@ -279,13 +302,19 @@ export function ReportsBrowser({
         </div>
       )}
 
+      {delivery !== "all" && hasMore && (
+        <p className="text-xs text-ink-500">
+          Showing matches among the {rows.length} reports loaded so far. Load more to search further back.
+        </p>
+      )}
+
       {/* Results. Kept mounted and dimmed while refetching so the page doesn't
           collapse and re-expand on every keystroke. */}
-      {rows.length === 0 ? (
+      {shown.length === 0 ? (
         loading ? (
           <SkeletonList />
         ) : (
-          <div className="rounded-2xl border border-dashed border-ink-200 px-6 py-12 text-center">
+          <div className="rounded-2xl border border-dashed border-ink-300 bg-surface px-6 py-12 text-center">
             <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-surface-muted text-ink-400">
               <Inbox size={20} aria-hidden />
             </span>
@@ -298,16 +327,25 @@ export function ReportsBrowser({
         )
       ) : (
         <>
-          <div className={loading ? "opacity-60 transition-opacity" : "transition-opacity"}>
-            {groups.map((g) => (
-              <section key={g.label} className="mb-5">
-                <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-ink-400">{g.label}</h2>
-                <div className="space-y-2.5">
-                  {g.rows.map((r) => <ReportItem key={r.id} r={r} onDelete={() => remove(r.id, r.title)} />)}
+          <section
+            aria-label="Reports"
+            className={`overflow-hidden rounded-card border border-ink-200 bg-surface ${loading ? "opacity-60 transition-opacity" : "transition-opacity"}`}
+          >
+            <div className="overflow-x-auto">
+              <div className="min-w-[760px]">
+                <div aria-hidden className={`${GRID} border-b border-ink-100 bg-ink-50 px-[18px] py-2.5 text-xs text-ink-400`}>
+                  <span>Report</span>
+                  <span>Client</span>
+                  <span>Period</span>
+                  <span>Delivery</span>
+                  <span className="w-[150px]" />
                 </div>
-              </section>
-            ))}
-          </div>
+                <ul>
+                  {shown.map((r) => <ReportItem key={r.id} r={r} onDelete={() => remove(r.id, r.title)} />)}
+                </ul>
+              </div>
+            </div>
+          </section>
 
           {hasMore && (
             <div className="flex justify-center pt-1">
@@ -335,18 +373,16 @@ function Chip({ children, onClear }: { children: React.ReactNode; onClear: () =>
 
 function SkeletonList() {
   return (
-    <div className="space-y-2.5">
+    <div className="overflow-hidden rounded-card border border-ink-200 bg-surface">
       {[0, 1, 2, 3, 4].map((i) => (
-        <Card key={i}>
-          <CardContent className="flex items-center gap-3 p-4">
-            <Skeleton className="h-10 w-10 shrink-0 rounded-xl" />
-            <div className="flex-1 space-y-2">
-              <Skeleton className="h-4 w-1/3" />
-              <Skeleton className="h-3 w-1/2" />
-            </div>
-            <Skeleton className="h-6 w-16 rounded-full" />
-          </CardContent>
-        </Card>
+        <div key={i} className={`flex items-center gap-3 px-[18px] py-[13px] ${i ? "border-t border-ink-100" : ""}`}>
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-1/3" />
+            <Skeleton className="h-3 w-1/4" />
+          </div>
+          <Skeleton className="h-4 w-1/5" />
+          <Skeleton className="h-6 w-16 rounded-full" />
+        </div>
       ))}
     </div>
   );
@@ -408,54 +444,44 @@ function ReportItem({ r, onDelete }: { r: ReportRow; onDelete: () => void }) {
     }
   }
 
+  const d = deliveryOf(r);
+  const deliveryText =
+    d === "failed"
+      ? `Failed · ${r.failedCount} attempt${r.failedCount === 1 ? "" : "s"}`
+      : d === "sent"
+        ? r.lastTo
+          ? `Sent to ${r.lastTo}${r.lastAt ? ` · ${format(new Date(r.lastAt), "d MMM")}` : ""}`
+          : `Sent ${r.sentCount} time${r.sentCount === 1 ? "" : "s"}`
+        : "Not sent yet";
+
   return (
-    <Card className="group transition-all hover:border-ink-200">
-      <CardContent className="flex items-center justify-between gap-3 p-4">
-        <Link href={`/dashboard/reports/${r.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
-            {regenerating ? <Loader2 size={17} className="animate-spin" aria-hidden /> : <FileBarChart2 size={18} aria-hidden />}
-          </div>
-          <div className="min-w-0">
-            {/* The title keeps its period suffix here. This list is exactly
-                where identical titles hurt — four "Acme Ltd — SEO Report"
-                rows told the reader nothing — so the coarse month range earns
-                its place in the scannable heading even though the exact dates
-                repeat it beneath at finer granularity. */}
-            <p className="truncate font-medium text-ink-900">{r.title}</p>
-            {/* Reporting period leads; the generated date is secondary and
-                trails. Type and sources answer "what kind of report is this,
-                built from what?" without opening it. */}
-            <p className="truncate text-xs text-ink-500">
-              <span className="font-medium text-ink-600">{r.clientName}</span>
-              {period ? <> · <span className="font-medium text-ink-700">{period}</span></> : null}
-              {typeLabel ? <> · {typeLabel}</> : null}
-            </p>
-            <p className="truncate text-[11px] text-ink-400">
-              {sourceLabel ? <>{sourceLabel} · </> : null}
-              created {format(new Date(r.created_at), "d MMM yyyy")}
-            </p>
-          </div>
+    <li className={`${GRID} relative border-b border-ink-100 px-[18px] py-[13px] text-[13.5px] transition-colors last:border-b-0 hover:bg-ink-50`}>
+      <span className="min-w-0">
+        {/* The title is the row's link; the overlay makes the whole row
+            clickable while the menu stays its own target. Type and sources
+            answer "what kind of report, built from what?" without opening it. */}
+        <Link href={`/dashboard/reports/${r.id}`} className="flex items-center gap-1.5 truncate font-medium text-ink-900 after:absolute after:inset-0 after:content-['']">
+          {regenerating && <Loader2 size={13} className="shrink-0 animate-spin" aria-hidden />}
+          <span className="truncate">{r.title}</span>
         </Link>
+        <span className="block truncate text-xs text-ink-400">
+          Generated {format(new Date(r.created_at), "d MMM yyyy")}
+          {typeLabel ? <> · {typeLabel}</> : null}
+          {sourceLabel ? <> · {sourceLabel}</> : null}
+        </span>
+      </span>
+      <span className="truncate text-ink-900">{r.clientName}</span>
+      <span className="truncate text-ink-500">{period ?? "—"}</span>
+      <span className="flex min-w-0 items-center gap-2">
+        <StatusDot tone={DELIVERY[d].tone} className="h-[7px] w-[7px]" />
+        <span className={`truncate ${d === "failed" ? "text-danger-700" : "text-ink-500"}`}>{deliveryText}</span>
+      </span>
 
-        <div className="flex shrink-0 items-center gap-2">
-          {/* Delivery at a glance — "was this actually sent?" is the second
-              question after "is it ready?", and it used to need a page load. */}
-          {(r.failedCount ?? 0) > 0 ? (
-            <span className="hidden items-center gap-1 rounded-full bg-danger-50 px-2 py-0.5 text-[11px] font-medium text-danger-700 sm:inline-flex" title={`${r.failedCount} failed deliveries`}>
-              <AlertCircle size={11} aria-hidden /> {r.failedCount} failed
-            </span>
-          ) : (r.sentCount ?? 0) > 0 ? (
-            <span className="hidden items-center gap-1 rounded-full bg-surface-muted px-2 py-0.5 text-[11px] font-medium text-ink-600 sm:inline-flex" title={`Emailed ${r.sentCount} time(s)`}>
-              <Send size={10} aria-hidden /> {r.sentCount}
-            </span>
-          ) : null}
-
-          <StatusPill status={r.status} />
-
-          <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
-            <Link href={`/dashboard/reports/${r.id}`}><Eye size={15} aria-hidden /> View</Link>
-          </Button>
-
+      <span className="relative z-10 flex w-[150px] items-center justify-end gap-2">
+        {r.status !== "ready" && <StatusPill status={r.status} />}
+        <Link href={`/dashboard/reports/${r.id}${d === "failed" ? "#delivery" : ""}`} className="text-[13px] font-medium text-brand-600 hover:text-ink-900">
+          {DELIVERY[d].cta}
+        </Link>
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenu((o) => !o)}
@@ -501,9 +527,8 @@ function ReportItem({ r, onDelete }: { r: ReportRow; onDelete: () => void }) {
               </div>
             )}
           </div>
-        </div>
-      </CardContent>
-    </Card>
+      </span>
+    </li>
   );
 }
 

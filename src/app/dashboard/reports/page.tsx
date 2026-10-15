@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { format } from "date-fns";
-import { Eye, CalendarClock, ArrowRight, Send, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { ReportsBrowser, type ReportRow, type ClientOption } from "@/components/ReportsBrowser";
+import { UpNext } from "@/components/dashboard/NextScheduled";
+import { NewReportButton } from "@/components/GenerateReportDialog";
 
 export const dynamic = "force-dynamic";
 
@@ -46,14 +45,22 @@ export default async function ReportsPage() {
   // Delivery counts for the first page, matching what /api/reports/list returns
   // so the indicator doesn't pop in only after the first filter change.
   const ids = page.map((r) => r.id as string);
-  const deliveries = new Map<string, { sent: number; failed: number }>();
+  const deliveries = new Map<string, { sent: number; failed: number; lastTo: string | null; lastAt: string | null }>();
   if (ids.length) {
-    const { data: logs } = await supabase.from("email_logs").select("report_id, status").in("report_id", ids);
+    // Newest first, so the first successful send per report is its latest.
+    const { data: logs } = await supabase
+      .from("email_logs")
+      .select("report_id, status, to_email, sent_at")
+      .in("report_id", ids)
+      .order("sent_at", { ascending: false });
     for (const l of logs ?? []) {
       const key = l.report_id as string;
-      const e = deliveries.get(key) ?? { sent: 0, failed: 0 };
+      const e = deliveries.get(key) ?? { sent: 0, failed: 0, lastTo: null, lastAt: null };
       if (l.status === "failed" || l.status === "bounced") e.failed++;
-      else if (l.status !== "pending") e.sent++;
+      else if (l.status !== "pending") {
+        e.sent++;
+        if (!e.lastTo) { e.lastTo = (l.to_email as string) ?? null; e.lastAt = (l.sent_at as string) ?? null; }
+      }
       deliveries.set(key, e);
     }
   }
@@ -74,6 +81,8 @@ export default async function ReportsPage() {
       sourceIds: (r.meta as { sourceIds?: string[] } | null)?.sourceIds ?? null,
       sentCount: d?.sent ?? 0,
       failedCount: d?.failed ?? 0,
+      lastTo: d?.lastTo ?? null,
+      lastAt: d?.lastAt ?? null,
     };
   });
 
@@ -81,62 +90,42 @@ export default async function ReportsPage() {
   const schedules = (scheduleRows ?? []) as { id: string; client_id: string | null; frequency: string; next_run_at: string; clients: JoinedName }[];
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Reports</h1>
-          <p className="text-sm text-ink-500">Every report you&apos;ve generated, ready to view, download or share.</p>
+          <h1 className="text-[clamp(24px,3vw,28px)] font-semibold tracking-[-0.03em] text-ink-900">Reports</h1>
+          <p className="mt-1 text-[14.5px] text-ink-500">
+            {rows.length > 0 ? "Every report generated, and whether it reached the client." : "Nothing generated yet"}
+          </p>
         </div>
-        {/* Reports are generated from a client page — this index had no way in
-            at all, so the first step of the flow (choose who it's for) is the
-            primary action here. */}
         <div className="flex flex-wrap items-center gap-2">
           <Button asChild variant="outline">
-            <Link href="/dashboard/reports/preview"><Eye size={16} aria-hidden /> See a sample report</Link>
+            <Link href="/dashboard/reports/preview">Sample report</Link>
           </Button>
-          <Button asChild>
-            <Link href="/dashboard/clients"><Plus size={16} aria-hidden /> New report</Link>
-          </Button>
+          <NewReportButton>
+            <Plus size={15} strokeWidth={2.2} aria-hidden /> New report
+          </NewReportButton>
         </div>
       </div>
 
-      {/* Scheduled deliveries — the automation is invisible if it only lives on
-          individual client pages, so what's queued surfaces here too. */}
-      {schedules.length > 0 && (
-        <Card>
-          <CardContent className="p-4">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <p className="flex items-center gap-2 text-sm font-semibold text-ink-800">
-                <CalendarClock size={15} className="text-warning-500" aria-hidden /> Scheduled deliveries
-              </p>
-              <Badge variant="muted">{schedules.length} active</Badge>
-            </div>
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {schedules.map((s) => (
-                <li key={s.id}>
-                  <Link
-                    href={s.client_id ? `/dashboard/clients/${s.client_id}` : "/dashboard/clients"}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-ink-100 bg-surface-muted/40 px-3.5 py-2.5 transition-colors hover:bg-surface-subtle"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-ink-800">{nameOf(s.clients)}</p>
-                      <p className="text-xs text-ink-500">
-                        <span className="capitalize">{s.frequency}</span> · next {format(new Date(s.next_run_at), "d MMM, HH:mm")} UTC
-                      </p>
-                    </div>
-                    <Send size={14} className="shrink-0 text-ink-400" aria-hidden />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            <Link href="/dashboard/clients" className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:gap-1.5">
-              Manage schedules <ArrowRight size={12} aria-hidden />
-            </Link>
-          </CardContent>
-        </Card>
-      )}
-
-      <ReportsBrowser initialRows={rows} initialHasMore={hasMore} clients={clients} hasAny={rows.length > 0} />
+      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="min-w-0">
+          <ReportsBrowser initialRows={rows} initialHasMore={hasMore} clients={clients} hasAny={rows.length > 0} />
+        </div>
+        {/* Scheduled deliveries — the automation is invisible if it only lives
+            on individual client pages, so what's queued surfaces here too. */}
+        {schedules.length > 0 && (
+          <UpNext
+            items={schedules.map((s) => ({
+              id: s.id,
+              clientId: s.client_id,
+              clientName: nameOf(s.clients),
+              frequency: s.frequency,
+              nextRunAt: s.next_run_at,
+            }))}
+          />
+        )}
+      </div>
     </div>
   );
 }

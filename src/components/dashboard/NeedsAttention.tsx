@@ -62,7 +62,9 @@ export function NeedsAttention({ items }: { items: AttentionItem[] }) {
               <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] ${TINTS[item.icon]}`}>
                 <Icon size={16} aria-hidden />
               </span>
-              <div className="min-w-0 flex-1">
+              {/* A 200px basis, so on a phone the button wraps beneath the text
+                  instead of squeezing it to a word per line. */}
+              <div className="min-w-0 flex-[1_1_200px]">
                 <p className="text-sm font-medium text-ink-900">{item.label}</p>
                 {item.detail && <p className="mt-px text-[12.5px] text-ink-400">{item.detail}</p>}
               </div>

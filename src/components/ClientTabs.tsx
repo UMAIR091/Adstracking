@@ -1,16 +1,9 @@
 "use client";
 
-// Navigation inside one client's workspace.
-//
-// The client page was a single scroll: Performance, then Data sources, then
-// Reporting, each growing independently until finding anything meant scrolling
-// past everything. These are the same sections, addressable and persistent —
-// the bar stays put while you work, so moving between them never costs the
-// header or the sense of which client you are in.
-//
-// Same vocabulary as SettingsNav (brand-tinted active pill, muted hover,
-// horizontal scroll on small screens), so the two navigations in the product
-// read as one system.
+// Navigation inside one client's workspace: underline tabs with the active one
+// in ink, scrolling sideways on small screens. Same sections and routes as
+// before; each is addressable and persistent, so moving between them never
+// costs the header or the sense of which client you are in.
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -29,8 +22,8 @@ export function ClientTabs({ clientId }: { clientId: string }) {
   const base = `/dashboard/clients/${clientId}`;
 
   return (
-    <nav aria-label="Client sections" className="-mb-px border-b border-ink-200">
-      <ul className="flex gap-1 overflow-x-auto pb-px">
+    <nav aria-label="Client sections" className="shadow-[inset_0_-1px_0_rgb(var(--ink-200))]">
+      <ul className="flex gap-0.5 overflow-x-auto [scrollbar-width:none]">
         {TABS.map((tab) => {
           const href = tab.segment ? `${base}/${tab.segment}` : base;
           // Exact match: Overview must not stay active while a section is open.
@@ -40,10 +33,10 @@ export function ClientTabs({ clientId }: { clientId: string }) {
               <Link
                 href={href}
                 aria-current={active ? "page" : undefined}
-                className={`block whitespace-nowrap border-b-2 px-3 py-2.5 text-sm transition-colors ${
+                className={`block whitespace-nowrap border-b-2 px-3.5 py-2.5 text-sm transition-colors ${
                   active
-                    ? "border-brand-600 font-medium text-brand-700"
-                    : "border-transparent text-ink-600 hover:border-ink-300 hover:text-ink-900"
+                    ? "border-ink-900 font-semibold text-ink-900"
+                    : "border-transparent font-medium text-ink-500 hover:text-ink-900"
                 }`}
               >
                 {tab.label}

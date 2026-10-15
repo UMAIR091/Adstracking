@@ -24,9 +24,9 @@ import { SOURCE_HEALTH, type SourceHealth } from "@/lib/integrations/status";
 // from buildActivity. Nothing is recomputed, so Overview cannot disagree with
 // the tab it summarises.
 
-const CARD_TITLE = "text-sm font-semibold text-ink-900";
-const CARD_SUB = "mt-0.5 text-xs text-ink-500";
-const CARD_LINK = "group inline-flex shrink-0 items-center gap-1 text-xs font-medium text-brand-700 hover:underline";
+const CARD_TITLE = "text-[15px] font-semibold text-ink-900";
+const CARD_SUB = "mt-0.5 text-[12.5px] text-ink-400";
+const CARD_LINK = "group inline-flex shrink-0 items-center gap-1 text-[13px] font-medium text-brand-600 hover:text-ink-900";
 
 // ── 1. How is this client performing? ───────────────────────────────────────
 
@@ -56,10 +56,10 @@ export function PerformancePanel({
   const hidden = glance.kind === "data" ? Math.max(0, glance.metrics.length - shown.length) : 0;
 
   return (
-    <Card className="h-full">
-      <CardContent className="flex h-full flex-col p-5">
+    <Card className="h-full min-w-0">
+      <CardContent className="flex h-full flex-col p-[18px]">
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-          <h2 className={CARD_TITLE}>Performance</h2>
+          <h2 className={CARD_TITLE}>Performance at a glance</h2>
           {glance.kind === "data" && (
             <Link href={performanceHref} className={CARD_LINK}>
               Full performance
@@ -81,12 +81,12 @@ export function PerformancePanel({
             {/* One headline per channel, each labelled with where it came from.
                 Channels measure different things, so they are never added up —
                 the same rule the Performance tab states in full. */}
-            <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3 xl:grid-cols-4">
+            <div className="mt-3.5 grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2.5">
               {shown.map((m) => (
-                <div key={`${m.group}-${m.label}`}>
-                  <p className="text-xs text-ink-500">{m.label}</p>
-                  <p className="mt-0.5 text-xl font-semibold tracking-tight text-ink-900">{m.value ?? "—"}</p>
-                  <p className="mt-0.5 truncate text-[11px] text-ink-400" title={m.source}>{m.source}</p>
+                <div key={`${m.group}-${m.label}`} className="min-w-0 rounded-xl border border-ink-100 p-3.5">
+                  <p className="truncate font-app-mono text-[10.5px] uppercase tracking-[0.06em] text-ink-400" title={m.source}>{m.source}</p>
+                  <p className="mt-2 text-[12.5px] text-ink-500">{m.label}</p>
+                  <p className="text-[22px] font-semibold tracking-[-0.03em] tabular-nums text-ink-900">{m.value ?? "—"}</p>
                 </div>
               ))}
             </div>

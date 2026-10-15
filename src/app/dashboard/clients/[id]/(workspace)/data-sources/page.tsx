@@ -101,7 +101,7 @@ export default async function ClientDataSourcesPage({ params }: { params: { id: 
         description="Connect a platform to start pulling this client's data."
         action={connectAction}
       >
-        <div className="rounded-xl border border-dashed border-ink-200 bg-surface-subtle px-6 py-12 text-center">
+        <div className="rounded-2xl border border-dashed border-ink-300 bg-surface px-6 py-12 text-center">
           <p className="text-sm font-medium text-ink-800">No data sources connected yet</p>
           <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-ink-500">
             Connect this client&apos;s Search Console, GA4, Meta Ads or any of the other platforms. Anavyst syncs
@@ -151,11 +151,11 @@ export default async function ClientDataSourcesPage({ params }: { params: { id: 
         action={connectAction}
       >
         {healthy.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-ink-200 bg-surface-subtle px-4 py-6 text-center text-sm text-ink-500">
+          <p className="rounded-card border border-dashed border-ink-300 bg-surface px-4 py-6 text-center text-sm text-ink-500">
             Every connected source is listed above — fix those and they appear here.
           </p>
         ) : (
-          <div className="space-y-2">
+          <div className="overflow-hidden rounded-card border border-ink-200 bg-surface">
             {healthy.map((i) => (
               <ConnectedSource
                 key={i.def.id}
@@ -173,7 +173,7 @@ export default async function ClientDataSourcesPage({ params }: { params: { id: 
       </ClientSection>
 
       {availableTiles.length > 0 && (
-        <ClientSection title="Available" description="Add another platform to this client.">
+        <ClientSection title="Add another platform" description="Connected per client, read-only.">
           <AvailableIntegrations
             clientId={clientId}
             integrations={availableTiles}

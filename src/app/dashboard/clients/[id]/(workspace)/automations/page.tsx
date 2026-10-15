@@ -50,8 +50,8 @@ export default async function ClientAutomationsPage({ params }: { params: { id: 
   const logs = (deliveryLogs as unknown as DeliveryLog[]) ?? [];
 
   return (
-    <div>
-      <ClientSection title="Scheduled delivery" description="Send this client's report automatically, on a cadence.">
+    <div className="grid grid-cols-1 items-start gap-x-5 xl:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)] [&>section]:mt-0 [&>section+section]:mt-8 xl:[&>section+section]:mt-0">
+      <ClientSection title="Scheduled delivery" description="Generated, written and emailed automatically.">
         <ReportSchedule
           clientId={client.id as string}
           clientEmail={(client.email as string | null) ?? null}
@@ -70,7 +70,9 @@ export default async function ClientAutomationsPage({ params }: { params: { id: 
             : `The last ${logs.length} email${logs.length === 1 ? "" : "s"} sent to this client.`
         }
       >
-        <DeliveryHistory logs={logs} bare />
+        <div className="rounded-card border border-ink-200 bg-surface px-[18px] py-2">
+          <DeliveryHistory logs={logs} bare />
+        </div>
       </ClientSection>
     </div>
   );
