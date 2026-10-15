@@ -78,13 +78,25 @@ export async function getCurrentUserAndAgency() {
     return { user, agency: joined as Agency, role: ((membership?.role as AgencyRole) ?? "member") as AgencyRole };
   }
 
+  // Insert WITHOUT returning the row, then read it back. "members read agency"
+  // goes through auth_agency_ids(), a STABLE function that can't see a row the
+  // same statement inserted, so insert-and-return (.select()) failed RLS for
+  // every signup since the team release (26 Jul 2026) and left new users with
+  // no workspace. owner_id is unique: if a parallel first request won the
+  // insert, ours fails with 23505 and the read below returns its row.
+  const { error: insertError } = await supabase
+    .from("agencies")
+    .insert({ owner_id: user.id, name: "My Agency", contact_email: user.email });
+  if (insertError && insertError.code !== "23505") {
+    console.error(`agency create failed for user ${user.id}: ${insertError.message}`);
+  }
   const { data: created } = await supabase
     .from("agencies")
-    .insert({ owner_id: user.id, name: "My Agency", contact_email: user.email })
     .select("*")
-    .single();
+    .eq("owner_id", user.id)
+    .maybeSingle();
 
-  if (created) {
+  if (created && !insertError) {
     await ensureOwnerMembership(supabase, created.id, user.id);
     // The agency exists from this moment, so this is where an affiliate's
     // referral is attached — for email and Google signup alike. Never throws.
