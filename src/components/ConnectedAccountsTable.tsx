@@ -53,7 +53,7 @@ function StatusBadge({ row }: { row: ConnectedAccountRow }) {
   return <HealthChip health={row.health} />;
 }
 
-const ACTION = "rounded-md px-2 py-1 text-[13px] font-medium transition-colors disabled:opacity-50";
+const ACTION = "whitespace-nowrap rounded-md px-2 py-1 text-[13px] font-medium transition-colors disabled:opacity-50";
 
 export function ConnectedAccountsTable({ rows }: { rows: ConnectedAccountRow[] }) {
   const router = useRouter();
@@ -119,14 +119,14 @@ export function ConnectedAccountsTable({ rows }: { rows: ConnectedAccountRow[] }
                     <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] ${tint}`}>
                       <Icon size={14} />
                     </span>
-                    <span className="font-medium text-ink-900">{row.platform}</span>
+                    <span className="whitespace-nowrap font-medium text-ink-900">{row.platform}</span>
                   </div>
                 </td>
                 <td className="max-w-[220px] truncate px-3 py-3 font-app-mono text-[12.5px] text-ink-500">
                   {row.accountLabel ?? <span className="font-sans text-ink-400">Not selected</span>}
                 </td>
                 <td className="px-3 py-3">
-                  <Link href={`/dashboard/clients/${row.clientId}`} className="text-ink-900 hover:underline">
+                  <Link href={`/dashboard/clients/${row.clientId}`} className="whitespace-nowrap text-ink-900 hover:underline">
                     {row.clientName}
                   </Link>
                 </td>
