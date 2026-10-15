@@ -79,7 +79,7 @@ export default async function SyncHealthPage() {
           <Activity size={18} />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Sync health</h1>
+          <h1 className="text-[clamp(24px,3vw,28px)] font-semibold tracking-[-0.03em] text-ink-900">Sync health</h1>
           <p className="text-sm text-ink-500">
             The 100 most recent failures across syncs, connections, reports and scheduled jobs.
           </p>

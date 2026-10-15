@@ -54,7 +54,7 @@ export default async function UsagePage() {
           <Gauge size={18} />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Usage</h1>
+          <h1 className="text-[clamp(24px,3vw,28px)] font-semibold tracking-[-0.03em] text-ink-900">Usage</h1>
           <p className="text-sm text-ink-500">Your workspace's activity — connected sources now, and metered activity for {monthLabel}.</p>
         </div>
       </div>

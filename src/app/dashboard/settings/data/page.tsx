@@ -31,10 +31,10 @@ export default async function DataPrivacyPage() {
   const list = sources ?? [];
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
+    <div className="max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Data &amp; privacy</h1>
-        <p className="mt-1 text-sm text-ink-500">
+        <h1 className="text-[clamp(24px,3vw,28px)] font-semibold tracking-[-0.03em] text-ink-900">Data &amp; privacy</h1>
+        <p className="mt-1 text-[14.5px] text-ink-500">
           Manage every connection {COMPANY.product} has to your clients&apos; data — and remove them at any time.
         </p>
       </div>
@@ -42,7 +42,7 @@ export default async function DataPrivacyPage() {
       <Card>
         <CardContent className="flex items-start gap-3 p-5">
           <ShieldCheck size={18} className="mt-0.5 shrink-0 text-success-600" />
-          <p className="text-sm leading-relaxed text-ink-600">
+          <p className="text-[13.5px] leading-relaxed text-ink-500">
             {DATA_PROMISE} Disconnecting a source below immediately deletes its stored connection tokens and all
             cached metric data. Read the full details in our{" "}
             <Link href="/privacy" className="font-medium text-brand-600 hover:underline">Privacy Policy</Link> and{" "}
@@ -52,7 +52,7 @@ export default async function DataPrivacyPage() {
       </Card>
 
       <div>
-        <h2 className="mb-3 text-sm font-medium text-ink-700">Connected data sources</h2>
+        <h2 className="mb-3 text-[15px] font-semibold text-ink-900">Connected data sources</h2>
         {list.length === 0 ? (
           <EmptyState
             icon={Plug}
@@ -61,53 +61,50 @@ export default async function DataPrivacyPage() {
             action={<Button asChild variant="outline"><Link href="/dashboard/integrations">View integrations</Link></Button>}
           />
         ) : (
-          <div className="space-y-3">
-            {list.map((s) => {
+          <div className="overflow-hidden rounded-card border border-ink-200 bg-surface">
+            {list.map((s, i) => {
               const def = getIntegration(s.type);
               // Supabase types to-one joins as arrays; normalize both shapes.
               const joined = s.clients as { name: string } | { name: string }[] | null;
               const clientName = (Array.isArray(joined) ? joined[0]?.name : joined?.name) ?? "Unknown client";
               return (
-                <Card key={s.id}>
-                  <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium text-ink-900">{def?.name ?? getIntegrationName(s.type)}</p>
-                        <Badge variant="muted">{clientName}</Badge>
-                      </div>
-                      <p className="mt-1 text-xs text-ink-500">
-                        {s.display_name ? `Connected as ${s.display_name} · ` : ""}
-                        {s.last_synced_at
-                          ? `Last synced ${formatDistanceToNow(new Date(s.last_synced_at), { addSuffix: true })}`
-                          : "Not synced yet"}
-                      </p>
+                <div key={s.id} className={`flex flex-wrap items-center justify-between gap-3 px-[18px] py-[13px] ${i ? "border-t border-ink-100" : ""}`}>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-medium text-ink-900">{def?.name ?? getIntegrationName(s.type)}</p>
+                      <Badge variant="muted">{clientName}</Badge>
                     </div>
-                    <DisconnectSource dataSourceId={s.id} label={`${def?.name ?? getIntegrationName(s.type)} for ${clientName}`} />
-                  </CardContent>
-                </Card>
+                    <p className="mt-0.5 text-[12.5px] text-ink-400">
+                      {s.display_name ? `Connected as ${s.display_name} · ` : ""}
+                      {s.last_synced_at
+                        ? `Last synced ${formatDistanceToNow(new Date(s.last_synced_at), { addSuffix: true })}`
+                        : "Not synced yet"}
+                    </p>
+                  </div>
+                  <DisconnectSource dataSourceId={s.id} label={`${def?.name ?? getIntegrationName(s.type)} for ${clientName}`} />
+                </div>
               );
             })}
           </div>
         )}
       </div>
 
-      <div>
-        <h2 className="mb-3 text-sm font-medium text-ink-700">Delete your account</h2>
-        <Card>
-          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5">
-            <div className="flex items-start gap-3">
-              <Database size={18} className="mt-0.5 shrink-0 text-ink-500" />
-              <p className="max-w-md text-sm leading-relaxed text-ink-600">
-                To permanently delete your account and everything in it — clients, connections, snapshots, and
-                reports — email us and we&apos;ll complete it within 30 days.
-              </p>
-            </div>
-            <Button asChild variant="outline">
-              <a href={`mailto:${COMPANY.privacyEmail}?subject=Account%20deletion%20request`}>Request deletion</a>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Danger zone. */}
+      <section aria-labelledby="delete-account" className="flex flex-wrap items-center justify-between gap-4 rounded-card border border-danger-100 bg-surface p-5">
+        <div className="flex min-w-[220px] flex-1 items-start gap-3">
+          <Database size={18} className="mt-0.5 shrink-0 text-danger-600" />
+          <div>
+            <h2 id="delete-account" className="text-[15px] font-semibold text-danger-700">Delete your account</h2>
+            <p className="mt-1 max-w-md text-[13px] leading-relaxed text-ink-500">
+              To permanently delete your account and everything in it — clients, connections, snapshots, and
+              reports — email us and we&apos;ll complete it within 30 days.
+            </p>
+          </div>
+        </div>
+        <Button asChild variant="outline" className="border-danger-100 text-danger-700 hover:border-danger-600 hover:text-danger-700">
+          <a href={`mailto:${COMPANY.privacyEmail}?subject=Account%20deletion%20request`}>Request deletion</a>
+        </Button>
+      </section>
     </div>
   );
 }

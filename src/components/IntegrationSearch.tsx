@@ -62,7 +62,7 @@ export function IntegrationSearch({ integrations }: { integrations: DataSourceCa
 
   return (
     <div>
-      <div className="relative mb-5 max-w-md">
+      <div className="relative mb-4 max-w-md">
         <SearchIcon size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" aria-hidden />
         <input
           type="search"
@@ -85,12 +85,12 @@ export function IntegrationSearch({ integrations }: { integrations: DataSourceCa
       </div>
 
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-ink-200 bg-surface-subtle px-6 py-12 text-center">
+        <div className="rounded-card border border-dashed border-ink-300 bg-surface px-6 py-12 text-center">
           <p className="text-sm font-medium text-ink-800">No integrations match “{query}”</p>
           <p className="mt-1 text-sm text-ink-500">Try a platform name like Google, Meta, TikTok or Shopify.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-2.5">
           {filtered.map((data) => (
             <DataSourceCard key={data.id} data={data} />
           ))}

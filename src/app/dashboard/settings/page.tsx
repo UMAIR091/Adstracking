@@ -56,8 +56,8 @@ export default async function SettingsPage() {
       {/* Title matches this page's entry in SettingsNav — the nav calls it
           "General & branding", so the page shouldn't call itself something
           else once you land on it. */}
-      <h1 className="text-2xl font-semibold tracking-tight text-ink-900">General &amp; branding</h1>
-      <p className="mb-6 text-sm text-ink-500">
+      <h1 className="text-[clamp(24px,3vw,28px)] font-semibold tracking-[-0.03em] text-ink-900">General &amp; branding</h1>
+      <p className="mb-5 mt-1 text-[14.5px] text-ink-500">
         Your logo, colour and contact details go out automatically on every report and email — this is what your
         clients see instead of Anavyst.
       </p>
@@ -72,6 +72,7 @@ export default async function SettingsPage() {
           contact_phone: agency.contact_phone ?? "",
           footer_text: agency.footer_text ?? "",
         }}
+        email={{ senderName: agency.email_sender_name ?? "", senderEmail: agency.email_sender_email ?? "" }}
       />
 
       <div className="mt-6">

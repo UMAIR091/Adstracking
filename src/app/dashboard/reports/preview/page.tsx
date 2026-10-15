@@ -21,7 +21,7 @@ export default async function ReportPreviewPage() {
           — the page is a branding preview, not this month's data. */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Sample report</h1>
+          <h1 className="text-[clamp(24px,3vw,28px)] font-semibold tracking-[-0.03em] text-ink-900">Sample report</h1>
           <p className="text-sm text-ink-500">
             Your real branding on sample figures — this is the layout, cover and structure clients receive.
           </p>

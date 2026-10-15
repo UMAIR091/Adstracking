@@ -39,7 +39,7 @@ export default async function ConnectConsentPage({
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Connect {def.name}</h1>
+      <h1 className="text-[clamp(24px,3vw,28px)] font-semibold tracking-[-0.03em] text-ink-900">Connect {def.name}</h1>
       <p className="mt-1 text-sm text-ink-500">
         For <span className="font-medium text-ink-700">{client.name}</span> — review what {COMPANY.product} will access
         before continuing.

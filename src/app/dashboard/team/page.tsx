@@ -62,7 +62,7 @@ export default async function TeamPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Team</h1>
+        <h1 className="text-[clamp(24px,3vw,28px)] font-semibold tracking-[-0.03em] text-ink-900">Team</h1>
         <p className="text-sm text-ink-500">Invite teammates to collaborate on clients and reports.</p>
       </div>
 

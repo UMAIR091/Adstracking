@@ -292,7 +292,7 @@ function Pill({
       aria-pressed={active}
       className={`shrink-0 whitespace-nowrap rounded-full border transition-colors ${small ? "px-3 py-1 text-xs" : "px-3.5 py-1.5 text-sm"} ${
         active
-          ? "border-brand-solid bg-brand-solid text-white"
+          ? "border-primary bg-primary text-primary-fg"
           : "border-ink-200 bg-surface text-ink-600 hover:border-ink-300 hover:text-ink-900"
       }`}
     >

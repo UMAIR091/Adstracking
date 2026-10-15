@@ -4,7 +4,7 @@ import { SettingsNav } from "@/components/SettingsNav";
 // each page keeps its own heading, data loading and behaviour unchanged.
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-8 lg:flex-row lg:gap-10">
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-7">
       <SettingsNav />
       <div className="min-w-0 flex-1">{children}</div>
     </div>

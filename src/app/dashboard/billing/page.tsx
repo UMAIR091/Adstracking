@@ -34,12 +34,12 @@ function fmtDate(iso: string | null): string {
   return iso ? format(new Date(iso), "MMM d, yyyy") : "—";
 }
 
-// One labelled fact in the subscription summary grid.
+// One labelled fact in the plan card (light text on the ink card).
 function Fact({ label, value, icon }: { label: string; value: string; icon?: React.ReactNode }) {
   return (
     <div>
-      <p className="text-xs uppercase tracking-wide text-ink-500">{label}</p>
-      <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-ink-800">
+      <p className="text-xs text-site-dark-muted">{label}</p>
+      <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-nav-strong">
         {icon}
         {value}
       </p>
@@ -121,10 +121,10 @@ export default async function BillingPage({
             : "—";
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Billing</h1>
-        <p className="text-sm text-ink-500">Manage your plan, payment method and invoices.</p>
+        <h1 className="text-[clamp(24px,3vw,28px)] font-semibold tracking-[-0.03em] text-ink-900">Billing</h1>
+        <p className="mt-1 text-[14.5px] text-ink-500">Manage your plan, payment method and invoices.</p>
       </div>
 
       {searchParams.checkout === "success" && (
@@ -183,7 +183,7 @@ export default async function BillingPage({
           </p>
           <a
             href="#plans"
-            className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-solid px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-solid-hover"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-control bg-primary px-3 py-1.5 text-sm font-medium text-primary-fg transition-colors hover:bg-primary-hover"
           >
             <CreditCard size={14} /> Resubscribe
           </a>
@@ -196,18 +196,18 @@ export default async function BillingPage({
         </div>
       )}
 
-      {/* Current subscription */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
+      {/* Current subscription: the ink plan card. */}
+      <section aria-label="Current plan" className="rounded-card bg-nav-bg p-[22px] text-nav-mark [--ring:var(--nav-electric)]">
+          <div className="flex flex-wrap items-end justify-between gap-5">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2.5">
-                <p className="text-lg font-semibold text-ink-900">{state.planName}</p>
+              <p className="font-app-mono text-[11px] uppercase tracking-[0.08em] text-report-verdict-accent">Current plan</p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2.5">
+                <p className="text-[26px] font-semibold tracking-[-0.03em] text-nav-strong">{state.planName}</p>
                 <Badge variant={badge.variant} dot>{badge.label}</Badge>
               </div>
 
               <div className="mt-5 grid gap-5 sm:grid-cols-3">
-                <Fact label="Billing cycle" value={cycleLabel} icon={<RefreshCw size={13} className="text-ink-500" />} />
+                <Fact label="Billing cycle" value={cycleLabel} icon={<RefreshCw size={13} className="text-site-dark-muted" />} />
                 <Fact
                   label={
                     state.plan === "trial"
@@ -219,7 +219,7 @@ export default async function BillingPage({
                           : "Next renewal"
                   }
                   value={renewalLabel}
-                  icon={<CalendarClock size={13} className="text-ink-500" />}
+                  icon={<CalendarClock size={13} className="text-site-dark-muted" />}
                 />
                 <Fact
                   label="Payment method"
@@ -230,12 +230,12 @@ export default async function BillingPage({
                         ? "Managed by Paddle"
                         : "Added at checkout"
                   }
-                  icon={<CreditCard size={13} className="text-ink-500" />}
+                  icon={<CreditCard size={13} className="text-site-dark-muted" />}
                 />
               </div>
 
               {state.plan === "trial" && state.trialDaysLeft !== null && (
-                <p className="mt-4 text-sm text-ink-500">
+                <p className="mt-4 text-sm text-site-dark-muted">
                   {state.trialDaysLeft} day{state.trialDaysLeft === 1 ? "" : "s"} left in your free trial. Choose a plan
                   below to continue without interruption.
                 </p>
@@ -250,8 +250,7 @@ export default async function BillingPage({
               />
             )}
           </div>
-        </CardContent>
-      </Card>
+      </section>
 
       {/* Plans */}
       {configured ? (

@@ -71,12 +71,14 @@ export function SubscriptionActions({ paused = false, cancelAtPeriodEnd, endsAtL
             Manage billing <ExternalLink size={14} />
           </a>
         </Button>
+        {/* Sits on the ink plan card (billing page), so the ghost button
+            takes that card's light text. */}
         {cancelAtPeriodEnd || paused ? (
           <Button variant="outline" disabled={busy !== null} onClick={resume}>
             {busy === "resume" ? "Resuming…" : "Resume subscription"}
           </Button>
         ) : (
-          <Button variant="ghost" disabled={busy !== null} onClick={() => setShowCancel(true)} className="text-ink-500 hover:text-danger-600">
+          <Button variant="ghost" disabled={busy !== null} onClick={() => setShowCancel(true)} className="text-site-dark-muted hover:bg-nav-hover hover:text-nav-strong">
             Cancel subscription
           </Button>
         )}

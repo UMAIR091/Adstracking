@@ -21,11 +21,11 @@ export default function DashboardError({ error, reset }: { error: Error & { dige
   }, [error]);
 
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-warning-50 text-warning-600 ring-1 ring-inset ring-warning-100">
-        <AlertTriangle size={26} />
+    <div role="alert" className="mx-auto mt-[10vh] flex max-w-lg flex-col items-center rounded-card border border-danger-100 bg-surface px-6 py-10 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-danger-50 text-danger-600">
+        <AlertTriangle size={22} />
       </div>
-      <h1 className="mt-5 text-lg font-semibold text-ink-900">Something went wrong</h1>
+      <h1 className="mt-4 text-lg font-semibold text-ink-900">Something went wrong</h1>
       <p className="mt-1.5 max-w-md text-sm leading-relaxed text-ink-500">
         We hit an unexpected error loading this page. Your data is safe — this is usually temporary. Try again, and if it
         keeps happening, let us know.
@@ -36,7 +36,7 @@ export default function DashboardError({ error, reset }: { error: Error & { dige
       <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
         <Button onClick={reset}>Try again</Button>
         <Button asChild variant="outline">
-          <Link href="/dashboard">Back to dashboard</Link>
+          <Link href="/dashboard">Back to Home</Link>
         </Button>
       </div>
     </div>

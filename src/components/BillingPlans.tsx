@@ -229,12 +229,12 @@ export function BillingPlans({
             aria-pressed={interval === iv}
             className={cn(
               "rounded-full px-4 py-1.5 font-medium transition-colors",
-              interval === iv ? "bg-brand-solid text-white" : "text-ink-500 hover:text-ink-800"
+              interval === iv ? "bg-primary text-primary-fg" : "text-ink-500 hover:text-ink-800"
             )}
           >
             {INTERVAL_LABEL[iv]}
             {iv === "quarterly" && savingPct != null && savingPct > 0 && (
-              <span className={cn("ml-1.5 text-xs", interval === iv ? "text-white/80" : "text-success-600")}>
+              <span className={cn("ml-1.5 text-xs", interval === iv ? "text-primary-fg/80" : "text-success-600")}>
                 save {savingPct}%
               </span>
             )}

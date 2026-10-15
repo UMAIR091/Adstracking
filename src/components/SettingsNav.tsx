@@ -49,11 +49,11 @@ export function SettingsNav() {
   const pathname = usePathname();
 
   return (
-    <nav aria-label="Settings" className="lg:w-56 lg:shrink-0">
-      <div className="flex gap-6 overflow-x-auto pb-2 lg:block lg:space-y-6 lg:overflow-visible lg:pb-0">
+    <nav aria-label="Settings" className="lg:w-[200px] lg:shrink-0">
+      <div className="flex gap-6 overflow-x-auto pb-2 [scrollbar-width:none] lg:block lg:space-y-4 lg:overflow-visible lg:pb-0">
         {GROUPS.map((g) => (
           <div key={g.title} className="min-w-max lg:min-w-0">
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink-400">{g.title}</p>
+            <p className="px-2.5 pb-1.5 font-app-mono text-[10.5px] uppercase tracking-[0.08em] text-ink-400">{g.title}</p>
             <ul className="flex gap-1 lg:block lg:space-y-0.5">
               {g.items.map((item) => {
                 // Exact match only — /dashboard/settings must not stay active
@@ -64,15 +64,12 @@ export function SettingsNav() {
                     <Link
                       href={item.href}
                       aria-current={active ? "page" : undefined}
-                      // Same selected treatment as the sidebar: a surface card
-                      // lifted off the page with a hairline ring, and the accent
-                      // carried by the label rather than a colour wash behind
-                      // it. Two vertical navigations in one product should not
-                      // express "you are here" two different ways.
-                      className={`block whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                      // The selected item is lifted onto white, the same figure/
+                      // ground move the cards make against the canvas.
+                      className={`block whitespace-nowrap rounded-lg px-2.5 py-[7px] text-[13.5px] transition-colors ${
                         active
-                          ? "bg-surface font-semibold text-brand-700 shadow-xs ring-1 ring-ink-200/70"
-                          : "font-medium text-ink-600 hover:bg-ink-100/70 hover:text-ink-900"
+                          ? "bg-surface font-semibold text-ink-900"
+                          : "font-medium text-ink-600 hover:bg-segment hover:text-ink-900"
                       }`}
                     >
                       {item.label}

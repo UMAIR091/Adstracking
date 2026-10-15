@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { Brand } from "@/components/Brand";
 import { OnboardingWizard } from "@/components/OnboardingWizard";
+import { AppBodyFont } from "@/components/AppBodyFont";
+import { reportFonts } from "@/lib/reportFonts";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Welcome to Anavyst" };
@@ -15,7 +17,9 @@ export default async function OnboardingPage() {
   if (agency.onboarding_completed_at) redirect("/dashboard");
 
   return (
-    <main className="min-h-screen bg-canvas px-4 py-10">
+    // `.app-root`: the signed-in palette and Geist, same as the dashboard.
+    <main className={`app-root ${reportFonts} min-h-screen bg-canvas px-4 py-10 text-ink-900`}>
+      <AppBodyFont className={reportFonts} />
       <div className="mb-8 flex justify-center">
         <Brand className="text-lg" />
       </div>

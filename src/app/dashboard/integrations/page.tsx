@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { Users, Plug } from "lucide-react";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/EmptyState";
 import { IntegrationSearch } from "@/components/IntegrationSearch";
@@ -11,7 +10,7 @@ import { ConnectedAccountsTable, type ConnectedAccountRow } from "@/components/C
 import type { DataSourceCardData } from "@/components/DataSourceCard";
 import { listIntegrations, isConnectable } from "@/lib/integrations/registry";
 import { getIntegrationName } from "@/lib/integrations/names";
-import { sourceHealth } from "@/lib/integrations/status";
+import { sourceHealth, countHealth } from "@/lib/integrations/status";
 
 export const dynamic = "force-dynamic";
 
@@ -106,38 +105,58 @@ export default async function IntegrationsPage() {
       return weight(a) - weight(b) || a.clientName.localeCompare(b.clientName) || a.platform.localeCompare(b.platform);
     });
 
-  return (
-    <div className="space-y-12">
+  // The summary strip reads the same classifier as every other health count.
+  const counts = countHealth(accountRows.map((r) => r.health));
+  const clientsWithSources = new Set(accountRows.map((r) => r.clientId)).size;
+  const breakdown = [
+    counts.needsReconnect && `${counts.needsReconnect} reconnect`,
+    counts.syncError && `${counts.syncError} sync error${counts.syncError === 1 ? "" : "s"}`,
+    counts.needsAccount && `${counts.needsAccount} account choice${counts.needsAccount === 1 ? "" : "s"}`,
+  ].filter(Boolean).join(" · ");
+  const heading = (title: string, sub: string, trailing?: React.ReactNode) => (
+    <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Integrations</h1>
-        <p className="text-sm text-ink-500">Connect the data sources that power your client reports.</p>
+        <h2 className="text-[15px] font-semibold text-ink-900">{title}</h2>
+        <p className="mt-0.5 text-[12.5px] text-ink-400">{sub}</p>
+      </div>
+      {trailing}
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-8">
+      <div>
+        <h1 className="text-[clamp(24px,3vw,28px)] font-semibold tracking-[-0.03em] text-ink-900">Integrations</h1>
+        <p className="mt-1 text-[14.5px] text-ink-500">Every data source connected across your clients, and what you can add next.</p>
       </div>
 
-      {/* ── Available integrations ── */}
-      <section>
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-2 border-b border-ink-100 pb-3">
-          <div>
-            <h2 className="text-base font-semibold tracking-tight text-ink-900">Available integrations</h2>
-            <p className="mt-0.5 text-sm text-ink-500">Ready to connect to any of your clients.</p>
+      {accountRows.length > 0 && (
+        <dl className="grid grid-cols-1 gap-px overflow-hidden rounded-card border border-ink-200 bg-ink-200 sm:grid-cols-3">
+          <div className="bg-surface px-[18px] py-4">
+            <dt className="text-[12.5px] text-ink-400">Connections</dt>
+            <dd className="mt-1 text-2xl font-semibold tabular-nums text-ink-900">{counts.total}</dd>
+            <dd className="text-[12.5px] text-ink-500">across {clientsWithSources} of {clients.length} client{clients.length === 1 ? "" : "s"}</dd>
           </div>
-          <span className="text-xs text-ink-500">{available.length} available</span>
-        </div>
-        <IntegrationSearch integrations={available} />
-      </section>
+          <div className="bg-surface px-[18px] py-4">
+            <dt className="text-[12.5px] text-ink-400">Healthy</dt>
+            <dd className="mt-1 text-2xl font-semibold tabular-nums text-success-700">{counts.healthy}</dd>
+            <dd className="text-[12.5px] text-ink-500">syncing on schedule</dd>
+          </div>
+          <div className="bg-surface px-[18px] py-4">
+            <dt className="text-[12.5px] text-ink-400">Need attention</dt>
+            <dd className={`mt-1 text-2xl font-semibold tabular-nums ${counts.needsAttention ? "text-danger-700" : "text-ink-900"}`}>{counts.needsAttention}</dd>
+            <dd className="text-[12.5px] text-ink-500">{breakdown || "nothing to fix"}</dd>
+          </div>
+        </dl>
+      )}
 
       {/* ── Connected accounts ── */}
       <section>
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-2 border-b border-ink-100 pb-3">
-          <div>
-            <h2 className="text-base font-semibold tracking-tight text-ink-900">Connected accounts</h2>
-            <p className="mt-0.5 text-sm text-ink-500">Every account connected across your clients.</p>
-          </div>
-          {accountRows.length > 0 && (
-            <span className="text-xs text-ink-500">
-              {accountRows.length} connection{accountRows.length === 1 ? "" : "s"} · {clients.length} client{clients.length === 1 ? "" : "s"}
-            </span>
-          )}
-        </div>
+        {heading(
+          "Connected accounts",
+          "Every account connected across your clients.",
+          accountRows.length > 0 ? <span className="text-[12.5px] text-ink-400">Issues first</span> : undefined
+        )}
 
         {clients.length === 0 ? (
           <EmptyState
@@ -158,19 +177,23 @@ export default async function IntegrationsPage() {
         )}
       </section>
 
+      {/* ── Available integrations ── */}
+      <section>
+        {heading(
+          "Available to connect",
+          "Connected per client, read-only.",
+          <span className="text-[12.5px] text-ink-400">{available.length} available</span>
+        )}
+        <IntegrationSearch integrations={available} />
+      </section>
+
       {/* ── Roadmap: genuinely not connectable yet ── */}
       {upcoming.length > 0 && (
         <section>
-          <div className="mb-4 flex flex-wrap items-end justify-between gap-2 border-b border-ink-100 pb-3">
-            <div>
-              <h2 className="text-base font-semibold tracking-tight text-ink-900">Coming soon</h2>
-              <p className="mt-0.5 text-sm text-ink-500">Built and on the way — not yet available to connect.</p>
-            </div>
-            <span className="text-xs text-ink-500">{upcoming.length} in progress</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
+          {heading("Coming soon", "Built and on the way — not yet available to connect.")}
+          <div className="flex flex-wrap gap-1.5">
             {upcoming.map((def) => (
-              <Badge key={def.id} variant="muted">{def.name}</Badge>
+              <span key={def.id} className="rounded-full bg-segment px-2.5 py-[5px] text-[12.5px] text-ink-500">{def.name}</span>
             ))}
           </div>
         </section>

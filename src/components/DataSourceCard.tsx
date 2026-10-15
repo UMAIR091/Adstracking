@@ -1,8 +1,5 @@
 import Link from "next/link";
 import { Search, BarChart3, Megaphone, MapPin, Facebook, Instagram, Linkedin, Music, Twitter, Youtube, Ghost, Plug, ShoppingBag, FileSpreadsheet, Magnet } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 
 // Reusable data-source card. Adding a new platform = add a descriptor in
 // lib/integrations/providers.ts (and, if its icon/accent is new, one line here).
@@ -41,47 +38,26 @@ export function DataSourceCard({ data }: { data: DataSourceCardData }) {
   const isAvailable = status === "live" && connectedCount === 0;
 
   return (
-    <Card className="flex flex-col transition-colors hover:border-ink-300">
-      <CardContent className="flex flex-1 flex-col p-5">
-        <div className="flex items-start justify-between">
-          <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${tint}`}>
-            <Icon size={20} />
-          </div>
-          {isConnected ? (
-            <Badge variant="success" dot>Connected</Badge>
-          ) : isAvailable ? (
-            <Badge variant="info" dot>Available</Badge>
-          ) : (
-            <Badge variant="muted">Coming soon</Badge>
-          )}
-        </div>
-
-        <p className="mt-4 font-semibold text-ink-900">{name}</p>
-        <p className="mt-0.5 text-sm text-ink-500">{description}</p>
-
-        <div className="mt-4 flex items-center justify-between pt-1">
-          <p className="text-xs text-ink-500">
-            {isConnected
-              ? `Connected for ${connectedCount} client${connectedCount === 1 ? "" : "s"}`
-              : isAvailable
-                ? "Ready to connect"
-                : "Available in an upcoming release"}
-          </p>
-          {isConnected ? (
-            <Button asChild variant="outline" size="sm">
-              <Link href={connectHref}>Manage</Link>
-            </Button>
-          ) : isAvailable ? (
-            <Button asChild size="sm">
-              <Link href={connectHref}>Connect</Link>
-            </Button>
-          ) : (
-            <Button variant="outline" size="sm" disabled>
-              Coming soon
-            </Button>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-2.5 rounded-xl border border-ink-200 bg-surface p-4">
+      <div className="flex items-center gap-2.5">
+        <span className={`flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[9px] ${tint}`}>
+          <Icon size={17} aria-hidden />
+        </span>
+        <span className="flex-1 text-sm font-semibold text-ink-900">{name}</span>
+        {isConnected && (
+          <span className="whitespace-nowrap rounded-full bg-success-50 px-[7px] py-0.5 text-[11.5px] text-success-700">
+            {connectedCount} client{connectedCount === 1 ? "" : "s"}
+          </span>
+        )}
+      </div>
+      <p className="flex-1 text-[12.5px] leading-snug text-ink-500">{description}</p>
+      {status === "live" ? (
+        <Link href={connectHref} className="text-[13px] font-medium text-brand-600 hover:text-ink-900">
+          {isAvailable ? "Connect to a client →" : "Connect another client →"}
+        </Link>
+      ) : (
+        <span className="text-[13px] text-ink-400">Coming soon</span>
+      )}
+    </div>
   );
 }

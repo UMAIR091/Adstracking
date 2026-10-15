@@ -36,7 +36,7 @@ export default async function AffiliatesPage() {
           <Handshake size={18} />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Affiliates</h1>
+          <h1 className="text-[clamp(24px,3vw,28px)] font-semibold tracking-[-0.03em] text-ink-900">Affiliates</h1>
           <p className="text-sm text-ink-500">Referral links, signups and the commissions owed. Payouts are made by hand, then marked paid here.</p>
         </div>
       </div>

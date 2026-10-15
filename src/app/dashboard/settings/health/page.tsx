@@ -5,32 +5,18 @@ import { formatDistanceToNow } from "date-fns";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
 import { getIntegrationHealth, summarize, type IntegrationHealth } from "@/lib/integrationHealth";
-import { SOURCE_HEALTH } from "@/lib/integrations/status";
 import { Card, CardContent } from "@/components/ui/card";
+import { HealthChip } from "@/components/ui/status-chip";
 
 export const dynamic = "force-dynamic";
 
 const rel = (t: string | null) => (t ? formatDistanceToNow(new Date(t), { addSuffix: true }) : "—");
 
-// Uses the shared SOURCE_HEALTH classifier so this table and the dashboard
-// stat tiles always agree — four states, one definition.
+// Uses the shared SOURCE_HEALTH classifier and status chip, so this table and
+// the dashboard always agree — four states, one definition, one look. (The old
+// badge here drew "danger" in amber and "warning" in red.)
 function StatusBadge({ row }: { row: IntegrationHealth }) {
-  const p = SOURCE_HEALTH[row.health];
-  const Icon =
-    row.health === "healthy" ? CheckCircle2 :
-    row.health === "needs_reconnect" ? PlugZap :
-    row.health === "needs_account" ? Settings :
-    AlertCircle;
-  const cls =
-    p.variant === "success" ? "bg-success-50 text-success-700 border-success-200" :
-    p.variant === "danger"  ? "bg-warning-50 text-warning-700 border-warning-200" :
-    p.variant === "info"    ? "bg-info-50 text-info-700 border-info-200" :
-    "bg-danger-50 text-danger-700 border-danger-200";
-  return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${cls}`}>
-      <Icon size={11} /> {p.short}
-    </span>
-  );
+  return <HealthChip health={row.health} />;
 }
 
 function TokenBadge({ token }: { token: IntegrationHealth["token"] }) {
@@ -78,16 +64,16 @@ export default async function IntegrationHealthPage() {
           <HeartPulse size={18} />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Integration health</h1>
+          <h1 className="text-[clamp(24px,3vw,28px)] font-semibold tracking-[-0.03em] text-ink-900">Integration health</h1>
           <p className="text-sm text-ink-500">Live status of every connected data source across your clients.</p>
         </div>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
         <Summary label="Connected" value={s.connected} cls="bg-success-50 text-success-600" icon={CheckCircle2} />
-        <Summary label="Account needed" value={s.needsAccount} cls="bg-info-50 text-info-600" icon={Settings} />
+        <Summary label="Account needed" value={s.needsAccount} cls="bg-warning-50 text-warning-600" icon={Settings} />
         <Summary label="Sync errors" value={s.errored} cls="bg-danger-50 text-danger-600" icon={AlertCircle} />
-        <Summary label="Need reconnect" value={s.needsReconnect} cls="bg-warning-50 text-warning-600" icon={PlugZap} />
+        <Summary label="Need reconnect" value={s.needsReconnect} cls="bg-danger-50 text-danger-600" icon={PlugZap} />
         <Summary label="Total sources" value={s.total} cls="bg-ink-100 text-ink-600" icon={Plug} />
       </div>
 
