@@ -77,7 +77,7 @@ function SideCardSkeleton({ lines = 3 }: { lines?: number }) {
   );
 }
 
-/** Home: header, stat strip, attention + clients beside up next + activity. */
+/** Home: header, stat strip, attention + AI insights + clients beside up next + activity. */
 export function HomeSkeleton() {
   return (
     <div className="flex flex-col gap-6" aria-busy="true" aria-label="Loading">
@@ -86,6 +86,7 @@ export function HomeSkeleton() {
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
         <div className="flex flex-col gap-5">
           <ListCardSkeleton rows={3} header={false} />
+          <SideCardSkeleton lines={2} />
           <ListCardSkeleton rows={5} />
         </div>
         <div className="flex flex-col gap-5">

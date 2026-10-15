@@ -16,7 +16,10 @@ import {
   SearchPerformance, HomeClients, SampleReportCard, BrandingCard, type HomeClientRow,
 } from "@/components/dashboard/HomeCards";
 import { NewReportButton } from "@/components/GenerateReportDialog";
-import { detectSignals, withContext, type Signal } from "@/lib/insights/signals";
+import { detectSignals, forClient, type Signal } from "@/lib/insights/signals";
+import { latestInsightsPerClient, siteLabel, INSIGHT_REPORT_SELECT, type InsightReportRow } from "@/lib/dashboard/aiInsights";
+import { getSubscriptionState } from "@/lib/billing/subscription";
+import { featuresForPlan } from "@/lib/billing/config";
 import type { GscReportFull } from "@/lib/google";
 import { buildActivity } from "@/lib/dashboard/activity";
 import { getIntegrationName } from "@/lib/integrations/names";
@@ -28,6 +31,7 @@ export const dynamic = "force-dynamic";
 type ClientWithSources = { id: string; name: string; logo_url: string | null; created_at: string; data_sources: { type: string; created_at: string }[] | null };
 type Day = { date: string; clicks: number; impressions: number; ctr: number; position: number };
 type JoinedName = { name: string | null } | { name: string | null }[] | null;
+type JoinedClient = { name: string | null; archived?: boolean | null } | { name: string | null; archived?: boolean | null }[] | null;
 
 const fmt = (n: number) => Math.round(n).toLocaleString();
 const avg = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
@@ -83,9 +87,10 @@ export default async function DashboardPage() {
     { count: clientCount, data: activeClientRows }, { count: reportCount }, { count: reportsThisMonth }, { count: scheduleCount },
     { data: clientsRaw }, { data: snaps }, { data: gscSources }, { data: allSources },
     { data: reportsRaw }, { data: schedulesRaw }, { data: emailsRaw },
+    { data: insightReportsRaw }, subState,
   ] = await Promise.all([
     // Ids too, so "still need a data source" can be checked per client.
-    supabase.from("clients").select("id", { count: "exact" }).eq("archived", false),
+    supabase.from("clients").select("id, name", { count: "exact" }).eq("archived", false),
     supabase.from("reports").select("id", { count: "exact", head: true }),
     supabase.from("reports").select("id", { count: "exact", head: true }).gte("created_at", monthStart.toISOString()),
     supabase.from("report_schedules").select("id", { count: "exact", head: true }).eq("enabled", true),
@@ -96,12 +101,16 @@ export default async function DashboardPage() {
     // decliners, 5 opportunities) unlike topQueries/topPages, so the payload
     // stays close to what the perf audit trimmed it to.
     supabase.from("gsc_snapshots").select("data_source_id, totals:data->totals, series:data->byDate, movers:data->movers").eq("period_days", 28),
-    supabase.from("data_sources").select("id, client_id, config, clients(name)").eq("type", "gsc"),
+    supabase.from("data_sources").select("id, client_id, config, clients(name, archived)").eq("type", "gsc"),
     // Every source, for the integrations stat, the sync status and the timeline.
     supabase.from("data_sources").select("client_id, type, created_at, last_synced_at, last_sync_error"),
     supabase.from("reports").select("id, title, status, period_start, period_end, data, created_at, client_id, clients(name)").order("created_at", { ascending: false }).limit(5),
     supabase.from("report_schedules").select("id, client_id, frequency, next_run_at, template_key, clients(name)").eq("enabled", true).order("next_run_at", { ascending: true }).limit(5),
     supabase.from("email_logs").select("report_id, to_email, status, sent_at, error, source").order("sent_at", { ascending: false }).limit(10),
+    // Reports whose stored data carries the AI-written analysis, newest first:
+    // each client's latest one feeds the AI insights panel.
+    supabase.from("reports").select(INSIGHT_REPORT_SELECT).not("data->insights->>executiveSummary", "is", null).order("created_at", { ascending: false }).limit(60),
+    getSubscriptionState(supabase, agency.id),
   ]);
 
   const clients = (clientsRaw ?? []) as ClientWithSources[];
@@ -113,7 +122,7 @@ export default async function DashboardPage() {
   const clientStatuses = clientStatusMap(healthRows);
 
   // Client connections — connected / pending / ready.
-  const sources = (gscSources ?? []) as { id: string; client_id: string | null; config: { site_url?: string | null } | null; clients: JoinedName }[];
+  const sources = (gscSources ?? []) as { id: string; client_id: string | null; config: { site_url?: string | null } | null; clients: JoinedClient }[];
   const readyCount = new Set(sources.filter((s) => s.config?.site_url).map((s) => s.client_id)).size;
 
   const everySource = (allSources ?? []) as {
@@ -125,7 +134,8 @@ export default async function DashboardPage() {
   // only the clients with Search Console, so a client reporting from LinkedIn
   // or Meta Ads was still counted as "needs a data source".
   const withAnySource = new Set(everySource.map((s) => s.client_id).filter(Boolean));
-  const pendingCount = ((activeClientRows ?? []) as { id: string }[]).filter((c) => !withAnySource.has(c.id)).length;
+  const activeClients = (activeClientRows ?? []) as { id: string; name: string }[];
+  const pendingCount = activeClients.filter((c) => !withAnySource.has(c.id)).length;
 
   // Performance — aggregated strictly from real cached snapshots. When there
   // is nothing to aggregate the KPI block is not rendered at all: Anavyst
@@ -368,8 +378,10 @@ export default async function DashboardPage() {
     ? snapRows
         .flatMap((sn) => {
           const src = srcById.get(sn.data_source_id);
-          const name = src ? nameOf(src.clients) : null;
-          if (!name) return [];
+          const joined = src ? (Array.isArray(src.clients) ? src.clients[0] : src.clients) : null;
+          // Each snapshot belongs to exactly one client; one that can't be
+          // tied to a live client is dropped rather than shown unlabelled.
+          if (!src?.client_id || !joined || joined.archived) return [];
           // Only the fields this snapshot actually selected are passed; the
           // detector emits nothing for the parts it can't see (e.g. top pages).
           const partial = {
@@ -382,11 +394,35 @@ export default async function DashboardPage() {
             topDevices: [],
             previousTotals: null,
           } as unknown as GscReportFull;
-          return withContext(detectSignals(partial, null, 3), name);
+          return forClient(detectSignals(partial, null, 3), {
+            clientId: src.client_id,
+            clientName: nameOf(src.clients),
+            account: siteLabel(src.config?.site_url),
+          });
         })
         .sort((a, b) => b.weight - a.weight)
         .slice(0, 6)
     : [];
+
+  // ── AI-written analysis, client by client ────────────────────
+  // What the AI system wrote from each client's own data when that client's
+  // latest report was generated (lib/dashboard/aiInsights). One block per
+  // client, never pooled; clients with synced data but no recent analysis are
+  // listed so the user can generate one.
+  const aiOnPlan = featuresForPlan(subState.plan).aiInsights;
+  const insightRows = (insightReportsRaw ?? []) as unknown as InsightReportRow[];
+  const analyses = latestInsightsPerClient(insightRows, 4);
+  const activeIds = new Set(activeClients.map((c) => c.id));
+  const analysedIds = new Set(
+    insightRows
+      .filter((r) => r.client_id && activeIds.has(r.client_id) && r.summary?.trim())
+      .map((r) => r.client_id as string)
+  );
+  const syncedIds = new Set(everySource.filter((s) => s.last_synced_at).map((s) => s.client_id));
+  const awaitingAi = activeClients
+    .filter((c) => syncedIds.has(c.id) && !analysedIds.has(c.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const showAi = analyses.length > 0 || signals.length > 0 || syncedIds.size > 0;
 
 
   // ── Returning-user "welcome back" summary (journey audit P2-9) ──
@@ -530,6 +566,9 @@ export default async function DashboardPage() {
           {/* Onboarding stays first-class until setup is actually finished. */}
           {!setupComplete && <OnboardingChecklist steps={steps} />}
           <NeedsAttention items={attention} />
+          {showAi && (
+            <AiPanel analyses={analyses} analysedTotal={analysedIds.size} signals={signals} awaiting={awaitingAi} aiOnPlan={aiOnPlan} />
+          )}
           <HomeClients rows={homeClientRows} total={clientCount ?? 0} />
         </div>
 
@@ -550,7 +589,6 @@ export default async function DashboardPage() {
               series={clicksArr}
             />
           )}
-          {hasReal && signals.length > 0 && <AiPanel signals={signals} connected={hasReal} compact />}
           <ActivityTimeline events={activity} />
         </div>
       </div>

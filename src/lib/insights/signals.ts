@@ -46,6 +46,11 @@ export type Signal = {
   source: "Search Console" | "Analytics";
   /** Optional owner, e.g. the client name when signals span a workspace. */
   context?: string;
+  /**
+   * The client and account a workspace-wide signal belongs to, so a view that
+   * mixes clients can name and link each one. Absent inside a single report.
+   */
+  owner?: SignalOwner;
   /** Ranking weight; higher surfaces first. */
   weight: number;
 };
@@ -53,6 +58,18 @@ export type Signal = {
 /** Tags every signal with the client it belongs to, for workspace-wide views. */
 export function withContext(signals: Signal[], context: string): Signal[] {
   return signals.map((s) => ({ ...s, context }));
+}
+
+export type SignalOwner = {
+  clientId: string;
+  clientName: string;
+  /** The account the data came from, e.g. the Search Console property. */
+  account: string | null;
+};
+
+/** Tags every signal with its client AND account, for views that span clients. */
+export function forClient(signals: Signal[], owner: SignalOwner): Signal[] {
+  return signals.map((s) => ({ ...s, context: owner.clientName, owner }));
 }
 
 const pct = (n: number) => `${n > 0 ? "+" : ""}${n.toFixed(0)}%`;

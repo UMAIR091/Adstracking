@@ -1,5 +1,6 @@
+import Link from "next/link";
 import {
-  TrendingUp, TrendingDown, Target, FileText, Zap, ArrowDownRight, ShoppingCart, Sparkles,
+  TrendingUp, TrendingDown, Target, FileText, Zap, ArrowDownRight, ShoppingCart, Sparkles, ArrowRight,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { SIGNAL_META, type Signal, type Confidence } from "@/lib/insights/signals";
@@ -61,11 +62,34 @@ export function InsightCard({ signal }: { signal: Signal }) {
   const meta = SIGNAL_META[signal.kind];
   const tone = TONES[meta.tone];
   const Icon = ICONS[meta.icon] ?? Sparkles;
+  const owner = signal.owner;
 
   return (
     <article className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-ink-100 bg-surface p-4 shadow-xs transition-colors hover:border-ink-300">
       {/* Tone accent — a quiet left edge rather than a coloured card. */}
       <span className={`absolute inset-y-0 left-0 w-0.5 ${tone.bar}`} aria-hidden />
+
+      {/* Whose numbers these are, first: in a view that spans clients an
+          insight that does not say which client it is about is worse than none. */}
+      {owner && (
+        <p className="mb-3 flex min-w-0 items-center gap-1.5 border-b border-ink-100 pb-2.5 text-[11.5px]">
+          <Link
+            href={`/dashboard/clients/${owner.clientId}`}
+            className="min-w-0 truncate font-semibold text-ink-900 hover:text-brand-600 hover:underline"
+            title={`Open ${owner.clientName}`}
+          >
+            {owner.clientName}
+          </Link>
+          <span className="shrink-0 text-ink-300" aria-hidden>·</span>
+          <span className="shrink-0 text-ink-500">{signal.source}</span>
+          {owner.account && (
+            <>
+              <span className="shrink-0 text-ink-300" aria-hidden>·</span>
+              <span className="min-w-0 truncate text-ink-500" title={owner.account}>{owner.account}</span>
+            </>
+          )}
+        </p>
+      )}
 
       <div className="flex items-start justify-between gap-3">
         <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset ${tone.chip}`}>
@@ -76,7 +100,7 @@ export function InsightCard({ signal }: { signal: Signal }) {
 
       <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-ink-400">
         {meta.label}
-        {signal.context && <span className="ml-1.5 normal-case tracking-normal text-ink-500">· {signal.context}</span>}
+        {signal.context && !owner && <span className="ml-1.5 normal-case tracking-normal text-ink-500">· {signal.context}</span>}
       </p>
       <p className="mt-0.5 truncate text-sm font-semibold text-ink-900" title={signal.title}>
         {signal.title}
@@ -85,7 +109,17 @@ export function InsightCard({ signal }: { signal: Signal }) {
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-ink-100 pt-2.5">
         <ConfidenceMeter level={signal.confidence} reason={signal.confidenceReason} />
-        <span className="text-[11px] text-ink-400">{signal.source}</span>
+        {owner ? (
+          <Link
+            href={`/dashboard/clients/${owner.clientId}/performance`}
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-600 hover:underline"
+          >
+            View data <ArrowRight size={11} aria-hidden />
+            <span className="sr-only"> for {owner.clientName}</span>
+          </Link>
+        ) : (
+          <span className="text-[11px] text-ink-400">{signal.source}</span>
+        )}
       </div>
     </article>
   );
@@ -97,14 +131,15 @@ export function InsightCard({ signal }: { signal: Signal }) {
  * Capped by the caller rather than scrolling: six well-chosen cards inform, a
  * wall of twenty is the "overwhelming" failure this is meant to avoid.
  */
-export function InsightGrid({ signals, single = false }: { signals: Signal[]; single?: boolean }) {
+export function InsightGrid({ signals, single = false, twoUp = false }: { signals: Signal[]; single?: boolean; twoUp?: boolean }) {
   if (signals.length === 0) return null;
   return (
     // `single` for a narrow column (Home's right rail), where the viewport
     // breakpoints would squeeze three cards side by side.
-    <div className={single ? "grid gap-3" : "grid gap-3 sm:grid-cols-2 xl:grid-cols-3"}>
+    // `twoUp` for a two-thirds column (Home), where three would be cramped.
+    <div className={single ? "grid gap-3" : twoUp ? "grid gap-3 sm:grid-cols-2" : "grid gap-3 sm:grid-cols-2 xl:grid-cols-3"}>
       {signals.map((s, i) => (
-        <InsightCard key={`${s.kind}-${i}`} signal={s} />
+        <InsightCard key={`${s.owner?.clientId ?? ""}-${s.kind}-${i}`} signal={s} />
       ))}
     </div>
   );
