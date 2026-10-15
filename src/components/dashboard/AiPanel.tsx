@@ -58,10 +58,14 @@ function AnalysisBlock({ a }: { a: ClientAiInsight }) {
       </p>
 
       {a.nextStep && (
-        <p className="mt-2.5 line-clamp-3 rounded-lg bg-brand-50 px-3 py-2 text-xs leading-relaxed text-ink-800">
-          <span className="font-semibold text-brand-700">Next step: </span>
-          {a.nextStep}
-        </p>
+        // The clamp sits on the inner line, not the padded box: on the box, the
+        // clipped fourth line showed through the bottom padding.
+        <div className="mt-2.5 rounded-lg bg-brand-50 px-3 py-2">
+          <p className="line-clamp-3 text-xs leading-relaxed text-ink-800" title={a.nextStep}>
+            <span className="font-semibold text-brand-700">Next step: </span>
+            {a.nextStep}
+          </p>
+        </div>
       )}
 
       <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-ink-100 pt-2.5 text-[11px]">
@@ -147,7 +151,7 @@ export function AiPanel({
 
         {analyses.length > 0 && (
           <section aria-label="AI-written analysis by client">
-            <ul className="grid gap-3 md:grid-cols-2">
+            <ul className={`grid gap-3 ${analyses.length > 1 ? "md:grid-cols-2" : ""}`}>
               {analyses.map((a) => (
                 <AnalysisBlock key={a.clientId} a={a} />
               ))}
