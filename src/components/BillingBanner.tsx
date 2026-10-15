@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { AlertTriangle, Clock } from "lucide-react";
 
 // Dashboard-wide billing notice. Server component — rendered by the layout
 // with precomputed state (no client JS). Quiet by design: nothing shows for
-// healthy subscriptions or early trial days.
+// healthy subscriptions or early trial days. Shown as the app's slim tinted
+// strip: amber for a trial running out, red once access has stopped.
 export function BillingBanner({
   hasAccess,
   blockedReason,
@@ -17,12 +17,11 @@ export function BillingBanner({
 }) {
   if (!hasAccess) {
     return (
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-800">
-        <span className="flex items-start gap-2">
-          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+      <div role="alert" className="mb-5 flex flex-wrap items-center gap-3 rounded-xl bg-danger-50 px-3.5 py-2.5 text-[13.5px] text-danger-700">
+        <span className="min-w-[200px] flex-1 font-medium">
           {blockedReason ?? "Subscription required to keep generating reports."}
         </span>
-        <Link href="/dashboard/billing" className="shrink-0 rounded-lg bg-danger-solid px-3.5 py-1.5 font-medium text-white transition-colors hover:bg-danger-solid-hover">
+        <Link href="/dashboard/billing" className="shrink-0 font-semibold underline underline-offset-2 hover:no-underline">
           Choose a plan
         </Link>
       </div>
@@ -31,17 +30,14 @@ export function BillingBanner({
 
   if (isTrial && trialDaysLeft !== null && trialDaysLeft <= 7) {
     return (
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-800">
-        <span className="flex items-center gap-2">
-          <Clock size={16} className="shrink-0" />
+      <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl bg-warning-50 px-3.5 py-2.5 text-[13.5px] text-warning-700">
+        <span className="font-semibold">
           {trialDaysLeft === 0
             ? "Your free trial ends today."
-            : `${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left in your free trial.`}{" "}
-          Upgrade to keep reports flowing without interruption.
+            : `${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left in your free trial.`}
         </span>
-        {/* Accent rather than amber: this is the primary upgrade action, so it
-            gets the one filled-accent treatment on the page. */}
-        <Link href="/dashboard/billing" className="shrink-0 rounded-lg bg-brand-solid px-3.5 py-1.5 font-medium text-white transition-colors hover:bg-brand-solid-hover">
+        <span className="min-w-[200px] flex-1">Upgrade to keep reports flowing without interruption.</span>
+        <Link href="/dashboard/billing" className="shrink-0 font-semibold underline underline-offset-2 hover:no-underline">
           Upgrade
         </Link>
       </div>

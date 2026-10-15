@@ -7,7 +7,16 @@ import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
 // "Email report" — sends the report's share link to the client by email.
-export function SendReport({ reportId, clientEmail }: { reportId: string; clientEmail: string | null }) {
+export function SendReport({
+  reportId,
+  clientEmail,
+  variant = "default",
+}: {
+  reportId: string;
+  clientEmail: string | null;
+  /** "outline" beside another primary action (the generate dialog). */
+  variant?: "default" | "outline";
+}) {
   const [busy, setBusy] = useState(false);
   const confirm = useConfirm();
 
@@ -36,7 +45,7 @@ export function SendReport({ reportId, clientEmail }: { reportId: string; client
   // The primary action on a finished report: everything else in the toolbar
   // (regenerate, download, copy link, print) supports getting to this point.
   return (
-    <Button onClick={send} disabled={busy}>
+    <Button onClick={send} disabled={busy} variant={variant}>
       <Mail size={16} className={busy ? "animate-pulse" : ""} />
       {busy ? "Sending…" : "Email report"}
     </Button>

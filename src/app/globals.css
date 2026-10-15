@@ -882,8 +882,10 @@
   --control-hover-bg: var(--ink-50);
 }
 
-.app-root {
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+.app-root,
+:root:has(.app-root) body {
+  /* The fallback covers <body> until AppBodyFont adds the Geist variables. */
+  font-family: var(--font-geist-sans, ui-sans-serif), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   letter-spacing: normal;
 }
 
@@ -1065,7 +1067,8 @@ summary:focus-visible,
   body {
     background: #ffffff !important;
   }
-  .lg\:pl-60 {
+  .lg\:pl-60,
+  .lg\:pl-\[248px\] {
     padding-left: 0 !important;
   }
   main {

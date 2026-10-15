@@ -23,7 +23,7 @@ export type LimitCheck = {
 
 // The limits that apply to the agency right now (trial vs paid plan). Returns
 // null when the agency has no access at all (trial expired / no subscription).
-function activeLimits(plan: string): PlanLimits {
+export function activeLimits(plan: string): PlanLimits {
   if (plan === "trial") return TRIAL_LIMITS;
   if (plan === "free") return FREE_LIMITS;
   return limitsForPlan(plan);

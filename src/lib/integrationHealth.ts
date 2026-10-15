@@ -28,6 +28,8 @@ export type IntegrationHealth = {
   id: string;
   type: string;
   providerName: string;
+  /** The client the source belongs to, for per-client status (sidebar, lists). */
+  clientId: string | null;
   clientName: string;
   displayName: string | null;
   status: ConnectionStatus;
@@ -59,6 +61,7 @@ function tokenState(status: ConnectionStatus, tokenExpiresAt: string | null): { 
 type Row = {
   id: string;
   type: string;
+  client_id: string | null;
   display_name: string | null;
   status: string | null;
   last_synced_at: string | null;
@@ -95,7 +98,7 @@ export function getIntegrationHealthCached(agencyId: string): Promise<Integratio
 export async function getIntegrationHealth(supabase: SupabaseClient, agencyId: string): Promise<IntegrationHealth[]> {
   const { data } = await supabase
     .from("data_sources")
-    .select("id, type, display_name, status, last_synced_at, last_sync_failed_at, last_sync_error, token_expires_at, config, clients(name)")
+    .select("id, type, client_id, display_name, status, last_synced_at, last_sync_failed_at, last_sync_error, token_expires_at, config, clients(name)")
     .eq("agency_id", agencyId)
     .order("last_sync_attempt_at", { ascending: false, nullsFirst: false });
 
@@ -107,6 +110,7 @@ export async function getIntegrationHealth(supabase: SupabaseClient, agencyId: s
       id: r.id,
       type: r.type,
       providerName: def?.name ?? getIntegrationName(r.type),
+      clientId: r.client_id,
       clientName: clientName(r),
       displayName: r.display_name,
       status,

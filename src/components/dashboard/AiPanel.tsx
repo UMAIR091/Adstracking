@@ -17,7 +17,7 @@ import type { Signal } from "@/lib/insights/signals";
  * The connect-first state shows no cards rather than sample ones. Placeholder
  * insights would teach users to distrust the real ones.
  */
-export function AiPanel({ signals, connected }: { signals: Signal[]; connected: boolean }) {
+export function AiPanel({ signals, connected, compact = false }: { signals: Signal[]; connected: boolean; compact?: boolean }) {
   const hasSignals = connected && signals.length > 0;
 
   return (
@@ -41,7 +41,7 @@ export function AiPanel({ signals, connected }: { signals: Signal[]; connected: 
       <CardContent>
         {hasSignals ? (
           <>
-            <InsightGrid signals={signals} />
+            <InsightGrid signals={signals} single={compact} />
             <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-relaxed text-ink-500">
               <Info size={12} className="mt-0.5 shrink-0" aria-hidden />
               Calculated from your own data — nothing here is estimated. Open a report for the full AI-written

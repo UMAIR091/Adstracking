@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { CheckCircle2, Circle, ArrowRight } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Check } from "lucide-react";
 
 export type OnboardingStep = {
   label: string;
@@ -12,77 +11,83 @@ export type OnboardingStep = {
   cta?: string;
 };
 
+/**
+ * "Get set up" as a stepper: progress segments, finished steps struck through,
+ * and ONLY the current step expanded with its one action, so the card always
+ * says exactly what to do next. Every "done" comes from state the workspace
+ * already records (see app/dashboard/page.tsx).
+ */
 export function OnboardingChecklist({ steps }: { steps: OnboardingStep[] }) {
   const doneCount = steps.filter((s) => s.done).length;
-  const pct = Math.round((doneCount / steps.length) * 100);
   const nextIndex = steps.findIndex((s) => !s.done);
-  if (pct === 100) return null;
+  if (nextIndex === -1) return null;
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <CardTitle>Get set up</CardTitle>
-            <CardDescription>Finish these to send your first report.</CardDescription>
-          </div>
-          <span className="whitespace-nowrap text-sm font-semibold text-brand-600">{doneCount} of {steps.length} steps completed</span>
+    <section aria-labelledby="setup-heading" className="overflow-hidden rounded-2xl border border-ink-200 bg-surface">
+      <div className="border-b border-ink-100 px-5 py-[18px]">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 id="setup-heading" className="text-base font-semibold text-ink-900">Get set up</h2>
+          <span className="font-app-mono text-xs text-ink-500">{doneCount} of {steps.length} done</span>
         </div>
-        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-ink-100">
-          <div
-            className="h-full rounded-full bg-brand-500 transition-all"
-            style={{ width: `${pct}%` }}
-            role="progressbar"
-            aria-valuenow={doneCount}
-            aria-valuemin={0}
-            aria-valuemax={steps.length}
-            aria-label="Setup progress"
-          />
+        <div
+          className="mt-3 flex gap-1"
+          role="progressbar"
+          aria-label="Setup progress"
+          aria-valuemin={0}
+          aria-valuemax={steps.length}
+          aria-valuenow={doneCount}
+        >
+          {steps.map((s) => (
+            <span key={s.label} className={`h-[5px] flex-1 rounded-[3px] ${s.done ? "bg-brand-500" : "bg-ink-100"}`} />
+          ))}
         </div>
-      </CardHeader>
-      <CardContent className="space-y-1">
+      </div>
+      <ol>
         {steps.map((s, i) => {
-          const isNext = !s.done && i === nextIndex;
+          const current = i === nextIndex;
           return (
-            <Link
+            <li
               key={s.label}
-              href={s.href}
-              className={`group flex gap-3 rounded-lg px-2 py-2.5 transition-colors ${isNext ? "items-start bg-brand-50 ring-1 ring-brand-100 hover:bg-brand-100" : "items-center hover:bg-ink-50"}`}
+              aria-current={current ? "step" : undefined}
+              className={`flex gap-3.5 px-5 py-3.5 ${i ? "border-t border-ink-100" : ""} ${current ? "bg-ink-50" : ""}`}
             >
-              {s.done ? (
-                <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-success-600" />
-              ) : (
-                <Circle className={`h-5 w-5 flex-shrink-0 ${isNext ? "mt-0.5 text-brand-500" : "text-ink-300"}`} />
-              )}
-              {/* The action sits inside the text column rather than beside it:
-                  as a third flex child it held its width on a narrow screen and
-                  crushed the label to a few characters per line. Here it drops
-                  below the description on mobile and returns to the trailing
-                  edge from `sm` up. */}
-              <div className="min-w-0 flex-1 sm:flex sm:items-start sm:justify-between sm:gap-3">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={`text-sm ${s.done ? "text-ink-500 line-through" : isNext ? "font-medium text-ink-900" : "text-ink-800"}`}>{s.label}</span>
-                    {isNext && <span className="rounded-full bg-brand-solid px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">Next</span>}
-                  </div>
-                  {/* The description earns its space only on the step being asked
-                      for right now — on the others it would be a wall of text
-                      about work that's already done or not yet relevant. */}
-                  {isNext && s.description && (
-                    <p className="mt-0.5 text-xs leading-relaxed text-ink-600">{s.description}</p>
-                  )}
-                </div>
-                {isNext && (
-                  <span className="mt-2 inline-flex flex-shrink-0 items-center gap-1 whitespace-nowrap rounded-lg bg-brand-solid px-2.5 py-1.5 text-xs font-medium text-white transition-colors group-hover:bg-brand-solid-hover sm:mt-0">
-                    {s.cta ?? s.label} <ArrowRight className="h-3.5 w-3.5" />
-                  </span>
+              <span
+                aria-hidden
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                  s.done
+                    ? "bg-brand-500 text-white"
+                    : current
+                      ? "bg-primary text-primary-fg"
+                      : "border border-control-line bg-surface text-ink-400"
+                }`}
+              >
+                {s.done ? <Check size={13} strokeWidth={3} /> : i + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p
+                  className={`text-[14.5px] ${
+                    s.done ? "font-medium text-ink-400 line-through" : current ? "font-semibold text-ink-900" : "font-medium text-ink-500"
+                  }`}
+                >
+                  {s.label}
+                  {s.done && <span className="sr-only"> (done)</span>}
+                </p>
+                {current && (
+                  <>
+                    {s.description && <p className="mt-1 text-[13.5px] leading-relaxed text-ink-500">{s.description}</p>}
+                    <Link
+                      href={s.href}
+                      className="mt-3 inline-flex rounded-control bg-primary px-3.5 py-[9px] text-[13.5px] font-medium text-primary-fg transition-colors hover:bg-primary-hover"
+                    >
+                      {s.cta ?? s.label}
+                    </Link>
+                  </>
                 )}
               </div>
-              {!isNext && !s.done && <ArrowRight className="h-4 w-4 flex-shrink-0 text-ink-300 group-hover:text-brand-500" />}
-            </Link>
+            </li>
           );
         })}
-      </CardContent>
-    </Card>
+      </ol>
+    </section>
   );
 }

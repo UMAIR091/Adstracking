@@ -1,89 +1,67 @@
 import Link from "next/link";
-import { format, formatDistanceToNow } from "date-fns";
-import { CalendarClock, Send, ArrowRight } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
 
-export type NextScheduledData = {
+// "Up next": the scheduled deliveries closest to going out, each with a date
+// tile, so the automation is visible as work happening on the user's behalf.
+// The rows come from the enabled schedules the page already queried.
+
+export type UpNextItem = {
+  id: string;
   clientId: string | null;
   clientName: string;
   frequency: string;
   nextRunAt: string;
-  /** How many other schedules are queued behind this one. */
-  alsoQueued: number;
 };
 
-/**
- * The single most imminent scheduled delivery, given its own card.
- *
- * "What goes out next, and when" is the question automated delivery is meant
- * to answer, but it was previously buried in a list of five equal rows. Lifting
- * the nearest one out makes the automation visible — the product feels like it
- * is working on the user's behalf rather than sitting idle.
- */
-export function NextScheduled({ data }: { data: NextScheduledData | null }) {
-  if (!data) {
-    return (
-      <Card className="h-full">
-        <CardContent className="flex h-full flex-col p-5">
-          <div className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-warning-50 text-warning-600">
-              <CalendarClock size={17} aria-hidden />
-            </span>
-            <p className="text-sm font-medium text-ink-700">Next scheduled report</p>
-          </div>
-          <p className="mt-3 text-sm font-medium text-ink-800">Nothing scheduled yet</p>
-          <p className="mt-1 flex-1 text-xs leading-relaxed text-ink-500">
-            Put a client on a weekly or monthly schedule and Anavyst generates the report, attaches the PDF and
-            emails it — without you opening the app.
-          </p>
-          <Button asChild size="sm" variant="outline" className="mt-4 self-start">
-            <Link href="/dashboard/clients">Set up a schedule</Link>
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const when = new Date(data.nextRunAt);
-
+export function UpNext({ items }: { items: UpNextItem[] }) {
   return (
-    <Card className="h-full">
-      <CardContent className="flex h-full flex-col p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-warning-50 text-warning-600">
-              <CalendarClock size={17} aria-hidden />
-            </span>
-            <p className="text-sm font-medium text-ink-700">Next scheduled report</p>
-          </div>
-          <Badge variant="success">Active</Badge>
+    <section aria-labelledby="upnext-heading" className="rounded-card border border-ink-200 bg-surface px-[18px] py-4">
+      <div className="flex items-center justify-between gap-2">
+        <h2 id="upnext-heading" className="text-[15px] font-semibold text-ink-900">Up next</h2>
+        <span className="text-xs text-ink-400">Scheduled deliveries</span>
+      </div>
+      {items.length === 0 ? (
+        <div className="mt-3">
+          <p className="text-[13.5px] leading-relaxed text-ink-500">
+            Nothing scheduled yet. Put a client on a weekly or monthly schedule and Anavyst generates the report,
+            attaches the PDF and emails it.
+          </p>
+          <Link href="/dashboard/clients" className="mt-2 inline-block text-[13.5px] font-medium text-brand-600 hover:text-ink-900">
+            Set up a schedule →
+          </Link>
         </div>
-
-        <p className="mt-3 truncate text-lg font-semibold tracking-tight text-ink-900">{data.clientName}</p>
-        <p className="mt-0.5 text-sm text-ink-600">
-          <span className="capitalize">{data.frequency}</span> · {format(when, "EEE d MMM, HH:mm")} UTC
-        </p>
-        <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-brand-600">
-          <Send size={12} aria-hidden />
-          Sends {formatDistanceToNow(when, { addSuffix: true })}
-        </p>
-
-        <div className="mt-auto flex items-center justify-between gap-2 pt-4">
-          <span className="text-xs text-ink-500">
-            {data.alsoQueued > 0 ? `+${data.alsoQueued} more queued` : "Only one queued"}
-          </span>
-          {data.clientId && (
-            <Link
-              href={`/dashboard/clients/${data.clientId}`}
-              className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:gap-1.5"
-            >
-              Manage <ArrowRight size={12} aria-hidden />
-            </Link>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+      ) : (
+        <ul className="mt-2.5">
+          {items.slice(0, 3).map((s, i) => {
+            const when = new Date(s.nextRunAt);
+            const row = (
+              <>
+                <span className="w-[42px] shrink-0 rounded-[9px] bg-canvas py-[5px] text-center">
+                  <span className="block font-app-mono text-[10px] uppercase text-ink-400">{format(when, "MMM")}</span>
+                  <span className="block text-[17px] font-semibold leading-tight text-ink-900">{format(when, "d")}</span>
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13.5px] font-medium text-ink-900">{s.clientName}</span>
+                  <span className="mt-0.5 block text-[12.5px] text-ink-400">
+                    <span className="capitalize">{s.frequency}</span> · {format(when, "HH:mm")} UTC
+                  </span>
+                </span>
+              </>
+            );
+            return (
+              <li key={s.id} className={i ? "border-t border-ink-100" : ""}>
+                {s.clientId ? (
+                  <Link href={`/dashboard/clients/${s.clientId}/automations`} className="-mx-2 flex gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-ink-50">
+                    {row}
+                  </Link>
+                ) : (
+                  <div className="flex gap-3 py-2.5">{row}</div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }

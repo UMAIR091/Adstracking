@@ -1,40 +1,62 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { format } from "date-fns";
-import {
-  FileBarChart2, Plus, Cable, Eye, Palette,
-  CheckCircle2, AlertCircle, Trophy, ArrowRight, Users,
-} from "lucide-react";
+import { Plus } from "lucide-react";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { OnboardingChecklist, type OnboardingStep } from "@/components/OnboardingChecklist";
-import { PerfKpiCard } from "@/components/PerfKpiCard";
-import { NoIntegrationsState, AwaitingSyncState, NoDataYet } from "@/components/AnalyticsEmptyState";
 import { WelcomeBack, type WelcomeBackData } from "@/components/WelcomeBack";
 import { StatRow, type StatTileData } from "@/components/dashboard/StatTile";
 import { NeedsAttention, type AttentionItem } from "@/components/dashboard/NeedsAttention";
 import { ActivityTimeline } from "@/components/dashboard/ActivityTimeline";
-import { NextScheduled, type NextScheduledData } from "@/components/dashboard/NextScheduled";
+import { UpNext } from "@/components/dashboard/NextScheduled";
 import { AiPanel } from "@/components/dashboard/AiPanel";
+import {
+  SearchPerformance, HomeClients, SampleReportCard, BrandingCard, type HomeClientRow,
+} from "@/components/dashboard/HomeCards";
+import { NewReportButton } from "@/components/GenerateReportDialog";
 import { detectSignals, withContext, type Signal } from "@/lib/insights/signals";
 import type { GscReportFull } from "@/lib/google";
 import { buildActivity } from "@/lib/dashboard/activity";
 import { getIntegrationName } from "@/lib/integrations/names";
 import { getIntegrationHealthCached, summarize } from "@/lib/integrationHealth";
-import { CHART } from "@/lib/chartColors";
+import { clientStatusMap, statusFor, CLIENT_STATUS_PRIORITY } from "@/lib/dashboard/clientStatus";
 
 export const dynamic = "force-dynamic";
 
-type ClientWithSources = { id: string; name: string; created_at: string; data_sources: { type: string; created_at: string }[] | null };
+type ClientWithSources = { id: string; name: string; logo_url: string | null; created_at: string; data_sources: { type: string; created_at: string }[] | null };
 type Day = { date: string; clicks: number; impressions: number; ctr: number; position: number };
 type JoinedName = { name: string | null } | { name: string | null }[] | null;
 
 const fmt = (n: number) => Math.round(n).toLocaleString();
 const avg = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
 const nameOf = (c: JoinedName) => (Array.isArray(c) ? c[0]?.name : c?.name) ?? "Client";
+
+// Today's date and a time-of-day greeting in the agency's own time zone (set at
+// onboarding), falling back to UTC when none is set or it isn't valid.
+function localNow(timeZone: string | null): { date: string; hour: number } {
+  const now = new Date();
+  for (const tz of [timeZone, "UTC"]) {
+    if (!tz) continue;
+    try {
+      const date = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: tz }).format(now);
+      const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone: tz }).format(now));
+      return { date, hour };
+    } catch {
+      // invalid zone: try the next one
+    }
+  }
+  return { date: format(now, "EEEE d MMMM"), hour: now.getUTCHours() };
+}
+
+const greetingFor = (hour: number) => (hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening");
+
+const firstName = (meta: Record<string, unknown> | undefined): string | null => {
+  const full = (meta?.full_name ?? meta?.name) as string | undefined;
+  const first = full?.trim().split(/\s+/)[0];
+  return first || null;
+};
 
 // Period-over-period change: first half vs second half of the daily series.
 function trend(vals: number[], lowerIsBetter = false): { pct: number | null; good: boolean } {
@@ -66,7 +88,7 @@ export default async function DashboardPage() {
     supabase.from("reports").select("id", { count: "exact", head: true }),
     supabase.from("reports").select("id", { count: "exact", head: true }).gte("created_at", monthStart.toISOString()),
     supabase.from("report_schedules").select("id", { count: "exact", head: true }).eq("enabled", true),
-    supabase.from("clients").select("id, name, created_at, data_sources(type, created_at)").eq("archived", false).order("created_at", { ascending: false }).limit(8),
+    supabase.from("clients").select("id, name, logo_url, created_at, data_sources(type, created_at)").eq("archived", false).order("created_at", { ascending: false }).limit(8),
     // Only the two fields the dashboard actually aggregates — drops the large
     // topQueries/topPages/movers arrays from the payload (perf audit P1-4).
     // `movers` is added for the AI insight cards. It's bounded (5 winners, 5
@@ -83,8 +105,11 @@ export default async function DashboardPage() {
 
   const clients = (clientsRaw ?? []) as ClientWithSources[];
 
-  // Integration health roll-up across every connected data source.
-  const health = summarize(await getIntegrationHealthCached(agency.id));
+  // Integration health roll-up across every connected data source, and the
+  // same rows rolled up per client for the clients table.
+  const healthRows = await getIntegrationHealthCached(agency.id);
+  const health = summarize(healthRows);
+  const clientStatuses = clientStatusMap(healthRows);
 
   // Client connections — connected / pending / ready.
   const sources = (gscSources ?? []) as { id: string; client_id: string | null; config: { site_url?: string | null } | null; clients: JoinedName }[];
@@ -130,27 +155,17 @@ export default async function DashboardPage() {
   // source with an all-zero window still counts, an empty table does not.
   const hasReal = snapRows.length > 0 && series.length > 0;
 
+  // Home's performance card headlines clicks; its trend is half the window
+  // against the other half.
   const clicksArr = series.map((d) => d.clicks);
-  const imprArr = series.map((d) => d.impressions);
-  const ctrArr = series.map((d) => d.ctr);
-  const posArr = series.map((d) => d.position);
-  const clicksT = trend(clicksArr), imprT = trend(imprArr), ctrT = trend(ctrArr), posT = trend(posArr, true);
+  const clicksT = trend(clicksArr);
 
   // The comparison is the same split the trend uses — half the window against
   // the other half — so the label can never drift from the maths above.
   const halfDays = Math.floor(series.length / 2);
   const comparison = halfDays > 0 ? `vs previous ${halfDays} day${halfDays === 1 ? "" : "s"}` : "";
 
-  const perfCards = [
-    { l: "Clicks", v: fmt(perf.clicks), icon: "clicks", color: CHART.indigo, arr: clicksArr, t: clicksT,
-      why: "Visits earned from Google search results." },
-    { l: "Impressions", v: fmt(perf.impressions), icon: "impressions", color: CHART.sky, arr: imprArr, t: imprT,
-      why: "How often your pages appeared in results." },
-    { l: "Avg CTR", v: `${(perf.ctr * 100).toFixed(1)}%`, icon: "ctr", color: CHART.emerald, arr: ctrArr, t: ctrT,
-      why: "Share of impressions that became clicks." },
-    { l: "Avg position", v: perf.position.toFixed(1), icon: "position", color: CHART.amber, arr: posArr, t: posT,
-      why: "Average ranking. Lower is better." },
-  ];
+
 
   // The setup journey, in the order an agency actually lives it: a client to
   // report on, a source to pull from, data that has landed, branding on the
@@ -214,18 +229,7 @@ export default async function DashboardPage() {
   // Mode: active once there's a client AND a connected Search Console property.
   const activeMode = (clientCount ?? 0) > 0 && readyCount > 0;
 
-  // Top performing clients (by clicks, from cached snapshots).
   const srcById = new Map(sources.map((s) => [s.id, s]));
-  const perClient = new Map<string, { name: string; clicks: number; impressions: number }>();
-  for (const sn of snapRows) {
-    const src = srcById.get(sn.data_source_id);
-    const t = sn.totals;
-    if (!src || !src.client_id || !t) continue;
-    const e = perClient.get(src.client_id) ?? { name: nameOf(src.clients), clicks: 0, impressions: 0 };
-    e.clicks += t.clicks; e.impressions += t.impressions;
-    perClient.set(src.client_id, e);
-  }
-  const topClients = Array.from(perClient.entries()).map(([id, v]) => ({ id, ...v })).sort((a, b) => b.clicks - a.clicks).slice(0, 5);
 
   const reports = (reportsRaw ?? []) as { id: string; title: string; status: string; period_start: string | null; period_end: string | null; data: { totals?: Day } | null; created_at: string; client_id: string | null; clients: JoinedName }[];
   const schedules = (schedulesRaw ?? []) as { id: string; client_id: string | null; frequency: string; next_run_at: string; template_key: string; clients: JoinedName }[];
@@ -256,16 +260,16 @@ export default async function DashboardPage() {
 
   // ── Headline stats ───────────────────────────────────────────
   const nextSchedule = schedules[0] ?? null;
-  const nextScheduled: NextScheduledData | null = nextSchedule
-    ? {
-        clientId: nextSchedule.client_id,
-        clientName: nameOf(nextSchedule.clients),
-        frequency: nextSchedule.frequency,
-        nextRunAt: nextSchedule.next_run_at,
-        alsoQueued: Math.max(0, (scheduleCount ?? schedules.length) - 1),
-      }
-    : null;
+  const upNext = schedules.map((s) => ({
+    id: s.id,
+    clientId: s.client_id,
+    clientName: nameOf(s.clients),
+    frequency: s.frequency,
+    nextRunAt: s.next_run_at,
+  }));
 
+  // The integrations count now lives on the sidebar badge, and anything wrong
+  // with a source is listed under Needs attention, so the strip is four cells.
   const stats: StatTileData[] = [
     {
       label: "Active clients",
@@ -284,9 +288,9 @@ export default async function DashboardPage() {
       href: "/dashboard/reports",
     },
     {
-      label: "Reports scheduled",
+      label: "Scheduled deliveries",
       value: String(scheduleCount ?? 0),
-      hint: nextScheduled ? `Next: ${format(new Date(nextScheduled.nextRunAt), "d MMM")}` : "Automate a client's delivery",
+      hint: nextSchedule ? `Next: ${format(new Date(nextSchedule.next_run_at), "d MMM")}` : "Automate a client's delivery",
       icon: "calendar",
       tone: (scheduleCount ?? 0) > 0 ? "positive" : "neutral",
       href: "/dashboard/clients",
@@ -299,16 +303,6 @@ export default async function DashboardPage() {
       tone: failingSyncs > 0 ? "danger" : lastSyncAt ? "positive" : "neutral",
       href: "/dashboard/settings/health",
     },
-    {
-      label: "Integrations",
-      value: String(health.total),
-      // needsAttention = syncError + needsReconnect + needsAccount — every source
-      // the user still has an action to take on, consistently with the health page.
-      hint: health.needsAttention > 0 ? `${health.needsAttention} need attention` : "Connected and reporting",
-      icon: "cable",
-      tone: health.needsAttention > 0 ? "warning" : health.total > 0 ? "positive" : "neutral",
-      href: "/dashboard/integrations",
-    },
   ];
 
   // ── Needs attention ──────────────────────────────────────────
@@ -320,30 +314,40 @@ export default async function DashboardPage() {
     health.needsReconnect > 0 && {
       icon: "reconnect" as const,
       label: `${health.needsReconnect} source${health.needsReconnect === 1 ? "" : "s"} need reconnecting`,
+      detail: "Access was revoked or expired. Reports skip this data until it's reconnected.",
+      cta: "Reconnect",
       href: "/dashboard/settings/health",
       weight: 40,
     },
     health.errored > 0 && {
       icon: "error" as const,
       label: `${health.errored} source${health.errored === 1 ? "" : "s"} failing to sync`,
+      detail: "The last sync failed, so reports may show older numbers.",
+      cta: "Review",
       href: "/dashboard/settings/health",
       weight: 30,
     },
     health.needsAccount > 0 && {
       icon: "account" as const,
       label: `${health.needsAccount} source${health.needsAccount === 1 ? "" : "s"} need an account selected`,
+      detail: "Connected, but Anavyst needs to know which account to report on.",
+      cta: "Choose account",
       href: "/dashboard/integrations",
       weight: 20,
     },
     pendingCount > 0 && {
       icon: "client" as const,
       label: `${pendingCount} client${pendingCount === 1 ? "" : "s"} without a data source`,
+      detail: "Reports can't be built for them until a source is connected.",
+      cta: "Add a source",
       href: "/dashboard/clients",
       weight: 15,
     },
     failedEmails > 0 && {
       icon: "email" as const,
       label: `${failedEmails} report deliver${failedEmails === 1 ? "y" : "ies"} failed`,
+      detail: "The email bounced or was rejected by the recipient's server.",
+      cta: "Check & resend",
       href: "/dashboard/reports",
       weight: 10,
     },
@@ -379,12 +383,6 @@ export default async function DashboardPage() {
         .slice(0, 6)
     : [];
 
-  const quickActions = [
-    { label: "Add client", href: "/dashboard/clients/new", icon: Plus, tint: "bg-brand-50 text-brand-600" },
-    { label: "Integrations", href: "/dashboard/integrations", icon: Cable, tint: "bg-success-50 text-success-600" },
-    { label: "Sample report", href: "/dashboard/reports/preview", icon: Eye, tint: "bg-warning-50 text-warning-600" },
-    { label: "Branding", href: "/dashboard/settings", icon: Palette, tint: "bg-info-50 text-info-600" },
-  ];
 
   // ── Returning-user "welcome back" summary (journey audit P2-9) ──
   // Only on a genuine return (last seen > 6h ago). Compute what changed since,
@@ -419,294 +417,138 @@ export default async function DashboardPage() {
   await supabase.from("agencies").update({ last_seen_at: new Date().toISOString() }).eq("id", agency.id);
 
   // "Which client needs attention?" is one of the questions this page exists to
-  // answer, so clients without a data source sort above connected ones instead
-  // of the list being purely newest-first.
-  const clientsByAttention = [...clients].sort((a, b) => {
-    const needs = (c: ClientWithSources) => ((c.data_sources ?? []).length > 0 ? 1 : 0);
-    return needs(a) - needs(b);
+  // answer, so the table sorts by each client's rolled-up status (reconnect,
+  // then sync errors, account choices and missing sources) before newest-first.
+  const clientsByAttention = [...clients].sort(
+    (a, b) => CLIENT_STATUS_PRIORITY[statusFor(clientStatuses, a.id).key] - CLIENT_STATUS_PRIORITY[statusFor(clientStatuses, b.id).key]
+  );
+
+  // Last report and next delivery for the five clients the table shows.
+  const topClients = clientsByAttention.slice(0, 5);
+  const topIds = topClients.map((c) => c.id);
+  const [{ data: topReports }, { data: topSchedules }] = topIds.length
+    ? await Promise.all([
+        supabase.from("reports").select("client_id, created_at").in("client_id", topIds).order("created_at", { ascending: false }).limit(50),
+        supabase.from("report_schedules").select("client_id, frequency, next_run_at").eq("enabled", true).in("client_id", topIds).order("next_run_at", { ascending: true }),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const lastReportBy = new Map<string, string>();
+  for (const r of (topReports ?? []) as { client_id: string; created_at: string }[]) {
+    if (!lastReportBy.has(r.client_id)) lastReportBy.set(r.client_id, r.created_at);
+  }
+  const nextDeliveryBy = new Map<string, { frequency: string; next_run_at: string }>();
+  for (const s of (topSchedules ?? []) as { client_id: string; frequency: string; next_run_at: string }[]) {
+    if (!nextDeliveryBy.has(s.client_id)) nextDeliveryBy.set(s.client_id, s);
+  }
+  const homeClientRows: HomeClientRow[] = topClients.map((c) => {
+    const last = lastReportBy.get(c.id);
+    const next = nextDeliveryBy.get(c.id);
+    return {
+      id: c.id,
+      name: c.name,
+      logoUrl: c.logo_url,
+      sourceCount: (c.data_sources ?? []).length,
+      status: statusFor(clientStatuses, c.id),
+      lastReport: last ? format(new Date(last), "d MMM yyyy") : null,
+      nextDelivery: next
+        ? `${format(new Date(next.next_run_at), "d MMM")} · ${next.frequency.charAt(0).toUpperCase()}${next.frequency.slice(1)}`
+        : null,
+    };
   });
 
-  // Performance section — rendered only when real synced metrics exist.
-  // Otherwise the appropriate empty state explains which stage setup is at:
-  // nothing connected yet, or connected and waiting on the first sync.
-  const performanceSection = hasReal ? (
-    <section aria-labelledby="perf-heading">
-      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <h2 id="perf-heading" className="text-base font-semibold tracking-tight text-ink-900">Performance overview</h2>
-          <p className="mt-0.5 text-sm text-ink-500">
-            Search Console, aggregated across every connected client · last 28 days
-          </p>
-        </div>
-        <Link href="/dashboard/clients" className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:gap-1.5">
-          Per-client detail <ArrowRight size={12} aria-hidden />
-        </Link>
+  // ── Render ───────────────────────────────────────────────────
+  const { date: today, hour } = localNow(agency.timezone ?? null);
+  const name = firstName(user.user_metadata as Record<string, unknown> | undefined);
+  const header = (eyebrow: string, title: string, sub: string, actions?: React.ReactNode) => (
+    <div className="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p className="font-app-mono text-xs text-ink-400">{eyebrow}</p>
+        <h1 className="mt-1.5 text-[clamp(24px,3vw,30px)] font-semibold tracking-[-0.03em] text-ink-900">{title}</h1>
+        <p className="mt-1 text-[14.5px] text-ink-500">{sub}</p>
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {perfCards.map((k) => (
-          <PerfKpiCard
-            key={k.l}
-            label={k.l}
-            value={k.v}
-            deltaPct={k.t.pct}
-            good={k.t.good}
-            color={k.color}
-            data={k.arr}
-            icon={k.icon}
-            comparison={comparison}
-            explanation={k.why}
-          />
-        ))}
-      </div>
-    </section>
-  ) : health.total > 0 ? (
-    <AwaitingSyncState sourceCount={health.total} failing={health.errored + health.needsReconnect} />
-  ) : (
-    <NoIntegrationsState hasClients={(clientCount ?? 0) > 0} steps={steps} />
+      {actions}
+    </div>
   );
 
-  const recentReportsCard = (
-    <Card className="h-full">
-      <CardHeader>
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <FileBarChart2 size={16} className="text-brand-500" aria-hidden /> Recent reports
-            </CardTitle>
-            <CardDescription>The last five reports you generated.</CardDescription>
-          </div>
-          <Link href="/dashboard/reports" className="shrink-0 text-xs font-medium text-brand-600 hover:underline">View all</Link>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {reports.length === 0 ? (
-          <NoDataYet
-            message="No reports yet. Once a client's data has synced, generating a branded report takes one click — and it lands here."
-            action={<Button asChild size="sm" variant="outline"><Link href="/dashboard/clients">Go to clients</Link></Button>}
-          />
-        ) : (
-          <ul className="space-y-1">
-            {reports.map((r) => (
-              <li key={r.id}>
-                <Link href={`/dashboard/reports/${r.id}`} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-surface-subtle">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
-                    <FileBarChart2 size={15} aria-hidden />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-ink-800">{r.title}</p>
-                    <p className="truncate text-xs text-ink-500">{nameOf(r.clients)} · {format(new Date(r.created_at), "d MMM yyyy")}</p>
-                  </div>
-                  <Badge variant={r.status === "ready" ? "success" : "muted"}>{r.status}</Badge>
-                </Link>
-              </li>
-            ))}
-          </ul>
+  // A brand-new workspace (no clients yet): the setup stepper IS the page, with
+  // the sample report and branding pitch beside it.
+  if ((clientCount ?? 0) === 0) {
+    return (
+      <div className="flex flex-col gap-6">
+        {welcomeBack && <WelcomeBack data={welcomeBack} />}
+        {header(
+          agency.name,
+          name ? `Welcome to Anavyst, ${name}` : "Welcome to Anavyst",
+          `${steps.length} steps to your first branded report.`
         )}
-      </CardContent>
-    </Card>
-  );
+        <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
+          <OnboardingChecklist steps={steps} />
+          <div className="flex flex-col gap-5">
+            <SampleReportCard agencyName={agency.name} brandColor={agency.brand_color} />
+            <BrandingCard />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const clientActivityCard = (
-    <Card className="h-full">
-      <CardHeader>
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Users size={16} className="text-brand-500" aria-hidden /> Clients
-            </CardTitle>
-            <CardDescription>
-              {pendingCount > 0
-                ? `${pendingCount} of ${clientCount ?? 0} still need a data source — those are listed first.`
-                : "Every client has a source connected."}
-            </CardDescription>
-          </div>
-          <Link href="/dashboard/clients" className="shrink-0 text-xs font-medium text-brand-600 hover:underline">View all</Link>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {clients.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-ink-200 p-5">
-            <p className="text-sm font-medium text-ink-800">No clients yet</p>
-            <p className="mt-1 text-sm leading-relaxed text-ink-500">
-              A client is the workspace everything hangs off — connect their data once, then every report, schedule and
-              insight is generated for them automatically.
-            </p>
-            <Button asChild size="sm" variant="outline" className="mt-4">
-              <Link href="/dashboard/clients/new"><Plus size={14} aria-hidden /> Add your first client</Link>
-            </Button>
-          </div>
-        ) : (
-          <ul className="space-y-1">
-            {clientsByAttention.slice(0, 5).map((c) => {
-              const connected = (c.data_sources ?? []).length > 0;
-              return (
-                <li key={c.id}>
-                  <Link href={`/dashboard/clients/${c.id}`} className="-mx-2 flex items-center justify-between gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-surface-subtle">
-                    <span className="truncate text-sm font-medium text-ink-800">{c.name}</span>
-                    {connected ? (
-                      <Badge variant="success"><CheckCircle2 size={12} className="mr-1" aria-hidden /> Connected</Badge>
-                    ) : (
-                      <Badge variant="warning"><AlertCircle size={12} className="mr-1" aria-hidden /> Needs setup</Badge>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
-  );
+  const n = attention.length;
+  const summary =
+    n > 0
+      ? `${n} thing${n === 1 ? "" : "s"} need${n === 1 ? "s" : ""} you today.${health.total > 0 ? " Everything else is syncing and sending on schedule." : ""}`
+      : health.total > 0
+        ? "Nothing needs you today. Everything is syncing and sending on schedule."
+        : "Nothing needs you today.";
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-6">
       {welcomeBack && <WelcomeBack data={welcomeBack} />}
 
-      {/* Header — the agency's own mark sits beside its name, so the workspace
-          reads as theirs from the first screen. Falls back to a monogram in the
-          brand colour when no logo is set, and links to where both are edited. */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/dashboard/settings"
-            aria-label="Agency branding settings"
-            className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-ink-200/70 bg-surface shadow-sm transition-colors hover:border-ink-300"
-          >
-            {agency.logo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={agency.logo_url} alt="" decoding="async" className="max-h-full max-w-full object-contain p-1" />
-            ) : (
-              // Falls back to the product's own indigo (--brand-500) rather than
-              // the retired violet, so an agency that hasn't picked a colour
-              // still sees the new palette in its own chrome.
-              <span className="text-lg font-semibold" style={{ color: agency.brand_color || "#4F46E5" }}>
-                {(agency.name || "A").charAt(0).toUpperCase()}
-              </span>
-            )}
-          </Link>
-          <div>
-            <p className="text-sm text-ink-500">Welcome back 👋</p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink-900 sm:text-3xl">{agency.name}</h1>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button asChild variant="outline" className="hidden sm:inline-flex">
-            <Link href="/dashboard/reports"><FileBarChart2 size={17} aria-hidden /> Reports</Link>
+      {header(
+        today,
+        name ? `${greetingFor(hour)}, ${name}` : greetingFor(hour),
+        summary,
+        <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <Link href="/dashboard/clients/new">Add client</Link>
           </Button>
-          <Button asChild>
-            <Link href="/dashboard/clients/new"><Plus size={18} aria-hidden /> Add client</Link>
-          </Button>
-        </div>
-      </div>
-
-      {/* 1 — The whole workspace in one row. */}
-      <StatRow stats={stats} />
-
-      {/* 2 — Anything the user has to act on, gathered in one place rather
-             than scattered across five tile hints. Renders nothing when the
-             workspace is healthy. */}
-      <NeedsAttention items={attention} />
-
-      {/* 3 — Onboarding stays first-class until setup is actually finished, and
-             sits high because for a new workspace it IS the action list. It
-             used to disappear at `activeMode` (a client + a ready Search
-             Console property), which hid the branding, first-report and
-             delivery steps exactly when they became the next thing to do. The
-             sample card keeps its old, narrower condition: it's a pitch for
-             people who haven't connected anything yet. */}
-      {!setupComplete && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className={activeMode ? "lg:col-span-3" : "lg:col-span-2"}><OnboardingChecklist steps={steps} /></div>
-          {!activeMode && (
-            <Card className="h-full">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Eye size={16} className="text-brand-500" aria-hidden /> See a sample</CardTitle>
-                <CardDescription>Preview a branded client report with your own logo and colours.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm leading-relaxed text-ink-600">
-                  Not sure what your clients will receive? Open a fully rendered sample — cover page, charts, AI summary
-                  and all — before you connect anything.
-                </p>
-                <Button asChild variant="outline" className="mt-4"><Link href="/dashboard/reports/preview">Open sample report</Link></Button>
-              </CardContent>
-            </Card>
-          )}
+          <NewReportButton>
+            <Plus size={15} strokeWidth={2.2} aria-hidden /> New report
+          </NewReportButton>
         </div>
       )}
 
-      {/* 4 — The metrics themselves, with the AI reading of them and what goes
-             out next alongside. These three answer one question together
-             ("how are things, and what happens now?"), so they're grouped. */}
-      {performanceSection}
+      <StatRow stats={stats} />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2"><AiPanel signals={signals} connected={hasReal} /></div>
-        <NextScheduled data={nextScheduled} />
-      </div>
-
-      {/* 5 — Client-level detail. */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {clientActivityCard}
-
-        <Card className="h-full">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Trophy size={16} className="text-brand-500" aria-hidden /> Top performing clients</CardTitle>
-            <CardDescription>Ranked by organic clicks over the last 28 days.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {topClients.length === 0 ? (
-              <NoDataYet
-                message="No performance data yet. Once a client's Search Console has synced, your best performers are ranked here — handy for knowing which results to lead with."
-                action={<Button asChild size="sm" variant="outline"><Link href="/dashboard/clients">View clients</Link></Button>}
-              />
-            ) : (
-              <ul className="space-y-1">
-                {topClients.map((c, i) => (
-                  <li key={c.id}>
-                    <Link href={`/dashboard/clients/${c.id}`} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-surface-subtle">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold tabular-nums text-brand-600">{i + 1}</span>
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink-800">{c.name}</span>
-                      <span className="shrink-0 text-sm font-semibold tabular-nums text-ink-900">{fmt(c.clicks)}</span>
-                      <span className="shrink-0 text-[11px] text-ink-500">clicks</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 6 — The record: what happened, and what came out of it. Reference
-             material rather than a daily read, so it sits below the numbers
-             and the client list. */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <ActivityTimeline events={activity} />
-        {recentReportsCard}
-      </div>
-
-      {/* 7 — Shortcuts, last: useful, never the headline. A plain link row
-             rather than four cards — the sidebar already carries navigation, so
-             these don't need card weight. */}
-      <section aria-labelledby="qa-heading" className="border-t border-ink-100 pt-5">
-        <h2 id="qa-heading" className="sr-only">Quick actions</h2>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-          {quickActions.map((a) => {
-            const Icon = a.icon;
-            return (
-              <Link
-                key={a.label}
-                href={a.href}
-                className="inline-flex items-center gap-2 text-sm text-ink-600 transition-colors hover:text-ink-900"
-              >
-                <Icon size={15} className="text-ink-400" aria-hidden />
-                {a.label}
-              </Link>
-            );
-          })}
+      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
+        <div className="flex min-w-0 flex-col gap-5">
+          {/* Onboarding stays first-class until setup is actually finished. */}
+          {!setupComplete && <OnboardingChecklist steps={steps} />}
+          <NeedsAttention items={attention} />
+          <HomeClients rows={homeClientRows} total={clientCount ?? 0} />
         </div>
-      </section>
+
+        <div className="flex min-w-0 flex-col gap-5">
+          {/* The sample pitch keeps its old, narrower condition: for people who
+              haven't connected a Search Console property yet. */}
+          {!setupComplete && !activeMode && <SampleReportCard agencyName={agency.name} brandColor={agency.brand_color} />}
+          <UpNext items={upNext} />
+          {hasReal && (
+            <SearchPerformance
+              clicks={fmt(perf.clicks)}
+              impressions={fmt(perf.impressions)}
+              ctr={`${(perf.ctr * 100).toFixed(1)}%`}
+              position={perf.position.toFixed(1)}
+              deltaPct={clicksT.pct}
+              good={clicksT.good}
+              comparison={comparison}
+              series={clicksArr}
+            />
+          )}
+          {hasReal && signals.length > 0 && <AiPanel signals={signals} connected={hasReal} compact />}
+          <ActivityTimeline events={activity} />
+        </div>
+      </div>
     </div>
   );
 }

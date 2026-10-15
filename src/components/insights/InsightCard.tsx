@@ -97,10 +97,12 @@ export function InsightCard({ signal }: { signal: Signal }) {
  * Capped by the caller rather than scrolling: six well-chosen cards inform, a
  * wall of twenty is the "overwhelming" failure this is meant to avoid.
  */
-export function InsightGrid({ signals }: { signals: Signal[] }) {
+export function InsightGrid({ signals, single = false }: { signals: Signal[]; single?: boolean }) {
   if (signals.length === 0) return null;
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    // `single` for a narrow column (Home's right rail), where the viewport
+    // breakpoints would squeeze three cards side by side.
+    <div className={single ? "grid gap-3" : "grid gap-3 sm:grid-cols-2 xl:grid-cols-3"}>
       {signals.map((s, i) => (
         <InsightCard key={`${s.kind}-${i}`} signal={s} />
       ))}

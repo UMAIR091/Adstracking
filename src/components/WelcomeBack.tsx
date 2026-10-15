@@ -29,8 +29,8 @@ export function WelcomeBack({ data }: { data: WelcomeBackData }) {
   ].filter((s) => s.show);
 
   return (
-    <Card className="border-brand-100 bg-gradient-to-br from-brand-50/60 to-white">
-      <CardContent className="p-5">
+    <Card>
+      <CardContent className="px-[18px] py-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-ink-900">
             <Sparkles size={16} className="text-brand-500" />
@@ -51,8 +51,8 @@ export function WelcomeBack({ data }: { data: WelcomeBackData }) {
         </div>
 
         {data.failedSyncs > 0 && (
-          <Link href="/dashboard/settings/health" className="mt-3 flex items-center gap-2 rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-sm text-warning-800 hover:bg-warning-100">
-            <AlertTriangle size={15} className="flex-shrink-0 text-warning-600" />
+          <Link href="/dashboard/settings/health" className="mt-3 flex items-center gap-2 rounded-control bg-danger-50 px-3 py-2 text-[13.5px] text-danger-700 hover:bg-danger-100">
+            <AlertTriangle size={15} className="flex-shrink-0" />
             {data.failedSyncs} source{data.failedSyncs === 1 ? "" : "s"} need{data.failedSyncs === 1 ? "s" : ""} attention — reconnect to keep reports accurate →
           </Link>
         )}

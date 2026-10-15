@@ -57,17 +57,18 @@ type Presentation = {
   label: string;
   /** Compact label for badges in dense rows. */
   short: string;
-  /** Maps to the existing Badge variants — no new colours. */
+  /** The shared status tone (components/ui/status-chip, Badge variants):
+   *  green healthy, red for anything broken, amber for a choice to make. */
   variant: "success" | "warning" | "danger" | "info";
 };
 
 export const SOURCE_HEALTH: Record<SourceHealth, Presentation> = {
   healthy: { label: "Connected", short: "Connected", variant: "success" },
   needs_reconnect: { label: "Reconnect required", short: "Reconnect", variant: "danger" },
-  sync_error: { label: "Sync error", short: "Sync error", variant: "warning" },
+  sync_error: { label: "Sync error", short: "Sync error", variant: "danger" },
   // Deliberately still says "Connected" — the OAuth connection genuinely
   // succeeded — while making clear it cannot sync yet.
-  needs_account: { label: "Connected — account selection required", short: "Account needed", variant: "info" },
+  needs_account: { label: "Connected — account selection required", short: "Account needed", variant: "warning" },
 };
 
 export type HealthCounts = {
