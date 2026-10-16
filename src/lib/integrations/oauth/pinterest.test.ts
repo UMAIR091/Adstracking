@@ -96,6 +96,23 @@ describe("Pinterest Ads report", () => {
     expect(r.totals.spend).toBeCloseTo(25.5);
     expect(r.totals.revenue).toBe(0);
   });
+
+  it("asks for UTC days ending yesterday, so a 90-day start is never over 90 days back", async () => {
+    // 06:00 UTC, when the daily sync runs. Pinterest dates are UTC and it
+    // rejects a start_date more than 90 days before today.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-16T06:00:00Z"));
+    try {
+      const calls = serve(adsRoute({ revenue: true }));
+      const r = await fetchPinterestAdsReport("token", ACCOUNT, 90);
+      const daily = calls.find((u) => u.pathname.endsWith(`/ad_accounts/${ACCOUNT}/analytics`))!;
+      expect(daily.searchParams.get("end_date")).toBe("2026-10-15");
+      expect(daily.searchParams.get("start_date")).toBe("2026-07-18"); // exactly 90 days before 16 Oct
+      expect(r.timeZone).toBe("UTC");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("Pinterest ad account list", () => {

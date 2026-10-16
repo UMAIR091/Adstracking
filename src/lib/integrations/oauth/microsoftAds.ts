@@ -434,10 +434,12 @@ const num = (v: string | undefined) => {
 // equal-length period for comparison. accountId = "customerId:accountId".
 export async function fetchMicrosoftAdsReport(accessToken: string, packedId: string, periodDays: number, provider?: string): Promise<AdsReport> {
   const [customerId, accountId] = packedId.split(":");
-  // This API's day buckets follow the ad account's calendar and the account's
-  // time zone isn't read here, so the window ends on the newest day that has
-  // ended everywhere (adWindows with no zone) — never on a day still running.
-  const w = adWindows(periodDays, null);
+  // Report rows are UTC days: "The downloaded report data is always relative
+  // to UTC time" (Reporting guide, Time Zones in Reporting, checked 16 Oct
+  // 2026). The account's TimeZone setting doesn't change that, and
+  // ReportTimeZone only sets what "today" means for predefined ranges, which
+  // aren't used here. So the window is UTC days ending on the last complete one.
+  const w = adWindows(periodDays, "UTC");
   const { since, until } = w;
 
   const [csv, prevCsv] = await Promise.all([

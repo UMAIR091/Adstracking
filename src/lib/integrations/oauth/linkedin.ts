@@ -145,10 +145,11 @@ const rowKey = (r: AnalyticsRow) => {
 export async function fetchLinkedinAdsReport(
   accessToken: string, accountId: string, periodDays: number
 ): Promise<AdsReport> {
-  // This API's day buckets follow the ad account's calendar and the account's
-  // time zone isn't read here, so the window ends on the newest day that has
-  // ended everywhere (adWindows with no zone) — never on a day still running.
-  const w = adWindows(periodDays, null);
+  // adAnalytics buckets days in UTC, whatever the ad account's own time zone
+  // ("dateRange … Date is specified in UTC", Ads Reporting schema, checked
+  // 16 Oct 2026). So the window is UTC days ending on the last complete one.
+  // It used to pass no zone, which ended a day earlier than necessary.
+  const w = adWindows(periodDays, "UTC");
   const { since, until } = w;
 
   const [account, dailyRows, prevRows, campaignRows, campaignNames] = await Promise.all([

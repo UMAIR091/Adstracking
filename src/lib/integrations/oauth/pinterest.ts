@@ -245,10 +245,12 @@ async function topCampaigns(accessToken: string, adAccountId: string, start: str
 export async function fetchPinterestAdsReport(
   accessToken: string, adAccountId: string, periodDays: number
 ): Promise<AdsReport> {
-  // This API's day buckets follow the ad account's calendar and the account's
-  // time zone isn't read here, so the window ends on the newest day that has
-  // ended everywhere (adWindows with no zone) — never on a day still running.
-  const w = adWindows(periodDays, null);
+  // Analytics dates are UTC: start_date/end_date are "Metric report … date
+  // (UTC)" in Pinterest's v5 spec (checked 16 Oct 2026), and a start more than
+  // 90 days back is rejected. The old zoneless window ended a day further back,
+  // which pushed a 90-day start to 91 days ago. UTC days ending on the last
+  // complete one keep it at exactly 90.
+  const w = adWindows(periodDays, "UTC");
   const { since, until } = w;
 
   const [currency, daily, prev, campaigns] = await Promise.all([
