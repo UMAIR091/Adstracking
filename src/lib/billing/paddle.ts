@@ -394,6 +394,8 @@ export type SubscriptionFacts = {
   cancelAtPeriodEnd: boolean;
   trialEndsAt: string | null;
   agencyId: string | null; // from customData when present
+  /** Paddle's own last-modified time for the subscription; orders events. */
+  updatedAt: string | null;
 };
 
 // Structural shape shared by the API entity (`Subscription`) and the webhook
@@ -410,6 +412,7 @@ export type SubscriptionLike = {
   scheduledChange: { action: string; effectiveAt: string } | null;
   items: { price: { id: string } | null }[];
   customData: unknown;
+  updatedAt?: string | null;
 };
 
 // Same idea for transactions (`Transaction` / `TransactionNotification`).
@@ -445,5 +448,24 @@ export function readSubscription(sub: SubscriptionLike): SubscriptionFacts {
     cancelAtPeriodEnd,
     trialEndsAt: sub.status === "trialing" ? sub.currentBillingPeriod?.endsAt ?? null : null,
     agencyId: typeof custom?.agency_id === "string" ? custom.agency_id : null,
+    updatedAt: sub.updatedAt ?? null,
   };
+}
+
+/**
+ * True when a subscription event describes an OLDER state than the one already
+ * stored for that same subscription. Paddle doesn't guarantee delivery order,
+ * so a delayed "active" could otherwise land after "canceled" and flip the row
+ * back. Compared on Paddle's own updatedAt (stored as provider_updated_at).
+ * Without both times, or for a different subscription, it is not stale; that
+ * case is the superseded-subscription check's.
+ */
+export function isStaleSubscriptionEvent(
+  stored: { provider_subscription_id?: string | null; provider_updated_at?: string | null } | null | undefined,
+  facts: Pick<SubscriptionFacts, "subscriptionId" | "updatedAt">
+): boolean {
+  if (!stored?.provider_subscription_id || stored.provider_subscription_id !== facts.subscriptionId) return false;
+  const before = stored.provider_updated_at ? Date.parse(stored.provider_updated_at) : NaN;
+  const now = facts.updatedAt ? Date.parse(facts.updatedAt) : NaN;
+  return Number.isFinite(before) && Number.isFinite(now) && now < before;
 }

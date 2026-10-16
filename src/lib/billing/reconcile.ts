@@ -95,6 +95,7 @@ export async function refreshSubscriptionFromProvider(
       current_period_end: facts.currentPeriodEnd,
       ends_at: facts.endsAt,
       cancel_at_period_end: facts.cancelAtPeriodEnd,
+      provider_updated_at: facts.updatedAt,
       updated_at: new Date().toISOString(),
       ...(mapped ? { plan: mapped.plan, billing_interval: mapped.interval } : {}),
     };

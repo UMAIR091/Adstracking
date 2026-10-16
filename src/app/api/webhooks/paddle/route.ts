@@ -8,6 +8,7 @@ import {
   verifyWebhook,
   webhookConfigured,
   readSubscription,
+  isStaleSubscriptionEvent,
   type SubscriptionFacts,
   type SubscriptionLike,
   type TransactionLike,
@@ -120,9 +121,15 @@ async function syncSubscription(admin: SupabaseClient, sub: SubscriptionLike): P
   // first activation (welcome email) or just a lifecycle update.
   const { data: prevRow } = await admin
     .from("subscriptions")
-    .select("status, provider_subscription_id")
+    .select("status, provider_subscription_id, provider_updated_at")
     .eq("agency_id", agencyId)
     .maybeSingle();
+
+  // An out-of-order delivery of an older state of this same subscription.
+  if (isStaleSubscriptionEvent(prevRow, facts)) {
+    console.warn(`Paddle webhook: ignoring stale ${facts.status} for ${facts.subscriptionId} (updated ${facts.updatedAt}, stored ${prevRow?.provider_updated_at})`);
+    return { ok: true, ignored: "stale event" };
+  }
 
   // After a resubscribe the row points at the NEW subscription. A late or
   // replayed event for the old, ended one must not overwrite it — that would
@@ -150,6 +157,7 @@ async function syncSubscription(admin: SupabaseClient, sub: SubscriptionLike): P
     ends_at: facts.endsAt,
     cancel_at_period_end: facts.cancelAtPeriodEnd,
     trial_ends_at: facts.trialEndsAt,
+    provider_updated_at: facts.updatedAt,
     updated_at: new Date().toISOString(),
   };
 
