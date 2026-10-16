@@ -25,9 +25,8 @@ const nextConfig = {
   poweredByHeader: false,
   // @react-pdf/renderer (used server-side for PDF attachments) ships fontkit and
   // a wasm layout engine — keep it out of the webpack bundle so it loads natively.
-  experimental: {
-    serverComponentsExternalPackages: ["@react-pdf/renderer"],
-  },
+  // (Next 15 moved this out of experimental.)
+  serverExternalPackages: ["@react-pdf/renderer"],
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
