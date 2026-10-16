@@ -75,16 +75,20 @@ export async function generateReportInsights(input: InsightsInput): Promise<Repo
 export async function generateReportInsightsCached(
   input: InsightsInput
 ): Promise<{ insights: ReportInsights | null; cached: boolean }> {
-  if (!getProvider().isConfigured()) return { insights: null, cached: false };
+  const provider = getProvider();
+  if (!provider.isConfigured()) return { insights: null, cached: false };
 
   // The prompt is part of the input as far as the answer is concerned. Keying
   // on the data alone meant editing SYSTEM changed nothing for any client whose
   // metrics hadn't moved — they kept being served prose written under the old
   // instructions, indefinitely, with no way to tell from the report. Hashing
-  // SYSTEM in retires the old answers the moment the wording changes.
+  // SYSTEM in retires the old answers the moment the wording changes. The model
+  // is part of the answer too: switching AI_MODEL must retire them as well.
   const key = crypto
     .createHash("sha256")
     .update(SYSTEM)
+    .update("\u0000")
+    .update(`${provider.id}:${provider.model ?? ""}`)
     .update("\u0000")
     .update(JSON.stringify(input))
     .digest("hex");

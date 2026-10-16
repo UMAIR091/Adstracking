@@ -21,6 +21,8 @@ const h = vi.hoisted(() => ({
 vi.mock("./providers/anthropic", () => ({
   AnthropicProvider: class {
     readonly id = "anthropic";
+    // Read at construction, like the real provider.
+    readonly model = process.env.AI_MODEL || "claude-opus-4-8";
     isConfigured() { return h.configured; }
     complete(req: unknown) { return h.complete(req); }
   },
@@ -185,10 +187,26 @@ describe("the cache key covers the prompt, not just the data", () => {
     return hash.digest("hex");
   };
 
-  it("hashes SYSTEM alongside the input", async () => {
+  it("hashes SYSTEM and the model alongside the input", async () => {
     await generateReportInsightsCached(INPUT);
 
-    expect(h.lookups).toEqual([keyOf(SYSTEM, "\u0000", JSON.stringify(INPUT))]);
+    const model = `anthropic:${process.env.AI_MODEL || "claude-opus-4-8"}`;
+    expect(h.lookups).toEqual([keyOf(SYSTEM, "\u0000", model, "\u0000", JSON.stringify(INPUT))]);
+  });
+
+  it("gives a different model a different key, so its answers aren't reused", async () => {
+    const saved = process.env.AI_MODEL;
+    try {
+      process.env.AI_MODEL = "model-a";
+      await generateReportInsightsCached(INPUT);
+      process.env.AI_MODEL = "model-b";
+      await generateReportInsightsCached(INPUT);
+    } finally {
+      if (saved === undefined) delete process.env.AI_MODEL;
+      else process.env.AI_MODEL = saved;
+    }
+    expect(h.lookups).toHaveLength(2);
+    expect(h.lookups[0]).not.toBe(h.lookups[1]);
   });
 
   it("is not the data hash on its own", async () => {

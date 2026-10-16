@@ -13,6 +13,7 @@
 // automatically appears everywhere with no code change here. Adding a genuinely
 // new shape is the only case that needs a new projector.
 import { getIntegrationName } from "./names";
+import { promptLabel } from "@/lib/ai/untrusted";
 import type { AdsCampaign, AdsTotals } from "./metrics";
 
 export type BlockFormat = "number" | "currency" | "percent" | "duration" | "position";
@@ -722,7 +723,7 @@ export function blocksToPromptText(blocks: ReportBlock[]): string {
       for (const row of table.rows.slice(0, 5)) {
         const cells = table.columns.map((c) => {
           const v = row[c.key];
-          return `${c.label} ${typeof v === "number" ? fmt(v, c.format) : v}`;
+          return `${c.label} ${typeof v === "number" ? fmt(v, c.format) : `"${promptLabel(v)}"`}`;
         });
         lines.push(`  - ${cells.join(", ")}`);
       }

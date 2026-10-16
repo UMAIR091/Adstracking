@@ -109,6 +109,8 @@ export type CompletionRequest = {
 // a local model, …) and register it in the provider map in ./index.ts.
 export interface AIProvider {
   readonly id: string;
+  /** The model that writes the insights; part of the cache key. */
+  readonly model?: string;
   isConfigured(): boolean;
   // Returns the model's JSON text (conforming to the schema), or null on a
   // refusal/empty response. Implementations should not throw for an unusable
