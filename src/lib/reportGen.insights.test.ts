@@ -21,6 +21,10 @@ const h = vi.hoisted(() => ({
   limit: { allowed: true, plan: "pro", limit: null } as Record<string, unknown>,
 }));
 
+// Reports are inserted with the service role (migration 0044); route it to
+// the same stub so the inserted row is still captured.
+const adminDb = vi.hoisted(() => ({ client: null as unknown }));
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => adminDb.client }));
 vi.mock("@/lib/ai", () => ({
   generateReportInsightsCached: (...a: unknown[]) => h.ai(...a),
 }));
@@ -102,6 +106,7 @@ function stubSupabase() {
 }
 
 const generate = async (stub = stubSupabase()) => {
+  adminDb.client = stub.client;
   const res = await createClientReport(stub.client, "a1", "c1", { now: NOW, period: "last_28" });
   return { res, inserted: stub.inserted[0] };
 };

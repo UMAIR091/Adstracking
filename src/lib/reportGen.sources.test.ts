@@ -6,6 +6,10 @@ import { createClientReport } from "./reportGen";
 // Search Console and Google Ads syncing daily, and a Meta Ads connection that
 // was revoked in August but still has its August snapshot.
 
+// Reports are inserted with the service role (migration 0044); route it to
+// the same stub so the inserted row is still captured.
+const adminDb = vi.hoisted(() => ({ client: null as unknown }));
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => adminDb.client }));
 vi.mock("@/lib/ai", () => ({
   generateReportInsightsCached: async () => ({ insights: null, cached: true }),
 }));
@@ -120,8 +124,28 @@ describe("rolling reports use only sources whose data describes the period", () 
       },
     });
 
+  it("writes the report row with the service role, never through the caller's session", async () => {
+    // Migration 0044 takes INSERT on reports away from tenants; the caller's
+    // own session must not be the one that writes the row.
+    const s = fixture();
+    const tenantWrites: string[] = [];
+    const tenant = {
+      from: (name: string) => {
+        const api = s.client.from(name);
+        if (name !== "reports") return api;
+        return { ...api, insert: () => { tenantWrites.push(name); throw new Error("tenant may not insert reports"); } };
+      },
+    };
+    adminDb.client = s.client;
+    const res = await createClientReport(tenant as never, "a1", "c1", { now: NOW, period: "last_28" });
+    expect(res.ok).toBe(true);
+    expect(tenantWrites).toEqual([]);
+    expect(s.inserted).toHaveLength(1);
+  });
+
   it("leaves a revoked source's August figures out of an October report, and says so", async () => {
     const s = fixture();
+    adminDb.client = s.client;
     const res = await createClientReport(s.client, "a1", "c1", { now: NOW, period: "last_28" });
     expect(res.ok).toBe(true);
     const data = s.inserted[0].data as Stored;
@@ -142,6 +166,7 @@ describe("rolling reports use only sources whose data describes the period", () 
       sources: [SOURCES[2]],
       integrations: { "ds-meta": { data: adsSnapshot("2026-08-01", "2026-08-28", 99), synced_at: AUGUST_SYNC } },
     });
+    adminDb.client = s.client;
     const res = await createClientReport(s.client, "a1", "c1", { now: NOW, period: "last_28" });
     expect(res.ok).toBe(false);
     expect(res.ok === false && res.error).toMatch(/Meta Ads is not included: its latest data ends 2026-08-28/);
@@ -157,6 +182,7 @@ describe("rebuilt periods", () => {
       sources: [SOURCES[0]],
       gsc: { "ds-gsc": { data: gscSnapshot("2026-07-12", "2026-10-09"), synced_at: FRESH } },
     });
+    adminDb.client = s.client;
     const res = await createClientReport(s.client, "a1", "c1", { now: NOW, period: "previous_month" });
     expect(res.ok).toBe(true);
     const data = s.inserted[0].data as Stored;
@@ -177,6 +203,7 @@ describe("rebuilt periods", () => {
       gsc: { "ds-gsc": { data: gscSnapshot("2026-07-12", "2026-10-09"), synced_at: FRESH } },
       archive,
     });
+    adminDb.client = s.client;
     const res = await createClientReport(s.client, "a1", "c1", { now: NOW, period: "previous_quarter" });
     expect(res.ok).toBe(true);
     const data = s.inserted[0].data as Stored;
@@ -194,6 +221,7 @@ describe("rebuilt periods", () => {
       gsc: { "ds-gsc": { data: gscSnapshot("2026-07-12", "2026-10-09"), synced_at: FRESH } },
       integrations: { "ds-ads": { data: { ...adsSnapshot("2026-07-14", "2026-10-11", 0), byDate: range("2026-07-14", "2026-10-11").map((date) => ({ date, spend: 0, impressions: 0, clicks: 0, conversions: 0 })) }, synced_at: FRESH } },
     });
+    adminDb.client = s.client;
     const res = await createClientReport(s.client, "a1", "c1", { now: NOW, period: "previous_month" });
     expect(res.ok).toBe(true);
     const data = s.inserted[0].data as Stored;
@@ -210,6 +238,7 @@ describe("rebuilt periods", () => {
       sources: [SOURCES[2]],
       integrations: { "ds-meta": { data: adsSnapshot("2026-07-14", "2026-08-28", 10), synced_at: AUGUST_SYNC } },
     });
+    adminDb.client = s.client;
     const res = await createClientReport(s.client, "a1", "c1", { now: NOW, period: "custom", customStart: "2026-08-01", customEnd: "2026-08-28" });
     expect(res.ok).toBe(true);
     const data = s.inserted[0].data as Stored;

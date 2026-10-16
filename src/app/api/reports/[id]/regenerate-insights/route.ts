@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { getSubscriptionState } from "@/lib/billing/subscription";
 import { featuresForPlan } from "@/lib/billing/config";
@@ -103,7 +104,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   // channel from the report, and with meta went the report type, the period
   // label and the coverage notes. A Meta-Ads-only report came back empty, and
   // any report lost the identity it was generated with.
-  const { error } = await supabase
+  // Server-side write (migration 0044 removes tenant UPDATE on reports). The
+  // report was read above through the caller's session and agency, and the
+  // update is scoped to the same id and agency.
+  const { error } = await createAdminClient()
     .from("reports")
     .update({ data: { ...data, insights, insightsHash: hash } })
     .eq("id", params.id)

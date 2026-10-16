@@ -9,6 +9,10 @@ import { createClientReport } from "./reportGen";
 // Nothing here touches Supabase, Google or the AI — the stub returns fixed rows
 // and captures the row that would be inserted.
 
+// Reports are inserted with the service role (migration 0044); route it to
+// the same stub so the inserted row is still captured.
+const adminDb = vi.hoisted(() => ({ client: null as unknown }));
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => adminDb.client }));
 vi.mock("@/lib/ai", () => ({
   generateReportInsightsCached: async () => ({ insights: null, cached: true }),
 }));
@@ -117,6 +121,7 @@ function stubSupabase(opts: { gscByDate?: ReturnType<typeof gscDays>; archive?: 
 }
 
 const generate = async (opts: Record<string, unknown>, stub = stubSupabase()) => {
+  adminDb.client = stub.client;
   const res = await createClientReport(stub.client, "a1", "c1", { now: NOW, ...opts });
   return { res, inserted: stub.inserted[0] };
 };
@@ -126,6 +131,7 @@ describe("tenant scoping", () => {
     // The cron generates with the service role, where RLS can't catch a client
     // id paired with the wrong agency; the query has to carry both.
     const stub = stubSupabase();
+    adminDb.client = stub.client;
     await createClientReport(stub.client, "a1", "c1", { now: NOW, period: "last_28" });
 
     expect(stub.dataSourceFilters).toEqual(expect.arrayContaining([["client_id", "c1"], ["agency_id", "a1"]]));

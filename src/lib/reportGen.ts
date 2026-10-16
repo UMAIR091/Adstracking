@@ -3,6 +3,7 @@
 // unified GSC + GA4 report purely from cached snapshots — no live Google calls.
 import crypto from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { generateReportInsightsCached } from "@/lib/ai";
 import { trackUsage, reserveReportGeneration, releaseReportGeneration } from "@/lib/usage";
 import { checkReportLimit } from "@/lib/billing/limits";
@@ -474,7 +475,13 @@ export async function createClientReport(
   const title = opts.title?.trim() ? opts.title.trim().slice(0, 200) : suggested;
   const shareToken = crypto.randomBytes(16).toString("hex");
 
-  const { data: report, error } = await supabase
+  // Written by the server, never through the caller's own session. A report
+  // row is what the plan allowance counts, so it is created only here, after
+  // reserve_report_generation succeeded; migration 0044 takes INSERT/UPDATE on
+  // reports away from tenants so a browser session can't write one directly.
+  // agencyId is the caller's verified workspace and the client lookup above
+  // already refused a client from any other.
+  const { data: report, error } = await createAdminClient()
     .from("reports")
     .insert({
       agency_id: agencyId,
