@@ -163,7 +163,7 @@ async function xGet<T>(stored: string, path: string, query: Record<string, strin
   });
 }
 
-type Listing<T> = { data?: T[] };
+type Listing<T> = { data?: T[]; next_cursor?: string | null };
 
 // Lists the ad accounts the authenticated user can access.
 // X reports spend as billed_charge_local_micro — in the ACCOUNT'S local
@@ -205,6 +205,72 @@ const at = (arr: (number | null)[] | null | undefined, i: number): number => {
   return typeof v === "number" && Number.isFinite(v) ? v : 0;
 };
 
+// ── Stats windows ────────────────────────────────────────────
+//
+// X's synchronous stats endpoint rejects two things this connector used to
+// send, and a catch turned both rejections into a report of zeros:
+//   - DAY granularity needs start/end at MIDNIGHT IN THE AD ACCOUNT'S TIME ZONE
+//     ("Expect time to be midnight in the account's local timezone"), so UTC
+//     days only worked for accounts set to UTC.
+//   - one request may span at most 7 days ("end_time can be a maximum of
+//     7.days+1.hours after the start_time"), so a 28- or 90-day window is
+//     fetched a week at a time.
+// Both verified against ads-api.x.com on 16 Oct 2026.
+export const X_MAX_SPAN_DAYS = 7;
+
+const nextDay = (ymd: string) => new Date(Date.parse(`${ymd}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+
+/** "+05:00"-style UTC offset of `timeZone` at instant `at` (ms). */
+function utcOffset(timeZone: string, at: number): string {
+  const name =
+    new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "longOffset" })
+      .formatToParts(new Date(at))
+      .find((p) => p.type === "timeZoneName")?.value ?? "GMT";
+  const m = name.match(/GMT([+-])(\d{1,2})(?::?(\d{2}))?/);
+  return m ? `${m[1]}${m[2].padStart(2, "0")}:${m[3] ?? "00"}` : "+00:00";
+}
+
+const offsetMinutes = (off: string) => (off[0] === "-" ? -1 : 1) * (Number(off.slice(1, 3)) * 60 + Number(off.slice(4, 6)));
+
+/** Midnight starting `ymd` in `timeZone`, as ISO 8601 with its offset. */
+export function xLocalMidnight(ymd: string, timeZone: string): string {
+  // First guess the offset at UTC midnight of that date, then re-read it at
+  // the instant the guess names: that settles DST-change days where they differ.
+  const utcMidnight = Date.parse(`${ymd}T00:00:00Z`);
+  const guess = utcOffset(timeZone, utcMidnight);
+  const off = utcOffset(timeZone, utcMidnight - offsetMinutes(guess) * 60_000);
+  return `${ymd}T00:00:00${off}`;
+}
+
+/** Consecutive days split into runs of at most `max` (X's per-request span). */
+export function xDayChunks(days: string[], max = X_MAX_SPAN_DAYS): string[][] {
+  const out: string[][] = [];
+  for (let i = 0; i < days.length; i += max) out.push(days.slice(i, i + max));
+  return out;
+}
+
+// The account's IANA time zone (e.g. "Asia/Karachi"), which X buckets days by.
+async function xAccountTimeZone(stored: string, accountId: string): Promise<string | null> {
+  const data = await xGet<{ data?: { timezone?: string | null } }>(stored, `/accounts/${encodeURIComponent(accountId)}`);
+  return data.data?.timezone ?? null;
+}
+
+// Every campaign, deleted ones included: a campaign removed after it ran still
+// spent inside the window. Follows the cursor so large accounts aren't cut at 200.
+async function xCampaigns(stored: string, accountId: string): Promise<{ id: string; name?: string }[]> {
+  const out: { id: string; name?: string }[] = [];
+  let cursor: string | null | undefined;
+  for (let page = 0; page < 10; page++) {
+    const q: Record<string, string> = { count: "200", with_deleted: "true" };
+    if (cursor) q.cursor = cursor;
+    const data = await xGet<Listing<{ id: string; name?: string }>>(stored, `/accounts/${encodeURIComponent(accountId)}/campaigns`, q);
+    out.push(...(data.data ?? []));
+    cursor = data.next_cursor;
+    if (!cursor) break;
+  }
+  return out;
+}
+
 // Stats accept at most 20 entity ids per call.
 async function campaignStats(stored: string, accountId: string, ids: string[], start: string, end: string): Promise<StatsEntity[]> {
   const out: StatsEntity[] = [];
@@ -226,46 +292,52 @@ async function campaignStats(stored: string, accountId: string, ids: string[], s
 
 // Fetches the normalized ads report for one account and period. accountId = the
 // X ad account id; `stored` is the packed "<token>:<secret>" credential.
+// Errors propagate: a failed stats call must surface as a sync error, never as
+// a report that says the client spent nothing.
 export async function fetchXAdsReport(stored: string, accountId: string, periodDays: number): Promise<AdsReport> {
-  // X requires day-aligned UTC boundaries for DAY granularity, so the days are
-  // UTC days ending on the last complete one.
-  const w = adWindows(periodDays, "UTC");
-  const start = `${w.since}T00:00:00Z`;
-  const end = `${new Date(Date.parse(`${w.until}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10)}T00:00:00Z`;
+  const timeZone = (await xAccountTimeZone(stored, accountId)) ?? "UTC";
+  const w = adWindows(periodDays, timeZone);
 
   const currency = await xAccountCurrency(stored, accountId);
-
-  const campaigns = await xGet<Listing<{ id: string; name?: string }>>(stored, `/accounts/${encodeURIComponent(accountId)}/campaigns`, { count: "200" })
-    .catch(() => ({ data: [] as { id: string; name?: string }[] }));
-  const items = campaigns.data ?? [];
+  const items = await xCampaigns(stored, accountId);
   const names = new Map(items.map((c) => [c.id, c.name ?? c.id]));
 
-  const days = w.days;
   const byDay = new Map<string, AdsDay>();
-  for (const d of days) byDay.set(d, { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
+  for (const d of w.days) byDay.set(d, { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0 });
+  const perCampaign = new Map<string, { spend: number; impressions: number; clicks: number }>();
 
-  const topCampaigns: AdsReport["topCampaigns"] = [];
   if (items.length) {
-    const stats = await campaignStats(stored, accountId, items.map((c) => c.id), start, end).catch(() => [] as StatsEntity[]);
-    for (const entity of stats) {
-      const m = entity.id_data?.[0]?.metrics;
-      let spend = 0, impressions = 0, clicks = 0;
-      days.forEach((d, i) => {
-        const dayRow = byDay.get(d);
-        const s = at(m?.billed_charge_local_micro, i) / MICRO;
-        const imp = at(m?.impressions, i);
-        const clk = at(m?.clicks, i);
-        spend += s; impressions += imp; clicks += clk;
-        if (dayRow) { dayRow.spend += s; dayRow.impressions += imp; dayRow.clicks += clk; }
-      });
-      topCampaigns.push({
-        name: names.get(entity.id ?? "") ?? entity.id ?? "—",
-        spend, impressions, clicks,
-        ctr: impressions > 0 ? clicks / impressions : 0,
-        conversions: 0, // conversions require a separate metric group / attribution setup
-      });
+    const ids = items.map((c) => c.id);
+    for (const chunk of xDayChunks(w.days)) {
+      const start = xLocalMidnight(chunk[0], timeZone);
+      const end = xLocalMidnight(nextDay(chunk[chunk.length - 1]), timeZone);
+      const stats = await campaignStats(stored, accountId, ids, start, end);
+      for (const entity of stats) {
+        const m = entity.id_data?.[0]?.metrics;
+        const total = perCampaign.get(entity.id ?? "") ?? { spend: 0, impressions: 0, clicks: 0 };
+        chunk.forEach((d, i) => {
+          const s = at(m?.billed_charge_local_micro, i) / MICRO;
+          const imp = at(m?.impressions, i);
+          const clk = at(m?.clicks, i);
+          total.spend += s; total.impressions += imp; total.clicks += clk;
+          const dayRow = byDay.get(d);
+          if (dayRow) { dayRow.spend += s; dayRow.impressions += imp; dayRow.clicks += clk; }
+        });
+        perCampaign.set(entity.id ?? "", total);
+      }
     }
   }
+
+  // Campaigns that did nothing in the window (now including deleted ones) are
+  // left off the leaderboard rather than listed at zero.
+  const topCampaigns: AdsReport["topCampaigns"] = Array.from(perCampaign.entries())
+    .filter(([, t]) => t.spend > 0 || t.impressions > 0 || t.clicks > 0)
+    .map(([id, t]) => ({
+      name: names.get(id) ?? (id || "—"),
+      spend: t.spend, impressions: t.impressions, clicks: t.clicks,
+      ctr: t.impressions > 0 ? t.clicks / t.impressions : 0,
+      conversions: 0, // conversions require a separate metric group / attribution setup
+    }));
 
   const byDate = Array.from(byDay.values());
   return {
