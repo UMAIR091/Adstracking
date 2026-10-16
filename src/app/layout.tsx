@@ -53,9 +53,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script src="/theme.js" />
         <GoogleAnalytics />
         <MetaPixel />
+        {/* Only the pageview tracker suspends (it reads the search params).
+            It used to wrap the whole app, so every page rendered inside a
+            Suspense boundary and the 200 status was sent before a page could
+            call notFound(): unknown share links and other missing pages
+            answered "200 Page not found". */}
         <Suspense fallback={null}>
-          <AnalyticsProvider>{children}</AnalyticsProvider>
+          <AnalyticsProvider />
         </Suspense>
+        {children}
       </body>
     </html>
   );

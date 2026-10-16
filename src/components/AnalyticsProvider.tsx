@@ -10,7 +10,9 @@ import posthog from "posthog-js";
 
 let initialized = false;
 
-export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
+// Rendered beside the page, not around it (see app/layout.tsx); children are
+// still accepted so it can wrap content where that is ever needed.
+export function AnalyticsProvider({ children }: { children?: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const ready = useRef(false);
@@ -42,5 +44,5 @@ export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [pathname, searchParams]);
 
-  return <>{children}</>;
+  return <>{children ?? null}</>;
 }
