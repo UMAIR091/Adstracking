@@ -2,7 +2,7 @@
 // old single-file version). Picks the provider, exposes send-with-retry, and
 // re-exports the template + sender resolution.
 import { resendProvider } from "./resend";
-import type { EmailProvider, SendEmailArgs } from "./types";
+import type { EmailProvider, SendEmailArgs, SendResult } from "./types";
 
 export type { EmailAttachment, SendEmailArgs, DnsRecord, SendingDomain, DomainStatus, EmailProvider } from "./types";
 export { reportEmailHtml, welcomeEmailHtml, invitationEmailHtml, type ReportEmailArgs, type WelcomeEmailArgs, type InvitationEmailArgs } from "./template";
@@ -31,7 +31,7 @@ export function emailConfigured(): boolean {
   return emailProvider().isConfigured() && Boolean(process.env.EMAIL_FROM);
 }
 
-export async function sendEmail(args: SendEmailArgs): Promise<{ id: string }> {
+export async function sendEmail(args: SendEmailArgs): Promise<SendResult> {
   return emailProvider().send(args);
 }
 
@@ -41,12 +41,12 @@ export async function sendEmail(args: SendEmailArgs): Promise<{ id: string }> {
 export async function sendEmailWithRetry(
   args: SendEmailArgs,
   maxAttempts = 3
-): Promise<{ id: string; attempts: number }> {
+): Promise<{ id: string; attempts: number; duplicate?: boolean }> {
   let lastErr: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const { id } = await sendEmail(args);
-      return { id, attempts: attempt };
+      const { id, duplicate } = await sendEmail(args);
+      return { id, attempts: attempt, ...(duplicate ? { duplicate } : {}) };
     } catch (err) {
       lastErr = err;
       if (attempt < maxAttempts) {

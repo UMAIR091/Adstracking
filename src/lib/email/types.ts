@@ -12,7 +12,18 @@ export type SendEmailArgs = {
   html: string;
   replyTo?: string;
   attachments?: EmailAttachment[];
+  /**
+   * Makes a retry of the same send a no-op at the provider (Resend keeps keys
+   * 24h). Only meaningful when the retry sends an identical payload.
+   */
+  idempotencyKey?: string;
 };
+
+/**
+ * duplicate: the provider refused because this idempotency key was already
+ * used, so the email went out on an earlier attempt and was not sent again.
+ */
+export type SendResult = { id: string; duplicate?: boolean };
 
 // The DNS records a sending domain requires. Shape mirrors what providers
 // return so the UI can render them verbatim.
@@ -40,7 +51,7 @@ export interface EmailProvider {
   readonly id: string;
   /** True when the provider has credentials and can be used at all. */
   isConfigured(): boolean;
-  send(args: SendEmailArgs): Promise<{ id: string }>;
+  send(args: SendEmailArgs): Promise<SendResult>;
 
   // Sending-domain lifecycle (white-label). Providers that can't manage
   // domains may throw from these; the UI is gated on isConfigured().

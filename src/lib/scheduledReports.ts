@@ -29,6 +29,7 @@
 // (see vercel.json). claim_stuck_deliveries only runs when the cron runs, and
 // only considers rows created within the last 24h, so on a once-a-day schedule
 // retries were effectively dead on arrival.
+import { newShareToken } from "@/lib/reports/shareLink";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSubscriptionState } from "@/lib/billing/subscription";
 import { featuresForPlan } from "@/lib/billing/config";
@@ -154,6 +155,52 @@ async function processJob(admin: SupabaseClient, job: DeliveryJob, blocked: stri
   }
 }
 
+// The report an earlier attempt of this same occurrence already generated, if
+// any (recordReport stores it on the ledger row before the send). Scoped to the
+// job's agency. A revoked public link is replaced so the email isn't sent dead.
+// Best-effort: a ledger it can't read means "no earlier attempt known", and the
+// occurrence is generated fresh, never failed for it.
+async function priorReport(admin: SupabaseClient, job: DeliveryJob) {
+  let reportId: string | null | undefined;
+  try {
+    const { data: ledgerRow } = await admin.from("report_deliveries").select("report_id").eq("id", job.delivery_id).maybeSingle();
+    reportId = (ledgerRow as { report_id?: string | null } | null)?.report_id;
+  } catch {
+    return null;
+  }
+  if (!reportId) return null;
+  const { data: r } = await admin
+    .from("reports")
+    .select("id, title, share_token, data, period_start, period_end")
+    .eq("id", reportId)
+    .eq("agency_id", job.agency_id)
+    .maybeSingle();
+  if (!r) return null;
+  let shareToken = r.share_token as string | null;
+  if (!shareToken) {
+    shareToken = newShareToken();
+    await admin.from("reports").update({ share_token: shareToken }).eq("id", r.id);
+  }
+  return {
+    ok: true as const,
+    id: r.id as string,
+    title: r.title as string,
+    shareToken,
+    data: r.data,
+    period: { start: r.period_start as string, end: r.period_end as string },
+  };
+}
+
+// Stores the occurrence's report on its ledger row as soon as it exists, before
+// the send, so a retry can find it. Best-effort, like finalize.
+async function recordReport(admin: SupabaseClient, deliveryId: string, reportId: string): Promise<void> {
+  try {
+    await admin.from("report_deliveries").update({ report_id: reportId }).eq("id", deliveryId);
+  } catch {
+    /* a retry without it regenerates; the cost is a duplicate report row, not an email */
+  }
+}
+
 async function runJob(admin: SupabaseClient, job: DeliveryJob, blocked: string | null): Promise<"sent" | "failed" | "skipped"> {
   if (blocked) {
     await finalize(admin, job.delivery_id, { status: "skipped", error: blocked });
@@ -173,10 +220,15 @@ async function runJob(admin: SupabaseClient, job: DeliveryJob, blocked: string |
     // mid-month. Windows other than the cached 28/90 are rebuilt from the
     // 90-day daily series inside createClientReport.
     const freq = isFrequency(job.frequency) ? job.frequency : "monthly";
-    gen = await createClientReport(admin, job.agency_id, job.client_id, {
+    // A retried occurrence (re-claimed after a run died mid-delivery) reuses
+    // the report its earlier attempt generated, so the email it sends is the
+    // same one. With the delivery's idempotency key, the provider then returns
+    // the first send instead of emailing the client twice.
+    gen = (await priorReport(admin, job)) ?? (await createClientReport(admin, job.agency_id, job.client_id, {
       templateKey: job.template_key ?? undefined,
       period: periodForSchedule(freq, job.period),
-    });
+    }));
+    if (gen.ok) await recordReport(admin, job.delivery_id, gen.id);
   } catch (err) {
     await finalize(admin, job.delivery_id, { status: "failed", error: (err as Error).message.slice(0, 500) });
     await logError({ context: "report", agencyId: job.agency_id, message: (err as Error).message, retryStatus: "will_retry" });
@@ -229,6 +281,7 @@ async function runJob(admin: SupabaseClient, job: DeliveryJob, blocked: string |
     // records "scheduled".
     source: "scheduled",
     report: { id: gen.id, title: gen.title, shareToken: gen.shareToken, data: gen.data, period: gen.period },
+    idempotencyKey: `scheduled-delivery-${job.delivery_id}`,
   });
 
   if (result.ok) {

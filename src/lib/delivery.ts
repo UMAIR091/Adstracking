@@ -43,6 +43,13 @@ export type DeliverInput = {
   report: { id: string; title: string; shareToken: string; data: unknown; period: { start: string; end: string } };
   /** Auth user id, for server-side analytics attribution. Optional. */
   actorId?: string | null;
+  /**
+   * Stable per delivery (the scheduler passes its ledger id). A retry of the
+   * same delivery then can't send the email twice: Resend returns the first
+   * send instead. Each sender identity gets its own key, since the white-label
+   * and platform sends are different payloads.
+   */
+  idempotencyKey?: string;
 };
 
 function slug(s: string): string {
@@ -127,23 +134,27 @@ export async function deliverReport(supabase: SupabaseClient, input: DeliverInpu
     // the scheduled report still reaches the client. The log records which
     // identity actually went out.
     let used: ResolvedSender = sender;
-    let outcome: { id: string; attempts: number };
+    let outcome: { id: string; attempts: number; duplicate?: boolean };
+    const keyFor = (identity: "wl" | "platform") => (input.idempotencyKey ? `${input.idempotencyKey}:${identity}` : undefined);
     try {
-      outcome = await sendEmailWithRetry({ ...sendArgs, from: sender.from });
+      outcome = await sendEmailWithRetry({ ...sendArgs, from: sender.from, idempotencyKey: keyFor(sender.whiteLabel ? "wl" : "platform") });
     } catch (err) {
       const fallback = await resolveSenderFallback(supabase, agencyId);
       if (!sender.whiteLabel || !fallback) throw err;
       console.warn(`White-label send failed for agency ${agencyId} (${(err as Error).message}) — retrying with platform sender.`);
       used = fallback;
-      outcome = await sendEmailWithRetry({ ...sendArgs, from: fallback.from, replyTo: fallback.replyTo }, 2);
+      outcome = await sendEmailWithRetry({ ...sendArgs, from: fallback.from, replyTo: fallback.replyTo, idempotencyKey: keyFor("platform") }, 2);
     }
 
     if (logIds.length) {
       await supabase.from("email_logs")
         .update({
           status: "sent",
-          provider_id: outcome.id,
+          provider_id: outcome.id || null,
           attempts: outcome.attempts,
+          // An earlier attempt of this delivery already sent it; the provider
+          // suppressed the repeat rather than emailing the client twice.
+          ...(outcome.duplicate ? { error: "Already delivered by an earlier attempt; the duplicate was suppressed." } : {}),
           from_email: used.fromEmail,
           from_domain: used.fromDomain,
           sent_at: new Date().toISOString(),
