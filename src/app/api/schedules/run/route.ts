@@ -5,6 +5,7 @@ import { requireActiveAccess } from "@/lib/billing/subscription";
 import { emailConfigured } from "@/lib/email";
 import { createClientReport } from "@/lib/reportGen";
 import { deliverReport } from "@/lib/delivery";
+import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -15,6 +16,12 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
   const { user, agency } = await getCurrentUserAndAgency();
   if (!user || !agency) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // "Send now" is a report generation followed by an email, so it shares the
+  // generation route's per-workspace budget. Unbounded, it could be replayed to
+  // mail the schedule's recipients over and over.
+  const rl = await rateLimit(`report-gen:${agency.id}`, { limit: 20, windowSeconds: 60 });
+  if (!rl.allowed) return tooManyRequests(rl.windowSeconds);
 
   if (!emailConfigured()) {
     return NextResponse.json({ error: "Email isn't configured yet. Add RESEND_API_KEY and EMAIL_FROM, then try again." }, { status: 400 });
