@@ -123,7 +123,6 @@ export default async function DashboardPage() {
 
   // Client connections — connected / pending / ready.
   const sources = (gscSources ?? []) as { id: string; client_id: string | null; config: { site_url?: string | null } | null; clients: JoinedClient }[];
-  const readyCount = new Set(sources.filter((s) => s.config?.site_url).map((s) => s.client_id)).size;
 
   const everySource = (allSources ?? []) as {
     client_id: string | null; type: string; created_at: string;
@@ -240,9 +239,6 @@ export default async function DashboardPage() {
     },
   ];
   const setupComplete = steps.every((s) => s.done);
-
-  // Mode: active once there's a client AND a connected Search Console property.
-  const activeMode = (clientCount ?? 0) > 0 && readyCount > 0;
 
   const srcById = new Map(sources.map((s) => [s.id, s]));
 
@@ -573,9 +569,11 @@ export default async function DashboardPage() {
         </div>
 
         <div className="flex min-w-0 flex-col gap-5">
-          {/* The sample pitch keeps its old, narrower condition: for people who
-              haven't connected a Search Console property yet. */}
-          {!setupComplete && !activeMode && <SampleReportCard agencyName={agency.name} brandColor={agency.brand_color} />}
+          {/* The sample pitch is headed "Before you connect anything", so it is
+              shown only to a workspace with no data source of any kind. It used
+              to key off Search Console alone, so an agency reporting from
+              LinkedIn or Meta Ads was still told it hadn't connected anything. */}
+          {!setupComplete && everySource.length === 0 && <SampleReportCard agencyName={agency.name} brandColor={agency.brand_color} />}
           <UpNext items={upNext} />
           {hasReal && (
             <SearchPerformance
