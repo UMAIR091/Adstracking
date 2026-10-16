@@ -9,7 +9,8 @@
 //     blanking to a spinner. The list stops "flashing" on every keystroke.
 //   * Rows are grouped by month, because reports are inherently periodic and
 //     "when was this from?" is the question people scan for.
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
@@ -393,8 +394,64 @@ function ReportItem({ r, onDelete }: { r: ReportRow; onDelete: () => void }) {
   const router = useRouter();
   const [menu, setMenu] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
-  const menuRef = useDismissable<HTMLDivElement>(menu, () => setMenu(false));
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeMenu = useCallback(() => setMenu(false), []);
+  const menuRef = useDismissable<HTMLDivElement>(menu, closeMenu, panelRef);
   const confirm = useConfirm();
+
+  // The menu is portaled to <body> and pinned to the ⋯ button. Inside the
+  // table it was clipped by the horizontal-scroll wrapper: with only a few
+  // rows the bottom items (Delete) were cut off, and clicking the scrollbar
+  // that appeared closed the menu. It opens upward when there's no room below,
+  // and follows the button when the page or the table scrolls.
+  useLayoutEffect(() => {
+    if (!menu) return;
+    function place() {
+      const t = triggerRef.current, p = panelRef.current;
+      if (!t || !p) return;
+      const r = t.getBoundingClientRect();
+      const h = p.offsetHeight;
+      const below = window.innerHeight - r.bottom;
+      const up = below < h + 8 && r.top > below;
+      p.style.top = `${up ? Math.max(8, r.top - h - 4) : r.bottom + 4}px`;
+      p.style.left = `${Math.max(8, r.right - p.offsetWidth)}px`;
+    }
+    place();
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [menu]);
+
+  // Being portaled, the items are no longer next to the button in tab order,
+  // so focus moves into the menu on open. Declared after useDismissable so it
+  // has already recorded the button as the place to return focus to.
+  useEffect(() => {
+    if (menu) panelRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+  }, [menu]);
+
+  function onMenuKey(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      setMenu(false);
+      return;
+    }
+    const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+    const i = items.indexOf(document.activeElement as HTMLElement);
+    const next =
+      e.key === "ArrowDown" ? items[(i + 1) % items.length]
+      : e.key === "ArrowUp" ? items[(i - 1 + items.length) % items.length]
+      : e.key === "Home" ? items[0]
+      : e.key === "End" ? items[items.length - 1]
+      : null;
+    if (next) {
+      e.preventDefault();
+      next.focus();
+    }
+  }
   // The public link can be revoked and re-created from this menu, so it is
   // tracked locally rather than read from the row once.
   const [shareToken, setShareToken] = useState<string | null>(r.share_token);
@@ -521,6 +578,7 @@ function ReportItem({ r, onDelete }: { r: ReportRow; onDelete: () => void }) {
         </Link>
           <div className="relative" ref={menuRef}>
             <button
+              ref={triggerRef}
               onClick={() => setMenu((o) => !o)}
               aria-label={`Actions for ${r.title}`}
               aria-haspopup="menu"
@@ -529,8 +587,14 @@ function ReportItem({ r, onDelete }: { r: ReportRow; onDelete: () => void }) {
             >
               <MoreHorizontal size={18} aria-hidden />
             </button>
-            {menu && (
-              <div role="menu" className="absolute right-0 top-full z-20 mt-1 w-52 overflow-hidden rounded-xl border border-ink-200 bg-surface py-1 shadow-lg">
+            {menu && createPortal(
+              <div
+                ref={panelRef}
+                role="menu"
+                aria-label={`Actions for ${r.title}`}
+                onKeyDown={onMenuKey}
+                className="fixed left-0 top-0 z-40 max-h-[calc(100vh-16px)] w-52 overflow-y-auto rounded-xl border border-ink-200 bg-surface py-1 shadow-lg"
+              >
                 <MenuLink href={`/dashboard/reports/${r.id}`} onClick={() => setMenu(false)} icon={<Eye size={15} aria-hidden />}>
                   View report
                 </MenuLink>
@@ -567,7 +631,8 @@ function ReportItem({ r, onDelete }: { r: ReportRow; onDelete: () => void }) {
                 >
                   <Trash2 size={15} aria-hidden /> Delete
                 </button>
-              </div>
+              </div>,
+              document.body
             )}
           </div>
       </span>

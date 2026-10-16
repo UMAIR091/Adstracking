@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 
 // Consistent open-menu behavior across the app (audit P2 #9): closes on outside
 // click and on Escape, and restores focus to the trigger when it closes.
@@ -10,7 +10,13 @@ import { useEffect, useRef } from "react";
 //   return <div ref={ref}>…menu…</div>
 // Put the ref on the menu's outer container (ideally wrapping the trigger too,
 // so clicking the trigger to toggle isn't treated as an "outside" click).
-export function useDismissable<T extends HTMLElement>(open: boolean, onClose: () => void) {
+// A menu portaled out of that container passes its own ref as `panel`, so
+// clicks inside it don't count as outside either.
+export function useDismissable<T extends HTMLElement>(
+  open: boolean,
+  onClose: () => void,
+  panel?: RefObject<HTMLElement | null>
+) {
   const ref = useRef<T>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
 
@@ -21,7 +27,9 @@ export function useDismissable<T extends HTMLElement>(open: boolean, onClose: ()
     triggerRef.current = document.activeElement as HTMLElement | null;
 
     function onPointerDown(e: MouseEvent | TouchEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      const target = e.target as Node;
+      if (panel?.current?.contains(target)) return;
+      if (ref.current && !ref.current.contains(target)) onClose();
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
@@ -41,7 +49,7 @@ export function useDismissable<T extends HTMLElement>(open: boolean, onClose: ()
       // their place).
       triggerRef.current?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open, onClose, panel]);
 
   return ref;
 }
