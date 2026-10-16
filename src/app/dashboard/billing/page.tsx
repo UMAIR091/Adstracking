@@ -270,6 +270,7 @@ export default async function BillingPage({
             previousPlan={state.previous?.plan}
             trialDays={trialEligible ? PAID_TRIAL_DAYS : 0}
             hasSubscription={state.subscriptionLive}
+            complimentary={complimentary}
             initialInterval={normalizeInterval(searchParams.interval) ?? "monthly"}
             savingPct={headlineSavingPct(plans)}
             paddleClient={

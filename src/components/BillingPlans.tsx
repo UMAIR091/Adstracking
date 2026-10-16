@@ -48,6 +48,7 @@ export function BillingPlans({
   currentInterval,
   previousPlan,
   hasSubscription,
+  complimentary = false,
   trialDays = 0,
   initialInterval = "monthly",
   highlightPlan,
@@ -66,6 +67,8 @@ export function BillingPlans({
    * can plans be changed in place; otherwise every button is a new checkout.
    */
   hasSubscription: boolean;
+  /** The current plan is granted free of charge, so it has nothing to buy. */
+  complimentary?: boolean;
   /** Paid-plan trial length, already checked for eligibility; 0 = none. */
   trialDays?: number;
   initialInterval?: "monthly" | "quarterly";
@@ -282,7 +285,11 @@ export function BillingPlans({
                   ))}
                 </ul>
 
-                {isCurrent && hasSubscription ? (
+                {isCurrent && complimentary ? (
+                  <Button variant="outline" disabled>
+                    Included free, no end date
+                  </Button>
+                ) : isCurrent && hasSubscription ? (
                   <Button variant="outline" asChild>
                     <a href="/api/billing/portal">Manage billing</a>
                   </Button>
