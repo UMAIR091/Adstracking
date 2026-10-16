@@ -6,6 +6,7 @@ import { emailConfigured, sendEmailWithRetry, invitationEmailHtml } from "@/lib/
 import { captureServer } from "@/lib/analyticsServer";
 import { ANALYTICS } from "@/lib/analytics";
 import { publicError } from "@/lib/errors";
+import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import {
   generateInviteToken, hashInviteToken, inviteExpiry, inviteUrl,
   isValidEmail, isInviteRole, normalizeEmail, INVITE_TTL_DAYS,
@@ -26,6 +27,13 @@ export async function POST(req: Request) {
   if (!isAdminRole(role)) {
     return NextResponse.json({ error: "Only workspace owners and admins can invite teammates." }, { status: 403 });
   }
+
+  // Each invite is an email from Anavyst's own sending domain to an address
+  // the caller chooses, so an unbounded endpoint let any new signup use it to
+  // mail strangers, which risks the domain's reputation for every customer.
+  // A real team is invited a few people at a time.
+  const rl = await rateLimit(`team-invite:${agency.id}`, { limit: 20, windowSeconds: 60 * 60 });
+  if (!rl.allowed) return tooManyRequests(rl.windowSeconds);
 
   // Checked before anything is written, so we never create an invitation we
   // have no way to deliver.
