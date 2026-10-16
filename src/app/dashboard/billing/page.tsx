@@ -20,6 +20,7 @@ export const dynamic = "force-dynamic";
 
 const STATUS_BADGE: Record<string, { label: string; variant: "success" | "warning" | "danger" | "muted" | "info" }> = {
   active: { label: "Active", variant: "success" },
+  complimentary: { label: "Complimentary", variant: "success" },
   on_trial: { label: "Trial", variant: "info" },
   trial: { label: "Free trial", variant: "info" },
   past_due: { label: "Past due", variant: "warning" },
@@ -108,7 +109,10 @@ export default async function BillingPage({
   const cycleLabel = currentInterval ? intervalLabel(currentInterval) : "—";
 
   // What the customer should read as "what happens next".
-  const renewalLabel = state.cancelAtPeriodEnd
+  const complimentary = state.status === "complimentary";
+  const renewalLabel = complimentary
+    ? "Never"
+    : state.cancelAtPeriodEnd
     ? `Ends ${fmtDate(state.endsAt ?? state.renewsAt)}`
     : state.plan === "trial" && state.trialEndsAt
       ? `Trial ends ${fmtDate(state.trialEndsAt)}`
@@ -210,7 +214,9 @@ export default async function BillingPage({
                 <Fact label="Billing cycle" value={cycleLabel} icon={<RefreshCw size={13} className="text-site-dark-muted" />} />
                 <Fact
                   label={
-                    state.plan === "trial"
+                    complimentary
+                      ? "Access ends"
+                      : state.plan === "trial"
                       ? "Next renewal"
                       : state.previous
                         ? "Subscription"
@@ -224,7 +230,9 @@ export default async function BillingPage({
                 <Fact
                   label="Payment method"
                   value={
-                    state.card
+                    complimentary
+                      ? "Not needed"
+                      : state.card
                       ? `${state.card.brand} ending ${state.card.lastFour}`
                       : state.subscriptionLive
                         ? "Managed by Paddle"

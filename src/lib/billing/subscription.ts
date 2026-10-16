@@ -163,6 +163,42 @@ function appTrial(agencyCreatedAt: string, now: number) {
   return { active: endsMs > now, endsAt: new Date(endsMs).toISOString(), daysLeft };
 }
 
+// ── Complimentary access ─────────────────────────────────────
+// Workspaces the owner has granted a plan free of charge, with no end date.
+// Keyed by agency id, never an email: an id can't be claimed by changing an
+// address, and this repository is public. A real paid subscription still
+// wins while it grants access, so buying a plan behaves normally.
+export const COMPLIMENTARY: Readonly<Record<string, PlanId>> = {
+  // The owner's own workspace: Pro with no end date (granted 16 Oct 2026).
+  "972af913-be79-4b09-b31e-0c7126064793": "pro",
+};
+
+export function withComplimentary(agencyId: string, state: SubscriptionState): SubscriptionState {
+  const plan = COMPLIMENTARY[agencyId];
+  if (!plan) return state;
+  if (state.hasAccess && getPlan(state.plan as PlanId)) return state;
+  return {
+    plan,
+    planName: planNameFor(plan),
+    status: "complimentary",
+    interval: null,
+    hasAccess: true,
+    blockedReason: null,
+    renewsAt: null,
+    endsAt: null,
+    trialEndsAt: null,
+    trialDaysLeft: null,
+    paymentFailed: false,
+    card: null,
+    subscriptionId: null,
+    customerId: state.customerId,
+    priceId: null,
+    cancelAtPeriodEnd: false,
+    subscriptionLive: false,
+    previous: null,
+  };
+}
+
 // Loads the agency's subscription row + created_at and resolves the state.
 // Works with both the RLS user client and the admin client (cron).
 export async function getSubscriptionState(supabase: SupabaseClient, agencyId: string): Promise<SubscriptionState> {
@@ -177,9 +213,12 @@ export async function getSubscriptionState(supabase: SupabaseClient, agencyId: s
     supabase.from("agencies").select("created_at").eq("id", agencyId).maybeSingle(),
   ]);
 
-  return resolveState(
-    (sub as SubscriptionRow | null) ?? null,
-    (agency?.created_at as string | undefined) ?? new Date(0).toISOString()
+  return withComplimentary(
+    agencyId,
+    resolveState(
+      (sub as SubscriptionRow | null) ?? null,
+      (agency?.created_at as string | undefined) ?? new Date(0).toISOString()
+    )
   );
 }
 

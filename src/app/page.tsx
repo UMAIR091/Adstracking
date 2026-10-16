@@ -46,7 +46,7 @@ const MARKETING_INTEGRATIONS = [
 
 // Copy that quotes a price is built from the live Paddle amounts, so prose
 // can't drift out of step with the plan cards after a price change.
-// "50 clients costs $329/mo", from the largest plan's live limit and price.
+// "40 clients costs $329/mo", from the largest plan's live limit and price.
 function scaleLine(pricing: PlanPricing[]): string {
   const top = pricing[pricing.length - 1];
   return top?.monthly ? `${top.maxClients} clients costs ${top.monthly.formatted}/mo` : "large rosters stay flat-priced";
