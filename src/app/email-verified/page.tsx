@@ -8,7 +8,8 @@ export const metadata = { title: "Email verified · Anavyst", robots: { index: f
 // Where a signup confirmation link lands when it's opened in a browser other
 // than the one that signed up (see /auth/callback and lib/signupMarker). The
 // signup window continues into setup by itself, so this one only confirms.
-export default function EmailVerifiedPage({ searchParams }: { searchParams: { next?: string } }) {
+export default async function EmailVerifiedPage(props: { searchParams: Promise<{ next?: string }> }) {
+  const searchParams = await props.searchParams;
   const next = safeNext(searchParams.next);
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4 py-12">

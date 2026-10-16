@@ -24,7 +24,8 @@ const loadSharedReport = cache(async (token: string) =>
 // The report already carries the agency's branding, so the tab/OG show the
 // agency's name instead — never Anavyst. Still noindex: the share token is
 // the only access control, so search engines must not index it.
-export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ token: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const report = await loadSharedReport(params.token);
   // Called here, not only in the page: metadata resolves before the response
   // starts streaming, so a missing or revoked link gets a real 404 status. From
@@ -43,7 +44,8 @@ export async function generateMetadata({ params }: { params: { token: string } }
 }
 
 // Public, unauthenticated report — accessed via an unguessable share token.
-export default async function PublicReportPage({ params }: { params: { token: string } }) {
+export default async function PublicReportPage(props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   // Same loader the authenticated views use: branding from the report's own
   // agency, client name from its own client.
   const report = await loadSharedReport(params.token);

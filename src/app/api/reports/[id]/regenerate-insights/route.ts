@@ -20,7 +20,8 @@ export const maxDuration = 60;
 // calls). Caches by a hash of the underlying metrics: if the data is unchanged
 // and insights already exist, it skips the AI call unless `force` is set (the
 // user explicitly hit "Regenerate insights").
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user, agency } = await getCurrentUserAndAgency();
   if (!user || !agency) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

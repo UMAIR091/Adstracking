@@ -24,13 +24,14 @@ export const dynamic = "force-dynamic";
 // 28-day and a 90-day snapshot per source, so both are real stored data. No
 // figure is derived, re-fetched or estimated for it; `?period=` simply selects
 // which of the two existing rows the page loads.
-export default async function ClientPerformancePage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams?: { period?: string };
-}) {
+export default async function ClientPerformancePage(
+  props: {
+    params: Promise<{ id: string }>;
+    searchParams?: Promise<{ period?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const { user, agency } = await getCurrentUserAndAgency();
   if (!user || !agency) redirect("/login");
 

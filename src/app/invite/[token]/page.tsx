@@ -15,7 +15,8 @@ export const dynamic = "force-dynamic";
 // already expressed intent by clicking a link in their own inbox, and the
 // acceptance is idempotent, so an extra confirmation step would only add a
 // place to drop out.
-export default async function InvitePage({ params }: { params: { token: string } }) {
+export default async function InvitePage(props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const supabase = createClient();
   const {
     data: { user },

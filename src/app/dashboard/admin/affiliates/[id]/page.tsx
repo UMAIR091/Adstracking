@@ -18,7 +18,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "—");
 
-export default async function AffiliateDetailPage({ params }: { params: { id: string } }) {
+export default async function AffiliateDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   if (!(await requirePlatformAdmin())) notFound();
   if (!UUID.test(params.id)) notFound();
   const detail = await loadAffiliateDetail(createAdminClient(), params.id);

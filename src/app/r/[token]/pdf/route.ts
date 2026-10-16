@@ -19,7 +19,8 @@ function slug(s: string): string {
 // render can't be used for cost-DoS, and served from a Storage cache so repeat
 // downloads don't re-render. Legitimate viewers are unaffected (a generous
 // per-minute allowance, and the first cached render makes later hits instant).
-export async function GET(req: Request, { params }: { params: { token: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const admin = createAdminClient();
 
   // 30 downloads / minute / IP: far above any human's cadence, well below abuse.

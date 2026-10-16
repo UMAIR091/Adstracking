@@ -19,7 +19,8 @@ export const dynamic = "force-dynamic";
 // titled; on a report page it keeps its own card. It selects `source` so a
 // scheduled send is distinguishable from a manual one — on the automations tab
 // that difference is the whole point.
-export default async function ClientAutomationsPage({ params }: { params: { id: string } }) {
+export default async function ClientAutomationsPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user, agency } = await getCurrentUserAndAgency();
   if (!user || !agency) redirect("/login");
 

@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 // client detail page polls this so the user sees real progress instead of a
 // silent wait, and the page auto-refreshes the moment data lands. RLS scopes
 // the reads to the caller's agency.
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user } = await getCurrentUserAndAgency();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

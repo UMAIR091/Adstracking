@@ -14,13 +14,14 @@ export const dynamic = "force-dynamic";
 // why, how it's stored, and how to revoke — before the user is sent to the
 // provider's authorization page. Registry-driven, so it works for every
 // current and future live integration.
-export default async function ConnectConsentPage({
-  params,
-  searchParams,
-}: {
-  params: { type: string };
-  searchParams: { clientId?: string };
-}) {
+export default async function ConnectConsentPage(
+  props: {
+    params: Promise<{ type: string }>;
+    searchParams: Promise<{ clientId?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const { user } = await getCurrentUserAndAgency();
   if (!user) redirect("/login");
 

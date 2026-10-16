@@ -20,7 +20,8 @@ function pdfSlug(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "report";
 }
 
-export default async function ReportViewPage({ params }: { params: { id: string } }) {
+export default async function ReportViewPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user, agency } = await getCurrentUserAndAgency();
   if (!user || !agency) redirect("/login");
 

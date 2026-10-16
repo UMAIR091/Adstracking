@@ -42,7 +42,7 @@ export async function GET(req: Request) {
 
   const nonce = crypto.randomUUID();
   const state = Buffer.from(JSON.stringify({ clientId, nonce, type: "shopify", shop })).toString("base64url");
-  cookies().set("oauth_nonce", nonce, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 600, path: "/" });
+  (await cookies()).set("oauth_nonce", nonce, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 600, path: "/" });
 
   const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin}/api/shopify/callback`;
   return NextResponse.redirect(shopifyAuthUrl(shop, state, redirectUri));

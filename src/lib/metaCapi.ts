@@ -30,11 +30,11 @@ function sha256(value: string): string {
 // checkout must not fail over ad measurement.
 export async function captureAdAttribution(admin: SupabaseClient, agencyId: string): Promise<void> {
   try {
-    const jar = cookies();
+    const jar = await cookies();
     const fbp = jar.get("_fbp")?.value ?? null;
     const fbc = jar.get("_fbc")?.value ?? null;
     if (!fbp && !fbc) return;
-    const h = headers();
+    const h = await headers();
     const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || null;
     const { error } = await admin.from("ad_attribution").upsert(
       {

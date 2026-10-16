@@ -18,7 +18,8 @@ export const dynamic = "force-dynamic";
 // GenerateReportDialog) with this client selected: the same types, periods,
 // titles and generation call the in-page form used. The full management
 // surface (search, filters, bulk actions) stays at /dashboard/reports.
-export default async function ClientReportsPage({ params }: { params: { id: string } }) {
+export default async function ClientReportsPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user, agency } = await getCurrentUserAndAgency();
   if (!user || !agency) redirect("/login");
 

@@ -6,11 +6,12 @@ import { safeNext } from "@/lib/safeNext";
 // Carry that choice through auth so the billing page can preselect it.
 const KNOWN_PLANS = new Set(["starter", "pro", "agency", "enterprise", "team"]);
 
-export default function SignupPage({
-  searchParams,
-}: {
-  searchParams: { plan?: string; interval?: string; next?: string };
-}) {
+export default async function SignupPage(
+  props: {
+    searchParams: Promise<{ plan?: string; interval?: string; next?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const plan = searchParams.plan && KNOWN_PLANS.has(searchParams.plan) ? searchParams.plan : null;
   // "annual" is still honoured so an old bookmarked pricing link keeps working;
   // it resolves to the quarterly plan, which is what those prices now are.

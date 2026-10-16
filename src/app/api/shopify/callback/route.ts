@@ -17,8 +17,8 @@ const NONCE_COOKIE = "oauth_nonce";
 // (the token exchange happens against the shop's own domain).
 export async function GET(req: Request) {
   const { searchParams, origin } = new URL(req.url);
-  const fail = (msg: string) => {
-    cookies().set(NONCE_COOKIE, "", { maxAge: 0, path: "/" });
+  const fail = async (msg: string) => {
+    (await cookies()).set(NONCE_COOKIE, "", { maxAge: 0, path: "/" });
     return NextResponse.redirect(`${origin}/dashboard/clients?connect_error=${encodeURIComponent(msg)}`);
   };
 
@@ -33,7 +33,7 @@ export async function GET(req: Request) {
     const parsed = JSON.parse(Buffer.from(state, "base64url").toString("utf8"));
     clientId = parsed.clientId;
     shop = parsed.shop;
-    const cookieNonce = cookies().get(NONCE_COOKIE)?.value;
+    const cookieNonce = (await cookies()).get(NONCE_COOKIE)?.value;
     if (!cookieNonce || cookieNonce !== parsed.nonce) return fail("Invalid state");
   } catch {
     return fail("Invalid state");
@@ -77,7 +77,7 @@ export async function GET(req: Request) {
     if (error) throw new Error(error.message);
 
     await syncDataSource(supabase, inserted as SyncableSource);
-    cookies().set(NONCE_COOKIE, "", { maxAge: 0, path: "/" });
+    (await cookies()).set(NONCE_COOKIE, "", { maxAge: 0, path: "/" });
     return NextResponse.redirect(`${origin}/dashboard/clients/${clientId}?connected=shopify`);
   } catch (err) {
     return fail((err as Error).message);

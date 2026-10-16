@@ -26,7 +26,8 @@ export const dynamic = "force-dynamic";
 // from the workspace loader, so Overview can never quote a figure the tab it
 // summarises disagrees with. A client with nothing connected says so rather
 // than showing zeros dressed as performance.
-export default async function ClientOverviewPage({ params }: { params: { id: string } }) {
+export default async function ClientOverviewPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user, agency } = await getCurrentUserAndAgency();
   if (!user || !agency) redirect("/login");
 

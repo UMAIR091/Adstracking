@@ -40,7 +40,8 @@ const GROUP_ORDER: MetricGroup[] = ["paid", "seo", "analytics", "social", "comme
 /** Enough to suggest a next step without becoming a catalogue. */
 const MAX_AVAILABLE_TILES = 8;
 
-export default async function ClientDataSourcesPage({ params }: { params: { id: string } }) {
+export default async function ClientDataSourcesPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user, agency } = await getCurrentUserAndAgency();
   if (!user || !agency) redirect("/login");
 

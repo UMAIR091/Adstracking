@@ -72,7 +72,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // ignore the 'self' that lets /theme.js run on the marketing pages — so the
   // same snippet is inlined here with the request nonce. This layout is already
   // dynamic (it awaits the session), so reading the header costs nothing.
-  const nonce = headers().get("x-nonce") ?? undefined;
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
 
   return (
     <ConfirmProvider>

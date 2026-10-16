@@ -11,7 +11,8 @@ export const runtime = "nodejs";
 // new one. The report is looked up through the caller's own session and agency,
 // so only its workspace can change it; the write uses the service role because
 // tenants can't update reports directly (migration 0044).
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user, agency } = await getCurrentUserAndAgency();
   if (!user || !agency) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

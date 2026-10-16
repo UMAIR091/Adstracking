@@ -19,7 +19,7 @@ const HUNDRED_YEARS_MS = 100 * 365 * 24 * 60 * 60 * 1000;
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const base = process.env.NEXT_PUBLIC_APP_URL ?? url.origin;
-  const jar = cookies();
+  const jar = await cookies();
   const raw = jar.get(X_OAUTH_COOKIE)?.value;
   const clear = () => jar.set(X_OAUTH_COOKIE, "", { maxAge: 0, path: "/" });
 

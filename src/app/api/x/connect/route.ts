@@ -38,7 +38,7 @@ export async function GET(req: Request) {
 
   try {
     const { token, secret, authorizeUrl } = await xRequestToken();
-    cookies().set(X_OAUTH_COOKIE, JSON.stringify({ clientId, token, secret }), {
+    (await cookies()).set(X_OAUTH_COOKIE, JSON.stringify({ clientId, token, secret }), {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

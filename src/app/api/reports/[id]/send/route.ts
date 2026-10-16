@@ -15,7 +15,8 @@ export const maxDuration = 60;
 
 // Emails an existing report as a branded PDF attachment to one or more
 // recipients now (defaults to the client's email).
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user, agency } = await getCurrentUserAndAgency();
   if (!user || !agency) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

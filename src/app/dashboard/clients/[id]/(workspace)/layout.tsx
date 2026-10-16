@@ -19,13 +19,18 @@ export const dynamic = "force-dynamic";
 // `edit` deliberately sits outside this group — it has its own page chrome and
 // is not a workspace tab. The sample report lives on Home and Reports, so the
 // header carries only this client's two actions.
-export default async function ClientWorkspaceLayout({
-  children,
-  params,
-}: {
-  children: ReactNode;
-  params: { id: string };
-}) {
+export default async function ClientWorkspaceLayout(
+  props: {
+    children: ReactNode;
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
+
+  const {
+    children
+  } = props;
+
   const { user, agency } = await getCurrentUserAndAgency();
   if (!user || !agency) redirect("/login");
 

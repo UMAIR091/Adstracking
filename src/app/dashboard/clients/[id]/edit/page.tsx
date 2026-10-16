@@ -6,7 +6,8 @@ import { ClientForm, type ClientValues } from "@/components/ClientForm";
 
 export const dynamic = "force-dynamic";
 
-export default async function EditClientPage({ params }: { params: { id: string } }) {
+export default async function EditClientPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user, agency } = await getCurrentUserAndAgency();
   if (!user || !agency) redirect("/login");
 

@@ -12,7 +12,8 @@ export const dynamic = "force-dynamic";
 // commissions created that month (UTC). Platform admins only; anyone else
 // gets a 404. Payout details are deliberately left out of the file — they are
 // shown on the admin page only.
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   if (!(await requirePlatformAdmin())) return new NextResponse("Not found", { status: 404 });
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.id)) return new NextResponse("Not found", { status: 404 });
 

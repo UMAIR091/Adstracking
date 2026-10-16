@@ -48,11 +48,12 @@ function Fact({ label, value, icon }: { label: string; value: string; icon?: Rea
   );
 }
 
-export default async function BillingPage({
-  searchParams,
-}: {
-  searchParams: { checkout?: string; portal_error?: string; plan?: string; interval?: string };
-}) {
+export default async function BillingPage(
+  props: {
+    searchParams: Promise<{ checkout?: string; portal_error?: string; plan?: string; interval?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const { user, agency } = await getCurrentUserAndAgency();
   if (!user || !agency) redirect("/login");
 

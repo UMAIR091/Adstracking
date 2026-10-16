@@ -1,10 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { cookies, type UnsafeUnwrappedCookies } from "next/headers";
 
 // Server-side Supabase client (server components, route handlers, actions).
 // Uses the user's session cookies, so RLS applies as that user.
 export function createClient() {
-  const cookieStore = cookies();
+  // Next 15 still supports reading cookies synchronously (it warns in dev);
+  // making createClient() async would ripple through every server caller.
+  // Next 16 removes the sync form, so that conversion is due before then.
+  const cookieStore = cookies() as unknown as UnsafeUnwrappedCookies;
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

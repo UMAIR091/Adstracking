@@ -24,7 +24,7 @@ export async function attachReferral(
   deps: { admin?: SupabaseClient; cookieValue?: string | null } = {}
 ): Promise<AttachResult> {
   try {
-    const value = "cookieValue" in deps ? deps.cookieValue : cookies().get(REF_COOKIE)?.value;
+    const value = "cookieValue" in deps ? deps.cookieValue : (await cookies()).get(REF_COOKIE)?.value;
     const ref = decodeRefCookie(value);
     if (!ref) return "no_cookie";
 
@@ -53,7 +53,7 @@ export async function attachReferral(
     // server component it throws, and middleware expires the cookie on the
     // same response instead (lib/affiliates/capture.ts).
     try {
-      if (!("cookieValue" in deps)) cookies().delete(REF_COOKIE);
+      if (!("cookieValue" in deps)) (await cookies()).delete(REF_COOKIE);
     } catch {
       /* cleared by middleware */
     }

@@ -78,7 +78,7 @@ export async function handleConnect(req: Request): Promise<Response> {
   // stop and enable an API or pick an account, short enough to stay a
   // meaningful CSRF window. The nonce is still single-use and httpOnly, and is
   // cleared on both success and failure.
-  cookies().set(NONCE_COOKIE, nonce, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 1800, path: "/" });
+  (await cookies()).set(NONCE_COOKIE, nonce, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 1800, path: "/" });
 
   const authorizationUrl = oauth.authUrl(state);
   return NextResponse.redirect(authorizationUrl);
@@ -95,9 +95,11 @@ export async function handleCallback(req: Request): Promise<Response> {
   const appBase = process.env.NEXT_PUBLIC_APP_URL ?? origin;
   const fail = (msg: string) => {
     // Single-use nonce: clear on failure too, so a retried/replayed callback
-    // can't reuse it, and the next connect attempt starts clean.
-    cookies().set(NONCE_COOKIE, "", { maxAge: 0, path: "/" });
-    return NextResponse.redirect(`${appBase}/dashboard/clients?connect_error=${encodeURIComponent(msg)}`);
+    // can't reuse it, and the next connect attempt starts clean. Cleared on the
+    // redirect response itself, which needs no async request API.
+    const res = NextResponse.redirect(`${appBase}/dashboard/clients?connect_error=${encodeURIComponent(msg)}`);
+    res.cookies.set(NONCE_COOKIE, "", { maxAge: 0, path: "/" });
+    return res;
   };
 
   // Providers signal denial via error/error_description instead of a code.
@@ -116,7 +118,7 @@ export async function handleCallback(req: Request): Promise<Response> {
     provider = parsed.provider;
     field = typeof parsed.field === "string" ? parsed.field : undefined;
     if (!clientId || !type) return fail("Invalid state");
-    const cookieNonce = cookies().get(NONCE_COOKIE)?.value;
+    const cookieNonce = (await cookies()).get(NONCE_COOKIE)?.value;
     if (!cookieNonce || cookieNonce !== parsed.nonce) {
       // The CSRF check is doing its job, but it also trips on two ordinary,
       // user-fixable situations: the flow was started on a different domain
@@ -151,7 +153,7 @@ export async function handleCallback(req: Request): Promise<Response> {
 
   try {
     await completeOAuthConnect(supabase, agency.id, clientId, def, oauth, code, provider, field);
-    cookies().set(NONCE_COOKIE, "", { maxAge: 0, path: "/" });
+    (await cookies()).set(NONCE_COOKIE, "", { maxAge: 0, path: "/" });
     return NextResponse.redirect(`${appBase}/dashboard/clients/${clientId}?connected=${def.id}`);
   } catch (err) {
     // Token exchange / account-listing / storage failed — record it, then fail
