@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 
 // Lemon Squeezy REST client — pure fetch (mirrors email.ts / google.ts style,
 // no SDK). All calls are server-only; the API key must never reach the client.
@@ -128,16 +127,3 @@ export async function getVariantPrice(variantId: string): Promise<{ cents: numbe
   }
 }
 
-// ── Webhooks ─────────────────────────────────────────────────
-
-// Lemon Squeezy signs the raw body with HMAC-SHA256 (hex) using the secret
-// configured on the webhook. Constant-time comparison, like cronAuth.
-export function verifyWebhookSignature(rawBody: string, signatureHeader: string | null): boolean {
-  const secret = process.env.LEMONSQUEEZY_WEBHOOK_SECRET;
-  if (!secret || !signatureHeader) return false;
-  const digest = crypto.createHmac("sha256", secret).update(rawBody, "utf8").digest("hex");
-  const a = Buffer.from(digest);
-  const b = Buffer.from(signatureHeader);
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(a, b);
-}

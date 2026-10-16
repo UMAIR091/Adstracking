@@ -7,6 +7,7 @@ import { captureServer } from "@/lib/analyticsServer";
 import { ANALYTICS } from "@/lib/analytics";
 import { publicError } from "@/lib/errors";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
+import { findAuthUserByEmail } from "@/lib/authUsers";
 import {
   generateInviteToken, hashInviteToken, inviteExpiry, inviteUrl,
   isValidEmail, isInviteRole, normalizeEmail, INVITE_TTL_DAYS,
@@ -61,8 +62,7 @@ export async function POST(req: Request) {
   // Already a member? Checked with the admin client because memberships only
   // exposes rows for agencies the caller belongs to — which is true here, but
   // the auth.users lookup that resolves an email to a user id is admin-only.
-  const { data: existingUser } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  const match = existingUser?.users?.find((u) => normalizeEmail(u.email ?? "") === email);
+  const match = await findAuthUserByEmail(admin, email);
   if (match) {
     const { data: alreadyMember } = await admin
       .from("memberships")

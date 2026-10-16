@@ -26,7 +26,11 @@ const loadSharedReport = cache(async (token: string) =>
 // the only access control, so search engines must not index it.
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
   const report = await loadSharedReport(params.token);
-  const agency = report?.branding?.name?.trim();
+  // Called here, not only in the page: metadata resolves before the response
+  // starts streaming, so a missing or revoked link gets a real 404 status. From
+  // the page body alone it rendered "Page not found" with a 200.
+  if (!report) notFound();
+  const agency = report.branding?.name?.trim();
   const title = agency ? `${agency} — Performance Report` : "Performance Report";
   const description = agency ? `Performance report prepared by ${agency}.` : "Performance report.";
   return {

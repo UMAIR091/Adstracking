@@ -1,17 +1,18 @@
 import crypto from "node:crypto";
 
-// Shared authorization for cron endpoints. Accepts either ?key=CRON_SECRET
-// (cron-job.org, manual runs) or an Authorization: Bearer CRON_SECRET header
-// (Vercel Cron sets this when the CRON_SECRET env var is configured).
+// Shared authorization for cron endpoints: an Authorization: Bearer CRON_SECRET
+// header, which Vercel Cron sends when CRON_SECRET is configured and the sync
+// dispatcher sends to its workers. The secret is no longer accepted as a
+// ?key= query parameter: URLs end up in request logs, browser history and
+// third-party schedulers' dashboards, and every caller sends the header. For a
+// manual run use: curl -H "Authorization: Bearer $CRON_SECRET" <url>.
 // Uses a constant-time comparison so the secret can't be probed byte-by-byte.
 export function cronAuthorized(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false;
 
-  const key = new URL(req.url).searchParams.get("key");
   const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? null;
-
-  return timingSafeEqual(key, secret) || timingSafeEqual(bearer, secret);
+  return timingSafeEqual(bearer, secret);
 }
 
 function timingSafeEqual(candidate: string | null, secret: string): boolean {
