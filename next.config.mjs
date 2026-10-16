@@ -27,6 +27,20 @@ const nextConfig = {
   // a wasm layout engine — keep it out of the webpack bundle so it loads natively.
   // (Next 15 moved this out of experimental.)
   serverExternalPackages: ["@react-pdf/renderer"],
+  // react-pdf 4's pdfkit loads its built-in font modules and .afm metrics by a
+  // runtime path, which Vercel's file tracing can't see, so a fresh PDF render
+  // in production failed with "Cannot find module .../pdfkit/js/standard-fonts/
+  // Helvetica" (it worked locally, where all of node_modules exists). Every
+  // route that renders a PDF ships those files explicitly.
+  outputFileTracingIncludes: Object.fromEntries(
+    [
+      "/api/reports/[id]/pdf",
+      "/r/[token]/pdf",
+      "/api/reports/[id]/send",
+      "/api/schedules/run",
+      "/api/cron/reports",
+    ].map((route) => [route, ["./node_modules/pdfkit/js/standard-fonts/**/*", "./node_modules/pdfkit/js/data/**/*"]])
+  ),
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
