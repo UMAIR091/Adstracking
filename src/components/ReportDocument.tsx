@@ -12,6 +12,7 @@ import { agencyNote, cleanBullets, cleanCommentary } from "@/lib/reports/comment
 import { badgeRepeatsTitle, coverBadgeLabel } from "@/lib/reports/types";
 import { MAX_CHANNEL_KPIS, MIN_BREAKDOWN_ROWS, MIN_TREND_POINTS, shortPeriodNote } from "@/lib/reports/composition";
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
+import { pctChange } from "@/lib/metrics/change";
 import {
   CHART, Callout, EdgeKeywords, IdeaTile, KpiCard, MeaningCard, MiniStat, MoversPanels, Note, NotePanel,
   PositionChip, ReportBody, ReportCover, ReportFooter, ReportPaper, Section, ShareBreakdown, ShareRows, StepList,
@@ -41,9 +42,8 @@ function fmtDuration(seconds: number): string {
 }
 
 function delta(cur: number, prev: number | null | undefined, lowerIsBetter = false) {
-  if (prev == null || prev === 0) return null;
-  const pct = ((cur - prev) / prev) * 100;
-  if (!isFinite(pct)) return null;
+  const pct = pctChange(cur, prev);
+  if (pct === null) return null;
   return { pct, good: lowerIsBetter ? pct < 0 : pct > 0 };
 }
 

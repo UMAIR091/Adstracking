@@ -15,6 +15,7 @@
 import { getIntegrationName } from "./names";
 import { promptLabel } from "@/lib/ai/untrusted";
 import type { AdsCampaign, AdsTotals } from "./metrics";
+import { pctChange } from "@/lib/metrics/change";
 
 export type BlockFormat = "number" | "currency" | "percent" | "duration" | "position";
 
@@ -707,7 +708,7 @@ export function blocksToPromptText(blocks: ReportBlock[]): string {
             : `- ${k.label}: ${fmt(k.value, k.format)} vs 0 prior (new this period; no percentage change from zero)${lower}`
         );
       } else {
-        const delta = ((k.value - k.previous) / Math.abs(k.previous)) * 100;
+        const delta = pctChange(k.value, k.previous) ?? 0;
         const dir = delta >= 0 ? "+" : "";
         const diff = k.value - k.previous;
         const absText = pctLike(k.format)

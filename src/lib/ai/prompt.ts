@@ -5,6 +5,7 @@
 import { blocksToPromptText } from "@/lib/integrations/blocks";
 import { promptLabel } from "./untrusted";
 import type { InsightsInput, Totals, Ga4Totals } from "./types";
+import { pctChange } from "@/lib/metrics/change";
 
 export const SYSTEM = `You are the senior analyst behind Anavyst's automated marketing reports, written for agencies to forward to their own clients under their brand. Write like a sharp account director briefing a paying client — calm, direct, never hyped.
 
@@ -85,7 +86,7 @@ export function deltaLine(label: string, cur: number, prev: number | null | unde
       ? `- ${label}: 0 vs 0 prior (unchanged)`
       : `- ${label}: ${fmt(cur)} vs 0 prior (new this period, up ${abs}; no percentage change from zero)`;
   }
-  const change = (diff / prev) * 100;
+  const change = pctChange(cur, prev) ?? 0;
   const dir = change === 0 ? "flat" : change > 0 ? "up" : "down";
   return change === 0
     ? `- ${label}: ${fmt(cur)} vs ${fmt(prev)} prior (flat)`

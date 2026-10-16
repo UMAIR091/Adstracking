@@ -1,5 +1,7 @@
 // Number/date formatting helpers shared by the PDF components. Pure functions.
 
+import { pctChange } from "@/lib/metrics/change";
+
 export const fmt = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 0 });
 export const pct1 = (n: number) => `${(n * 100).toFixed(1)}%`;
 
@@ -29,10 +31,8 @@ export function fmtDateShort(iso: string): string {
 }
 
 export function deltaPct(cur: number | null, prev: number | null | undefined): number | null {
-  // A metric with no valid value has no delta either.
-  if (cur == null || prev == null || prev === 0) return null;
-  const p = ((cur - prev) / prev) * 100;
-  return isFinite(p) ? p : null;
+  // A metric with no valid value has no delta either (lib/metrics/change).
+  return pctChange(cur, prev);
 }
 
 // Renders a delta as "+23%" / "−8%".

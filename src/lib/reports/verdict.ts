@@ -24,6 +24,7 @@
 import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import type { ReportBlock, BlockKpi } from "@/lib/integrations/blocks";
 import { formatBlockValue } from "@/lib/integrations/blocks";
+import { pctChange } from "@/lib/metrics/change";
 
 export type VerdictTone = "good" | "mixed" | "attention" | "neutral";
 
@@ -129,12 +130,6 @@ function perUnitReturn(revenue: number, spend: number, currency: string | null):
   const ratio = revenue / spend;
   if (!Number.isFinite(ratio)) return null;
   return formatBlockValue(ratio, "currency", currency);
-}
-
-function pctChange(cur: number, prev: number | null): number | null {
-  if (prev == null || prev === 0 || !Number.isFinite(prev)) return null;
-  const d = ((cur - prev) / Math.abs(prev)) * 100;
-  return Number.isFinite(d) ? d : null;
 }
 
 /** "12%" — one decimal only when the number is small enough to need it. */

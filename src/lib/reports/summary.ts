@@ -26,6 +26,7 @@ import type { GscReportFull, Ga4ReportFull } from "@/lib/google";
 import type { ReportBlock, BlockKpi } from "@/lib/integrations/blocks";
 import { formatBlockValue } from "@/lib/integrations/blocks";
 import { ga4Has } from "@/lib/reports/dataQuality";
+import { pctChange } from "@/lib/metrics/change";
 
 const fmt = (n: number) => Math.round(n).toLocaleString("en-US");
 const pct1 = (n: number) => `${(n * 100).toFixed(1)}%`;
@@ -39,11 +40,7 @@ function fmtDate(iso: string): string {
   });
 }
 
-function deltaPct(cur: number | null | undefined, prev: number | null | undefined): number | null {
-  if (cur == null || prev == null || !Number.isFinite(cur) || !Number.isFinite(prev) || prev === 0) return null;
-  const d = ((cur - prev) / Math.abs(prev)) * 100;
-  return Number.isFinite(d) ? d : null;
-}
+const deltaPct = pctChange;
 
 const abs0 = (d: number) => `${Math.abs(d) >= 10 ? Math.abs(d).toFixed(0) : Math.abs(d).toFixed(1)}%`;
 
