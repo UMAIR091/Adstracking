@@ -5,7 +5,9 @@ import { Printer, Link2, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
-export function ReportActions({ shareUrl }: { shareUrl: string }) {
+// The public share page uses both buttons; the signed-in report page passes
+// hideCopy and uses <ShareLinkControls/>, which can also revoke the link.
+export function ReportActions({ shareUrl = "", hideCopy = false }: { shareUrl?: string; hideCopy?: boolean }) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -26,9 +28,11 @@ export function ReportActions({ shareUrl }: { shareUrl: string }) {
   // labelled for what it does, and is secondary like the rest of the toolbar.
   return (
     <div className="no-print flex items-center gap-2">
-      <Button variant="outline" onClick={copy}>
-        {copied ? <Check size={16} /> : <Link2 size={16} />} {copied ? "Copied" : "Copy share link"}
-      </Button>
+      {!hideCopy && (
+        <Button variant="outline" onClick={copy}>
+          {copied ? <Check size={16} /> : <Link2 size={16} />} {copied ? "Copied" : "Copy share link"}
+        </Button>
+      )}
       <Button variant="outline" onClick={() => window.print()}>
         <Printer size={16} /> Print
       </Button>

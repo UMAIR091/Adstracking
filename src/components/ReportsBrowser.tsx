@@ -15,10 +15,11 @@ import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
-  Search, MoreHorizontal, Eye, Share2, Download, Trash2, Loader2,
+  Search, MoreHorizontal, Eye, Share2, Download, Trash2, Loader2, Link2, Link2Off,
   X, ArrowUpDown, Sparkles, Send, CheckCircle2, AlertCircle, Clock, Inbox,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { changeShareLink, shareUrlFor } from "@/lib/reports/shareLinkClient";
 import { reportTypeLabel, sourceNames } from "@/lib/reports/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -393,7 +394,11 @@ function ReportItem({ r, onDelete }: { r: ReportRow; onDelete: () => void }) {
   const [menu, setMenu] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const menuRef = useDismissable<HTMLDivElement>(menu, () => setMenu(false));
-  const canShare = r.status === "ready" && !!r.share_token;
+  const confirm = useConfirm();
+  // The public link can be revoked and re-created from this menu, so it is
+  // tracked locally rather than read from the row once.
+  const [shareToken, setShareToken] = useState<string | null>(r.share_token);
+  const ready = r.status === "ready";
 
   const period =
     r.period_start && r.period_end
@@ -410,13 +415,45 @@ function ReportItem({ r, onDelete }: { r: ReportRow; onDelete: () => void }) {
     : names.length <= 3 ? names.join(", ")
     : `${names.slice(0, 2).join(", ")} +${names.length - 2} more`;
 
-  function share() {
-    const url = `${window.location.origin}/r/${r.share_token}`;
-    navigator.clipboard.writeText(url).then(
-      () => toast.success("Share link copied", { description: "Anyone with this link can view the report." }),
+  function copyLink(token: string, message = "Share link copied") {
+    navigator.clipboard.writeText(shareUrlFor(token)).then(
+      () => toast.success(message, { description: "Anyone with this link can view the report." }),
       () => toast.error("Couldn't copy the link")
     );
+  }
+
+  function share() {
+    if (shareToken) copyLink(shareToken);
     setMenu(false);
+  }
+
+  async function createLink() {
+    setMenu(false);
+    try {
+      const token = await changeShareLink(r.id, "renew");
+      setShareToken(token);
+      if (token) copyLink(token, "New share link copied");
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  }
+
+  async function revokeLink() {
+    setMenu(false);
+    const ok = await confirm({
+      title: "Revoke share link?",
+      description: "Anyone opening the current link will see “Page not found”. You can create a new link at any time, and emailing the report creates one automatically.",
+      confirmLabel: "Revoke link",
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await changeShareLink(r.id, "revoke");
+      setShareToken(null);
+      toast.success("Share link revoked");
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
   }
 
   // Reuses the existing endpoint and its hash check: unchanged data is a no-op
@@ -497,17 +534,23 @@ function ReportItem({ r, onDelete }: { r: ReportRow; onDelete: () => void }) {
                 <MenuLink href={`/dashboard/reports/${r.id}`} onClick={() => setMenu(false)} icon={<Eye size={15} aria-hidden />}>
                   View report
                 </MenuLink>
-                {canShare && (
+                {ready && shareToken && (
                   <>
                     <MenuButton onClick={share} icon={<Share2 size={15} aria-hidden />}>Copy share link</MenuButton>
-                    <MenuLink
-                      href={`/api/reports/${r.id}/pdf`}
-                      onClick={() => setMenu(false)}
-                      icon={<Download size={15} aria-hidden />}
-                    >
-                      Download PDF
-                    </MenuLink>
+                    <MenuButton onClick={revokeLink} icon={<Link2Off size={15} aria-hidden />}>Revoke share link</MenuButton>
                   </>
+                )}
+                {ready && !shareToken && (
+                  <MenuButton onClick={createLink} icon={<Link2 size={15} aria-hidden />}>Create share link</MenuButton>
+                )}
+                {ready && (
+                  <MenuLink
+                    href={`/api/reports/${r.id}/pdf`}
+                    onClick={() => setMenu(false)}
+                    icon={<Download size={15} aria-hidden />}
+                  >
+                    Download PDF
+                  </MenuLink>
                 )}
                 <MenuButton onClick={regenerate} icon={<Sparkles size={15} aria-hidden />}>Regenerate insights</MenuButton>
                 <MenuLink

@@ -5,6 +5,7 @@ import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
 import { ReportDocument } from "@/components/ReportDocumentLazy";
 import { ReportActions } from "@/components/ReportActions";
+import { ShareLinkControls } from "@/components/ShareLinkControls";
 import { RegenerateInsights } from "@/components/RegenerateInsights";
 import { SendReport } from "@/components/SendReport";
 import { DownloadPdf } from "@/components/DownloadPdf";
@@ -47,8 +48,6 @@ export default async function ReportViewPage({ params }: { params: { id: string 
 
   const clientName = report.clientName;
   const clientEmail = report.clientEmail;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const shareUrl = `${appUrl}/r/${report.shareToken}`;
 
   const deliveryLogs = (logs ?? []) as DeliveryLog[];
   const sentCount = deliveryLogs.filter((l) => l.status !== "failed" && l.status !== "bounced" && l.status !== "pending").length;
@@ -82,7 +81,8 @@ export default async function ReportViewPage({ params }: { params: { id: string 
           <div className="flex flex-wrap items-center gap-2">
             <RegenerateInsights reportId={report.id} />
             <DownloadPdf href={`/api/reports/${report.id}/pdf`} filename={`${pdfSlug(report.title)}.pdf`} />
-            <ReportActions shareUrl={shareUrl} />
+            <ShareLinkControls reportId={report.id} shareToken={report.shareToken ?? null} />
+            <ReportActions hideCopy />
             <SendReport reportId={report.id} clientEmail={clientEmail} />
           </div>
         </div>

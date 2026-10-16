@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { newShareToken } from "@/lib/reports/shareLink";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { requireActiveAccess } from "@/lib/billing/subscription";
@@ -35,6 +37,19 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (!report) return NextResponse.json({ error: "Report not found" }, { status: 404 });
   const clientName = report.clientName;
 
+  // Emailing a report shares it: the email carries the report's link. A link
+  // the agency revoked is replaced with a fresh one rather than sent dead.
+  let shareToken = report.shareToken;
+  if (!shareToken) {
+    shareToken = newShareToken();
+    const { error: tokenError } = await createAdminClient()
+      .from("reports")
+      .update({ share_token: shareToken })
+      .eq("id", report.id)
+      .eq("agency_id", agency.id);
+    if (tokenError) return NextResponse.json({ error: "Couldn't prepare the report link. Please try again." }, { status: 500 });
+  }
+
   const fromBody: string[] = Array.isArray(body?.recipients)
     ? body.recipients.filter((e: unknown) => typeof e === "string" && (e as string).includes("@")).slice(0, 10)
     : [];
@@ -60,7 +75,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     // "Report emailed", never "Scheduled report sent".
     source: "manual",
     actorId: user.id,
-    report: { id: report.id, title: report.title, shareToken: report.shareToken ?? "", data: report.data, period: report.period },
+    report: { id: report.id, title: report.title, shareToken, data: report.data, period: report.period },
   });
 
   if (!result.ok) {
