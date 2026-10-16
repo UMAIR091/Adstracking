@@ -142,6 +142,13 @@ export const instagramDef: IntegrationDef = {
   status: gated(metaConfigured()),
   oauthProviderId: "instagram",
   connectPath: "/api/meta/connect",
+  // Meta reaches Instagram professional accounts through the Facebook Page
+  // they're linked to, so the sign-in is Facebook's, under whichever Facebook
+  // profile the browser is already signed in to.
+  signInVia: {
+    name: "Facebook",
+    note: "Instagram business and creator accounts connect through Facebook. Sign in with the Facebook profile that manages this client's Facebook Page, the Page their Instagram account is linked to. If Facebook shows someone else's name, choose “Log in to another account” on the next screen.",
+  },
   accountNoun: "account",
   accountConfigKey: "account_id",
   snapshotTable: "integration_snapshots",

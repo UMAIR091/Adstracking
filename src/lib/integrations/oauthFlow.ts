@@ -16,6 +16,7 @@ import { logError } from "@/lib/errorLog";
 import { logDetail, publicMessage } from "@/lib/errors";
 import { checkIntegrationLimit } from "@/lib/billing/limits";
 import type { IntegrationConfig, IntegrationDef, OAuthProvider } from "./types";
+import { CONNECT_FLASH_COOKIE, CONNECT_FLASH_MAX_AGE, encodeConnectFlash, type ConnectFlash } from "./connectFlash";
 
 const NONCE_COOKIE = "oauth_nonce";
 
@@ -152,9 +153,17 @@ export async function handleCallback(req: Request): Promise<Response> {
   if (!client) return fail("Client not found");
 
   try {
-    await completeOAuthConnect(supabase, agency.id, clientId, def, oauth, code, provider, field);
+    const flash = await completeOAuthConnect(supabase, agency.id, clientId, def, oauth, code, provider, field);
     (await cookies()).set(NONCE_COOKIE, "", { maxAge: 0, path: "/" });
-    return NextResponse.redirect(`${appBase}/dashboard/clients/${clientId}?connected=${def.id}`);
+    const res = NextResponse.redirect(`${appBase}/dashboard/clients/${clientId}?connected=${def.id}`);
+    // Read once by ConnectStatusToast, so it isn't httpOnly.
+    res.cookies.set(CONNECT_FLASH_COOKIE, encodeConnectFlash(flash), {
+      maxAge: CONNECT_FLASH_MAX_AGE,
+      path: "/dashboard",
+      sameSite: "lax",
+      secure: appBase.startsWith("https://"),
+    });
+    return res;
   } catch (err) {
     // Token exchange / account-listing / storage failed — record it, then fail
     // with a user-safe message (raw provider/DB detail stays in the logs).
@@ -170,7 +179,8 @@ export async function handleCallback(req: Request): Promise<Response> {
 }
 
 // Exchanges the code, lists accounts, stores the encrypted connection, and syncs
-// immediately if exactly one account was auto-selected.
+// immediately if exactly one account was auto-selected. Returns who signed in
+// and which account was selected, for the success toast.
 export async function completeOAuthConnect(
   supabase: SupabaseClient,
   agencyId: string,
@@ -180,7 +190,7 @@ export async function completeOAuthConnect(
   code: string,
   provider?: string,
   connectValue?: string
-): Promise<void> {
+): Promise<ConnectFlash> {
   if (!def.listAccounts || !def.buildConfig) throw new Error("Integration is not connectable");
 
   const tokens = await oauth.exchangeCode(code, { provider });
@@ -221,10 +231,16 @@ export async function completeOAuthConnect(
     .single();
   if (error) throw new Error(error.message);
 
-  if (def.readSelected?.(config)) {
+  const selected = def.readSelected?.(config) ?? null;
+  if (selected) {
     await syncDataSource(supabase, inserted as SyncableSource);
   }
 
   // Reflect the new connection in the cached dashboard health rollup at once.
   revalidateIntegrationHealth(agencyId);
+
+  return {
+    account: selected ? (accounts.find((a) => a.id === selected)?.name ?? null) : null,
+    identity: typeof identity === "string" ? identity : null,
+  };
 }

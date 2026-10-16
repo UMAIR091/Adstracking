@@ -82,6 +82,11 @@ export type IntegrationDef = {
   // stores it on the connection for provider-aware refresh. Absent = single
   // default provider (existing behavior).
   identityProviders?: { id: string; label: string }[];
+  // When the sign-in happens on a different service than the integration's
+  // name suggests (Instagram signs in through Facebook), the consent screen
+  // names that service on its button and explains why, so the redirect
+  // doesn't look like a mistake. Absent = "Continue to {name}".
+  signInVia?: { name: string; note: string };
 
   // How the connection authenticates. "oauth" (default) uses the redirect flow;
   // "apikey" collects secret(s) on the consent screen and verifies them directly

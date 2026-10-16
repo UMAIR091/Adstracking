@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ShieldCheck, Eye, Trash2, ArrowRight } from "lucide-react";
+import { ShieldCheck, Eye, Trash2, ArrowRight, LogIn } from "lucide-react";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
 import { getIntegration, isConnectable } from "@/lib/integrations/registry";
@@ -61,6 +61,12 @@ export default async function ConnectConsentPage(
           </ul>
 
           <div className="mt-6 space-y-3 border-t border-ink-100 pt-5 text-sm text-ink-600">
+            {def.signInVia && (
+              <p className="flex items-start gap-2">
+                <LogIn size={16} className="mt-0.5 shrink-0 text-brand-600" />
+                <span>{def.signInVia.note}</span>
+              </p>
+            )}
             <p className="flex items-start gap-2">
               <ShieldCheck size={16} className="mt-0.5 shrink-0 text-success-600" />
               <span>
@@ -165,7 +171,7 @@ export default async function ConnectConsentPage(
                 </Button>
                 <Button asChild>
                   <a href={continueHref}>
-                    Continue to {def.name} <ArrowRight size={16} />
+                    {def.signInVia ? `Continue with ${def.signInVia.name}` : `Continue to ${def.name}`} <ArrowRight size={16} />
                   </a>
                 </Button>
               </div>
