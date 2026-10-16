@@ -65,7 +65,29 @@ export async function claimSyncBatch(admin: SupabaseClient, limit: number): Prom
     p_limit: limit,
   });
   if (error) throw new Error(error.message);
-  return (data ?? []) as SyncableSource[];
+  const now = Date.now();
+  return ((data ?? []) as (SyncableSource & RevocationFields)[]).filter((s) => dueForScheduledSync(s, now));
+}
+
+type RevocationFields = { status?: string | null; last_sync_failed_at?: string | null };
+
+/** How long a revoked source rests between scheduled retries. */
+export const REVOKED_RETRY_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Whether the scheduled sync should call the provider for this source.
+ *
+ * A source marked "revoked" has a token the provider rejected; only a
+ * reconnect fixes it. Retrying it every day just fails again, logs another
+ * error and keeps the workspace's health degraded: two revoked Meta sources
+ * produced over 90 sync errors in 60 days. They now rest a week between
+ * attempts, which still recovers a source misclassified as revoked. Manual
+ * refresh and reconnect don't go through here and are unaffected.
+ */
+export function dueForScheduledSync(source: RevocationFields, now: number = Date.now()): boolean {
+  if (source.status !== "revoked") return true;
+  const failed = source.last_sync_failed_at ? Date.parse(source.last_sync_failed_at) : NaN;
+  return !Number.isFinite(failed) || now - failed >= REVOKED_RETRY_MS;
 }
 
 // Runs `worker` over `items` with at most `limit` in flight, adding a small
