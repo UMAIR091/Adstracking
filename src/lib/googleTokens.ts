@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { refreshAccessToken } from "@/lib/google";
 import { oauthForType } from "@/lib/integrations/registry";
+import { EXPIRY_BUFFER_MS, renewAheadMs } from "@/lib/integrations/tokenRenewal";
 
 type DataSourceRow = {
   id: string;
@@ -22,13 +23,14 @@ function connectionProvider(row: { config?: Record<string, unknown> | null } | n
   return typeof p === "string" ? p : undefined;
 }
 
-const EXPIRY_BUFFER_MS = 60_000; // treat as expired 1 minute early
 const LOCK_TTL_MS = 90_000; // lease long enough to cover a refresh HTTP round-trip
 const MAX_WAIT_MS = 25_000; // cap total wait for another worker's refresh (< route maxDuration)
 
-function tokenStillValid(expiresAt: string | null): boolean {
+// Valid for at least `bufferMs` more. The default treats a token as expired one
+// minute early; self-extending tokens pass a much longer window (renewAheadMs).
+function tokenStillValid(expiresAt: string | null, bufferMs: number = EXPIRY_BUFFER_MS): boolean {
   const ms = expiresAt ? new Date(expiresAt).getTime() : 0;
-  return ms - Date.now() > EXPIRY_BUFFER_MS;
+  return ms - Date.now() > bufferMs;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -87,8 +89,16 @@ export async function getValidAccessToken(
   ds: DataSourceRow
 ): Promise<string> {
   if (!ds.access_token) throw new Error("This connection has no access token. Please reconnect.");
-  if (tokenStillValid(ds.token_expires_at)) return decrypt(ds.access_token);
-  if (!ds.refresh_token) throw new Error("Token expired and no refresh token. Please reconnect.");
+  const ahead = renewAheadMs(ds);
+  if (tokenStillValid(ds.token_expires_at, ahead)) return decrypt(ds.access_token);
+  // Inside an early-renewal window the current token still works, so renewing
+  // is best-effort: if it can't happen now, keep using the token and try again
+  // on the next sync rather than failing this one.
+  const stillUsable = tokenStillValid(ds.token_expires_at);
+  if (!ds.refresh_token) {
+    if (stillUsable) return decrypt(ds.access_token);
+    throw new Error("Token expired and no refresh token. Please reconnect.");
+  }
 
   const lockId = crypto.randomUUID();
   const deadline = Date.now() + MAX_WAIT_MS;
@@ -99,7 +109,7 @@ export async function getValidAccessToken(
         // Re-check under the lock: another worker may have refreshed while we
         // were queued, in which case we must NOT refresh again.
         const fresh = (await readTokens(supabase, ds.id)) ?? ds;
-        if (fresh.access_token && tokenStillValid(fresh.token_expires_at)) {
+        if (fresh.access_token && tokenStillValid(fresh.token_expires_at, ahead)) {
           await releaseLock(supabase, ds.id, lockId);
           return decrypt(fresh.access_token);
         }
@@ -135,12 +145,20 @@ export async function getValidAccessToken(
         // so a later attempt can retry. Classification (reauth vs transient) is
         // handled by the caller (syncDataSource).
         await releaseLock(supabase, ds.id, lockId);
+        if (stillUsable) {
+          console.error(`[tokens] early renewal failed for ${ds.type ?? "source"} ${ds.id}: ${(err as Error).message}`);
+          return decrypt(ds.access_token);
+        }
         throw err;
       }
     }
 
-    // Someone else holds the lease. Wait for their refreshed token instead of
-    // piling on a second refresh.
+    // Someone else holds the lease. An early renewal needn't wait for them:
+    // the current token still works.
+    if (stillUsable) return decrypt(ds.access_token);
+
+    // Otherwise wait for their refreshed token instead of piling on a second
+    // refresh.
     if (Date.now() > deadline) {
       throw new Error("Token refresh is temporarily busy; please try again in a moment.");
     }

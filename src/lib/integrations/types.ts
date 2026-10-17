@@ -47,9 +47,23 @@ export type OAuthProvider = {
   // integrations. Undefined (the default) means each connection has its own
   // grant and disconnect can always revoke.
   grantKey?(row: GrantOwner): string | null;
+  // How this connection's access outlives its token expiry (default "refresh").
+  // See TokenRenewal.
+  renewal?(ctx?: AuthContext): TokenRenewal;
   // Where the provider redirects back to (must match the OAuth app config).
   callbackPath: string;
 };
+
+// - "refresh": a refresh token mints new access tokens whenever needed (Google,
+//   LinkedIn, Microsoft…). Renewed when the access token is about to expire.
+// - "extend": the long-lived token renews itself, but only while still valid
+//   (Business Login for Instagram, +60 days). Renewed well ahead of expiry,
+//   because a once-a-day sync would otherwise find it already expired.
+// - "reconnect": the token can't be extended at all (Facebook Login: re-
+//   exchanging a long-lived token returns one with the SAME expiry, checked
+//   17 Oct 2026), so the user must sign in again before it expires. The UI
+//   warns ahead of the date.
+export type TokenRenewal = "refresh" | "extend" | "reconnect";
 
 // A selectable account/property/site exposed after connecting.
 export type IntegrationAccount = { id: string; name: string };

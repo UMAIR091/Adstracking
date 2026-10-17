@@ -150,7 +150,9 @@ export const instagramOAuth: OAuthProvider = {
     return asTokenSet(long);
   },
 
-  // Extends a still-valid long-lived token by another 60 days.
+  // Instagram route: extends a still-valid long-lived token by another 60 days
+  // (it must be at least 24 hours old). Facebook route: see metaOAuth.refresh,
+  // which can't extend.
   async refresh(token, ctx) {
     if (!viaInstagram(ctx?.provider)) return metaOAuth.refresh(token);
     const fresh = await igGet<LongLivedToken>("/refresh_access_token", {
@@ -166,6 +168,8 @@ export const instagramOAuth: OAuthProvider = {
     const me = await igGet<{ username?: string; name?: string }>("/me", { fields: "username,name", access_token: accessToken });
     return me.username ? `@${me.username}` : me.name || "Instagram account";
   },
+
+  renewal: (ctx) => (viaInstagram(ctx?.provider) ? "extend" : "reconnect"),
 
   callbackPath: "/api/meta/callback",
 };

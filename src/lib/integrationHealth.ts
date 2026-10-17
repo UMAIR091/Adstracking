@@ -3,7 +3,10 @@
 // derives a token-expiration signal from token_expires_at + status.
 import { unstable_cache, revalidateTag } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { format } from "date-fns";
 import { getIntegration } from "@/lib/integrations/registry";
+import { RECONNECT_WARN_MS, renewalFor } from "@/lib/integrations/tokenRenewal";
+import type { TokenRenewal } from "@/lib/integrations/types";
 import { getIntegrationName } from "@/lib/integrations/names";
 import { sourceHealth, countHealth, type SourceHealth } from "@/lib/integrations/status";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -22,7 +25,9 @@ export function revalidateIntegrationHealth(agencyId: string): void {
 }
 
 export type ConnectionStatus = "connected" | "error" | "revoked";
-export type TokenState = "auto_refresh" | "no_expiry" | "expiring" | "reconnect";
+// "valid_until": a token that can't be extended, not yet near its expiry.
+// "expiring": the same, inside the warning window — reconnect by the date.
+export type TokenState = "auto_refresh" | "no_expiry" | "valid_until" | "expiring" | "reconnect";
 
 export type IntegrationHealth = {
   id: string;
@@ -48,13 +53,26 @@ export type IntegrationHealth = {
 // years is treated as "no real expiry".
 const TEN_YEARS_MS = 10 * 365 * 24 * 60 * 60 * 1000;
 
-function tokenState(status: ConnectionStatus, tokenExpiresAt: string | null): { state: TokenState; label: string } {
+export function tokenState(
+  status: ConnectionStatus,
+  tokenExpiresAt: string | null,
+  renewal: TokenRenewal = "refresh",
+  now: number = Date.now()
+): { state: TokenState; label: string } {
   if (status === "revoked") return { state: "reconnect", label: "Reconnect required" };
   if (!tokenExpiresAt) return { state: "no_expiry", label: "No expiry" };
-  const ms = new Date(tokenExpiresAt).getTime() - Date.now();
+  const ms = new Date(tokenExpiresAt).getTime() - now;
   if (ms > TEN_YEARS_MS) return { state: "no_expiry", label: "No expiry (API key)" };
-  // OAuth access tokens are short-lived and refreshed automatically by the sync;
-  // an expired-but-not-revoked token is normal, not a problem.
+  // A token that can't be extended (Facebook Login) needs a fresh sign-in
+  // before it expires, so it says by when, and warns as the date nears.
+  if (renewal === "reconnect") {
+    const day = format(new Date(tokenExpiresAt), "d MMM yyyy");
+    if (ms <= 0) return { state: "reconnect", label: "Expired: reconnect" };
+    if (ms <= RECONNECT_WARN_MS) return { state: "expiring", label: `Reconnect by ${day}` };
+    return { state: "valid_until", label: `Valid until ${day}` };
+  }
+  // Other OAuth access tokens are short-lived and refreshed automatically by
+  // the sync; an expired-but-not-revoked token is normal, not a problem.
   return { state: "auto_refresh", label: "Auto-refreshing" };
 }
 
@@ -118,7 +136,7 @@ export async function getIntegrationHealth(supabase: SupabaseClient, agencyId: s
       lastSyncFailedAt: r.last_sync_failed_at,
       lastSyncError: r.last_sync_error,
       tokenExpiresAt: r.token_expires_at,
-      token: tokenState(status, r.token_expires_at),
+      token: tokenState(status, r.token_expires_at, renewalFor(r)),
       selectedAccountId,
       // The one classification every screen reads (P0-1).
       health: sourceHealth({ status, lastSyncError: r.last_sync_error, selectedAccountId }),

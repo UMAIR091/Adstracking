@@ -78,7 +78,9 @@ export const metaOAuth: OAuthProvider = {
     return { access_token: long.access_token, refresh_token: long.access_token, expires_in: long.expires_in || SIXTY_DAYS };
   },
 
-  // Re-exchange a still-valid long-lived token for a fresh 60-day one.
+  // Re-exchange a still-valid long-lived token. This does NOT extend it: Meta
+  // returns a new token with the same expiry (checked with debug_token,
+  // 17 Oct 2026), and expires_in is the time left. Hence renewal "reconnect".
   async refresh(token): Promise<TokenSet> {
     const long = await graphGet<{ access_token: string; expires_in?: number }>("/oauth/access_token", {
       grant_type: "fb_exchange_token",
@@ -102,6 +104,10 @@ export const metaOAuth: OAuthProvider = {
     const res = await fetch(`${GRAPH}/me/permissions?${params.toString()}`, { method: "DELETE" });
     if (!res.ok) throw new Error(`Meta permission revoke failed: ${await res.text()}`);
   },
+
+  // A long-lived Facebook user token can't be extended server-side; the user
+  // must sign in again within its ~60 days.
+  renewal: () => "reconnect",
 
   // Registered in the Meta app's Facebook Login settings.
   callbackPath: "/api/meta/callback",

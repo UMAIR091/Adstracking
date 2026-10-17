@@ -19,6 +19,7 @@ import type { ConnectableIntegration } from "@/components/ConnectAccountModal";
 import { liveIntegrations, listIntegrations, isConnectable } from "@/lib/integrations/registry";
 import { hasAnalyticsView, groupForIntegration } from "@/lib/integrations/analyticsViews";
 import { sourceHealth } from "@/lib/integrations/status";
+import { reconnectDeadline } from "@/lib/integrations/tokenRenewal";
 import type { CachedPeriodDays } from "@/lib/reports/periods";
 import type { IntegrationDef } from "@/lib/integrations/types";
 
@@ -33,6 +34,9 @@ export type WorkspaceIntegration = {
   health: ReturnType<typeof sourceHealth> | null;
   selectedDatasetId: string | null;
   selectedTableId: string | null;
+  /** For a token that can't be extended (Facebook Login): the date to
+   *  reconnect by, once it is near or past. Null when nothing is due. */
+  reconnectBy: string | null;
 };
 
 export type ClientWorkspace = {
@@ -63,6 +67,7 @@ type DsRow = {
   status: string | null;
   last_synced_at: string | null;
   last_sync_error: string | null;
+  token_expires_at: string | null;
 };
 
 // Anything not healthy leads the list — needs_account / sync_error /
@@ -84,7 +89,7 @@ export async function loadClientWorkspace(
   // connected sources (was: 2 queries × every live integration ≈ 60/page load).
   const { data: dsRows } = await supabase
     .from("data_sources")
-    .select("id, type, display_name, config, status, last_synced_at, last_sync_error")
+    .select("id, type, display_name, config, status, last_synced_at, last_sync_error, token_expires_at")
     .eq("client_id", clientId);
   const dsByType = new Map<string, DsRow>();
   for (const d of (dsRows ?? []) as DsRow[]) dsByType.set(d.type, d);
@@ -145,6 +150,7 @@ export async function loadClientWorkspace(
       // selection so its dedicated card can restore the picker state.
       selectedDatasetId: (config.dataset_id as string | null) ?? null,
       selectedTableId: (config.table_id as string | null) ?? null,
+      reconnectBy: ds && ds.status !== "revoked" ? reconnectDeadline(ds) : null,
     };
   });
 

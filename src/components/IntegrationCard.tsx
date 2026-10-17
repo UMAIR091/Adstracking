@@ -29,6 +29,7 @@ export function IntegrationCard({
   status = null,
   lastSyncedAt = null,
   lastSyncError = null,
+  reconnectBy = null,
 }: {
   descriptor: IntegrationDescriptor;
   clientId: string;
@@ -36,6 +37,8 @@ export function IntegrationCard({
   status?: string | null;
   lastSyncedAt?: string | null;
   lastSyncError?: string | null;
+  /** Set when the sign-in can't be renewed automatically and expires soon. */
+  reconnectBy?: string | null;
 }) {
   const router = useRouter();
   const [account, setAccount] = useState(source?.selectedAccountId ?? "");
@@ -53,6 +56,14 @@ export function IntegrationCard({
   // the account-selection banner (user needs to reconnect first).
   const needsAccount = !needsReconnect && source !== null && !source.selectedAccountId;
   const connectHref = `/dashboard/connect/${descriptor.id}?clientId=${clientId}`;
+  // Facebook sign-ins last ~60 days and can't be extended, so the card warns
+  // ahead of the date instead of the sync failing on the day.
+  const expired = reconnectBy !== null && new Date(reconnectBy).getTime() <= Date.now();
+  const showReconnectBy = !needsReconnect && reconnectBy !== null;
+  // In UTC, so the server render and the browser agree on the day.
+  const reconnectDay = reconnectBy
+    ? new Date(reconnectBy).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
+    : null;
 
   if (!source) {
     return (
@@ -150,7 +161,7 @@ export function IntegrationCard({
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {needsReconnect && (
+            {(needsReconnect || showReconnectBy) && (
               <Button asChild size="sm">
                 <a href={connectHref}>Reconnect</a>
               </Button>
@@ -168,6 +179,30 @@ export function IntegrationCard({
               <span className="font-semibold">Reconnection required.</span>{" "}
               {lastSyncError ?? `${descriptor.name} access has expired or was revoked.`} Syncing is paused until you{" "}
               <a href={connectHref} className="font-semibold underline">reconnect {descriptor.name}</a>.
+            </span>
+          </div>
+        )}
+
+        {showReconnectBy && (
+          <div className="mt-4 flex items-start gap-2 rounded-lg border border-warning-300 bg-warning-50 px-3 py-2.5 text-xs text-warning-800">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            <span>
+              {expired ? (
+                <>
+                  <span className="font-semibold">{descriptor.name} access has expired.</span> Facebook sign-ins can&apos;t
+                  be renewed automatically, so syncing stops until you{" "}
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold">
+                    {descriptor.name} access ends on {reconnectDay}.
+                  </span>{" "}
+                  Facebook sign-ins last about 60 days and can&apos;t be renewed automatically. To keep this
+                  client&apos;s data syncing,{" "}
+                </>
+              )}
+              <a href={connectHref} className="font-semibold underline">reconnect {descriptor.name}</a>
+              {expired ? "." : " before then."}
             </span>
           </div>
         )}
