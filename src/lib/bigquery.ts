@@ -30,7 +30,7 @@ export async function bigQueryContext(dataSourceId: string | null | undefined): 
   if (ds.type !== "bigquery") return { ok: false, status: 400, error: "Not a BigQuery connection" };
 
   try {
-    const accessToken = await getValidAccessToken(supabase, ds);
+    const accessToken = await getValidAccessToken(ds);
     return { ok: true, supabase, ds, accessToken };
   } catch (err) {
     // Expired/revoked grant with no usable refresh token, etc.

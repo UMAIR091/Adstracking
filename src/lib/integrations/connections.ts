@@ -27,7 +27,7 @@ const CONNECTION_TOKEN_FIELDS = "id, identity_provider, access_token, refresh_to
 // Everything sync and token refresh need about a source, with its sign-in.
 // Service role only: the joined token columns aren't readable by tenants.
 export const SYNCABLE_SELECT =
-  `id, agency_id, client_id, type, config, connection_id, access_token, refresh_token, token_expires_at, ` +
+  `id, agency_id, client_id, type, config, connection_id, ` +
   `connection:connections!data_sources_connection_fkey(${CONNECTION_TOKEN_FIELDS})`;
 
 type SyncableRow = Omit<SyncableSource, "connection"> & { connection: ConnectionTokens | ConnectionTokens[] | null };
@@ -158,10 +158,7 @@ export async function saveSignIn(
   }
 
   return {
-    ...(source as Omit<SyncableSource, "connection" | "access_token" | "refresh_token" | "token_expires_at">),
-    access_token: null,
-    refresh_token: null,
-    token_expires_at: null,
+    ...(source as Omit<SyncableSource, "connection">),
     connection: {
       id: connectionId,
       identity_provider: args.identityProvider ?? null,

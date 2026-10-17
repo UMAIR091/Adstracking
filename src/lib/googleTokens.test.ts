@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-// Long-lived tokens that renew themselves only while still valid (Business
-// Login for Instagram) used to be renewed in the last minute before expiry, so
-// a once-a-day sync found them already expired and the connection died. These
-// pin the early renewal, and that it stays best-effort.
+// Tokens live on the shared sign-in (migrations 0046/0047), refreshed with the
+// service role. Long-lived tokens that renew themselves only while still valid
+// (Business Login for Instagram) used to be renewed in the last minute before
+// expiry, so a once-a-day sync found them already expired and the connection
+// died. These pin the early renewal, that it stays best-effort, and that the
+// sign-in (never the client's row) is what gets refreshed.
 
 const refresh = vi.fn();
 // Set to make the next renewal fail. A plain throw rather than a vi.fn()
@@ -20,15 +22,14 @@ vi.mock("@/lib/crypto", () => ({
   decrypt: (s: string) => s.replace(/^enc:/, ""),
 }));
 vi.mock("@/lib/google", () => ({ refreshAccessToken: vi.fn() }));
-// Shared sign-ins are read and written with the service role.
-const admin = vi.hoisted(() => ({ db: null as unknown }));
-vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => admin.db }));
 vi.mock("@/lib/integrations/registry", () => ({
   oauthForType: (type: string) =>
     type === "instagram"
       ? { refresh: renew, renewal: (ctx?: { provider?: string }) => (ctx?.provider === "instagram" ? "extend" : "reconnect") }
       : { refresh: renew },
 }));
+const admin = vi.hoisted(() => ({ db: null as unknown }));
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => admin.db }));
 
 import { getValidAccessToken } from "./googleTokens";
 
@@ -61,14 +62,20 @@ function fakeDb(row: Row) {
   return { db: { from } as unknown as SupabaseClient, writes };
 }
 
-const source = (type: string, daysLeft: number, provider?: string): Row => ({
-  id: "ds1",
-  type,
-  config: provider ? { identity_provider: provider } : {},
-  access_token: "enc:current",
-  refresh_token: "enc:current",
-  token_expires_at: new Date(Date.now() + daysLeft * DAY).toISOString(),
-});
+// A client's source on a shared sign-in expiring in `daysLeft` days. The
+// sign-in's fake database is installed as the service-role client.
+function source(type: string, daysLeft: number, provider?: string) {
+  const signIn: Row = {
+    id: "conn1",
+    identity_provider: provider ?? null,
+    access_token: "enc:current",
+    refresh_token: "enc:current",
+    token_expires_at: new Date(Date.now() + daysLeft * DAY).toISOString(),
+  };
+  const shared = fakeDb(signIn);
+  admin.db = shared.db;
+  return { row: { id: "ds1", type, config: {}, connection: signIn }, writes: shared.writes };
+}
 
 beforeEach(() => {
   refresh.mockReset();
@@ -78,26 +85,26 @@ beforeEach(() => {
 describe("early renewal of self-extending tokens", () => {
   it("renews an Instagram sign-in token once fewer than 10 days are left", async () => {
     refresh.mockResolvedValue({ access_token: "renewed", refresh_token: "renewed", expires_in: 60 * 86400 });
-    const row = source("instagram", 5, "instagram");
-    const { db, writes } = fakeDb(row);
-    expect(await getValidAccessToken(db, row as never)).toBe("renewed");
+    const { row, writes } = source("instagram", 5, "instagram");
+    expect(await getValidAccessToken(row as never)).toBe("renewed");
     expect(refresh).toHaveBeenCalledWith("current", { provider: "instagram" });
     const saved = writes.find((w) => w.access_token);
+    expect(saved?.table).toBe("connections");
     expect(saved?.access_token).toBe("enc:renewed");
     expect(new Date(saved?.token_expires_at as string).getTime()).toBeGreaterThan(Date.now() + 59 * DAY);
   });
 
   it("leaves it alone while more than 10 days are left", async () => {
-    const row = source("instagram", 20, "instagram");
-    expect(await getValidAccessToken(fakeDb(row).db, row as never)).toBe("current");
+    const { row } = source("instagram", 20, "instagram");
+    expect(await getValidAccessToken(row as never)).toBe("current");
     expect(refresh).not.toHaveBeenCalled();
   });
 
   it("keeps using the current token when an early renewal fails", async () => {
     failRenewal = new Error("Instagram API error: temporarily unavailable");
-    const row = source("instagram", 5, "instagram");
+    const { row } = source("instagram", 5, "instagram");
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(await getValidAccessToken(fakeDb(row).db, row as never)).toBe("current");
+    expect(await getValidAccessToken(row as never)).toBe("current");
     expect(errors).toHaveBeenCalled();
     errors.mockRestore();
   });
@@ -105,41 +112,34 @@ describe("early renewal of self-extending tokens", () => {
 
 describe("other tokens are unchanged", () => {
   it("doesn't touch a Facebook sign-in token early (it can't be extended)", async () => {
-    const row = source("instagram", 5);
-    expect(await getValidAccessToken(fakeDb(row).db, row as never)).toBe("current");
+    const { row } = source("instagram", 5, "facebook");
+    expect(await getValidAccessToken(row as never)).toBe("current");
     expect(refresh).not.toHaveBeenCalled();
   });
 
-  it("still refreshes an expired refresh-token connection, and still fails loudly", async () => {
+  it("still refreshes an expired refresh-token sign-in, and still fails loudly", async () => {
     refresh.mockResolvedValueOnce({ access_token: "fresh", expires_in: 3600 });
-    const row = source("gsc", -0.01);
-    expect(await getValidAccessToken(fakeDb(row).db, row as never)).toBe("fresh");
+    const { row } = source("gsc", -0.01);
+    expect(await getValidAccessToken(row as never)).toBe("fresh");
 
     failRenewal = new Error("invalid_grant");
     const dead = source("gsc", -0.01);
-    await expect(getValidAccessToken(fakeDb(dead).db, dead as never)).rejects.toThrow("invalid_grant");
+    await expect(getValidAccessToken(dead.row as never)).rejects.toThrow("invalid_grant");
   });
 });
 
-describe("shared sign-ins (migration 0046)", () => {
-  it("refreshes the sign-in, not the client's row, so every client gets the new token", async () => {
+describe("shared sign-ins", () => {
+  it("takes the sign-in route from the sign-in when the client's row records none", async () => {
     refresh.mockResolvedValue({ access_token: "renewed", refresh_token: "renewed", expires_in: 60 * 86400 });
-    const signIn = {
-      id: "conn1",
-      identity_provider: "instagram",
-      access_token: "enc:shared",
-      refresh_token: "enc:shared",
-      token_expires_at: new Date(Date.now() + 5 * DAY).toISOString(),
-    };
-    const shared = fakeDb(signIn);
-    admin.db = shared.db;
-    const row = { ...source("instagram", 30), access_token: null, refresh_token: null, token_expires_at: null, config: {}, connection: signIn };
-    const own = fakeDb(row);
+    const { row, writes } = source("instagram", 5, "instagram");
+    expect(await getValidAccessToken({ ...row, config: {} } as never)).toBe("renewed");
+    expect(refresh).toHaveBeenCalledWith("current", { provider: "instagram" });
+    expect(writes.filter((w) => w.access_token).map((w) => w.table)).toEqual(["connections"]);
+  });
 
-    expect(await getValidAccessToken(own.db, row as never)).toBe("renewed");
-    // The sign-in route comes from the sign-in; the client row records none.
-    expect(refresh).toHaveBeenCalledWith("shared", { provider: "instagram" });
-    expect(shared.writes.filter((w) => w.access_token).map((w) => w.table)).toEqual(["connections"]);
-    expect(own.writes).toEqual([]);
+  it("asks for a reconnect when a source has no saved sign-in", async () => {
+    await expect(getValidAccessToken({ id: "ds1", type: "gsc", config: {}, connection: null } as never)).rejects.toThrow(
+      "no saved sign-in"
+    );
   });
 });

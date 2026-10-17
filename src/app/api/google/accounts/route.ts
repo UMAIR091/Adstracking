@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   const chosen = def.readSelected?.(current) ?? null;
   let accounts: IntegrationAccount[];
   try {
-    const accessToken = await getValidAccessToken(supabase, ds);
+    const accessToken = await getValidAccessToken(ds);
     accounts = await def.listAccounts(accessToken, { provider, connectValue: chosen ?? undefined });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 502 });

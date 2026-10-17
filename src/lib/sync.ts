@@ -35,11 +35,6 @@ export type SyncableSource = {
    *  Load with lib/integrations/connections (service role). */
   connection_id?: string | null;
   connection?: ConnectionTokens | null;
-  /** Pre-0046 per-source tokens, used only by a row not yet linked to a
-   *  sign-in (connected by the previous deploy during rollout). */
-  access_token: string | null;
-  refresh_token: string | null;
-  token_expires_at: string | null;
 };
 
 // Syncs one data source of any integration type: resolve the provider from the
@@ -94,7 +89,7 @@ export async function syncDataSource(
   await trackUsage(ds.agency_id, "sync_executions");
 
   try {
-    const accessToken = await getValidAccessToken(supabase, ds);
+    const accessToken = await getValidAccessToken(ds);
     const now = new Date().toISOString();
 
     // Identity provider stored at connect time (e.g. microsoft | google), passed

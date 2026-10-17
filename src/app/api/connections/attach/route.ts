@@ -70,13 +70,10 @@ export async function POST(req: Request) {
     const connection = tokens as ConnectionTokens;
     const provider = connection.identity_provider ?? undefined;
 
-    const accessToken = await getValidAccessToken(supabase, {
+    const accessToken = await getValidAccessToken({
       id: existing?.id ?? conn.id,
       type: def.id,
       config: { identity_provider: provider },
-      access_token: null,
-      refresh_token: null,
-      token_expires_at: null,
       connection,
     });
     const accounts = await def.listAccounts!(accessToken, { provider });
@@ -104,13 +101,7 @@ export async function POST(req: Request) {
 
     const selected = def.readSelected?.(config) ?? null;
     if (selected) {
-      await syncDataSource(supabase, {
-        ...(source as Omit<SyncableSource, "connection" | "access_token" | "refresh_token" | "token_expires_at">),
-        access_token: null,
-        refresh_token: null,
-        token_expires_at: null,
-        connection,
-      });
+      await syncDataSource(supabase, { ...(source as Omit<SyncableSource, "connection">), connection });
     }
     revalidateIntegrationHealth(client.agency_id as string);
 

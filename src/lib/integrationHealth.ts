@@ -85,7 +85,6 @@ type Row = {
   last_synced_at: string | null;
   last_sync_failed_at: string | null;
   last_sync_error: string | null;
-  token_expires_at: string | null;
   // Carries the selected account/property, which decides needs_account. Config
   // holds no secrets — tokens live in their own encrypted columns.
   config: Record<string, unknown> | null;
@@ -120,7 +119,7 @@ export async function getIntegrationHealth(supabase: SupabaseClient, agencyId: s
   const { data } = await supabase
     .from("data_sources")
     .select(
-      "id, type, client_id, display_name, status, last_synced_at, last_sync_failed_at, last_sync_error, token_expires_at, config, clients(name), " +
+      "id, type, client_id, display_name, status, last_synced_at, last_sync_failed_at, last_sync_error, config, clients(name), " +
         "connection:connections!data_sources_connection_fkey(identity_provider, token_expires_at)"
     )
     .eq("agency_id", agencyId)
@@ -129,7 +128,7 @@ export async function getIntegrationHealth(supabase: SupabaseClient, agencyId: s
   return ((data ?? []) as unknown as Row[]).map((r) => {
     const status = (r.status ?? "connected") as ConnectionStatus;
     const signIn = Array.isArray(r.connection) ? r.connection[0] ?? null : r.connection;
-    const tokenExpiresAt = signIn?.token_expires_at ?? r.token_expires_at;
+    const tokenExpiresAt = signIn?.token_expires_at ?? null;
     const config = { ...(r.config ?? {}), identity_provider: signIn?.identity_provider ?? r.config?.identity_provider };
     const def = getIntegration(r.type);
     const selectedAccountId = def?.readSelected?.((r.config ?? {}) as never) ?? null;

@@ -10,22 +10,17 @@ import type { ConnectionTokens } from "@/lib/integrations/connections";
 type DataSourceRow = {
   id: string;
   type?: string | null;
-  access_token: string | null;
-  refresh_token: string | null;
-  token_expires_at: string | null;
   // Carries per-connection settings such as identity_provider, used to route
-  // refresh for integrations with more than one identity provider. Optional so
-  // callers that only load token columns still type-check.
+  // refresh for integrations with more than one identity provider.
   config?: Record<string, unknown> | null;
-  // The shared sign-in that holds this source's tokens (migration 0046).
+  // The shared sign-in that holds this source's tokens (migrations 0046/0047).
   connection?: ConnectionTokens | null;
 };
 
-// Where the tokens live: the shared sign-in (connections) for every source
-// linked to one, or, for a row not yet linked during rollout, the source
-// itself. Sign-ins are written with the service role: tenants can't.
+// The tokens live on the shared sign-in (connections), written with the
+// service role: tenants can't. Since 0047 a source holds no tokens of its own.
 type Holder = {
-  table: "connections" | "data_sources";
+  table: "connections";
   db: SupabaseClient;
   id: string;
   type?: string | null;
@@ -37,21 +32,19 @@ type Holder = {
 
 type TokenColumns = Pick<Holder, "access_token" | "refresh_token" | "token_expires_at">;
 
-function holderFor(supabase: SupabaseClient, ds: DataSourceRow): Holder {
+function holderFor(ds: DataSourceRow): Holder {
+  if (!ds.connection) throw new Error("This connection has no saved sign-in. Please reconnect.");
   const sourceProvider = typeof ds.config?.identity_provider === "string" ? ds.config.identity_provider : undefined;
-  if (ds.connection) {
-    return {
-      table: "connections",
-      db: createAdminClient(),
-      id: ds.connection.id,
-      type: ds.type,
-      provider: ds.connection.identity_provider ?? sourceProvider,
-      access_token: ds.connection.access_token,
-      refresh_token: ds.connection.refresh_token,
-      token_expires_at: ds.connection.token_expires_at,
-    };
-  }
-  return { table: "data_sources", db: supabase, id: ds.id, type: ds.type, provider: sourceProvider, ...pickTokens(ds) };
+  return {
+    table: "connections",
+    db: createAdminClient(),
+    id: ds.connection.id,
+    type: ds.type,
+    provider: ds.connection.identity_provider ?? sourceProvider,
+    access_token: ds.connection.access_token,
+    refresh_token: ds.connection.refresh_token,
+    token_expires_at: ds.connection.token_expires_at,
+  };
 }
 
 const pickTokens = (row: TokenColumns): TokenColumns => ({
@@ -114,8 +107,8 @@ async function releaseLock(h: Holder, lockId: string): Promise<void> {
 
 // Returns a valid (decrypted) access token for a data source, refreshing and
 // persisting a new one if the current token is expired or about to expire.
-// For a source on a shared sign-in, the sign-in is what gets refreshed, so
-// every client on it gets the new token.
+// The source's shared sign-in is what gets refreshed, so every client on it
+// gets the new token.
 //
 // Refresh is single-flight: a short-lived DB lease ensures the cron and a manual
 // "Refresh now" can't refresh the same token at the same time (which, for
@@ -123,11 +116,8 @@ async function releaseLock(h: Holder, lockId: string): Promise<void> {
 // loser of the race waits for the winner's fresh token instead of refreshing
 // again. The refresh backend is resolved from the integration registry by source
 // type (Google today; other OAuth providers slot in without changing this code).
-export async function getValidAccessToken(
-  supabase: SupabaseClient,
-  ds: DataSourceRow
-): Promise<string> {
-  const h = holderFor(supabase, ds);
+export async function getValidAccessToken(ds: DataSourceRow): Promise<string> {
+  const h = holderFor(ds);
   if (!h.access_token) throw new Error("This connection has no access token. Please reconnect.");
   const current = h.access_token;
   const ahead = renewAheadMs({ type: h.type, config: { identity_provider: h.provider } });

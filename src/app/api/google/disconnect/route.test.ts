@@ -44,8 +44,10 @@ type Row = {
 const deleted: string[] = [];
 let target: Row | null = null;
 let siblings: Row[] = [];
-// Other clients on the target's shared sign-in (migration 0046).
+// Other clients on the target's shared sign-in (migration 0046), and the
+// sign-in's tokens (since 0047 the only place tokens live).
 let sameSignIn = 0;
+let signInTokens = { access_token: "enc:access-tok", refresh_token: "enc:refresh-tok" };
 
 // Minimal stand-in for the query builder the route uses: `.select().eq().maybeSingle()`
 // for the target row, `.select().eq().neq()` awaited directly for siblings, and
@@ -79,7 +81,7 @@ vi.mock("@/lib/supabase/admin", () => ({
       const chain = {
         select: () => chain,
         eq: () => chain,
-        maybeSingle: async () => ({ data: { access_token: "enc:shared-access", refresh_token: "enc:shared-refresh" } }),
+        maybeSingle: async () => ({ data: signInTokens }),
       };
       return chain;
     },
@@ -96,6 +98,7 @@ const ACCOUNT = "owner@example.com";
 
 const source = (over: Partial<Row> & Pick<Row, "id" | "type">): Row => ({
   agency_id: AGENCY,
+  connection_id: `conn-${over.id}`,
   access_token: "enc:access-tok",
   refresh_token: "enc:refresh-tok",
   display_name: ACCOUNT,
@@ -115,6 +118,7 @@ beforeEach(() => {
   target = null;
   siblings = [];
   sameSignIn = 0;
+  signInTokens = { access_token: "enc:access-tok", refresh_token: "enc:refresh-tok" };
 });
 
 describe("disconnect and the shared Google grant", () => {
@@ -241,8 +245,9 @@ describe("disconnect and the shared Google grant", () => {
     });
 
     it("revokes with the sign-in's own tokens when the last client leaves", async () => {
-      target = source({ id: "ds-gsc-a", type: "gsc", connection_id: "conn-1", refresh_token: null });
+      target = source({ id: "ds-gsc-a", type: "gsc", connection_id: "conn-1" });
       sameSignIn = 0;
+      signInTokens = { access_token: "enc:shared-access", refresh_token: "enc:shared-refresh" };
 
       await disconnect("ds-gsc-a");
 

@@ -46,7 +46,7 @@ export async function POST(req: Request) {
   // RLS scopes this to the caller's own sources.
   const { data: ds } = await supabase
     .from("data_sources")
-    .select("id, type, agency_id, connection_id, access_token, refresh_token, display_name, config")
+    .select("id, type, agency_id, connection_id, display_name, config")
     .eq("id", dataSourceId)
     .maybeSingle();
   if (!ds) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -54,9 +54,8 @@ export async function POST(req: Request) {
   const provider = oauthForType(ds.type as string | null);
 
   // Is this the last client on its sign-in? Only then do the tokens go, and
-  // only then is the grant a candidate for revoking. A row from before shared
-  // sign-ins that was never linked to one holds its own tokens.
-  let lastOnSignIn = true;
+  // only then is the grant a candidate for revoking.
+  let lastOnSignIn = false;
   if (ds.connection_id) {
     const { count } = await supabase
       .from("data_sources")
@@ -90,18 +89,14 @@ export async function POST(req: Request) {
     }
 
     if (!sharesGrant) {
-      // The live tokens are the sign-in's; only an unlinked row holds its own.
-      let tokens: TokenPair = ds as TokenPair;
-      if (ds.connection_id) {
-        const { data: conn } = await createAdminClient()
-          .from("connections")
-          .select("access_token, refresh_token")
-          .eq("id", ds.connection_id as string)
-          .eq("agency_id", ds.agency_id as string)
-          .maybeSingle();
-        if (conn) tokens = conn as TokenPair;
-      }
-      await revokeQuietly(provider, tokens);
+      // The tokens are the sign-in's, readable only with the service role.
+      const { data: conn } = await createAdminClient()
+        .from("connections")
+        .select("access_token, refresh_token")
+        .eq("id", ds.connection_id as string)
+        .eq("agency_id", ds.agency_id as string)
+        .maybeSingle();
+      if (conn) await revokeQuietly(provider, conn as TokenPair);
     }
   }
 

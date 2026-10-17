@@ -69,7 +69,6 @@ type DsRow = {
   status: string | null;
   last_synced_at: string | null;
   last_sync_error: string | null;
-  token_expires_at: string | null;
   connection_id: string | null;
   connection: SignInRow | SignInRow[] | null;
 };
@@ -98,7 +97,7 @@ export async function loadClientWorkspace(
   const { data: dsRows } = await supabase
     .from("data_sources")
     .select(
-      "id, type, display_name, config, status, last_synced_at, last_sync_error, token_expires_at, connection_id, " +
+      "id, type, display_name, config, status, last_synced_at, last_sync_error, connection_id, " +
         "connection:connections!data_sources_connection_fkey(identity_provider, token_expires_at)"
     )
     .eq("client_id", clientId);
@@ -182,7 +181,7 @@ export async function loadClientWorkspace(
           ? reconnectDeadline({
               type: ds.type,
               config: { ...config, identity_provider: signInOf(ds)?.identity_provider ?? config.identity_provider },
-              token_expires_at: signInOf(ds)?.token_expires_at ?? ds.token_expires_at,
+              token_expires_at: signInOf(ds)?.token_expires_at ?? null,
             })
           : null,
       sharedWith: ds?.connection_id ? sharedCount.get(ds.connection_id) ?? 0 : 0,
