@@ -8,6 +8,7 @@ import { IntegrationCard } from "@/components/IntegrationCard";
 import { BigQueryCard } from "@/components/BigQueryCard";
 import { ConnectAccountButton } from "@/components/ConnectAccountModal";
 import { ConnectLinkButton, type ActiveLink } from "@/components/ConnectLinkButton";
+import { HowToVideo } from "@/components/HowToVideo";
 import { linkConnectable } from "@/lib/connectLinks";
 import {
   AvailableIntegrations, ConnectedSource, type AvailableIntegration,
@@ -82,6 +83,7 @@ export default async function ClientDataSourcesPage(props: { params: Promise<{ i
   }));
   const headerActions = (
     <div className="flex flex-wrap gap-2">
+      <HowToVideo />
       {!client.archived && (
         <ConnectLinkButton
           clientId={clientId}
@@ -155,6 +157,9 @@ export default async function ClientDataSourcesPage(props: { params: Promise<{ i
             <Button asChild variant="outline" size="sm">
               <Link href="/dashboard/integrations">Browse all integrations</Link>
             </Button>
+          </div>
+          <div className="mx-auto mt-6 max-w-md">
+            <HowToVideo variant="card" />
           </div>
         </div>
       </ClientSection>

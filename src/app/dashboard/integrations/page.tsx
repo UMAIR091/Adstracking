@@ -11,6 +11,7 @@ import type { DataSourceCardData } from "@/components/DataSourceCard";
 import { listIntegrations, isConnectable } from "@/lib/integrations/registry";
 import { getIntegrationName } from "@/lib/integrations/names";
 import { sourceHealth, countHealth } from "@/lib/integrations/status";
+import { HowToVideo } from "@/components/HowToVideo";
 
 export const dynamic = "force-dynamic";
 
@@ -125,9 +126,12 @@ export default async function IntegrationsPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-[clamp(24px,3vw,28px)] font-semibold tracking-[-0.03em] text-ink-900">Integrations</h1>
-        <p className="mt-1 text-[14.5px] text-ink-500">Every data source connected across your clients, and what you can add next.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-[clamp(24px,3vw,28px)] font-semibold tracking-[-0.03em] text-ink-900">Integrations</h1>
+          <p className="mt-1 text-[14.5px] text-ink-500">Every data source connected across your clients, and what you can add next.</p>
+        </div>
+        <HowToVideo />
       </div>
 
       {accountRows.length > 0 && (
