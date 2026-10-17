@@ -7,6 +7,8 @@ import { trackUsage } from "@/lib/usage";
 import { recordDailyMetrics } from "@/lib/metrics/history";
 import { CACHED_PERIOD_DAYS } from "@/lib/reports/periods";
 import { ARCHIVED_CLIENT_ERROR, isSourceClientPaused } from "@/lib/archivedClients";
+import { createAdminClient } from "@/lib/supabase/admin";
+import type { ConnectionTokens } from "@/lib/integrations/connections";
 
 // Periods we keep warm in the cache (match the report/analytics date ranges).
 // Declared once in lib/reports/periods so the client Performance view, which
@@ -29,6 +31,12 @@ export type SyncableSource = {
   client_id?: string | null;
   type?: string | null;
   config: Record<string, unknown> | null;
+  /** The shared sign-in this source uses, with its tokens (migration 0046).
+   *  Load with lib/integrations/connections (service role). */
+  connection_id?: string | null;
+  connection?: ConnectionTokens | null;
+  /** Pre-0046 per-source tokens, used only by a row not yet linked to a
+   *  sign-in (connected by the previous deploy during rollout). */
   access_token: string | null;
   refresh_token: string | null;
   token_expires_at: string | null;
@@ -91,7 +99,9 @@ export async function syncDataSource(
 
     // Identity provider stored at connect time (e.g. microsoft | google), passed
     // through so the backend can add any provider-specific API headers.
-    const provider = typeof ds.config?.identity_provider === "string" ? ds.config.identity_provider : undefined;
+    const provider =
+      ds.connection?.identity_provider ??
+      (typeof ds.config?.identity_provider === "string" ? ds.config.identity_provider : undefined);
 
     // Widest window first, so the archive write below sees the most history.
     let widest: unknown = null;
@@ -128,6 +138,10 @@ export async function syncDataSource(
       .from("data_sources")
       .update({ last_synced_at: now, last_sync_attempt_at: now, last_sync_error: null, status: "connected" })
       .eq("id", ds.id);
+    // The sign-in demonstrably works, whatever an earlier failure said.
+    if (ds.connection && ds.connection.status === "revoked") {
+      await createAdminClient().from("connections").update({ status: "connected" }).eq("id", ds.connection.id);
+    }
 
     return { ok: true };
   } catch (err) {
@@ -143,6 +157,22 @@ export async function syncDataSource(
         : { status: "error", last_sync_error: message, last_sync_attempt_at: attemptedAt, last_sync_failed_at: attemptedAt };
 
     await supabase.from("data_sources").update(patch).eq("id", ds.id);
+    // A dead sign-in is dead for every client on it: say so on all of them at
+    // once, rather than each discovering it on its own next sync.
+    const connectionId = ds.connection?.id ?? ds.connection_id ?? null;
+    if (kind === "reauth" && connectionId) {
+      try {
+        const admin = createAdminClient();
+        await admin.from("connections").update({ status: "revoked" }).eq("id", connectionId);
+        await admin
+          .from("data_sources")
+          .update({ status: "revoked", last_sync_error: reconnectMessage(def.name) })
+          .eq("connection_id", connectionId)
+          .neq("id", ds.id);
+      } catch (markErr) {
+        console.error(`could not mark sign-in ${connectionId} revoked: ${(markErr as Error).message}`);
+      }
+    }
     // Append to the historical error log (best-effort; never blocks the sync).
     await logError({
       context: "sync",

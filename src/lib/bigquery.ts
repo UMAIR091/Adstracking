@@ -6,18 +6,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getValidAccessToken } from "@/lib/googleTokens";
+import { loadOneSyncable } from "@/lib/integrations/connections";
+import type { SyncableSource } from "@/lib/sync";
 
-const DS_FIELDS = "id, agency_id, type, config, access_token, refresh_token, token_expires_at";
-
-export type BigQueryConnection = {
-  id: string;
-  agency_id: string;
-  type: string;
-  config: Record<string, unknown> | null;
-  access_token: string | null;
-  refresh_token: string | null;
-  token_expires_at: string | null;
-};
+export type BigQueryConnection = SyncableSource & { type: string };
 
 export type BigQueryContext =
   | { ok: true; supabase: SupabaseClient; ds: BigQueryConnection; accessToken: string }
@@ -30,9 +22,10 @@ export async function bigQueryContext(dataSourceId: string | null | undefined): 
   if (!dataSourceId) return { ok: false, status: 400, error: "dataSourceId required" };
 
   // RLS scopes this select to the caller's own agency — a user can never load
-  // another tenant's connection.
-  const { data } = await supabase.from("data_sources").select(DS_FIELDS).eq("id", dataSourceId).maybeSingle();
-  const ds = data as BigQueryConnection | null;
+  // another tenant's connection. The sign-in's tokens are then loaded with the
+  // service role, which tenants can't read directly.
+  const { data: visible } = await supabase.from("data_sources").select("id").eq("id", dataSourceId).maybeSingle();
+  const ds = (visible ? await loadOneSyncable(dataSourceId) : null) as BigQueryConnection | null;
   if (!ds) return { ok: false, status: 404, error: "Not found" };
   if (ds.type !== "bigquery") return { ok: false, status: 400, error: "Not a BigQuery connection" };
 

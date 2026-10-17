@@ -90,6 +90,7 @@ export default async function ClientDataSourcesPage(props: { params: Promise<{ i
         lastSyncedAt={i.lastSyncedAt}
         lastSyncError={i.lastSyncError}
         reconnectBy={i.reconnectBy}
+        sharedWith={i.sharedWith}
       />
     );
 

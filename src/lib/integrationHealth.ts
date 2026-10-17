@@ -90,7 +90,10 @@ type Row = {
   // holds no secrets — tokens live in their own encrypted columns.
   config: Record<string, unknown> | null;
   clients: { name: string | null } | { name: string | null }[] | null;
+  // The saved sign-in the source uses (migration 0046): its expiry and route.
+  connection: SignIn | SignIn[] | null;
 };
+type SignIn = { identity_provider: string | null; token_expires_at: string | null };
 
 function clientName(row: Row): string {
   const c = row.clients;
@@ -116,12 +119,18 @@ export function getIntegrationHealthCached(agencyId: string): Promise<Integratio
 export async function getIntegrationHealth(supabase: SupabaseClient, agencyId: string): Promise<IntegrationHealth[]> {
   const { data } = await supabase
     .from("data_sources")
-    .select("id, type, client_id, display_name, status, last_synced_at, last_sync_failed_at, last_sync_error, token_expires_at, config, clients(name)")
+    .select(
+      "id, type, client_id, display_name, status, last_synced_at, last_sync_failed_at, last_sync_error, token_expires_at, config, clients(name), " +
+        "connection:connections!data_sources_connection_fkey(identity_provider, token_expires_at)"
+    )
     .eq("agency_id", agencyId)
     .order("last_sync_attempt_at", { ascending: false, nullsFirst: false });
 
-  return ((data ?? []) as Row[]).map((r) => {
+  return ((data ?? []) as unknown as Row[]).map((r) => {
     const status = (r.status ?? "connected") as ConnectionStatus;
+    const signIn = Array.isArray(r.connection) ? r.connection[0] ?? null : r.connection;
+    const tokenExpiresAt = signIn?.token_expires_at ?? r.token_expires_at;
+    const config = { ...(r.config ?? {}), identity_provider: signIn?.identity_provider ?? r.config?.identity_provider };
     const def = getIntegration(r.type);
     const selectedAccountId = def?.readSelected?.((r.config ?? {}) as never) ?? null;
     return {
@@ -135,8 +144,8 @@ export async function getIntegrationHealth(supabase: SupabaseClient, agencyId: s
       lastSyncedAt: r.last_synced_at,
       lastSyncFailedAt: r.last_sync_failed_at,
       lastSyncError: r.last_sync_error,
-      tokenExpiresAt: r.token_expires_at,
-      token: tokenState(status, r.token_expires_at, renewalFor(r)),
+      tokenExpiresAt,
+      token: tokenState(status, tokenExpiresAt, renewalFor({ type: r.type, config })),
       selectedAccountId,
       // The one classification every screen reads (P0-1).
       health: sourceHealth({ status, lastSyncError: r.last_sync_error, selectedAccountId }),

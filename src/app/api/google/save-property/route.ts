@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { syncDataSource, type SyncableSource } from "@/lib/sync";
+import { syncDataSource } from "@/lib/sync";
+import { loadOneSyncable } from "@/lib/integrations/connections";
 import { getIntegration } from "@/lib/integrations/registry";
 
 export const runtime = "nodejs";
@@ -32,12 +33,9 @@ export async function POST(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
   // Sync immediately so cached analytics are available without waiting for cron.
-  const { data: full } = await supabase
-    .from("data_sources")
-    .select("id, agency_id, type, config, access_token, refresh_token, token_expires_at")
-    .eq("id", dataSourceId)
-    .maybeSingle();
-  if (full) await syncDataSource(supabase, full as SyncableSource);
+  // Already authorized by the RLS-scoped read above.
+  const full = await loadOneSyncable(dataSourceId);
+  if (full) await syncDataSource(supabase, full);
 
   return NextResponse.json({ ok: true });
 }

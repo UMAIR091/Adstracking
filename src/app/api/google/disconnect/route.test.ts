@@ -34,6 +34,7 @@ type Row = {
   id: string;
   type: string;
   agency_id: string;
+  connection_id?: string | null;
   access_token: string | null;
   refresh_token: string | null;
   display_name: string | null;
@@ -43,6 +44,8 @@ type Row = {
 const deleted: string[] = [];
 let target: Row | null = null;
 let siblings: Row[] = [];
+// Other clients on the target's shared sign-in (migration 0046).
+let sameSignIn = 0;
 
 // Minimal stand-in for the query builder the route uses: `.select().eq().maybeSingle()`
 // for the target row, `.select().eq().neq()` awaited directly for siblings, and
@@ -57,7 +60,7 @@ function builder(op: "select" | "delete") {
     neq: () => chain,
     maybeSingle: async () => ({ data: target }),
     then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
-      Promise.resolve(op === "delete" ? { error: null } : { data: siblings }).then(res, rej),
+      Promise.resolve(op === "delete" ? { error: null } : { data: siblings, count: sameSignIn }).then(res, rej),
   };
   return chain;
 }
@@ -66,6 +69,20 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: () => ({
     auth: { getUser: async () => ({ data: { user: { id: "user-1" } } }) },
     from: () => ({ select: () => builder("select"), delete: () => builder("delete") }),
+  }),
+}));
+
+// The shared sign-in's tokens, read with the service role.
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: () => ({
+    from: () => {
+      const chain = {
+        select: () => chain,
+        eq: () => chain,
+        maybeSingle: async () => ({ data: { access_token: "enc:shared-access", refresh_token: "enc:shared-refresh" } }),
+      };
+      return chain;
+    },
   }),
 }));
 
@@ -97,6 +114,7 @@ beforeEach(() => {
   deleted.length = 0;
   target = null;
   siblings = [];
+  sameSignIn = 0;
 });
 
 describe("disconnect and the shared Google grant", () => {
@@ -208,5 +226,28 @@ describe("disconnect and the shared Google grant", () => {
 
     expect(res.status).toBe(200);
     expect(deleted).toEqual(["ds-gsc"]);
+  });
+
+  describe("shared sign-ins (migration 0046)", () => {
+    it("keeps the sign-in, unrevoked, while other clients still use it", async () => {
+      target = source({ id: "ds-gsc-a", type: "gsc", connection_id: "conn-1" });
+      sameSignIn = 2;
+
+      await disconnect("ds-gsc-a");
+
+      expect(revokeGoogleToken).not.toHaveBeenCalled();
+      // Only this client's row goes; the database keeps the sign-in for the others.
+      expect(deleted).toEqual(["ds-gsc-a"]);
+    });
+
+    it("revokes with the sign-in's own tokens when the last client leaves", async () => {
+      target = source({ id: "ds-gsc-a", type: "gsc", connection_id: "conn-1", refresh_token: null });
+      sameSignIn = 0;
+
+      await disconnect("ds-gsc-a");
+
+      expect(revokeGoogleToken).toHaveBeenCalledWith("shared-refresh");
+      expect(deleted).toEqual(["ds-gsc-a"]);
+    });
   });
 });

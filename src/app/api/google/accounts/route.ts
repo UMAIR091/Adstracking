@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getValidAccessToken } from "@/lib/googleTokens";
-import { syncDataSource, type SyncableSource } from "@/lib/sync";
+import { syncDataSource } from "@/lib/sync";
+import { loadOneSyncable } from "@/lib/integrations/connections";
 import { getIntegration } from "@/lib/integrations/registry";
 import type { IntegrationAccount, IntegrationConfig } from "@/lib/integrations/types";
 
@@ -24,11 +25,10 @@ export async function POST(req: Request) {
   const dataSourceId: string | undefined = body?.dataSourceId;
   if (!dataSourceId) return NextResponse.json({ error: "dataSourceId required" }, { status: 400 });
 
-  const { data: ds } = await supabase
-    .from("data_sources")
-    .select("id, agency_id, type, config, access_token, refresh_token, token_expires_at")
-    .eq("id", dataSourceId)
-    .maybeSingle();
+  // The RLS-scoped read is the permission check; the sign-in's tokens are then
+  // loaded with the service role (tenants can't read them).
+  const { data: visible } = await supabase.from("data_sources").select("id").eq("id", dataSourceId).maybeSingle();
+  const ds = visible ? await loadOneSyncable(dataSourceId) : null;
   if (!ds) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const def = getIntegration(ds.type as string);
@@ -37,13 +37,15 @@ export async function POST(req: Request) {
   }
 
   const current = (ds.config ?? {}) as IntegrationConfig;
-  const provider = typeof current.identity_provider === "string" ? current.identity_provider : undefined;
+  const provider =
+    ds.connection?.identity_provider ??
+    (typeof current.identity_provider === "string" ? current.identity_provider : undefined);
   // Integrations named by a pasted value (Sheets) have no list to browse, so
   // re-listing means re-reading the same one: hand back what was chosen.
   const chosen = def.readSelected?.(current) ?? null;
   let accounts: IntegrationAccount[];
   try {
-    const accessToken = await getValidAccessToken(supabase, ds as SyncableSource);
+    const accessToken = await getValidAccessToken(supabase, ds);
     accounts = await def.listAccounts(accessToken, { provider, connectValue: chosen ?? undefined });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 502 });
@@ -57,7 +59,7 @@ export async function POST(req: Request) {
 
   // buildConfig picks the account when there is only one, so sync right away,
   // as Save does, rather than leaving the source empty until the next cron run.
-  if (def.readSelected?.(config)) await syncDataSource(supabase, { ...(ds as SyncableSource), config });
+  if (def.readSelected?.(config)) await syncDataSource(supabase, { ...ds, config });
 
   return NextResponse.json({ ok: true, accounts: accounts.length });
 }

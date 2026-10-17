@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAgency } from "@/lib/agency";
-import { encrypt } from "@/lib/crypto";
-import { syncDataSource, type SyncableSource } from "@/lib/sync";
+import { syncDataSource } from "@/lib/sync";
+import { saveSignIn } from "@/lib/integrations/connections";
 import { getIntegration, isLive } from "@/lib/integrations/registry";
 import { logError } from "@/lib/errorLog";
 import { revalidateIntegrationHealth } from "@/lib/integrationHealth";
@@ -49,28 +49,24 @@ export async function POST(req: Request) {
     const { displayName, token, accounts } = await def.verifyApiKey(fields);
     const config = def.buildConfig(accounts);
 
-    // Atomic reconnect via UPSERT on (client_id, type) — see migration 0023.
-    const { data: inserted, error } = await supabase
-      .from("data_sources")
-      .upsert(
-        {
-          agency_id: agency.id,
-          client_id: clientId,
-          type: def.id,
-          display_name: displayName,
-          config,
-          access_token: encrypt(token),
-          refresh_token: null, // api keys don't rotate — revocation = reconnect
-          token_expires_at: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString(),
-          status: "connected",
-        },
-        { onConflict: "client_id,type" }
-      )
-      .select("id, agency_id, type, config, access_token, refresh_token, token_expires_at")
-      .single();
-    if (error) throw new Error(error.message);
+    // Saved as a shared sign-in (migration 0046), so an agency-wide key such as
+    // Ahrefs or Semrush can serve every client; the client's row is upserted on
+    // (client_id, type), see 0023.
+    const source = await saveSignIn(supabase, {
+      agencyId: agency.id,
+      clientId,
+      def,
+      tokens: {
+        accessToken: token,
+        refreshToken: null, // api keys don't rotate — revocation = reconnect
+        expiresAt: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      identity: displayName,
+      config,
+      userId: user.id,
+    });
 
-    if (def.readSelected?.(config)) await syncDataSource(supabase, inserted as SyncableSource);
+    if (def.readSelected?.(config)) await syncDataSource(supabase, source);
     revalidateIntegrationHealth(agency.id);
     return NextResponse.redirect(`${base}/dashboard/clients/${clientId}?connected=${def.id}`);
   } catch (err) {

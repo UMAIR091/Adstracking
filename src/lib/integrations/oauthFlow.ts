@@ -7,8 +7,7 @@ import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAgency } from "@/lib/agency";
-import { encrypt } from "@/lib/crypto";
-import { syncDataSource, type SyncableSource } from "@/lib/sync";
+import { syncDataSource } from "@/lib/sync";
 import { availableIdentityProviders, getIntegration, getOAuthProvider, isLive } from "./registry";
 import { isPlatformAdmin } from "@/lib/admin";
 import { classifyIntegrationError } from "./errors";
@@ -16,7 +15,8 @@ import { revalidateIntegrationHealth } from "@/lib/integrationHealth";
 import { logError } from "@/lib/errorLog";
 import { logDetail, publicMessage } from "@/lib/errors";
 import { checkIntegrationLimit } from "@/lib/billing/limits";
-import type { IntegrationConfig, IntegrationDef, OAuthProvider } from "./types";
+import type { IntegrationDef, OAuthProvider } from "./types";
+import { saveSignIn } from "./connections";
 import { CONNECT_FLASH_COOKIE, CONNECT_FLASH_MAX_AGE, encodeConnectFlash, type ConnectFlash } from "./connectFlash";
 
 const NONCE_COOKIE = "oauth_nonce";
@@ -75,8 +75,21 @@ export async function handleConnect(req: Request): Promise<Response> {
     if (!field) return NextResponse.json({ error: `${def.connectField.label} is required.` }, { status: 400 });
   }
 
+  // Reconnecting a saved sign-in (?connection=) renews it for every client on
+  // it. Checked here as the user (RLS: their own workspace, same integration)
+  // and again, scoped to the agency, when the sign-in is saved.
+  let connectionId: string | undefined;
+  const requested = url.searchParams.get("connection");
+  if (requested) {
+    const { data: conn } = await supabase.from("connections").select("id, type").eq("id", requested).maybeSingle();
+    if (!conn || conn.type !== def.id) {
+      return NextResponse.json({ error: "That sign-in can't be reconnected here." }, { status: 400 });
+    }
+    connectionId = conn.id as string;
+  }
+
   const nonce = crypto.randomUUID();
-  const state = Buffer.from(JSON.stringify({ clientId, nonce, type: def.id, provider, field })).toString("base64url");
+  const state = Buffer.from(JSON.stringify({ clientId, nonce, type: def.id, provider, field, connectionId })).toString("base64url");
   // 30 minutes: long enough to survive a consent screen where the user has to
   // stop and enable an API or pick an account, short enough to stay a
   // meaningful CSRF window. The nonce is still single-use and httpOnly, and is
@@ -114,12 +127,14 @@ export async function handleCallback(req: Request): Promise<Response> {
   let type: string;
   let provider: string | undefined;
   let field: string | undefined;
+  let connectionId: string | undefined;
   try {
     const parsed = JSON.parse(Buffer.from(state, "base64url").toString("utf8"));
     clientId = parsed.clientId;
     type = parsed.type;
     provider = parsed.provider;
     field = typeof parsed.field === "string" ? parsed.field : undefined;
+    connectionId = typeof parsed.connectionId === "string" ? parsed.connectionId : undefined;
     if (!clientId || !type) return fail("Invalid state");
     const cookieNonce = (await cookies()).get(NONCE_COOKIE)?.value;
     if (!cookieNonce || cookieNonce !== parsed.nonce) {
@@ -155,7 +170,10 @@ export async function handleCallback(req: Request): Promise<Response> {
   if (!client) return fail("Client not found");
 
   try {
-    const flash = await completeOAuthConnect(supabase, agency.id, clientId, def, oauth, code, provider, field);
+    const flash = await completeOAuthConnect(supabase, agency.id, clientId, def, oauth, code, provider, field, {
+      connectionId,
+      userId: user.id,
+    });
     (await cookies()).set(NONCE_COOKIE, "", { maxAge: 0, path: "/" });
     const res = NextResponse.redirect(`${appBase}/dashboard/clients/${clientId}?connected=${def.id}`);
     // Read once by ConnectStatusToast, so it isn't httpOnly.
@@ -180,9 +198,11 @@ export async function handleCallback(req: Request): Promise<Response> {
   }
 }
 
-// Exchanges the code, lists accounts, stores the encrypted connection, and syncs
-// immediately if exactly one account was auto-selected. Returns who signed in
-// and which account was selected, for the success toast.
+// Exchanges the code, lists accounts, saves the sign-in (shared across the
+// agency's clients, migration 0046) and attaches it to this client, and syncs
+// immediately if exactly one account was auto-selected. With a connectionId it
+// renews that saved sign-in, reconnecting every client on it. Returns who
+// signed in and which account was selected, for the success toast.
 export async function completeOAuthConnect(
   supabase: SupabaseClient,
   agencyId: string,
@@ -191,7 +211,8 @@ export async function completeOAuthConnect(
   oauth: OAuthProvider,
   code: string,
   provider?: string,
-  connectValue?: string
+  connectValue?: string,
+  opts: { connectionId?: string; userId?: string } = {}
 ): Promise<ConnectFlash> {
   if (!def.listAccounts || !def.buildConfig) throw new Error("Integration is not connectable");
 
@@ -204,38 +225,27 @@ export async function completeOAuthConnect(
     def.listAccounts(accessToken, { provider, connectValue }),
   ]);
   const config = def.buildConfig(accounts);
-  // Record which identity provider authenticated this connection so token
-  // refresh (and any provider-specific API headers) can route correctly later.
-  if (provider) (config as IntegrationConfig).identity_provider = provider;
 
-  // Atomic reconnect: a single UPSERT keyed on (client_id, type) replaces any
-  // existing source of the same type in one statement (migration 0023). This
-  // removes the old delete-then-insert window where a crash between the two
-  // left the client with no source, and updates the row in place so historical
-  // snapshots stay linked instead of being cascade-deleted.
-  const { data: inserted, error } = await supabase
-    .from("data_sources")
-    .upsert(
-      {
-        agency_id: agencyId,
-        client_id: clientId,
-        type: def.id,
-        display_name: identity,
-        config,
-        access_token: encrypt(accessToken),
-        refresh_token: tokens.refresh_token ? encrypt(tokens.refresh_token) : null,
-        token_expires_at: expiresAt,
-        status: "connected",
-      },
-      { onConflict: "client_id,type" }
-    )
-    .select("id, agency_id, type, config, access_token, refresh_token, token_expires_at")
-    .single();
-  if (error) throw new Error(error.message);
+  // Saves the sign-in (or renews the one being reconnected) and points this
+  // client at it. The client's row is upserted on (client_id, type), so a
+  // reconnect updates it in place and its snapshots stay linked (0023). The
+  // identity provider is recorded so refresh and provider-specific API headers
+  // route correctly later.
+  const source = await saveSignIn(supabase, {
+    agencyId,
+    clientId,
+    def,
+    tokens: { accessToken, refreshToken: tokens.refresh_token, expiresAt },
+    identity,
+    identityProvider: provider,
+    config,
+    connectionId: opts.connectionId,
+    userId: opts.userId,
+  });
 
-  const selected = def.readSelected?.(config) ?? null;
+  const selected = def.readSelected?.(source.config ?? {}) ?? null;
   if (selected) {
-    await syncDataSource(supabase, inserted as SyncableSource);
+    await syncDataSource(supabase, source);
   }
 
   // Reflect the new connection in the cached dashboard health rollup at once.

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { encrypt } from "@/lib/crypto";
-import { syncDataSource, type SyncableSource } from "@/lib/sync";
+import { syncDataSource } from "@/lib/sync";
+import { saveSignIn } from "@/lib/integrations/connections";
+import { getIntegration } from "@/lib/integrations/registry";
 import {
   getWooStoreName, packWooToken, wooConfig, readWooState,
 } from "@/lib/integrations/oauth/woocommerce";
@@ -49,28 +50,24 @@ export async function POST(req: Request) {
     const displayName = await getWooStoreName(storeUrl, consumer_key, consumer_secret);
     const config = wooConfig(storeUrl, displayName);
 
-    // Atomic reconnect: UPSERT on (client_id, type) — see migration 0023.
-    const { data: inserted, error } = await supabase
-      .from("data_sources")
-      .upsert(
-        {
-          agency_id: client.agency_id,
-          client_id: clientId,
-          type: "woocommerce",
-          display_name: displayName,
-          config,
-          access_token: encrypt(packWooToken(consumer_key, consumer_secret)),
-          refresh_token: null, // key pairs don't rotate — revocation = reconnect
-          token_expires_at: new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000).toISOString(),
-          status: "connected",
-        },
-        { onConflict: "client_id,type" }
-      )
-      .select("id, agency_id, type, config, access_token, refresh_token, token_expires_at")
-      .single();
-    if (error) throw new Error(error.message);
+    // A store's key pair serves that one store, so it's its own sign-in
+    // (0046); the client's row is upserted on (client_id, type), see 0023.
+    const def = getIntegration("woocommerce");
+    if (!def) throw new Error("WooCommerce isn't available");
+    const source = await saveSignIn(supabase, {
+      agencyId: client.agency_id as string,
+      clientId,
+      def,
+      tokens: {
+        accessToken: packWooToken(consumer_key, consumer_secret),
+        refreshToken: null, // key pairs don't rotate — revocation = reconnect
+        expiresAt: new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      identity: displayName,
+      config,
+    });
 
-    await syncDataSource(supabase, inserted as SyncableSource);
+    await syncDataSource(supabase, source);
     return NextResponse.json({ success: true });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 502 });

@@ -37,6 +37,8 @@ export type WorkspaceIntegration = {
   /** For a token that can't be extended (Facebook Login): the date to
    *  reconnect by, once it is near or past. Null when nothing is due. */
   reconnectBy: string | null;
+  /** How many OTHER clients use the same saved sign-in (migration 0046). */
+  sharedWith: number;
 };
 
 export type ClientWorkspace = {
@@ -68,7 +70,13 @@ type DsRow = {
   last_synced_at: string | null;
   last_sync_error: string | null;
   token_expires_at: string | null;
+  connection_id: string | null;
+  connection: SignInRow | SignInRow[] | null;
 };
+
+// The saved sign-in a source uses: no tokens, just what the UI shows.
+type SignInRow = { identity_provider: string | null; token_expires_at: string | null };
+const signInOf = (d: DsRow): SignInRow | null => (Array.isArray(d.connection) ? d.connection[0] ?? null : d.connection);
 
 // Anything not healthy leads the list — needs_account / sync_error /
 // needs_reconnect, in that order of how blocking they are.
@@ -89,10 +97,28 @@ export async function loadClientWorkspace(
   // connected sources (was: 2 queries × every live integration ≈ 60/page load).
   const { data: dsRows } = await supabase
     .from("data_sources")
-    .select("id, type, display_name, config, status, last_synced_at, last_sync_error, token_expires_at")
+    .select(
+      "id, type, display_name, config, status, last_synced_at, last_sync_error, token_expires_at, connection_id, " +
+        "connection:connections!data_sources_connection_fkey(identity_provider, token_expires_at)"
+    )
     .eq("client_id", clientId);
   const dsByType = new Map<string, DsRow>();
-  for (const d of (dsRows ?? []) as DsRow[]) dsByType.set(d.type, d);
+  for (const d of (dsRows ?? []) as unknown as DsRow[]) dsByType.set(d.type, d);
+
+  // How many other clients share each saved sign-in this client uses.
+  const signInIds = Array.from(dsByType.values()).map((d) => d.connection_id).filter((id): id is string => Boolean(id));
+  const sharedCount = new Map<string, number>();
+  if (signInIds.length) {
+    const { data: siblings } = await supabase
+      .from("data_sources")
+      .select("connection_id")
+      .in("connection_id", signInIds)
+      .neq("client_id", clientId);
+    for (const s of siblings ?? []) {
+      const id = s.connection_id as string;
+      sharedCount.set(id, (sharedCount.get(id) ?? 0) + 1);
+    }
+  }
 
   // Group connected sources by snapshot table, then bulk-fetch snapshots.
   const tableToIds = new Map<string, string[]>();
@@ -150,7 +176,16 @@ export async function loadClientWorkspace(
       // selection so its dedicated card can restore the picker state.
       selectedDatasetId: (config.dataset_id as string | null) ?? null,
       selectedTableId: (config.table_id as string | null) ?? null,
-      reconnectBy: ds && ds.status !== "revoked" ? reconnectDeadline(ds) : null,
+      // Expiry and sign-in route belong to the saved sign-in when there is one.
+      reconnectBy:
+        ds && ds.status !== "revoked"
+          ? reconnectDeadline({
+              type: ds.type,
+              config: { ...config, identity_provider: signInOf(ds)?.identity_provider ?? config.identity_provider },
+              token_expires_at: signInOf(ds)?.token_expires_at ?? ds.token_expires_at,
+            })
+          : null,
+      sharedWith: ds?.connection_id ? sharedCount.get(ds.connection_id) ?? 0 : 0,
     };
   });
 

@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { cronAuthorized } from "@/lib/cronAuth";
 import { processSources } from "@/lib/syncBatch";
 import { logRouteError } from "@/lib/errorLog";
-import type { SyncableSource } from "@/lib/sync";
+import { loadSyncable } from "@/lib/integrations/connections";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,13 +23,10 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
   try {
-    const { data, error } = await admin
-      .from("data_sources")
-      .select("id, agency_id, client_id, type, config, access_token, refresh_token, token_expires_at")
-      .in("id", ids);
-    if (error) throw new Error(error.message);
+    // Each source with its shared sign-in's tokens (migration 0046).
+    const sources = await loadSyncable(ids);
 
-    const { synced, failed } = await processSources(admin, (data ?? []) as SyncableSource[]);
+    const { synced, failed } = await processSources(admin, sources);
     return NextResponse.json({ ok: true, synced, failed });
   } catch (err) {
     const message = await logRouteError("cron", err);

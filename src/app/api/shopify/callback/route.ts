@@ -2,8 +2,9 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAgency } from "@/lib/agency";
-import { encrypt } from "@/lib/crypto";
-import { syncDataSource, type SyncableSource } from "@/lib/sync";
+import { syncDataSource } from "@/lib/sync";
+import { saveSignIn } from "@/lib/integrations/connections";
+import { getIntegration } from "@/lib/integrations/registry";
 import {
   exchangeShopifyCode, getShopName, normalizeShopDomain, verifyShopifyHmac,
 } from "@/lib/integrations/oauth/shopify";
@@ -54,29 +55,25 @@ export async function GET(req: Request) {
     const displayName = await getShopName(shop, tokens.access_token);
     const config = { accounts: [{ id: shop, name: displayName }], account_id: shop };
 
-    // Atomic reconnect: UPSERT on (client_id, type) replaces any existing Shopify
-    // source in one statement (no delete-then-insert window). See migration 0023.
-    const { data: inserted, error } = await supabase
-      .from("data_sources")
-      .upsert(
-        {
-          agency_id: agency.id,
-          client_id: clientId,
-          type: "shopify",
-          display_name: displayName,
-          config,
-          access_token: encrypt(tokens.access_token),
-          refresh_token: null, // offline tokens don't rotate — revocation = reconnect
-          token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-          status: "connected",
-        },
-        { onConflict: "client_id,type" }
-      )
-      .select("id, agency_id, type, config, access_token, refresh_token, token_expires_at")
-      .single();
-    if (error) throw new Error(error.message);
+    // A store's token serves that one store, so it's its own sign-in (0046);
+    // the client's row is upserted on (client_id, type), see 0023.
+    const def = getIntegration("shopify");
+    if (!def) throw new Error("Shopify isn't available");
+    const source = await saveSignIn(supabase, {
+      agencyId: agency.id,
+      clientId,
+      def,
+      tokens: {
+        accessToken: tokens.access_token,
+        refreshToken: null, // offline tokens don't rotate — revocation = reconnect
+        expiresAt: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+      },
+      identity: displayName,
+      config,
+      userId: user.id,
+    });
 
-    await syncDataSource(supabase, inserted as SyncableSource);
+    await syncDataSource(supabase, source);
     (await cookies()).set(NONCE_COOKIE, "", { maxAge: 0, path: "/" });
     return NextResponse.redirect(`${origin}/dashboard/clients/${clientId}?connected=shopify`);
   } catch (err) {

@@ -20,6 +20,9 @@ vi.mock("@/lib/crypto", () => ({
   decrypt: (s: string) => s.replace(/^enc:/, ""),
 }));
 vi.mock("@/lib/google", () => ({ refreshAccessToken: vi.fn() }));
+// Shared sign-ins are read and written with the service role.
+const admin = vi.hoisted(() => ({ db: null as unknown }));
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => admin.db }));
 vi.mock("@/lib/integrations/registry", () => ({
   oauthForType: (type: string) =>
     type === "instagram"
@@ -36,7 +39,7 @@ type Row = Record<string, unknown> & { id: string };
 // (…maybeSingle), the token re-read (select…maybeSingle) and plain updates.
 function fakeDb(row: Row) {
   const writes: Record<string, unknown>[] = [];
-  const from = () => {
+  const from = (table: string) => {
     let op: "select" | "update" = "select";
     let payload: Record<string, unknown> = {};
     const b = {
@@ -47,7 +50,7 @@ function fakeDb(row: Row) {
       maybeSingle: async () => ({ data: op === "update" ? { id: row.id } : { ...row } }),
       then(resolve: (v: unknown) => unknown) {
         if (op === "update") {
-          writes.push(payload);
+          writes.push({ table, ...payload });
           if (payload.access_token) Object.assign(row, payload);
         }
         return Promise.resolve({ data: null, error: null }).then(resolve);
@@ -115,5 +118,28 @@ describe("other tokens are unchanged", () => {
     failRenewal = new Error("invalid_grant");
     const dead = source("gsc", -0.01);
     await expect(getValidAccessToken(fakeDb(dead).db, dead as never)).rejects.toThrow("invalid_grant");
+  });
+});
+
+describe("shared sign-ins (migration 0046)", () => {
+  it("refreshes the sign-in, not the client's row, so every client gets the new token", async () => {
+    refresh.mockResolvedValue({ access_token: "renewed", refresh_token: "renewed", expires_in: 60 * 86400 });
+    const signIn = {
+      id: "conn1",
+      identity_provider: "instagram",
+      access_token: "enc:shared",
+      refresh_token: "enc:shared",
+      token_expires_at: new Date(Date.now() + 5 * DAY).toISOString(),
+    };
+    const shared = fakeDb(signIn);
+    admin.db = shared.db;
+    const row = { ...source("instagram", 30), access_token: null, refresh_token: null, token_expires_at: null, config: {}, connection: signIn };
+    const own = fakeDb(row);
+
+    expect(await getValidAccessToken(own.db, row as never)).toBe("renewed");
+    // The sign-in route comes from the sign-in; the client row records none.
+    expect(refresh).toHaveBeenCalledWith("shared", { provider: "instagram" });
+    expect(shared.writes.filter((w) => w.access_token).map((w) => w.table)).toEqual(["connections"]);
+    expect(own.writes).toEqual([]);
   });
 });

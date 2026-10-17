@@ -30,6 +30,7 @@ export function IntegrationCard({
   lastSyncedAt = null,
   lastSyncError = null,
   reconnectBy = null,
+  sharedWith = 0,
 }: {
   descriptor: IntegrationDescriptor;
   clientId: string;
@@ -39,6 +40,8 @@ export function IntegrationCard({
   lastSyncError?: string | null;
   /** Set when the sign-in can't be renewed automatically and expires soon. */
   reconnectBy?: string | null;
+  /** Other clients using the same saved sign-in (shared agency sign-ins). */
+  sharedWith?: number;
 }) {
   const router = useRouter();
   const [account, setAccount] = useState(source?.selectedAccountId ?? "");
@@ -130,7 +133,11 @@ export function IntegrationCard({
   }
 
   async function disconnect() {
-    if (!(await confirm({ title: `Disconnect ${descriptor.name}?`, description: "This removes the connection and its cached data for this client. Reports you’ve already generated are kept.", confirmLabel: "Disconnect", destructive: true }))) return;
+    const description =
+      sharedWith > 0
+        ? `This removes ${descriptor.name} and its cached data from this client only. The sign-in stays for the ${sharedWith} other client${sharedWith === 1 ? "" : "s"} that use it. Reports you’ve already generated are kept.`
+        : "This removes the connection and its cached data for this client, and deletes the saved sign-in. Reports you’ve already generated are kept.";
+    if (!(await confirm({ title: `Disconnect ${descriptor.name}?`, description, confirmLabel: "Disconnect", destructive: true }))) return;
     setBusy(true);
     await fetch("/api/google/disconnect", {
       method: "POST",
@@ -156,6 +163,11 @@ export function IntegrationCard({
                   the source cannot sync (P0-4). */}
               <p className="text-sm text-ink-500">
                 Connected as {source.display_name}
+                {sharedWith > 0 && (
+                  <span>
+                    {" "}· sign-in shared with {sharedWith} other client{sharedWith === 1 ? "" : "s"}
+                  </span>
+                )}
                 {needsAccount && <span className="text-info-700"> — {noun} selection required</span>}
               </p>
             </div>

@@ -22,6 +22,9 @@ const listAccounts = vi.fn(async (_token: string, _ctx?: { provider?: string }) 
 
 vi.mock("@/lib/sync", () => ({ syncDataSource: (...args: unknown[]) => syncDataSource(...args) }));
 vi.mock("@/lib/googleTokens", () => ({ getValidAccessToken: async () => "access-token" }));
+// The route authorizes with an RLS read, then loads the source with its
+// shared sign-in through the service role (migration 0046).
+vi.mock("@/lib/integrations/connections", () => ({ loadOneSyncable: async () => row }));
 vi.mock("@/lib/integrations/registry", () => ({
   // Shaped like googleAdsDef: list + config key, one account is picked automatically.
   getIntegration: () =>

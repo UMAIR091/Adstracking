@@ -4,6 +4,8 @@ import { decrypt, encrypt } from "@/lib/crypto";
 import { refreshAccessToken } from "@/lib/google";
 import { oauthForType } from "@/lib/integrations/registry";
 import { EXPIRY_BUFFER_MS, renewAheadMs } from "@/lib/integrations/tokenRenewal";
+import { createAdminClient } from "@/lib/supabase/admin";
+import type { ConnectionTokens } from "@/lib/integrations/connections";
 
 type DataSourceRow = {
   id: string;
@@ -15,13 +17,48 @@ type DataSourceRow = {
   // refresh for integrations with more than one identity provider. Optional so
   // callers that only load token columns still type-check.
   config?: Record<string, unknown> | null;
+  // The shared sign-in that holds this source's tokens (migration 0046).
+  connection?: ConnectionTokens | null;
 };
 
-// The identity provider stored on a connection at connect time, if any.
-function connectionProvider(row: { config?: Record<string, unknown> | null } | null | undefined): string | undefined {
-  const p = row?.config?.identity_provider;
-  return typeof p === "string" ? p : undefined;
+// Where the tokens live: the shared sign-in (connections) for every source
+// linked to one, or, for a row not yet linked during rollout, the source
+// itself. Sign-ins are written with the service role: tenants can't.
+type Holder = {
+  table: "connections" | "data_sources";
+  db: SupabaseClient;
+  id: string;
+  type?: string | null;
+  provider?: string;
+  access_token: string | null;
+  refresh_token: string | null;
+  token_expires_at: string | null;
+};
+
+type TokenColumns = Pick<Holder, "access_token" | "refresh_token" | "token_expires_at">;
+
+function holderFor(supabase: SupabaseClient, ds: DataSourceRow): Holder {
+  const sourceProvider = typeof ds.config?.identity_provider === "string" ? ds.config.identity_provider : undefined;
+  if (ds.connection) {
+    return {
+      table: "connections",
+      db: createAdminClient(),
+      id: ds.connection.id,
+      type: ds.type,
+      provider: ds.connection.identity_provider ?? sourceProvider,
+      access_token: ds.connection.access_token,
+      refresh_token: ds.connection.refresh_token,
+      token_expires_at: ds.connection.token_expires_at,
+    };
+  }
+  return { table: "data_sources", db: supabase, id: ds.id, type: ds.type, provider: sourceProvider, ...pickTokens(ds) };
 }
+
+const pickTokens = (row: TokenColumns): TokenColumns => ({
+  access_token: row.access_token,
+  refresh_token: row.refresh_token,
+  token_expires_at: row.token_expires_at,
+});
 
 const LOCK_TTL_MS = 90_000; // lease long enough to cover a refresh HTTP round-trip
 const MAX_WAIT_MS = 25_000; // cap total wait for another worker's refresh (< route maxDuration)
@@ -37,28 +74,28 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-// Re-reads just the token columns for a source (fresh view under the lock / while
-// waiting on another worker). Tokens stay server-side — never returned to callers.
-async function readTokens(supabase: SupabaseClient, id: string): Promise<DataSourceRow | null> {
-  const { data } = await supabase
-    .from("data_sources")
-    .select("id, type, access_token, refresh_token, token_expires_at, config")
-    .eq("id", id)
+// Re-reads just the token columns (fresh view under the lock / while waiting on
+// another worker). Tokens stay server-side — never returned to callers.
+async function readTokens(h: Holder): Promise<TokenColumns | null> {
+  const { data } = await h.db
+    .from(h.table)
+    .select("access_token, refresh_token, token_expires_at")
+    .eq("id", h.id)
     .maybeSingle();
-  return (data as DataSourceRow) ?? null;
+  return (data as TokenColumns) ?? null;
 }
 
-// Atomically claims the refresh lease for this source, or reclaims an expired
-// one. Returns true only if THIS caller now holds the lease. The condition
-// "lock is free or its lease has expired" makes stuck locks self-healing: a
-// crashed holder's lease simply times out and the next caller reclaims it.
-async function tryAcquireLock(supabase: SupabaseClient, id: string, lockId: string): Promise<boolean> {
+// Atomically claims the refresh lease, or reclaims an expired one. Returns true
+// only if THIS caller now holds the lease. The condition "lock is free or its
+// lease has expired" makes stuck locks self-healing: a crashed holder's lease
+// simply times out and the next caller reclaims it.
+async function tryAcquireLock(h: Holder, lockId: string): Promise<boolean> {
   const nowIso = new Date().toISOString();
   const untilIso = new Date(Date.now() + LOCK_TTL_MS).toISOString();
-  const { data } = await supabase
-    .from("data_sources")
+  const { data } = await h.db
+    .from(h.table)
     .update({ token_lock_token: lockId, token_locked_until: untilIso })
-    .eq("id", id)
+    .eq("id", h.id)
     .or(`token_locked_until.is.null,token_locked_until.lt.${nowIso}`)
     .select("id")
     .maybeSingle();
@@ -67,20 +104,22 @@ async function tryAcquireLock(supabase: SupabaseClient, id: string, lockId: stri
 
 // Releases the lease only if we still hold it (safe against a lease that was
 // already reclaimed by another worker).
-async function releaseLock(supabase: SupabaseClient, id: string, lockId: string): Promise<void> {
-  await supabase
-    .from("data_sources")
+async function releaseLock(h: Holder, lockId: string): Promise<void> {
+  await h.db
+    .from(h.table)
     .update({ token_lock_token: null, token_locked_until: null })
-    .eq("id", id)
+    .eq("id", h.id)
     .eq("token_lock_token", lockId);
 }
 
 // Returns a valid (decrypted) access token for a data source, refreshing and
 // persisting a new one if the current token is expired or about to expire.
+// For a source on a shared sign-in, the sign-in is what gets refreshed, so
+// every client on it gets the new token.
 //
 // Refresh is single-flight: a short-lived DB lease ensures the cron and a manual
-// "Refresh now" can't refresh the same source's token at the same time (which,
-// for providers with rotating refresh tokens, would invalidate one of them). The
+// "Refresh now" can't refresh the same token at the same time (which, for
+// providers with rotating refresh tokens, would invalidate one of them). The
 // loser of the race waits for the winner's fresh token instead of refreshing
 // again. The refresh backend is resolved from the integration registry by source
 // type (Google today; other OAuth providers slot in without changing this code).
@@ -88,15 +127,17 @@ export async function getValidAccessToken(
   supabase: SupabaseClient,
   ds: DataSourceRow
 ): Promise<string> {
-  if (!ds.access_token) throw new Error("This connection has no access token. Please reconnect.");
-  const ahead = renewAheadMs(ds);
-  if (tokenStillValid(ds.token_expires_at, ahead)) return decrypt(ds.access_token);
+  const h = holderFor(supabase, ds);
+  if (!h.access_token) throw new Error("This connection has no access token. Please reconnect.");
+  const current = h.access_token;
+  const ahead = renewAheadMs({ type: h.type, config: { identity_provider: h.provider } });
+  if (tokenStillValid(h.token_expires_at, ahead)) return decrypt(current);
   // Inside an early-renewal window the current token still works, so renewing
   // is best-effort: if it can't happen now, keep using the token and try again
   // on the next sync rather than failing this one.
-  const stillUsable = tokenStillValid(ds.token_expires_at);
-  if (!ds.refresh_token) {
-    if (stillUsable) return decrypt(ds.access_token);
+  const stillUsable = tokenStillValid(h.token_expires_at);
+  if (!h.refresh_token) {
+    if (stillUsable) return decrypt(current);
     throw new Error("Token expired and no refresh token. Please reconnect.");
   }
 
@@ -104,26 +145,24 @@ export async function getValidAccessToken(
   const deadline = Date.now() + MAX_WAIT_MS;
 
   while (true) {
-    if (await tryAcquireLock(supabase, ds.id, lockId)) {
+    if (await tryAcquireLock(h, lockId)) {
       try {
         // Re-check under the lock: another worker may have refreshed while we
         // were queued, in which case we must NOT refresh again.
-        const fresh = (await readTokens(supabase, ds.id)) ?? ds;
+        const fresh = (await readTokens(h)) ?? pickTokens(h);
         if (fresh.access_token && tokenStillValid(fresh.token_expires_at, ahead)) {
-          await releaseLock(supabase, ds.id, lockId);
+          await releaseLock(h, lockId);
           return decrypt(fresh.access_token);
         }
 
-        const refreshToken = fresh.refresh_token ?? ds.refresh_token;
+        const refreshToken = fresh.refresh_token ?? h.refresh_token;
         if (!refreshToken) throw new Error("Token expired and no refresh token. Please reconnect.");
 
-        // Route refresh to the provider that authenticated THIS connection
-        // (e.g. Microsoft Ads may be Microsoft- or Google-authenticated). Read
-        // from the fresh row under the lock, falling back to the passed row.
-        const provider = connectionProvider(fresh) ?? connectionProvider(ds);
-        const oauthRefresh = oauthForType(ds.type)?.refresh;
+        // Route refresh to the provider that authenticated THIS sign-in (e.g.
+        // Microsoft Ads may be Microsoft- or Google-authenticated).
+        const oauthRefresh = oauthForType(h.type)?.refresh;
         const refreshed = oauthRefresh
-          ? await oauthRefresh(decrypt(refreshToken), { provider })
+          ? await oauthRefresh(decrypt(refreshToken), { provider: h.provider })
           : await refreshAccessToken(decrypt(refreshToken));
         const newExpiry = new Date(Date.now() + refreshed.expires_in * 1000).toISOString();
 
@@ -137,17 +176,17 @@ export async function getValidAccessToken(
           token_locked_until: null,
         };
         if (refreshed.refresh_token) update.refresh_token = encrypt(refreshed.refresh_token);
-        await supabase.from("data_sources").update(update).eq("id", ds.id);
+        await h.db.from(h.table).update(update).eq("id", h.id);
 
         return refreshed.access_token;
       } catch (err) {
         // Refresh failed — release the lease but leave the stored tokens intact
         // so a later attempt can retry. Classification (reauth vs transient) is
         // handled by the caller (syncDataSource).
-        await releaseLock(supabase, ds.id, lockId);
+        await releaseLock(h, lockId);
         if (stillUsable) {
-          console.error(`[tokens] early renewal failed for ${ds.type ?? "source"} ${ds.id}: ${(err as Error).message}`);
-          return decrypt(ds.access_token);
+          console.error(`[tokens] early renewal failed for ${h.type ?? "source"} ${h.table}/${h.id}: ${(err as Error).message}`);
+          return decrypt(current);
         }
         throw err;
       }
@@ -155,7 +194,7 @@ export async function getValidAccessToken(
 
     // Someone else holds the lease. An early renewal needn't wait for them:
     // the current token still works.
-    if (stillUsable) return decrypt(ds.access_token);
+    if (stillUsable) return decrypt(current);
 
     // Otherwise wait for their refreshed token instead of piling on a second
     // refresh.
@@ -163,7 +202,7 @@ export async function getValidAccessToken(
       throw new Error("Token refresh is temporarily busy; please try again in a moment.");
     }
     await sleep(300 + Math.floor(Math.random() * 400)); // jittered backoff
-    const latest = await readTokens(supabase, ds.id);
+    const latest = await readTokens(h);
     if (latest?.access_token && tokenStillValid(latest.token_expires_at)) {
       return decrypt(latest.access_token);
     }

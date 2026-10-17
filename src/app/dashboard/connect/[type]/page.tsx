@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ShieldCheck, Eye, Trash2, ArrowRight, LogIn } from "lucide-react";
+import { ShieldCheck, Eye, Trash2, ArrowRight, LogIn, Users } from "lucide-react";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
 import { availableIdentityProviders, getIntegration, isConnectable } from "@/lib/integrations/registry";
 import { isPlatformAdmin } from "@/lib/admin";
+import { isShareable } from "@/lib/integrations/connections";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { COMPANY, DATA_PROMISE } from "@/lib/company";
@@ -41,6 +42,38 @@ export default async function ConnectConsentPage(
   // Only the sign-ins this viewer may use (admin-only previews hidden).
   const signInOptions = availableIdentityProviders(def, isPlatformAdmin(user.email));
 
+  // The agency's saved sign-ins for this integration (migration 0046): reuse
+  // one for this client, or renew one that expired for every client on it.
+  // Both reads are RLS-scoped to the caller's workspace and hold no tokens.
+  const shareable = isShareable(def);
+  const [{ data: signInRows }, { data: useRows }] = shareable
+    ? await Promise.all([
+        supabase
+          .from("connections")
+          .select("id, display_name, identity_provider, status")
+          .eq("type", def.id)
+          .order("created_at"),
+        supabase.from("data_sources").select("connection_id, client_id").eq("type", def.id).not("connection_id", "is", null),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const uses = (useRows ?? []) as { connection_id: string; client_id: string | null }[];
+  const currentSignIn = uses.find((u) => u.client_id === client.id)?.connection_id ?? null;
+  const savedSignIns = ((signInRows ?? []) as { id: string; display_name: string | null; identity_provider: string | null; status: string }[]).map((s) => {
+    const option = def.identityProviders?.find((p) => p.id === s.identity_provider);
+    return {
+      ...s,
+      clients: uses.filter((u) => u.connection_id === s.id).length,
+      isCurrent: s.id === currentSignIn,
+      via: option ? option.label.replace(/^Continue with /, "") : null,
+      // Renewing goes back through the provider, on the same sign-in route.
+      // API-key sign-ins are renewed by entering the key again instead.
+      reconnectHref:
+        def.authKind === "apikey" || (def.identityProviders?.length && !signInOptions.some((p) => p.id === s.identity_provider))
+          ? null
+          : `${continueHref}&connection=${s.id}${s.identity_provider ? `&provider=${s.identity_provider}` : ""}`,
+    };
+  });
+
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="text-[clamp(24px,3vw,28px)] font-semibold tracking-[-0.03em] text-ink-900">Connect {def.name}</h1>
@@ -48,6 +81,54 @@ export default async function ConnectConsentPage(
         For <span className="font-medium text-ink-700">{client.name}</span> — review what {COMPANY.product} will access
         before continuing.
       </p>
+
+      {savedSignIns.length > 0 && (
+        <Card className="mt-6">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 text-sm font-semibold text-ink-900">
+              <Users size={16} className="text-brand-600" /> Your saved {def.name} sign-ins
+            </div>
+            <p className="mt-1 text-sm text-ink-500">
+              Sign in once, then reuse it for every client whose account you can reach with it. Reconnecting a sign-in
+              renews it for all of its clients.
+            </p>
+            <ul className="mt-4 divide-y divide-ink-100 rounded-xl border border-ink-200">
+              {savedSignIns.map((s) => (
+                <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-ink-900">
+                      {s.display_name ?? `${def.name} sign-in`}
+                      {s.via && <span className="font-normal text-ink-500"> · via {s.via}</span>}
+                    </p>
+                    <p className="text-xs text-ink-500">
+                      {s.status === "revoked" ? (
+                        <span className="font-medium text-warning-700">Expired: reconnect to keep its clients syncing</span>
+                      ) : (
+                        <>Used by {s.clients} client{s.clients === 1 ? "" : "s"}{s.isCurrent ? ", including this one" : ""}</>
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {s.status === "revoked" || s.isCurrent ? (
+                      s.reconnectHref && (
+                        <Button asChild size="sm" variant={s.status === "revoked" ? "default" : "outline"}>
+                          <a href={s.reconnectHref}>Reconnect</a>
+                        </Button>
+                      )
+                    ) : (
+                      <form action="/api/connections/attach" method="post">
+                        <input type="hidden" name="clientId" value={client.id} />
+                        <input type="hidden" name="connectionId" value={s.id} />
+                        <Button type="submit" size="sm">Use for {client.name}</Button>
+                      </form>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="mt-6">
         <CardContent className="p-6">
@@ -89,7 +170,10 @@ export default async function ConnectConsentPage(
             </p>
           </div>
 
-          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {savedSignIns.length > 0 && (
+            <p className="mt-6 text-sm font-medium text-ink-800">Or sign in with another account</p>
+          )}
+          <div className={`${savedSignIns.length > 0 ? "mt-3" : "mt-6"} flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between`}>
             <p className="text-xs text-ink-500">
               By continuing you agree to our{" "}
               <Link href="/privacy" className="text-brand-600 hover:underline">Privacy Policy</Link> and{" "}

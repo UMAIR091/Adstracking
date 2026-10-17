@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { syncDataSource, type SyncableSource } from "@/lib/sync";
+import { syncDataSource } from "@/lib/sync";
+import { loadOneSyncable } from "@/lib/integrations/connections";
 
 export const runtime = "nodejs";
 
@@ -17,14 +18,13 @@ export async function POST(req: Request) {
   const dataSourceId: string | undefined = body?.dataSourceId;
   if (!dataSourceId) return NextResponse.json({ error: "dataSourceId required" }, { status: 400 });
 
-  const { data: ds } = await supabase
-    .from("data_sources")
-    .select("id, agency_id, type, config, access_token, refresh_token, token_expires_at")
-    .eq("id", dataSourceId)
-    .maybeSingle();
+  // The RLS-scoped read is the permission check; the sign-in's tokens are then
+  // loaded with the service role (tenants can't read them).
+  const { data: visible } = await supabase.from("data_sources").select("id").eq("id", dataSourceId).maybeSingle();
+  const ds = visible ? await loadOneSyncable(dataSourceId) : null;
   if (!ds) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const result = await syncDataSource(supabase, ds as SyncableSource);
+  const result = await syncDataSource(supabase, ds);
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 502 });
 
   return NextResponse.json({ ok: true });

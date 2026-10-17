@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAgency } from "@/lib/agency";
-import { encrypt } from "@/lib/crypto";
-import { syncDataSource, type SyncableSource } from "@/lib/sync";
+import { syncDataSource } from "@/lib/sync";
+import { saveSignIn } from "@/lib/integrations/connections";
 import { getIntegration } from "@/lib/integrations/registry";
 import { xAccessToken, packXToken, listXAdsAccounts, xIdentity, X_OAUTH_COOKIE } from "@/lib/integrations/oauth/xads";
 
@@ -60,28 +60,23 @@ export async function GET(req: Request) {
     const [identity, accounts] = await Promise.all([xIdentity(stored), listXAdsAccounts(stored)]);
     const config = def.buildConfig(accounts);
 
-    // Atomic reconnect: UPSERT on (client_id, type) — see migration 0023.
-    const { data: inserted, error } = await supabase
-      .from("data_sources")
-      .upsert(
-        {
-          agency_id: agency.id,
-          client_id: saved.clientId,
-          type: def.id,
-          display_name: identity,
-          config,
-          access_token: encrypt(stored),
-          refresh_token: null, // 1.0a tokens are permanent — nothing to refresh
-          token_expires_at: new Date(Date.now() + HUNDRED_YEARS_MS).toISOString(),
-          status: "connected",
-        },
-        { onConflict: "client_id,type" }
-      )
-      .select("id, agency_id, type, config, access_token, refresh_token, token_expires_at")
-      .single();
-    if (error) throw new Error(error.message);
+    // Saved as a shared sign-in (0046) other clients can reuse; the client's
+    // row is upserted on (client_id, type), see 0023.
+    const source = await saveSignIn(supabase, {
+      agencyId: agency.id,
+      clientId: saved.clientId,
+      def,
+      tokens: {
+        accessToken: stored,
+        refreshToken: null, // 1.0a tokens are permanent — nothing to refresh
+        expiresAt: new Date(Date.now() + HUNDRED_YEARS_MS).toISOString(),
+      },
+      identity,
+      config,
+      userId: user.id,
+    });
 
-    if (def.readSelected?.(config)) await syncDataSource(supabase, inserted as SyncableSource);
+    if (def.readSelected?.(config)) await syncDataSource(supabase, source);
     clear();
     return NextResponse.redirect(`${base}/dashboard/clients/${saved.clientId}?connected=${def.id}`);
   } catch (err) {
