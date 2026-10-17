@@ -56,6 +56,22 @@ export type IntegrationAccount = { id: string; name: string };
 
 export type IntegrationStatus = "live" | "soon";
 
+// One sign-in choice on the consent screen (IntegrationDef.identityProviders).
+export type IdentityProviderOption = {
+  id: string;
+  label: string;
+  // Shown above the buttons when the sign-in isn't what the integration's
+  // name suggests (Instagram through Facebook), so the redirect doesn't look
+  // like a mistake.
+  note?: string;
+  // False hides the option, e.g. while its credentials aren't configured.
+  enabled?: () => boolean;
+  // Offered to platform admins only (ADMIN_EMAILS): for a sign-in the
+  // provider hasn't approved for public use yet, which outside users would hit
+  // as an error. Remove once the approval lands.
+  adminsOnly?: boolean;
+};
+
 export type IntegrationConfig = Record<string, unknown>;
 
 export type IntegrationDef = {
@@ -81,12 +97,7 @@ export type IntegrationDef = {
   // the connect route, which carries it through OAuth state to code exchange and
   // stores it on the connection for provider-aware refresh. Absent = single
   // default provider (existing behavior).
-  identityProviders?: { id: string; label: string }[];
-  // When the sign-in happens on a different service than the integration's
-  // name suggests (Instagram signs in through Facebook), the consent screen
-  // names that service on its button and explains why, so the redirect
-  // doesn't look like a mistake. Absent = "Continue to {name}".
-  signInVia?: { name: string; note: string };
+  identityProviders?: IdentityProviderOption[];
 
   // How the connection authenticates. "oauth" (default) uses the redirect flow;
   // "apikey" collects secret(s) on the consent screen and verifies them directly

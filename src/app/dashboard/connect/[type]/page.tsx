@@ -3,7 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { ShieldCheck, Eye, Trash2, ArrowRight, LogIn } from "lucide-react";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { createClient } from "@/lib/supabase/server";
-import { getIntegration, isConnectable } from "@/lib/integrations/registry";
+import { availableIdentityProviders, getIntegration, isConnectable } from "@/lib/integrations/registry";
+import { isPlatformAdmin } from "@/lib/admin";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { COMPANY, DATA_PROMISE } from "@/lib/company";
@@ -37,6 +38,8 @@ export default async function ConnectConsentPage(
 
   const continueHref = `${def.connectPath}?clientId=${client.id}&type=${def.id}`;
   const backHref = `/dashboard/clients/${client.id}`;
+  // Only the sign-ins this viewer may use (admin-only previews hidden).
+  const signInOptions = availableIdentityProviders(def, isPlatformAdmin(user.email));
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -61,12 +64,12 @@ export default async function ConnectConsentPage(
           </ul>
 
           <div className="mt-6 space-y-3 border-t border-ink-100 pt-5 text-sm text-ink-600">
-            {def.signInVia && (
-              <p className="flex items-start gap-2">
+            {signInOptions.filter((p) => p.note).map((p) => (
+              <p key={p.id} className="flex items-start gap-2">
                 <LogIn size={16} className="mt-0.5 shrink-0 text-brand-600" />
-                <span>{def.signInVia.note}</span>
+                <span>{p.note}</span>
               </p>
-            )}
+            ))}
             <p className="flex items-start gap-2">
               <ShieldCheck size={16} className="mt-0.5 shrink-0 text-success-600" />
               <span>
@@ -148,12 +151,12 @@ export default async function ConnectConsentPage(
                   </Button>
                 </div>
               </form>
-            ) : def.identityProviders?.length ? (
+            ) : signInOptions.length ? (
               /* Integrations that accept more than one sign-in identity (e.g.
                  Microsoft Ads: Microsoft or Google) show one button per
                  provider; each passes ?provider= to the connect route. */
               <div className="flex w-full flex-col gap-2 sm:max-w-xs">
-                {def.identityProviders.map((p) => (
+                {signInOptions.map((p) => (
                   <Button key={p.id} asChild>
                     <a href={`${continueHref}&provider=${p.id}`}>
                       {p.label} <ArrowRight size={16} />
@@ -171,7 +174,7 @@ export default async function ConnectConsentPage(
                 </Button>
                 <Button asChild>
                   <a href={continueHref}>
-                    {def.signInVia ? `Continue with ${def.signInVia.name}` : `Continue to ${def.name}`} <ArrowRight size={16} />
+                    Continue to {def.name} <ArrowRight size={16} />
                   </a>
                 </Button>
               </div>

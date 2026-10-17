@@ -9,7 +9,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAgency } from "@/lib/agency";
 import { encrypt } from "@/lib/crypto";
 import { syncDataSource, type SyncableSource } from "@/lib/sync";
-import { getIntegration, getOAuthProvider, isLive } from "./registry";
+import { availableIdentityProviders, getIntegration, getOAuthProvider, isLive } from "./registry";
+import { isPlatformAdmin } from "@/lib/admin";
 import { classifyIntegrationError } from "./errors";
 import { revalidateIntegrationHealth } from "@/lib/integrationHealth";
 import { logError } from "@/lib/errorLog";
@@ -57,8 +58,9 @@ export async function handleConnect(req: Request): Promise<Response> {
   // reject an unknown value so a typo can't silently mis-route the sign-in.
   let provider: string | undefined;
   if (def.identityProviders?.length) {
-    provider = url.searchParams.get("provider") ?? def.identityProviders[0].id;
-    if (!def.identityProviders.some((p) => p.id === provider)) {
+    const options = availableIdentityProviders(def, isPlatformAdmin(user.email));
+    provider = url.searchParams.get("provider") ?? options[0]?.id;
+    if (!options.some((p) => p.id === provider)) {
       return NextResponse.json({ error: "Unsupported sign-in provider." }, { status: 400 });
     }
   }

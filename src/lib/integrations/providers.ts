@@ -6,7 +6,9 @@ import {
   listGscSites, fetchGscReportWithComparison, listGa4Properties, fetchGa4ReportWithComparison,
 } from "@/lib/google";
 import { listMetaAdAccounts, fetchMetaAdsReport, metaConfigured } from "./oauth/meta";
-import { listInstagramAccounts, fetchInstagramReport } from "./oauth/instagram";
+import {
+  listInstagramAccounts, fetchInstagramReport, instagramLoginConfigured, INSTAGRAM_PROVIDER, FACEBOOK_PROVIDER,
+} from "./oauth/instagram";
 import { listGoogleAdsAccounts, fetchGoogleAdsReport } from "./oauth/googleAds";
 import { listGbpLocations, fetchGbpReport } from "./oauth/gbp";
 import { fetchShopifyReport, shopifyConfigured } from "./oauth/shopify";
@@ -142,13 +144,28 @@ export const instagramDef: IntegrationDef = {
   status: gated(metaConfigured()),
   oauthProviderId: "instagram",
   connectPath: "/api/meta/connect",
-  // Meta reaches Instagram professional accounts through the Facebook Page
-  // they're linked to, so the sign-in is Facebook's, under whichever Facebook
-  // profile the browser is already signed in to.
-  signInVia: {
-    name: "Facebook",
-    note: "Instagram business and creator accounts connect through Facebook. Sign in with the Facebook profile that manages this client's Facebook Page, the Page their Instagram account is linked to. If Facebook shows someone else's name, choose “Log in to another account” on the next screen.",
-  },
+  // Two ways in. Instagram sign-in (Business Login for Instagram) logs in to
+  // the account itself and needs no Facebook Page. Facebook sign-in reaches
+  // accounts through the Facebook Page they're linked to, under whichever
+  // Facebook profile the browser is already signed in to. Connections made
+  // before 17 Oct 2026 have no identity_provider and are Facebook ones.
+  identityProviders: [
+    {
+      id: INSTAGRAM_PROVIDER,
+      label: "Continue with Instagram",
+      note: "With Instagram, sign in to the client's Instagram business or creator account itself. No Facebook Page needed.",
+      enabled: instagramLoginConfigured,
+      // Business Login for Instagram is on Standard access until Meta approves
+      // instagram_business_basic + instagram_business_manage_insights, so only
+      // accounts with a role on the app can sign in. Remove once approved.
+      adminsOnly: true,
+    },
+    {
+      id: FACEBOOK_PROVIDER,
+      label: "Continue with Facebook",
+      note: "With Facebook, sign in with the Facebook profile that manages the Facebook Page this Instagram account is linked to. If Facebook shows someone else's name, choose “Log in to another account” on the next screen.",
+    },
+  ],
   accountNoun: "account",
   accountConfigKey: "account_id",
   snapshotTable: "integration_snapshots",
@@ -157,8 +174,8 @@ export const instagramDef: IntegrationDef = {
     { item: "Posts, reels & story counts with engagement", why: "Likes, comments, shares and saves show which content performs for your client." },
     { item: "Your list of Instagram professional accounts", why: "So you can pick which account this client's reports are built from." },
   ],
-  listAccounts: (at) => listInstagramAccounts(at),
-  fetchSnapshot: (at, id, days) => fetchInstagramReport(at, id, days),
+  listAccounts: (at, ctx) => listInstagramAccounts(at, ctx?.provider),
+  fetchSnapshot: (at, id, days, ctx) => fetchInstagramReport(at, id, days, ctx?.provider),
   buildConfig: (accounts) => ({ accounts, account_id: accounts.length === 1 ? accounts[0].id : null }),
   readAccounts: (cfg) => arr<IntegrationAccount>((cfg as IntegrationConfig).accounts),
   readSelected: (cfg) => ((cfg as IntegrationConfig).account_id as string | null) ?? null,

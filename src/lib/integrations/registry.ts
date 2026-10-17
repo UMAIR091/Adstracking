@@ -20,7 +20,7 @@ import { salesforceOAuth } from "./oauth/salesforce";
 import { constantContactOAuth } from "./oauth/constantcontact";
 import { campaignMonitorOAuth } from "./oauth/campaignmonitor";
 import { stripeOAuth } from "./oauth/stripe";
-import type { IntegrationDef, OAuthProvider, IntegrationDescriptor } from "./types";
+import type { IntegrationDef, OAuthProvider, IntegrationDescriptor, IdentityProviderOption } from "./types";
 
 const DEFS: IntegrationDef[] = [gscDef, ga4Def, googleAdsDef, metaAdsDef, instagramDef, gbpDef, shopifyDef, woocommerceDef, mailchimpDef, klaviyoDef, callrailDef, microsoftAdsDef, ahrefsDef, semrushDef, mozDef, stripeDef, youtubeAnalyticsDef, bigqueryDef, sheetsDef, hubspotDef, linkedinAdsDef, tiktokAdsDef, pinterestAdsDef, snapchatAdsDef, redditAdsDef, amazonAdsDef, xAdsDef, adobeAnalyticsDef, salesforceDef, activecampaignDef, constantContactDef, campaignMonitorDef, ...soonDefs];
 
@@ -150,6 +150,14 @@ export function getIntegration(id: string | null | undefined): IntegrationDef | 
 
 export function getOAuthProvider(id: string | null | undefined): OAuthProvider | undefined {
   return id ? OAUTH[id] : undefined;
+}
+
+// The sign-in options this viewer may use: configured ones, minus admin-only
+// previews for anyone but a platform admin. The consent screen renders these
+// and handleConnect accepts only these, so a hidden option can't be reached
+// by typing ?provider= by hand.
+export function availableIdentityProviders(def: IntegrationDef, viewerIsAdmin: boolean): IdentityProviderOption[] {
+  return (def.identityProviders ?? []).filter((p) => (p.enabled?.() ?? true) && (!p.adminsOnly || viewerIsAdmin));
 }
 
 // The OAuth backend for a given data source type (used by token refresh + callback).

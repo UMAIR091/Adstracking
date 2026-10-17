@@ -1,11 +1,18 @@
-// Instagram (professional accounts) backend via the Meta Graph API. Shares the
-// Meta app + token machinery with Meta Ads (same long-lived token model, same
-// registered redirect URI) but requests Instagram scopes and produces the
-// platform-agnostic SocialReport shape from src/lib/integrations/social.ts.
+// Instagram (professional accounts) backend, producing the platform-agnostic
+// SocialReport shape from src/lib/integrations/social.ts. Two sign-in routes,
+// chosen on the consent screen and stored as config.identity_provider:
 //
-// Instagram professional accounts are reached through Facebook Login: the user
-// grants access to their Facebook Pages, and each Page may have a linked
-// instagram_business_account. Insights are then read from the IG user node.
+// - "facebook" (the default, and every connection made before 17 Oct 2026):
+//   Facebook Login on the Meta app, shared with Meta Ads. The user grants
+//   their Facebook Pages, and each Page may have a linked
+//   instagram_business_account. Calls go to graph.facebook.com.
+// - "instagram": Business Login for Instagram. The user signs in to the
+//   Instagram account itself, no Facebook Page needed. It has its own app id
+//   and secret (App Dashboard → Instagram → API setup with Instagram login),
+//   and calls go to graph.instagram.com.
+//
+// Both reach the same IG user node, so the insights code below is shared and
+// only the host differs.
 import type { OAuthProvider, IntegrationAccount } from "../types";
 import { graphGet, metaEnv, metaOAuth, META_DIALOG } from "./meta";
 import {
@@ -13,10 +20,14 @@ import {
   type SocialDay, type SocialPost, type SocialProfile, type SocialReport, type SocialTotals,
 } from "../social";
 
-// instagram_basic + instagram_manage_insights read the profile and metrics;
-// pages_show_list + pages_read_engagement let us find the Pages (and their
-// linked IG accounts) the user manages; business_management covers accounts
-// owned through a Business Manager.
+export const INSTAGRAM_PROVIDER = "instagram";
+export const FACEBOOK_PROVIDER = "facebook";
+const viaInstagram = (provider?: string) => provider === INSTAGRAM_PROVIDER;
+
+// Facebook route: instagram_basic + instagram_manage_insights read the profile
+// and metrics; pages_show_list + pages_read_engagement let us find the Pages
+// (and their linked IG accounts) the user manages; business_management covers
+// accounts owned through a Business Manager.
 const SCOPES = [
   "instagram_basic",
   "instagram_manage_insights",
@@ -25,11 +36,79 @@ const SCOPES = [
   "business_management",
 ];
 
-// Identical to Meta Ads except for the scope set: same app, same code exchange,
-// same long-lived token refresh, same callback route (type travels in state).
+// Instagram route (developers.facebook.com/docs/instagram-platform, checked
+// 17 Oct 2026).
+const IG_SCOPES = ["instagram_business_basic", "instagram_business_manage_insights"];
+const IG_AUTHORIZE = "https://www.instagram.com/oauth/authorize";
+const IG_TOKEN = "https://api.instagram.com/oauth/access_token";
+const IG_HOST = "https://graph.instagram.com";
+const IG_API_VERSION = process.env.INSTAGRAM_API_VERSION || "v25.0";
+const SIXTY_DAYS = 60 * 24 * 60 * 60;
+
+// The Instagram route needs its own app credentials; the redirect URI is the
+// Meta one (/api/meta/callback), registered in the Instagram login settings too.
+export function instagramLoginConfigured(): boolean {
+  return Boolean(process.env.INSTAGRAM_APP_ID && process.env.INSTAGRAM_APP_SECRET && process.env.META_OAUTH_REDIRECT_URI);
+}
+
+type InstagramError = { error?: { message?: string }; error_message?: string };
+
+// GET against graph.instagram.com, with its error envelope surfaced as a real
+// error. Token endpoints are unversioned; everything else is versioned.
+async function igGet<T = Record<string, unknown>>(
+  path: string, params: Record<string, string>, versioned = true
+): Promise<T> {
+  const base = versioned ? `${IG_HOST}/${IG_API_VERSION}` : IG_HOST;
+  const res = await fetch(`${base}${path}?${new URLSearchParams(params).toString()}`);
+  const data = (await res.json().catch(() => ({}))) as InstagramError;
+  if (!res.ok || data.error || data.error_message) {
+    throw new Error(`Instagram API error: ${data.error?.message ?? data.error_message ?? res.statusText}`);
+  }
+  return data as T;
+}
+
+type Get = <T = Record<string, unknown>>(path: string, params: Record<string, string>) => Promise<T>;
+const getterFor = (provider?: string): Get => (viaInstagram(provider) ? igGet : graphGet);
+
+// authUrl only receives the state string, so the provider chosen on the
+// consent screen is read back out of it (handleConnect builds it).
+function providerFromState(state: string): string | undefined {
+  try {
+    const parsed = JSON.parse(Buffer.from(state, "base64url").toString("utf8"));
+    return typeof parsed.provider === "string" ? parsed.provider : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+type LongLivedToken = { access_token: string; expires_in?: number };
+const asTokenSet = (t: LongLivedToken) => ({
+  access_token: t.access_token,
+  // Like Meta's, Instagram's long-lived token is refreshed with itself.
+  refresh_token: t.access_token,
+  expires_in: t.expires_in || SIXTY_DAYS,
+});
+
+// Facebook route: identical to Meta Ads except for the scope set (same app,
+// code exchange, long-lived token refresh and callback; type travels in state).
 export const instagramOAuth: OAuthProvider = {
   id: "instagram",
   authUrl(state) {
+    if (viaInstagram(providerFromState(state))) {
+      const params = new URLSearchParams({
+        client_id: metaEnv("INSTAGRAM_APP_ID"),
+        redirect_uri: metaEnv("META_OAUTH_REDIRECT_URI"),
+        response_type: "code",
+        scope: IG_SCOPES.join(","),
+        state,
+        // Always ask which account to sign in to, instead of silently reusing
+        // the Instagram session already in the browser.
+        force_reauth: "true",
+        // Facebook sign-in is its own button on the consent screen.
+        enable_fb_login: "false",
+      });
+      return `${IG_AUTHORIZE}?${params.toString()}`;
+    }
     const params = new URLSearchParams({
       client_id: metaEnv("META_APP_ID"),
       redirect_uri: metaEnv("META_OAUTH_REDIRECT_URI"),
@@ -39,9 +118,55 @@ export const instagramOAuth: OAuthProvider = {
     });
     return `${META_DIALOG}?${params.toString()}`;
   },
-  exchangeCode: (code) => metaOAuth.exchangeCode(code),
-  refresh: (token) => metaOAuth.refresh(token),
-  identity: (accessToken) => metaOAuth.identity(accessToken),
+
+  // Code → short-lived token (1 hour) → long-lived token (60 days).
+  async exchangeCode(code, ctx) {
+    if (!viaInstagram(ctx?.provider)) return metaOAuth.exchangeCode(code);
+    const res = await fetch(IG_TOKEN, {
+      method: "POST",
+      body: new URLSearchParams({
+        client_id: metaEnv("INSTAGRAM_APP_ID"),
+        client_secret: metaEnv("INSTAGRAM_APP_SECRET"),
+        grant_type: "authorization_code",
+        redirect_uri: metaEnv("META_OAUTH_REDIRECT_URI"),
+        code,
+      }),
+    });
+    const data = (await res.json().catch(() => ({}))) as InstagramError & {
+      data?: { access_token?: string }[];
+      access_token?: string;
+    };
+    // Documented as { data: [{ access_token, user_id, permissions }] };
+    // earlier responses were the same fields unwrapped.
+    const short = data.data?.[0]?.access_token ?? data.access_token;
+    if (!res.ok || !short) {
+      throw new Error(`Instagram API error: ${data.error_message ?? data.error?.message ?? res.statusText}`);
+    }
+    const long = await igGet<LongLivedToken>("/access_token", {
+      grant_type: "ig_exchange_token",
+      client_secret: metaEnv("INSTAGRAM_APP_SECRET"),
+      access_token: short,
+    }, false);
+    return asTokenSet(long);
+  },
+
+  // Extends a still-valid long-lived token by another 60 days.
+  async refresh(token, ctx) {
+    if (!viaInstagram(ctx?.provider)) return metaOAuth.refresh(token);
+    const fresh = await igGet<LongLivedToken>("/refresh_access_token", {
+      grant_type: "ig_refresh_token",
+      access_token: token,
+    }, false);
+    return asTokenSet(fresh);
+  },
+
+  // Who signed in, for the connection's label and the success toast.
+  async identity(accessToken, ctx) {
+    if (!viaInstagram(ctx?.provider)) return metaOAuth.identity(accessToken);
+    const me = await igGet<{ username?: string; name?: string }>("/me", { fields: "username,name", access_token: accessToken });
+    return me.username ? `@${me.username}` : me.name || "Instagram account";
+  },
+
   callbackPath: "/api/meta/callback",
 };
 
@@ -52,9 +177,21 @@ type PageRow = {
   instagram_business_account?: { id: string; username?: string; name?: string };
 };
 
-// Lists the Instagram professional accounts linked to the user's Facebook
-// Pages. The account id is the IG user id — what every insights call needs.
-export async function listInstagramAccounts(accessToken: string): Promise<IntegrationAccount[]> {
+// The Instagram professional accounts this connection can report on. The id is
+// the IG user id, which every insights call needs.
+//
+// Instagram route: exactly the account that signed in. /me's `id` is
+// app-scoped; `user_id` is the professional account id the other endpoints take.
+// Facebook route: every account linked to one of the user's Facebook Pages.
+export async function listInstagramAccounts(accessToken: string, provider?: string): Promise<IntegrationAccount[]> {
+  if (viaInstagram(provider)) {
+    const me = await igGet<{ user_id?: string | number; username?: string; name?: string }>("/me", {
+      fields: "user_id,username,name",
+      access_token: accessToken,
+    });
+    if (!me.user_id) throw new Error("Instagram API error: the account id was missing from /me");
+    return [{ id: String(me.user_id), name: me.username ? `@${me.username}` : me.name || String(me.user_id) }];
+  }
   const data = await graphGet<{ data?: PageRow[] }>("/me/accounts", {
     fields: "name,instagram_business_account{id,username,name}",
     limit: "100",
@@ -92,13 +229,13 @@ type InsightRow = { name?: string; values?: InsightValue[]; total_value?: { valu
 // ≤28-day windows. Windows the API rejects (follower_count only covers the
 // last 30 days) are logged and skipped.
 async function igSeries(
-  accessToken: string, igUserId: string, metric: string, sinceMs: number, untilMs: number
+  get: Get, accessToken: string, igUserId: string, metric: string, sinceMs: number, untilMs: number
 ): Promise<{ date: string; value: number }[]> {
   const out: { date: string; value: number }[] = [];
   for (let start = sinceMs; start < untilMs; start += WINDOW_MS) {
     const end = Math.min(start + WINDOW_MS, untilMs);
     try {
-      const data = await graphGet<{ data?: InsightRow[] }>(`/${igUserId}/insights`, {
+      const data = await get<{ data?: InsightRow[] }>(`/${igUserId}/insights`, {
         metric, period: "day", since: unix(start), until: unix(end), access_token: accessToken,
       });
       for (const v of data.data?.[0]?.values ?? []) {
@@ -114,13 +251,13 @@ async function igSeries(
 // Period total for metrics that (on newer API versions) only support
 // metric_type=total_value (views, profile_views, website_clicks).
 async function igTotal(
-  accessToken: string, igUserId: string, metric: string, sinceMs: number, untilMs: number
+  get: Get, accessToken: string, igUserId: string, metric: string, sinceMs: number, untilMs: number
 ): Promise<number> {
   let total = 0;
   for (let start = sinceMs; start < untilMs; start += WINDOW_MS) {
     const end = Math.min(start + WINDOW_MS, untilMs);
     try {
-      const data = await graphGet<{ data?: InsightRow[] }>(`/${igUserId}/insights`, {
+      const data = await get<{ data?: InsightRow[] }>(`/${igUserId}/insights`, {
         metric, period: "day", metric_type: "total_value",
         since: unix(start), until: unix(end), access_token: accessToken,
       });
@@ -146,11 +283,11 @@ type IgMedia = {
 };
 
 // Newest-first media, paginated back until we're past `sinceIso` (or a sane cap).
-async function listMediaSince(accessToken: string, igUserId: string, sinceIso: string): Promise<IgMedia[]> {
+async function listMediaSince(get: Get, accessToken: string, igUserId: string, sinceIso: string): Promise<IgMedia[]> {
   const out: IgMedia[] = [];
   let after: string | undefined;
   for (let page = 0; page < 4; page++) {
-    const data = await graphGet<{ data?: IgMedia[]; paging?: { cursors?: { after?: string } } }>(
+    const data = await get<{ data?: IgMedia[]; paging?: { cursors?: { after?: string } } }>(
       `/${igUserId}/media`,
       {
         fields: "id,caption,media_type,media_product_type,permalink,timestamp,like_count,comments_count",
@@ -171,14 +308,14 @@ async function listMediaSince(accessToken: string, igUserId: string, sinceIso: s
 // Saves + shares live on per-media insights, not the media node. Fetched for a
 // bounded set of recent media; individual failures degrade to zeros.
 async function mediaSavesShares(
-  accessToken: string, media: IgMedia[]
+  get: Get, accessToken: string, media: IgMedia[]
 ): Promise<Map<string, { saves: number; shares: number }>> {
   const out = new Map<string, { saves: number; shares: number }>();
   const targets = media.slice(0, 30);
   await Promise.all(
     targets.map(async (m) => {
       try {
-        const data = await graphGet<{ data?: InsightRow[] }>(`/${m.id}/insights`, {
+        const data = await get<{ data?: InsightRow[] }>(`/${m.id}/insights`, {
           metric: "saved,shares", access_token: accessToken,
         });
         const byName: Record<string, number> = {};
@@ -189,7 +326,7 @@ async function mediaSavesShares(
       } catch (err) {
         // Some media types/API versions reject "shares" — retry with saved only.
         try {
-          const data = await graphGet<{ data?: InsightRow[] }>(`/${m.id}/insights`, {
+          const data = await get<{ data?: InsightRow[] }>(`/${m.id}/insights`, {
             metric: "saved", access_token: accessToken,
           });
           out.set(m.id, { saves: num(data.data?.[0]?.values?.[0]?.value), shares: 0 });
@@ -231,8 +368,9 @@ function mediaTotals(media: IgMedia[], extras: Map<string, { saves: number; shar
 // plus a best-effort prior-period comparison. Metric failures degrade to zeros
 // (and are logged) rather than failing the sync.
 export async function fetchInstagramReport(
-  accessToken: string, igUserId: string, periodDays: number
+  accessToken: string, igUserId: string, periodDays: number, provider?: string
 ): Promise<SocialReport> {
+  const get = getterFor(provider);
   const now = Date.now();
   const sinceMs = now - periodDays * DAY_MS;
   const prevSinceMs = now - periodDays * 2 * DAY_MS;
@@ -240,8 +378,12 @@ export async function fetchInstagramReport(
   const prevSinceIso = new Date(prevSinceMs).toISOString();
 
   // Profile is the one call that must succeed — everything else degrades.
-  const p = await graphGet<IgProfile>(`/${igUserId}`, {
-    fields: "id,username,name,profile_picture_url,website,followers_count,follows_count,media_count",
+  // graph.instagram.com's user node has no `website` field, and asking for an
+  // unknown field fails the whole call.
+  const p = await get<IgProfile>(`/${igUserId}`, {
+    fields: viaInstagram(provider)
+      ? "id,username,name,profile_picture_url,followers_count,follows_count,media_count"
+      : "id,username,name,profile_picture_url,website,followers_count,follows_count,media_count",
     access_token: accessToken,
   });
   const profile: SocialProfile = {
@@ -260,20 +402,20 @@ export async function fetchInstagramReport(
     prevReachSeries, prevViews, prevProfileViews, prevWebsiteClicks,
     media, activeStories,
   ] = await Promise.all([
-    igSeries(accessToken, igUserId, "reach", sinceMs, now),
-    igSeries(accessToken, igUserId, "follower_count", sinceMs, now),
-    igTotal(accessToken, igUserId, "views", sinceMs, now),
-    igTotal(accessToken, igUserId, "profile_views", sinceMs, now),
-    igTotal(accessToken, igUserId, "website_clicks", sinceMs, now),
-    igSeries(accessToken, igUserId, "reach", prevSinceMs, sinceMs),
-    igTotal(accessToken, igUserId, "views", prevSinceMs, sinceMs),
-    igTotal(accessToken, igUserId, "profile_views", prevSinceMs, sinceMs),
-    igTotal(accessToken, igUserId, "website_clicks", prevSinceMs, sinceMs),
-    listMediaSince(accessToken, igUserId, prevSinceIso).catch((err) => {
+    igSeries(get, accessToken, igUserId, "reach", sinceMs, now),
+    igSeries(get, accessToken, igUserId, "follower_count", sinceMs, now),
+    igTotal(get, accessToken, igUserId, "views", sinceMs, now),
+    igTotal(get, accessToken, igUserId, "profile_views", sinceMs, now),
+    igTotal(get, accessToken, igUserId, "website_clicks", sinceMs, now),
+    igSeries(get, accessToken, igUserId, "reach", prevSinceMs, sinceMs),
+    igTotal(get, accessToken, igUserId, "views", prevSinceMs, sinceMs),
+    igTotal(get, accessToken, igUserId, "profile_views", prevSinceMs, sinceMs),
+    igTotal(get, accessToken, igUserId, "website_clicks", prevSinceMs, sinceMs),
+    listMediaSince(get, accessToken, igUserId, prevSinceIso).catch((err) => {
       logIgError("media list", err);
       return [] as IgMedia[];
     }),
-    graphGet<{ data?: { id: string }[] }>(`/${igUserId}/stories`, { fields: "id", limit: "100", access_token: accessToken })
+    get<{ data?: { id: string }[] }>(`/${igUserId}/stories`, { fields: "id", limit: "100", access_token: accessToken })
       .then((d) => (d.data ?? []).length)
       .catch((err) => {
         logIgError("stories", err);
@@ -282,11 +424,11 @@ export async function fetchInstagramReport(
   ]);
 
   // Older API versions expose "impressions" instead of "views" — fall back.
-  const impressions = views > 0 ? views : await igTotal(accessToken, igUserId, "impressions", sinceMs, now);
+  const impressions = views > 0 ? views : await igTotal(get, accessToken, igUserId, "impressions", sinceMs, now);
 
   const currentMedia = media.filter((m) => (m.timestamp ?? "") >= sinceIso);
   const prevMedia = media.filter((m) => (m.timestamp ?? "") >= prevSinceIso && (m.timestamp ?? "") < sinceIso);
-  const extras = await mediaSavesShares(accessToken, currentMedia);
+  const extras = await mediaSavesShares(get, accessToken, currentMedia);
 
   const cur = mediaTotals(currentMedia, extras);
   const prev = mediaTotals(prevMedia, new Map());
