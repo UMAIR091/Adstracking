@@ -39,10 +39,17 @@ export async function POST(req: Request) {
   const supabase = createClient();
   const [{ data: client }, { data: conn }] = await Promise.all([
     supabase.from("clients").select("id, agency_id").eq("id", clientId).maybeSingle(),
-    supabase.from("connections").select("id, agency_id, type, display_name, identity_provider, status").eq("id", connectionId).maybeSingle(),
+    supabase
+      .from("connections")
+      .select("id, agency_id, client_id, type, display_name, identity_provider, status")
+      .eq("id", connectionId)
+      .maybeSingle(),
   ]);
   if (!client) return fail("Client not found");
-  if (!conn || conn.agency_id !== client.agency_id) return fail("That sign-in isn't available.");
+  // A client's own sign-in (connect link, 0048) serves that client only.
+  if (!conn || conn.agency_id !== client.agency_id || (conn.client_id && conn.client_id !== client.id)) {
+    return fail("That sign-in isn't available.");
+  }
   if (conn.status === "revoked") return fail("That sign-in has expired. Reconnect it, or sign in with another account.");
 
   const def = getIntegration(conn.type as string);

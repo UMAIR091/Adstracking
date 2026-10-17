@@ -78,6 +78,18 @@ describe("saveSignIn", () => {
     expect(src.connection).toMatchObject({ id: "conn-new", access_token: "enc:tok" });
   });
 
+  it("saves a sign-in made through a client's connect link as that client's own", async () => {
+    await saveSignIn(userRec.db, {
+      agencyId: "ag-1", clientId: "c-1", def, tokens, identity: "Client Person", config: {}, clientOwned: true,
+    });
+    const insert = adminRec.calls.find((c) => c.table === "connections" && c.op === "insert")!;
+    expect(insert.payload).toMatchObject({ client_id: "c-1", created_by: null });
+
+    adminRec.calls.length = 0;
+    await saveSignIn(userRec.db, { agencyId: "ag-1", clientId: "c-1", def, tokens, identity: "Agency", config: {} });
+    expect(adminRec.calls.find((c) => c.op === "insert")!.payload).toMatchObject({ client_id: null });
+  });
+
   it("reconnects an existing sign-in inside the agency and revives its other clients", async () => {
     await saveSignIn(userRec.db, {
       agencyId: "ag-1", clientId: "c-1", def, tokens, identity: "Ali Umair", config: {}, connectionId: "conn-old",

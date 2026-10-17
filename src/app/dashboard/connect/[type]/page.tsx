@@ -48,10 +48,13 @@ export default async function ConnectConsentPage(
   const shareable = isShareable(def);
   const [{ data: signInRows }, { data: useRows }] = shareable
     ? await Promise.all([
+        // A client's own sign-in (made through a connect link, 0048) serves
+        // that client only.
         supabase
           .from("connections")
           .select("id, display_name, identity_provider, status")
           .eq("type", def.id)
+          .or(`client_id.is.null,client_id.eq.${client.id}`)
           .order("created_at"),
         supabase.from("data_sources").select("connection_id, client_id").eq("type", def.id).not("connection_id", "is", null),
       ])

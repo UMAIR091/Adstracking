@@ -84,6 +84,9 @@ export async function saveSignIn(
     config: IntegrationConfig;
     connectionId?: string;
     userId?: string | null;
+    // A sign-in the client made itself (a connect link, migration 0048): it
+    // serves that client only and is never offered to the agency's others.
+    clientOwned?: boolean;
   }
 ): Promise<SyncableSource> {
   const admin = createAdminClient();
@@ -124,7 +127,13 @@ export async function saveSignIn(
   } else {
     const { data, error } = await admin
       .from("connections")
-      .insert({ agency_id: args.agencyId, type: args.def.id, created_by: args.userId ?? null, ...signIn })
+      .insert({
+        agency_id: args.agencyId,
+        type: args.def.id,
+        created_by: args.userId ?? null,
+        client_id: args.clientOwned ? args.clientId : null,
+        ...signIn,
+      })
       .select("id")
       .single();
     if (error) throw new Error(error.message);

@@ -7,6 +7,8 @@ import { ClientSection } from "@/components/ClientSection";
 import { IntegrationCard } from "@/components/IntegrationCard";
 import { BigQueryCard } from "@/components/BigQueryCard";
 import { ConnectAccountButton } from "@/components/ConnectAccountModal";
+import { ConnectLinkButton, type ActiveLink } from "@/components/ConnectLinkButton";
+import { linkConnectable } from "@/lib/connectLinks";
 import {
   AvailableIntegrations, ConnectedSource, type AvailableIntegration,
 } from "@/components/ClientDataSourceGroups";
@@ -46,7 +48,7 @@ export default async function ClientDataSourcesPage(props: { params: Promise<{ i
   if (!user || !agency) redirect("/login");
 
   const supabase = createClient();
-  const { data: client } = await supabase.from("clients").select("id").eq("id", params.id).maybeSingle();
+  const { data: client } = await supabase.from("clients").select("id, name, archived").eq("id", params.id).maybeSingle();
   if (!client) notFound();
 
   const ws = await loadClientWorkspace(supabase, client.id as string);
@@ -57,6 +59,39 @@ export default async function ClientDataSourcesPage(props: { params: Promise<{ i
 
   const connectAction = (
     <ConnectAccountButton clientId={clientId} integrations={ws.connectableIntegrations} label="Add data source" />
+  );
+
+  // "Send connect link" (migration 0048): platforms a client can connect
+  // through a link, and this client's links that still work. RLS-scoped; the
+  // links carry no token (only its hash is stored, and that isn't readable).
+  const linkIntegrations = ws.integrations
+    .filter((i) => linkConnectable(i.def))
+    .map((i) => ({ id: i.def.id, name: i.def.name, icon: i.def.icon, connected: i.source !== null }));
+  const { data: linkRows } = await supabase
+    .from("connect_links")
+    .select("id, types, expires_at, last_used_at")
+    .eq("client_id", clientId)
+    .is("revoked_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false });
+  const activeLinks: ActiveLink[] = (linkRows ?? []).map((l) => ({
+    id: l.id as string,
+    types: l.types as string[],
+    expiresAt: l.expires_at as string,
+    lastUsedAt: (l.last_used_at as string | null) ?? null,
+  }));
+  const headerActions = (
+    <div className="flex flex-wrap gap-2">
+      {!client.archived && (
+        <ConnectLinkButton
+          clientId={clientId}
+          clientName={(client.name as string) ?? "this client"}
+          integrations={linkIntegrations}
+          links={activeLinks}
+        />
+      )}
+      {connectAction}
+    </div>
   );
 
   // Everything connectable that this client hasn't connected, in the same
@@ -102,7 +137,7 @@ export default async function ClientDataSourcesPage(props: { params: Promise<{ i
       <ClientSection
         title="Data sources"
         description="Connect a platform to start pulling this client's data."
-        action={connectAction}
+        action={headerActions}
       >
         <div className="rounded-2xl border border-dashed border-ink-300 bg-surface px-6 py-12 text-center">
           <p className="text-sm font-medium text-ink-800">No data sources connected yet</p>
@@ -151,7 +186,7 @@ export default async function ClientDataSourcesPage(props: { params: Promise<{ i
             ? "Nothing is syncing cleanly yet."
             : `${healthy.length} source${healthy.length === 1 ? "" : "s"} syncing. Open one to change its account or refresh it.`
         }
-        action={connectAction}
+        action={headerActions}
       >
         {healthy.length === 0 ? (
           <p className="rounded-card border border-dashed border-ink-300 bg-surface px-4 py-6 text-center text-sm text-ink-500">

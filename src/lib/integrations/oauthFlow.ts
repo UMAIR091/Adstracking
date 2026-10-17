@@ -18,8 +18,124 @@ import { checkIntegrationLimit } from "@/lib/billing/limits";
 import type { IntegrationDef, OAuthProvider } from "./types";
 import { saveSignIn } from "./connections";
 import { CONNECT_FLASH_COOKIE, CONNECT_FLASH_MAX_AGE, encodeConnectFlash, type ConnectFlash } from "./connectFlash";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { clientIp, rateLimit } from "@/lib/rateLimit";
+import { LINK_COOKIE, isLinkToken, linkConnectable, linkSignInOptions, loadConnectLink } from "@/lib/connectLinks";
 
 const NONCE_COOKIE = "oauth_nonce";
+const FLOW_COOKIE_MAX_AGE = 1800; // see handleConnect
+
+// Starts an OAuth flow from a client connect link (migration 0048):
+// `?token=&type=&provider=`. The client has no Anavyst session, so the link is
+// the authorization: it must be valid, name this platform and belong to a
+// workspace that can still add it. The token rides in an httpOnly cookie, not
+// the provider-visible state, so the callback can find the link and return
+// the client to its page.
+export async function handleLinkConnect(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  const token = url.searchParams.get("token") ?? "";
+  const type = url.searchParams.get("type") ?? "";
+  const appBase = process.env.NEXT_PUBLIC_APP_URL ?? url.origin;
+  const back = (msg?: string) =>
+    NextResponse.redirect(
+      `${appBase}/connect/${isLinkToken(token) ? token : "invalid"}${msg ? `?error=${encodeURIComponent(msg)}` : ""}`
+    );
+
+  const limited = await rateLimit(`connect-link:${clientIp(req)}`, { limit: 30, windowSeconds: 600 });
+  if (!limited.allowed) return back("Too many attempts. Please wait a few minutes and try again.");
+
+  const admin = createAdminClient();
+  const found = await loadConnectLink(admin, token);
+  if (!found.ok) return back();
+  const { link } = found;
+
+  const def = getIntegration(type);
+  const oauth = getOAuthProvider(def?.oauthProviderId);
+  if (!link.types.includes(type) || !linkConnectable(def) || !oauth) {
+    return back("That platform isn't part of this link.");
+  }
+
+  let provider: string | undefined;
+  if (def.identityProviders?.length) {
+    const options = linkSignInOptions(def);
+    provider = url.searchParams.get("provider") ?? options[0]?.id;
+    if (!options.some((p) => p.id === provider)) return back("That sign-in option isn't available.");
+  }
+
+  // The agency's plan still decides what its clients can add.
+  const { data: existing } = await admin
+    .from("data_sources")
+    .select("id")
+    .eq("client_id", link.clientId)
+    .eq("type", def.id)
+    .maybeSingle();
+  if (!existing) {
+    const limit = await checkIntegrationLimit(admin, link.agencyId, link.clientId);
+    if (!limit.allowed) {
+      return back(`This connection isn't available right now. Please let ${link.agency.name} know.`);
+    }
+  }
+
+  const nonce = crypto.randomUUID();
+  const state = Buffer.from(
+    JSON.stringify({ clientId: link.clientId, nonce, type: def.id, provider, linkId: link.id })
+  ).toString("base64url");
+  const res = NextResponse.redirect(oauth.authUrl(state));
+  const secure = process.env.NODE_ENV === "production";
+  res.cookies.set(NONCE_COOKIE, nonce, { httpOnly: true, secure, sameSite: "lax", maxAge: FLOW_COOKIE_MAX_AGE, path: "/" });
+  res.cookies.set(LINK_COOKIE, token, { httpOnly: true, secure, sameSite: "lax", maxAge: FLOW_COOKIE_MAX_AGE, path: "/" });
+  return res;
+}
+
+// Finishes a connect-link flow inside handleCallback: the link (found from
+// its cookie, matching the state) stands in for a signed-in user. Writes use
+// the service role, scoped to the link's own workspace and client, and the
+// sign-in is saved as the client's own.
+async function completeLinkCallback(args: {
+  appBase: string;
+  linkId: string;
+  type: string;
+  provider?: string;
+  code: string;
+}): Promise<Response> {
+  const token = (await cookies()).get(LINK_COOKIE)?.value ?? "";
+  const page = (query: string) => {
+    const res = NextResponse.redirect(`${args.appBase}/connect/${isLinkToken(token) ? token : "invalid"}?${query}`);
+    res.cookies.set(NONCE_COOKIE, "", { maxAge: 0, path: "/" });
+    res.cookies.set(LINK_COOKIE, "", { maxAge: 0, path: "/" });
+    return res;
+  };
+
+  const admin = createAdminClient();
+  const found = await loadConnectLink(admin, token);
+  if (!found.ok || found.link.id !== args.linkId) {
+    return page(`error=${encodeURIComponent("This link has expired or was revoked. Ask your agency for a new one.")}`);
+  }
+  const { link } = found;
+
+  const def = getIntegration(args.type);
+  const oauth = getOAuthProvider(def?.oauthProviderId);
+  if (!link.types.includes(args.type) || !linkConnectable(def) || !oauth) {
+    return page(`error=${encodeURIComponent("That platform isn't part of this link.")}`);
+  }
+
+  try {
+    await completeOAuthConnect(admin, link.agencyId, link.clientId, def, oauth, args.code, args.provider, undefined, {
+      clientOwned: true,
+    });
+    await admin.from("connect_links").update({ last_used_at: new Date().toISOString() }).eq("id", link.id);
+    return page(`connected=${encodeURIComponent(def.id)}`);
+  } catch (err) {
+    await logError({
+      context: "oauth_callback",
+      agencyId: link.agencyId,
+      provider: def.id,
+      errorType: classifyIntegrationError(err),
+      message: logDetail(err),
+    });
+    return page(`error=${encodeURIComponent(publicMessage(err, `Couldn't connect ${def.name}. Please try again.`, { provider: def.id }))}`);
+  }
+}
 
 // Starts an OAuth flow for `?clientId=&type=`. Validates the target integration
 // is live and has a registered OAuth backend, sets a CSRF nonce, and redirects
@@ -118,16 +234,36 @@ export async function handleCallback(req: Request): Promise<Response> {
     return res;
   };
 
+  // A client connect link's flow returns the client to the link page, never
+  // to the agency's dashboard, including when they cancel at the provider.
+  const linkFail = async (msg: string) => {
+    const token = (await cookies()).get(LINK_COOKIE)?.value ?? "";
+    const res = NextResponse.redirect(
+      `${appBase}/connect/${isLinkToken(token) ? token : "invalid"}?error=${encodeURIComponent(msg)}`
+    );
+    res.cookies.set(NONCE_COOKIE, "", { maxAge: 0, path: "/" });
+    res.cookies.set(LINK_COOKIE, "", { maxAge: 0, path: "/" });
+    return res;
+  };
+  const fromLink = (() => {
+    try {
+      return Boolean(state && JSON.parse(Buffer.from(state, "base64url").toString("utf8")).linkId);
+    } catch {
+      return false;
+    }
+  })();
+
   // Providers signal denial via error/error_description instead of a code.
   const providerError = searchParams.get("error_description") || searchParams.get("error");
-  if (providerError) return fail(providerError);
-  if (!code || !state) return fail("Missing authorization code");
+  if (providerError) return fromLink ? linkFail(providerError) : fail(providerError);
+  if (!code || !state) return fromLink ? linkFail("Missing authorization code") : fail("Missing authorization code");
 
   let clientId: string;
   let type: string;
   let provider: string | undefined;
   let field: string | undefined;
   let connectionId: string | undefined;
+  let linkId: string | undefined;
   try {
     const parsed = JSON.parse(Buffer.from(state, "base64url").toString("utf8"));
     clientId = parsed.clientId;
@@ -135,9 +271,13 @@ export async function handleCallback(req: Request): Promise<Response> {
     provider = parsed.provider;
     field = typeof parsed.field === "string" ? parsed.field : undefined;
     connectionId = typeof parsed.connectionId === "string" ? parsed.connectionId : undefined;
+    linkId = typeof parsed.linkId === "string" ? parsed.linkId : undefined;
     if (!clientId || !type) return fail("Invalid state");
     const cookieNonce = (await cookies()).get(NONCE_COOKIE)?.value;
     if (!cookieNonce || cookieNonce !== parsed.nonce) {
+      if (linkId) {
+        return linkFail("Your connection attempt expired. Please open the link again and retry.");
+      }
       // The CSRF check is doing its job, but it also trips on two ordinary,
       // user-fixable situations: the flow was started on a different domain
       // than the one the provider redirects back to (the cookie is scoped to
@@ -157,6 +297,9 @@ export async function handleCallback(req: Request): Promise<Response> {
   } catch {
     return fail("Invalid state");
   }
+
+  // A client connect link: no Anavyst session, the link authorizes it.
+  if (linkId) return completeLinkCallback({ appBase, linkId, type, provider, code });
 
   const def = getIntegration(type);
   const oauth = getOAuthProvider(def?.oauthProviderId);
@@ -212,7 +355,7 @@ export async function completeOAuthConnect(
   code: string,
   provider?: string,
   connectValue?: string,
-  opts: { connectionId?: string; userId?: string } = {}
+  opts: { connectionId?: string; userId?: string; clientOwned?: boolean } = {}
 ): Promise<ConnectFlash> {
   if (!def.listAccounts || !def.buildConfig) throw new Error("Integration is not connectable");
 
@@ -241,6 +384,7 @@ export async function completeOAuthConnect(
     config,
     connectionId: opts.connectionId,
     userId: opts.userId,
+    clientOwned: opts.clientOwned,
   });
 
   const selected = def.readSelected?.(source.config ?? {}) ?? null;
